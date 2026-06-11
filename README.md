@@ -16,9 +16,24 @@ a better replacement for the spreadsheet I use today.
 - See each day's plan on a **map**.
 - **Share trips** with companions via Google sign-in, with role-based access and a small admin backoffice.
 
+## Repository layout
+
+This is a **monorepo** — backend, web, infra, and tooling live together so changes
+that span them stay in one place and one history.
+
+| Path | Purpose |
+|------|---------|
+| [`backend/`](backend/) | Go modular monolith (microservice-ready). |
+| [`web/`](web/) | React + TypeScript (Vite) web app / PWA. |
+| [`infra/`](infra/) | Infrastructure as code (TypeScript / Pulumi on GCP). |
+| [`scripts/`](scripts/) | Repository tooling and dev scripts (TypeScript). |
+| [`.github/workflows/`](.github/workflows/) | CI/CD (GitHub Actions). |
+| [`docs/`](docs/) | Product requirements and milestone/epic/story planning. |
+
 ## Documentation
 
-The full Product Requirements Document lives in [`docs/`](docs/):
+The full Product Requirements Document and delivery plan live in
+[`docs/eudaimonia-v1/`](docs/eudaimonia-v1/):
 
 - **[Eudaimonia v1 PRD](docs/eudaimonia-v1/PRD.md)** — product scope, architecture
   decisions, cost estimates, and the run-at-€0 scaling plan.
