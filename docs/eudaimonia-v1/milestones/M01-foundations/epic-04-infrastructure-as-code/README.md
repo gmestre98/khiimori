@@ -42,3 +42,38 @@ Provisions billable resources, but all are **scale-to-zero / free-tier** so idle
 ## Designs
 
 Architecture reference: [assets/04-architecture.svg](../../../assets/04-architecture.svg) (PRD §7).
+
+## User stories
+
+The epic is split into **10 small user stories**, each sized **≤4h for one developer**
+(implementation + tests + review). Each story file is a standalone agent-ready prompt — hand a
+single file to a coding agent and it has enough context (background, task, acceptance criteria,
+constraints, dependencies, definition of done) to implement it without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-pulumi-project-scaffold.md) | Pulumi (TS) project scaffold & GCP provider | ~3h | AC1 | — (M01.1) |
+| [S2](S2-artifact-registry.md) | Artifact Registry repository | ~2h | AC1 | S1 |
+| [S3](S3-storage-bucket.md) | Cloud Storage bucket | ~2.5h | AC1 | S1 |
+| [S4](S4-secret-manager.md) | Secret Manager secrets | ~3h | AC1, AC3 | S1 |
+| [S5](S5-cloud-run-service-account.md) | Least-privilege service account for Cloud Run | ~3h | AC1 | S3, S4 |
+| [S6](S6-cloud-run-service.md) | Cloud Run service | ~3.5h | AC1 | S2, S5 |
+| [S7](S7-runtime-secret-injection.md) | Inject secrets into Cloud Run at runtime | ~3h | AC3 | S4, S5, S6 |
+| [S8](S8-firebase-hosting-site.md) | Firebase Hosting site (IaC) | ~3h | AC2 | S1 |
+| [S9](S9-scale-tunables-config.md) | Scale tunables as IaC config (default scale-to-zero) | ~3h | AC4 | S6 |
+| [S10](S10-reproducibility-teardown.md) | Reproducible `pulumi up` & documented teardown | ~3h | AC5 | S2–S9 |
+
+**Total:** ~29h (≈ 4 dev-days), consistent with the epic's ~4–5 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Pulumi scaffold
+   ├─ S2 Artifact Registry ─┐
+   ├─ S3 Storage bucket ──┐ │
+   ├─ S4 Secret Manager ──┴─┴─ S5 Service account ── S6 Cloud Run ─┬─ S7 Runtime secrets
+   └─ S8 Firebase Hosting site                                     └─ S9 Scale tunables
+S10 Reproducibility + teardown  ◄── needs S2–S9
+```
+
+S8 (Hosting) runs in parallel with the Cloud Run track; S2/S3/S4 all fan out from S1.
