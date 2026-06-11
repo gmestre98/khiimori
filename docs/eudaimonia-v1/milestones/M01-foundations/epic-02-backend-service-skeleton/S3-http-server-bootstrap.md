@@ -20,8 +20,9 @@ Wire `/cmd/api/main.go` to construct config + logger and run an HTTP server with
 - [ ] `go build ./...` and `go vet ./...` succeed.
 
 ## Constraints
-- Standard library `net/http` only — no web framework (PRD §7.0).
-- Keep the router construction injectable so S4 can pass in the mounted handler; don't hardcode routes here.
+- **Standard library `net/http` only** — no web framework or other third-party dependency; ask first and
+  record it here if you think one is needed (PRD §7.0).
+- Let `main` build the router and hand it to the server so S4 can mount the modules; don't hardcode routes here.
 - No domain behaviour and no health endpoints yet (those are S7/S8).
 
 ## Definition of done

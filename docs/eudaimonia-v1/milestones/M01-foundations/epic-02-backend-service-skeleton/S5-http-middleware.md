@@ -14,12 +14,14 @@ Add `internal/platform/http` (or similar) middleware and apply the chain to the 
 ## Acceptance criteria
 - [ ] **Request id** middleware: generates an id per request (honouring an inbound `X-Request-Id` if present),
   puts it on the request `context.Context`, and sets it on the response header.
-- [ ] **Access log** middleware: logs method, path, status, and duration as one structured JSON line via the
-  S2 logger, including the request id.
+- [ ] **Access log** middleware: captures method, path, status, and duration with the request id. Per the
+  project-wide errors-only policy (S2), it **emits a log line only for failed requests** (5xx / errors) for
+  now — the code path for logging successes exists but stays off until we raise the log level later.
 - [ ] **Recovery** middleware: recovers panics, logs them with stack/context, and returns a clean `500`
   (using the S6 error response once available, or a minimal JSON 500 if S6 lands later).
 - [ ] Middleware is composed in a clear order and applied once at the root so all modules inherit it.
-- [ ] **Unit tests** cover each middleware: id propagation, a logged request, and a recovered panic → 500.
+- [ ] **Unit tests** cover each middleware: id propagation, an errored request producing a log line (and a
+  successful one staying silent under the default level), and a recovered panic → 500.
 
 ## Constraints
 - Standard library `net/http` handlers only — no framework middleware stack (PRD §7.0).
