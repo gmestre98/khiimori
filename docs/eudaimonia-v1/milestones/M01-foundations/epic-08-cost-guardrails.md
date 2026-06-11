@@ -9,9 +9,11 @@ all bill surprises. Provision a GCP billing budget + alert, hard-cap the Maps AP
 scale-to-zero defaults, and document the single-setting scale-up levers and mobile-reachable
 dashboards.
 
+**Estimated effort:** ~1–2 developer-days (one developer).
+
 ## Acceptance Criteria
 
-- [ ] A **GCP billing budget + alert (~€25/mo)** is provisioned via IaC (PRD §8.5).
+- [ ] A **GCP billing budget + alert (~€10/mo)** is provisioned via IaC (PRD §8.5).
 - [ ] The Maps API key is **restricted** and has **hard quota caps** set (PRD §8.4 #2, §8.5).
 - [ ] Defaults confirmed **scale-to-zero** (Cloud Run, Neon) so the idle bill is ≈€0 (PRD §8.1, §8.6).
 - [ ] Scale-up levers (Neon tier, Cloud Run `min-instances`, Maps quota) are documented as **single settings**, both IaC and dashboard-toggleable (PRD §8.6).

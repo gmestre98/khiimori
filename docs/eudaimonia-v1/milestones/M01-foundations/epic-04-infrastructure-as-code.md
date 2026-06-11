@@ -9,6 +9,8 @@ Artifact Registry, Cloud Storage bucket, Secret Manager, and the Firebase Hostin
 secrets injected at runtime and scale tunables expressed as config. One language across infra and
 scripting (PRD §7.4).
 
+**Estimated effort:** ~4–5 developer-days (one developer).
+
 ## Acceptance Criteria
 
 - [ ] Pulumi (TS) provisions the Cloud Run service, Artifact Registry repo, a Cloud Storage bucket, and Secret Manager secrets (PRD §7.8).

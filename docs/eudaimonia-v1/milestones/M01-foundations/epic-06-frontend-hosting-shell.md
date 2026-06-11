@@ -8,6 +8,8 @@ Deploy a minimal React/TS app shell to Firebase Hosting + CDN and prove the full
 deployed web app calls the deployed API's `/healthz` with CORS correctly configured and an
 environment-driven API base URL.
 
+**Estimated effort:** ~1–2 developer-days (one developer).
+
 ## Acceptance Criteria
 
 - [ ] The minimal app shell deploys to **Firebase Hosting + CDN** (PRD §7.8).

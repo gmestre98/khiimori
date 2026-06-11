@@ -8,6 +8,8 @@ Provision the one Postgres database on Neon, connect to it through the serverles
 and establish schema-per-module migrations so each domain owns its own tables from day one. Wire
 the DB readiness check into `/readyz`.
 
+**Estimated effort:** ~3–4 developer-days (one developer).
+
 ## Acceptance Criteria
 
 - [ ] A single **Neon Postgres** database (free tier) is provisioned and reachable from the service.

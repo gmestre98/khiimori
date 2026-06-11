@@ -8,6 +8,8 @@ Create the single repository's skeleton: the monorepo layout, the Go modular-mon
 structure with empty-but-real internal module boundaries, the React/TS web app, shared linting,
 and a one-command local dev story. No behaviour yet — just the shape everything else fills in.
 
+**Estimated effort:** ~2–3 developer-days (one developer).
+
 ## Acceptance Criteria
 
 - [ ] Monorepo created with `/backend`, `/web`, `/infra`, `/scripts`, `.github/workflows` (PRD §7.0, §7.3).

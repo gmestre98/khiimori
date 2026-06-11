@@ -8,6 +8,8 @@ Automate the path from commit to running service with GitHub Actions: lint, test
 `main` — containerise, push to Artifact Registry, and deploy to Cloud Run, with a staging hook for
 the e2e suite that Milestone 10 fills in.
 
+**Estimated effort:** ~3–4 developer-days (one developer).
+
 ## Acceptance Criteria
 
 - [ ] On every change: `lint → unit tests → build` runs and gates the change (PRD §7.5).

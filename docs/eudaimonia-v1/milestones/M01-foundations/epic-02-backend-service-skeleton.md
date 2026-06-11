@@ -8,6 +8,8 @@ Make the Go service actually run: a single HTTP server that wires the internal m
 a shared `platform` layer (config, logging, HTTP middleware, error handling), and liveness/readiness
 endpoints so deployment and monitoring have something to check.
 
+**Estimated effort:** ~2–3 developer-days (one developer).
+
 ## Acceptance Criteria
 
 - [ ] `/cmd/api` boots one HTTP server that mounts each module's (empty) routes through their interfaces (PRD §7.1).

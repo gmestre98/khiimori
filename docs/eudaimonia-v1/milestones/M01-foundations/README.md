@@ -24,16 +24,22 @@ guardrails in place. No product features yet, just the rails so Milestones 02–
 
 ## Epics in this milestone
 
-| Epic | Title | AC | Cost-relevant |
-|------|-------|----|---------------|
-| [01](epic-01-repo-scaffolding.md) | Repository & project scaffolding | 5 | — |
-| [02](epic-02-backend-service-skeleton.md) | Backend service skeleton & health endpoints | 5 | — |
-| [03](epic-03-database-and-migrations.md) | Database & migrations (Neon, schema-per-module) | 5 | yes (Neon) |
-| [04](epic-04-infrastructure-as-code.md) | Infrastructure as Code (Pulumi/TS) | 5 | yes (provisions billable infra, €0 idle) |
-| [05](epic-05-cicd-pipeline.md) | CI/CD pipeline (GitHub Actions) | 5 | yes (CI minutes) |
-| [06](epic-06-frontend-hosting-shell.md) | Frontend hosting & app shell | 5 | — |
-| [07](epic-07-observability.md) | Observability (logs, metrics, alerting) | 5 | — |
-| [08](epic-08-cost-guardrails.md) | Cost guardrails (billing budget, Maps caps, scale-up levers) | 5 | yes (the cost epic) |
+| Epic | Title | AC | Est. (dev-days) | Cost-relevant |
+|------|-------|----|-----------------|---------------|
+| [01](epic-01-repo-scaffolding.md) | Repository & project scaffolding | 5 | ~2–3 | — |
+| [02](epic-02-backend-service-skeleton.md) | Backend service skeleton & health endpoints | 5 | ~2–3 | — |
+| [03](epic-03-database-and-migrations.md) | Database & migrations (Neon, schema-per-module) | 5 | ~3–4 | yes (Neon) |
+| [04](epic-04-infrastructure-as-code.md) | Infrastructure as Code (Pulumi/TS) | 5 | ~4–5 | yes (provisions billable infra, €0 idle) |
+| [05](epic-05-cicd-pipeline.md) | CI/CD pipeline (GitHub Actions) | 5 | ~3–4 | yes (CI minutes) |
+| [06](epic-06-frontend-hosting-shell.md) | Frontend hosting & app shell | 5 | ~1–2 | — |
+| [07](epic-07-observability.md) | Observability (logs, metrics, alerting) | 5 | ~1–2 | — |
+| [08](epic-08-cost-guardrails.md) | Cost guardrails (billing budget, Maps caps, scale-up levers) | 5 | ~1–2 | yes (the cost epic) |
+| | **Milestone total** | **40** | **~17–25** (≈ 3.5–5 weeks, one developer) | |
+
+> **Estimates** assume one developer familiar with the stack; they cover implementation, tests, and
+> review, and exclude the author-provided prerequisites (GCP project, Neon/Firebase accounts,
+> domain). Epics 02 and 03 can run in parallel after 01, compressing calendar time below the serial
+> total.
 
 ## Sequencing within the milestone
 

@@ -8,6 +8,8 @@ Make problems visible — especially when the author is abroad. Ship centralised
 basic request metrics, and at least one error alert that reaches a channel the author actually sees
 while travelling.
 
+**Estimated effort:** ~1–2 developer-days (one developer).
+
 ## Acceptance Criteria
 
 - [ ] Structured JSON logs from the service flow to **Cloud Logging**.
