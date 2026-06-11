@@ -1,6 +1,6 @@
 # Epic M01.6 — Frontend Hosting & App Shell
 
-> Milestone: [01 — Foundations](README.md) · PRD refs: §7.2, §7.8.
+> Milestone: [01 — Foundations](../README.md) · PRD refs: §7.2, §7.8.
 
 ## Description
 
@@ -37,4 +37,4 @@ None beyond free tier — Firebase Hosting + CDN sit within the free allowance (
 ## Designs
 
 App shell only; real screens/theme arrive in Milestone 09. Mockups for context:
-[assets/01-trips-dashboard.svg](../../assets/01-trips-dashboard.svg) (PRD §4.1).
+[assets/01-trips-dashboard.svg](../../../assets/01-trips-dashboard.svg) (PRD §4.1).

@@ -1,6 +1,6 @@
 # Epic M01.2 — Backend Service Skeleton & Health Endpoints
 
-> Milestone: [01 — Foundations](README.md) · PRD refs: §6, §7.1.
+> Milestone: [01 — Foundations](../README.md) · PRD refs: §6, §7.1.
 
 ## Description
 

@@ -1,6 +1,6 @@
 # Epic M01.4 — Infrastructure as Code (Pulumi/TS)
 
-> Milestone: [01 — Foundations](README.md) · PRD refs: §6, §7.4, §7.8, §8.6.
+> Milestone: [01 — Foundations](../README.md) · PRD refs: §6, §7.4, §7.8, §8.6.
 
 ## Description
 
@@ -41,4 +41,4 @@ Provisions billable resources, but all are **scale-to-zero / free-tier** so idle
 
 ## Designs
 
-Architecture reference: [assets/04-architecture.svg](../../assets/04-architecture.svg) (PRD §7).
+Architecture reference: [assets/04-architecture.svg](../../../assets/04-architecture.svg) (PRD §7).

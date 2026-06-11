@@ -1,6 +1,6 @@
 # Epic M01.8 — Cost Guardrails (billing budget, Maps caps, scale-up levers)
 
-> Milestone: [01 — Foundations](README.md) · PRD refs: §8.4, §8.5, §8.6.
+> Milestone: [01 — Foundations](../README.md) · PRD refs: §8.4, §8.5, §8.6.
 
 ## Description
 

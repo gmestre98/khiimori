@@ -1,6 +1,6 @@
 # Epic M01.7 — Observability (logs, metrics, alerting)
 
-> Milestone: [01 — Foundations](README.md) · PRD refs: §6.
+> Milestone: [01 — Foundations](../README.md) · PRD refs: §6.
 
 ## Description
 
