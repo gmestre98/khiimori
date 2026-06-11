@@ -99,11 +99,12 @@ Spontaneous changes must be **fast and frictionless**, especially on mobile mid-
 - **Track actual spend against budget**: each stay/activity cost rolls up automatically, and quick **manual cost entries** can be added on the go (e.g. a spontaneous lunch).
 - See **remaining vs. spent vs. planned** at a glance, with a simple progress indicator, rolled up **per day, per category, and per whole trip**.
 - Designed for in-trip use: logging a cost should be as fast as adding a plan item, so the budget stays accurate while travelling.
-- Single trip **base currency** in v1 (multi-currency is deferred — see §10).
+- **All amounts in EUR** in v1 — a single currency app-wide (per-trip currency and multi-currency are deferred, see §10).
 
 ### 5.5 Daily journal
 - A fast, low-friction **journal entry per day**: free text, optional rating, weather/mood, and **photos**.
 - **Auto-save** and **offline-capable** on mobile (entries sync when back online) — journaling often happens with poor connectivity.
+- **Photo storage is capped at 1 GB per trip** (v1) to keep storage costs predictable; the UI shows usage and warns as the cap approaches. Server-side resizing/thumbnails keep within budget.
 - Past trips keep their journals as a permanent record.
 
 ### 5.6 Map
@@ -112,7 +113,7 @@ Spontaneous changes must be **fast and frictionless**, especially on mobile mid-
 - Built on **Google Maps Platform** (the author has a GCP project), accessed through a backend proxy to protect keys and control cost.
 
 ### 5.7 Profile
-- Basic profile: name, avatar, home base, default currency, preferences (e.g., theme).
+- Basic profile: name, avatar, home base, preferences (e.g., theme). Currency is fixed to **EUR** in v1 (no per-user currency setting yet).
 - Managed by the user; editable from web and mobile.
 
 ### 5.8 Authentication & user management
@@ -331,7 +332,10 @@ Invitation(id, trip_id, email, role, status, token)
 ```
 
 Categories: `Stays, Transport, Food, Activities, Other`.
-Notes: a **PlanItem** with `day_id = null` is an unscheduled **idea** in the backlog; `start_time = null` is an **untimed** item within a day. Promoting an idea = setting its `day_id` (and optionally `start_time`); moving between days = changing `day_id`. Actual spend = sum of related `Stay`/`PlanItem` costs **plus** ad-hoc `CostEntry` rows, tracked against `BudgetLine`.
+Notes:
+- A **PlanItem** with `day_id = null` is an unscheduled **idea** in the backlog; `start_time = null` is an **untimed** item within a day. Promoting an idea = setting its `day_id` (and optionally `start_time`); moving between days = changing `day_id`. Actual spend = sum of related `Stay`/`PlanItem` costs **plus** ad-hoc `CostEntry` rows, tracked against `BudgetLine`.
+- **Currency:** all money fields are **EUR** in v1. `default_currency`/`base_currency` are retained as forward-compatible fields but fixed to `EUR` (no UI to change them yet).
+- **Photo cap:** photo storage is limited to **1 GB per trip**; usage is tracked per trip and enforced server-side on upload.
 
 ---
 
@@ -346,13 +350,15 @@ Notes: a **PlanItem** with `day_id = null` is an unscheduled **idea** in the bac
 
 ---
 
-## 11. Open Questions
+## 11. Resolved Decisions
 
-1. **Companion editing model** — for v1, is `Editor` enough, or do we need per-section permissions (e.g. budget hidden from companions)?
-2. ~~**Database host**~~ — **Resolved:** start on **Neon free tier**, scale up on demand (§7.8, §8.6).
-3. **Service granularity at launch** — confirm the §7.0 default (start as a **modular monolith**, split later) vs. building separate services up front. Recommendation: modular monolith.
-4. **Photo limits** — any per-trip storage cap to keep Cloud Storage costs predictable?
-5. **Currency** — confirm single base currency is acceptable for v1.
+All v1 open questions are now decided:
+
+1. **Companion editing model** — **Decided:** companions are invited as **`Editor` or `Viewer`** only; no per-section permissions in v1 (a finer-grained model can come later if needed).
+2. **Database host** — **Decided:** start on the **Neon free tier**, scale up on demand (§7.8, §8.6).
+3. **Service granularity at launch** — **Decided:** **modular monolith for now**, split into services later only if needed (§7.0, §7.1).
+4. **Photo limits** — **Decided:** cap photo storage at **1 GB per trip** for v1, to keep Cloud Storage costs predictable.
+5. **Currency** — **Decided:** **everything in EUR** for v1 — a single currency, no per-trip currency or multi-currency (deferred, §10).
 
 ---
 
