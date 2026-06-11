@@ -40,3 +40,31 @@ named risks — **Maps overage / leaked key** (PRD §8.4 #2) and runaway compute
 ## Designs
 
 N/A.
+
+## User stories
+
+The epic is split into **5 small user stories**, each sized **≤4h for one developer**
+(implementation + tests + review). Each story file is a standalone agent-ready prompt — hand a
+single file to a coding agent and it has enough context (background, task, acceptance criteria,
+constraints, dependencies, definition of done) to implement it without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-billing-budget-alert.md) | GCP billing budget + alert (IaC) | ~3h | AC1 | M01.4, M01.7 S4 |
+| [S2](S2-maps-key-restrictions-caps.md) | Maps API key restriction + hard quota caps | ~3h | AC2 | M01.4 S4 |
+| [S3](S3-confirm-scale-to-zero.md) | Confirm scale-to-zero defaults (Cloud Run + Neon) | ~2.5h | AC3 | M01.4 S9, M01.3 |
+| [S4](S4-scale-up-levers-single-settings.md) | Scale-up levers as single settings (IaC + dashboard) | ~3h | AC4 | S1, S2, M01.4 S9 |
+| [S5](S5-mobile-dashboards-runbook.md) | Mobile-dashboard check + mid-trip scale-up runbook | ~2.5h | AC5 | S1–S4 |
+
+**Total:** ~14h (≈ 2 dev-days), consistent with the epic's ~1–2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Billing budget ─┐
+S2 Maps caps ──────┼─ S4 Scale-up levers ── S5 Mobile dashboards + runbook
+S3 Scale-to-zero ──┘
+```
+
+S1, S2, and S3 are independent (all extend the M01.4 stack) and can run in parallel; S4 consolidates the
+levers and S5 writes the phone-friendly runbook on top.
