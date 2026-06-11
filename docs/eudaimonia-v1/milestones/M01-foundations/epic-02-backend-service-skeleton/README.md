@@ -36,3 +36,38 @@ None directly — runs on Cloud Run's scale-to-zero free tier once deployed (cos
 ## Designs
 
 N/A (health-check only).
+
+## User stories
+
+The epic is split into **8 small user stories**, each sized **≤4h for one developer**
+(implementation + tests + review). Each story file is a standalone agent-ready prompt — hand a
+single file to a coding agent and it has enough context (background, task, acceptance criteria,
+constraints, dependencies, definition of done) to implement it without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-platform-config.md) | Platform config loader | ~2.5h | AC2 | — (M01.1) |
+| [S2](S2-structured-logging.md) | Structured JSON logging | ~2.5h | AC2 | S1 |
+| [S3](S3-http-server-bootstrap.md) | HTTP server bootstrap & graceful shutdown | ~3h | AC1 | S1, S2 |
+| [S4](S4-module-route-mounting.md) | Module route-mounting interface | ~3h | AC1 | S3 |
+| [S5](S5-http-middleware.md) | Common HTTP middleware (id, log, recovery) | ~3.5h | AC2, AC5 | S2, S3 |
+| [S6](S6-error-handling.md) | Shared error handling & JSON errors | ~3h | AC2 | S2 |
+| [S7](S7-healthz-liveness.md) | `GET /healthz` liveness endpoint | ~2h | AC3, AC5 | S3, S4 |
+| [S8](S8-readyz-readiness.md) | `GET /readyz` readiness (pluggable checks) | ~3h | AC4, AC5 | S3, S4 |
+
+**Total:** ~22.5h (≈ 2.5–3 dev-days), consistent with the epic's ~2–3 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Config ──┬─ S2 Logging ─┬─ S5 Middleware (needs S3)
+            │              └─ S6 Error handling
+            └──────────────── S3 Server bootstrap (needs S1+S2)
+                                 └─ S4 Module route mounting
+                                       ├─ S7 /healthz
+                                       └─ S8 /readyz
+```
+
+S2 and (after it) S6 can run alongside the server work; S7 and S8 can run in parallel once S4 lands.
+AC5's required tests live in S5 (middleware) and S7/S8 (health handlers).
+
