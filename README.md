@@ -3,7 +3,9 @@
 A personal travel-management app to plan, budget, navigate, and journal trips —
 a better replacement for the spreadsheet I use today.
 
-> **Status:** pre-development. The product is defined; implementation has not started.
+> **Status:** early development. The product is defined and the repository
+> scaffolding is in place (monorepo layout, Go backend skeleton, web app,
+> tooling, one-command local dev). Product features come next.
 
 ## What it does (v1 scope)
 
@@ -29,6 +31,51 @@ that span them stay in one place and one history.
 | [`scripts/`](scripts/) | Repository tooling and dev scripts (TypeScript). |
 | [`.github/workflows/`](.github/workflows/) | CI/CD (GitHub Actions). |
 | [`docs/`](docs/) | Product requirements and milestone/epic/story planning. |
+
+## Local development
+
+### Prerequisites
+
+- **Go** 1.23+ — backend ([go.dev/dl](https://go.dev/dl/)).
+- **Node.js** 20+ (developed on 24) and **npm** — web app and dev scripts ([nodejs.org](https://nodejs.org/)).
+- **golangci-lint** 1.64+ — Go linting ([golangci-lint.run](https://golangci-lint.run/welcome/install/)). Only needed to run `make lint`-style checks; not required to run the app.
+
+### From clone to running
+
+```sh
+git clone https://github.com/gmestre98/Eudaimonia.git
+cd Eudaimonia
+make install      # install web dependencies (Go deps are fetched on first build)
+make dev          # start backend + web together
+```
+
+`make dev` is the **one command** for local dev. It preflights prerequisites and
+ports, starts the Go backend (`:8080`) and the Vite web app (`:5173`), verifies
+the web host can reach the backend, and stops both on `Ctrl-C`. If a prerequisite
+is missing or a port is busy it fails with a clear, actionable message. Override
+ports with `PORT=...` / `WEB_PORT=...`. Run `make help` to list all targets.
+
+> The backend currently listens but speaks no protocol yet — the HTTP server and
+> health endpoints arrive in Epic M01.2. `make dev` only checks reachability.
+
+### Per-language commands
+
+**Backend** (run from `backend/`, see [`backend/README.md`](backend/README.md)):
+
+```sh
+go build ./...            # compile
+go test ./...             # test (includes the module-boundary check)
+golangci-lint run ./...   # lint
+gofmt -l .                # format check (empty = clean); gofmt -w . to apply
+```
+
+**Web** (run from `web/`, see [`web/README.md`](web/README.md)):
+
+```sh
+npm run build         # type-check + production build
+npm run lint          # ESLint
+npm run format:check  # Prettier check (npm run format to apply)
+```
 
 ## Documentation
 
