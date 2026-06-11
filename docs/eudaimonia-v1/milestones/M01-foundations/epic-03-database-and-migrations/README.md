@@ -40,3 +40,33 @@ v1 starts on the **Neon free tier (≈€0)**; the documented scale-up lever is 
 ## Designs
 
 Architecture reference: [assets/04-architecture.svg](../../../assets/04-architecture.svg) (DB layer).
+
+## User stories
+
+The epic is split into **8 small user stories**, each sized **≤4h for one developer**
+(implementation + tests + review). Each story file is a standalone agent-ready prompt — hand a
+single file to a coding agent and it has enough context (background, task, acceptance criteria,
+constraints, dependencies, definition of done) to implement it without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-provision-neon.md) | Provision Neon Postgres database | ~2h | AC1 | — (M01.1) |
+| [S2](S2-db-connection-layer.md) | DB connection layer (serverless driver / pooler) | ~3.5h | AC1, AC2 | S1 |
+| [S3](S3-migration-tool.md) | Select & wire a migration tool | ~3h | AC3 | S1 |
+| [S4](S4-schema-per-module.md) | Schema-per-module layout & initial schemas | ~3h | AC3 | S3 |
+| [S5](S5-migration-runner.md) | Migration runner command | ~2.5h | AC3 | S3, S4 |
+| [S6](S6-readyz-db-check.md) | Wire DB connectivity into `/readyz` | ~2.5h | AC4 | S2 (M01.2 S8) |
+| [S7](S7-migration-integration-test.md) | Integration test: migrations on ephemeral DB | ~3.5h | AC5 | S4, S5 |
+| [S8](S8-document-db.md) | Document the database story | ~2h | — | S2–S7 |
+
+**Total:** ~22h (≈ 3 dev-days), consistent with the epic's ~3–4 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Provision Neon ─┬─ S2 Connection layer ── S6 /readyz DB check (needs M01.2 S8)
+                   └─ S3 Migration tool ── S4 Schemas ── S5 Runner ── S7 Integration test
+S8 Document  ◄── needs S2–S7
+```
+
+S2 (connection/readiness track) and S3–S5 (migrations track) can proceed in parallel once S1 lands.
