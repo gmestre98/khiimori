@@ -1,6 +1,6 @@
 # Epic M01.5 — CI/CD Pipeline (GitHub Actions)
 
-> Milestone: [01 — Foundations](README.md) · PRD refs: §7.5, §7.6, §8.4.
+> Milestone: [01 — Foundations](../README.md) · PRD refs: §7.5, §7.6, §8.4.
 
 ## Description
 

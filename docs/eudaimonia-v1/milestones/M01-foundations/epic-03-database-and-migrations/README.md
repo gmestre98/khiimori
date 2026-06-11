@@ -1,6 +1,6 @@
 # Epic M01.3 — Database & Migrations (Neon, schema-per-module)
 
-> Milestone: [01 — Foundations](README.md) · PRD refs: §7.7, §7.8, §8.6.
+> Milestone: [01 — Foundations](../README.md) · PRD refs: §7.7, §7.8, §8.6.
 
 ## Description
 
@@ -39,4 +39,4 @@ v1 starts on the **Neon free tier (≈€0)**; the documented scale-up lever is 
 
 ## Designs
 
-Architecture reference: [assets/04-architecture.svg](../../assets/04-architecture.svg) (DB layer).
+Architecture reference: [assets/04-architecture.svg](../../../assets/04-architecture.svg) (DB layer).
