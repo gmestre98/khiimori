@@ -1,0 +1,100 @@
+<svg viewBox="0 0 900 640" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif">
+  <style>
+    .ink{fill:#111111}
+    .muted{fill:#777777}
+    .box{fill:#ffffff;stroke:#111111;stroke-width:1.5}
+    .svc{fill:#ffffff;stroke:#2f6f6a;stroke-width:1.5}
+    .ext{fill:#fafafa;stroke:#999999;stroke-width:1.5;stroke-dasharray:4 3}
+    .lbl{fill:#111111;font-weight:bold}
+    .sub{fill:#777777}
+    .flow{stroke:#999999;stroke-width:1.5;fill:none}
+    .band{fill:#f6f6f6}
+  </style>
+
+  <text x="40" y="40" class="ink" font-size="18" font-weight="bold">Eudaimonia — System Architecture (v1)</text>
+
+  <!-- CLIENTS -->
+  <rect x="40" y="64" width="820" height="86" rx="10" class="band"/>
+  <text x="56" y="84" class="sub" font-size="11" font-weight="bold">CLIENTS</text>
+  <rect x="70" y="92" width="200" height="46" rx="8" class="box"/>
+  <text x="90" y="113" class="lbl" font-size="12">Web app (laptop)</text>
+  <text x="90" y="129" class="sub" font-size="10">React + TypeScript</text>
+  <rect x="300" y="92" width="200" height="46" rx="8" class="box"/>
+  <text x="320" y="113" class="lbl" font-size="12">Mobile (PWA)</text>
+  <text x="320" y="129" class="sub" font-size="10">Installable, offline journal</text>
+  <rect x="530" y="92" width="200" height="46" rx="8" class="box"/>
+  <text x="550" y="113" class="lbl" font-size="12">Admin backoffice</text>
+  <text x="550" y="129" class="sub" font-size="10">Users &amp; trip access</text>
+
+  <line x1="450" y1="150" x2="450" y2="178" class="flow"/>
+  <polygon points="450,178 445,170 455,170" fill="#999999"/>
+
+  <!-- EDGE -->
+  <rect x="40" y="180" width="820" height="70" rx="10" class="band"/>
+  <text x="56" y="200" class="sub" font-size="11" font-weight="bold">EDGE</text>
+  <rect x="120" y="206" width="300" height="38" rx="8" class="box"/>
+  <text x="140" y="230" class="lbl" font-size="12">API Gateway / BFF</text>
+  <rect x="470" y="206" width="290" height="38" rx="8" class="box"/>
+  <text x="490" y="230" class="lbl" font-size="12">Firebase Hosting + CDN (static)</text>
+
+  <line x1="270" y1="250" x2="270" y2="276" class="flow"/>
+  <polygon points="270,276 265,268 275,268" fill="#999999"/>
+
+  <!-- SERVICES -->
+  <rect x="40" y="278" width="820" height="150" rx="10" class="band"/>
+  <text x="56" y="298" class="sub" font-size="11" font-weight="bold">DOMAIN MODULES · Go · Cloud Run (v1: one modular monolith, split later)</text>
+
+  <rect x="60" y="308" width="180" height="46" rx="8" class="svc"/>
+  <text x="76" y="330" class="lbl" font-size="11.5">Auth / User</text>
+  <text x="76" y="346" class="sub" font-size="9.5">Google SSO, profiles</text>
+
+  <rect x="252" y="308" width="180" height="46" rx="8" class="svc"/>
+  <text x="268" y="330" class="lbl" font-size="11.5">Trip / Itinerary</text>
+  <text x="268" y="346" class="sub" font-size="9.5">trips, days, plan items, ideas</text>
+
+  <rect x="444" y="308" width="180" height="46" rx="8" class="svc"/>
+  <text x="460" y="330" class="lbl" font-size="11.5">Budget</text>
+  <text x="460" y="346" class="sub" font-size="9.5">daily budgets &amp; spend</text>
+
+  <rect x="636" y="308" width="200" height="46" rx="8" class="svc"/>
+  <text x="652" y="330" class="lbl" font-size="11.5">Journal / Media</text>
+  <text x="652" y="346" class="sub" font-size="9.5">entries, photos</text>
+
+  <rect x="60" y="366" width="180" height="46" rx="8" class="svc"/>
+  <text x="76" y="388" class="lbl" font-size="11.5">Sharing / Access</text>
+  <text x="76" y="404" class="sub" font-size="9.5">roles, invitations</text>
+
+  <rect x="252" y="366" width="180" height="46" rx="8" class="svc"/>
+  <text x="268" y="388" class="lbl" font-size="11.5">Geo / Maps proxy</text>
+  <text x="268" y="404" class="sub" font-size="9.5">routes, geocoding</text>
+
+  <rect x="444" y="366" width="392" height="46" rx="8" fill="#ffffff" stroke="#cccccc" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="460" y="388" class="sub" font-size="11">Async events (Pub/Sub) — optional, e.g. notifications</text>
+
+  <line x1="450" y1="428" x2="450" y2="454" class="flow"/>
+  <polygon points="450,454 445,446 455,446" fill="#999999"/>
+
+  <!-- DATA -->
+  <rect x="40" y="456" width="820" height="84" rx="10" class="band"/>
+  <text x="56" y="476" class="sub" font-size="11" font-weight="bold">DATA &amp; STORAGE</text>
+  <rect x="70" y="484" width="240" height="46" rx="8" class="box"/>
+  <text x="90" y="505" class="lbl" font-size="12">PostgreSQL</text>
+  <text x="90" y="521" class="sub" font-size="10">Cloud SQL or Neon · per-service schema</text>
+  <rect x="340" y="484" width="220" height="46" rx="8" class="box"/>
+  <text x="360" y="505" class="lbl" font-size="12">Cloud Storage</text>
+  <text x="360" y="521" class="sub" font-size="10">journal photos</text>
+  <rect x="590" y="484" width="240" height="46" rx="8" class="box"/>
+  <text x="610" y="505" class="lbl" font-size="12">Secret Manager</text>
+  <text x="610" y="521" class="sub" font-size="10">keys, OAuth secrets</text>
+
+  <!-- EXTERNAL + CICD -->
+  <rect x="40" y="556" width="540" height="64" rx="10" class="ext"/>
+  <text x="56" y="576" class="sub" font-size="11" font-weight="bold">EXTERNAL</text>
+  <text x="60" y="600" class="ink" font-size="11">Google OAuth · Google Maps Platform</text>
+  <text x="60" y="615" class="sub" font-size="10">(cheap usage tier; proxied via Geo service)</text>
+
+  <rect x="600" y="556" width="260" height="64" rx="10" class="ext"/>
+  <text x="616" y="576" class="sub" font-size="11" font-weight="bold">CI/CD &amp; INFRA</text>
+  <text x="620" y="600" class="ink" font-size="11">GitHub Actions · Pulumi (TS)</text>
+  <text x="620" y="615" class="sub" font-size="10">build · test · deploy to Cloud Run</text>
+</svg>
