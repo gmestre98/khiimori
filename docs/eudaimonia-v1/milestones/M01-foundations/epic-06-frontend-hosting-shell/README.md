@@ -38,3 +38,29 @@ None beyond free tier — Firebase Hosting + CDN sit within the free allowance (
 
 App shell only; real screens/theme arrive in Milestone 09. Mockups for context:
 [assets/01-trips-dashboard.svg](../../../assets/01-trips-dashboard.svg) (PRD §4.1).
+
+## User stories
+
+The epic is split into **5 small user stories**, each sized **≤4h for one developer**
+(implementation + tests + review). Each story file is a standalone agent-ready prompt — hand a
+single file to a coding agent and it has enough context (background, task, acceptance criteria,
+constraints, dependencies, definition of done) to implement it without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-app-shell-env-api-url.md) | Minimal app shell with env-driven API base URL | ~3h | AC4 | — (M01.1 S5) |
+| [S2](S2-healthz-view.md) | Health-check view (call `/healthz`, show result) | ~3h | AC2 | S1 (M01.2 S7) |
+| [S3](S3-cors-config.md) | CORS between Hosting origin and Cloud Run API | ~3h | AC3 | M01.2, M01.4 S8 |
+| [S4](S4-deploy-shell-verify-roundtrip.md) | Deploy shell to Firebase Hosting + verify round-trip | ~3h | AC1, AC2 | S1–S3 (M01.4/5) |
+| [S5](S5-document-custom-domain.md) | Document custom-domain wiring | ~1.5h | AC5 | S4 (M01.4 S8) |
+
+**Total:** ~13.5h (≈ 2 dev-days), consistent with the epic's ~1–2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 App shell + API URL ── S2 Health-check view ─┐
+S3 CORS (API side, needs M01.2 + M01.4 hosting) ─┴─ S4 Deploy + verify round-trip ── S5 Custom-domain docs
+```
+
+S3 (API-side CORS) can be built in parallel with S1/S2; everything converges at S4's end-to-end verification.
