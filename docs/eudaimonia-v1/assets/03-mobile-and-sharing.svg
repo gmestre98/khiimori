@@ -1,0 +1,126 @@
+<svg viewBox="0 0 900 620" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif">
+  <style>
+    .ink{fill:#111111}
+    .muted{fill:#777777}
+    .line{stroke:#e4e4e4;stroke-width:1}
+    .card{fill:#ffffff;stroke:#e0e0e0;stroke-width:1.5}
+    .chip{fill:#111111}
+    .chipt{fill:#ffffff}
+    .accent{fill:#2f6f6a}
+  </style>
+
+  <!-- ===== PHONE 1: mobile day view ===== -->
+  <rect x="30" y="40" width="220" height="540" rx="34" fill="#ffffff" stroke="#111111" stroke-width="3"/>
+  <rect x="95" y="58" width="90" height="16" rx="8" fill="#111111"/>
+  <text x="54" y="110" class="ink" font-size="15" font-weight="bold">Today · Day 4</text>
+  <text x="54" y="128" class="muted" font-size="10">Kyoto · Apr 05</text>
+
+  <rect x="50" y="142" width="180" height="46" rx="10" class="card"/>
+  <rect x="50" y="142" width="5" height="46" class="accent"/>
+  <text x="64" y="162" class="ink" font-size="11" font-weight="bold">🛏 Hotel Mume</text>
+  <text x="64" y="178" class="muted" font-size="9">Gion · check-out 11:00</text>
+
+  <rect x="50" y="196" width="180" height="44" rx="10" class="card"/>
+  <text x="64" y="216" class="ink" font-size="11" font-weight="bold">09:00 Fushimi Inari</text>
+  <text x="64" y="231" class="muted" font-size="9">Activity · 2h</text>
+
+  <rect x="50" y="248" width="180" height="44" rx="10" class="card"/>
+  <text x="64" y="268" class="ink" font-size="11" font-weight="bold">12:30 Nishiki Market</text>
+  <text x="64" y="283" class="muted" font-size="9">Food · ¥2,200</text>
+
+  <rect x="50" y="300" width="180" height="44" rx="10" class="card"/>
+  <text x="64" y="320" class="ink" font-size="11" font-weight="bold">15:00 Tea ceremony</text>
+  <text x="64" y="335" class="muted" font-size="9">Booked · ¥4,500</text>
+
+  <!-- budget bar -->
+  <rect x="50" y="356" width="180" height="40" rx="10" fill="#fafafa" stroke="#e0e0e0" stroke-width="1.5"/>
+  <text x="64" y="372" class="muted" font-size="9">Spent today</text>
+  <text x="150" y="372" class="ink" font-size="10" font-weight="bold">¥8,680</text>
+  <rect x="64" y="380" width="152" height="6" rx="3" fill="#eeeeee"/>
+  <rect x="64" y="380" width="95" height="6" rx="3" class="accent"/>
+
+  <!-- bottom nav -->
+  <line x1="30" y1="528" x2="250" y2="528" class="line"/>
+  <text x="52" y="556" class="ink" font-size="9">Trip</text>
+  <text x="98" y="556" class="muted" font-size="9">Map</text>
+  <text x="140" y="556" class="muted" font-size="9">Journal</text>
+  <text x="200" y="556" class="muted" font-size="9">Me</text>
+  <circle cx="58" cy="566" r="2.5" class="accent"/>
+
+  <!-- ===== PHONE 2: mobile journal ===== -->
+  <rect x="270" y="40" width="220" height="540" rx="34" fill="#ffffff" stroke="#111111" stroke-width="3"/>
+  <rect x="335" y="58" width="90" height="16" rx="8" fill="#111111"/>
+  <text x="294" y="110" class="ink" font-size="15" font-weight="bold">Journal</text>
+  <text x="294" y="128" class="muted" font-size="10">Day 4 · Kyoto</text>
+
+  <rect x="290" y="142" width="180" height="120" rx="10" fill="#eef1f0" stroke="#e0e0e0" stroke-width="1.5"/>
+  <text x="350" y="206" class="muted" font-size="10">📷  3 photos</text>
+
+  <rect x="290" y="272" width="180" height="180" rx="10" class="card"/>
+  <text x="304" y="296" class="ink" font-size="10">The orange torii gates went</text>
+  <text x="304" y="313" class="ink" font-size="10">on forever. We got lost near</text>
+  <text x="304" y="330" class="ink" font-size="10">the top but found the best</text>
+  <text x="304" y="347" class="ink" font-size="10">ramen of the trip on the way</text>
+  <text x="304" y="364" class="ink" font-size="10">down. Mood: tired + happy.</text>
+  <line x1="304" y1="384" x2="456" y2="384" class="line"/>
+  <text x="304" y="406" class="muted" font-size="9">⭐ Rating 9/10</text>
+  <text x="304" y="424" class="muted" font-size="9">☀ Weather: sunny, 18°C</text>
+
+  <rect x="290" y="466" width="180" height="34" rx="17" class="chip"/>
+  <text x="332" y="487" class="chipt" font-size="11">Save entry</text>
+
+  <text x="294" y="556" class="muted" font-size="9">Auto-saved · syncs offline</text>
+
+  <!-- ===== PANEL 3: sharing / backoffice ===== -->
+  <rect x="520" y="40" width="350" height="540" rx="14" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+  <text x="544" y="84" class="ink" font-size="16" font-weight="bold">Trip sharing &amp; access</text>
+  <text x="544" y="104" class="muted" font-size="11">Japan — Spring 2026</text>
+  <line x1="544" y1="118" x2="846" y2="118" class="line"/>
+
+  <!-- members -->
+  <text x="544" y="146" class="muted" font-size="10" font-weight="bold">MEMBERS</text>
+
+  <g>
+    <circle cx="560" cy="178" r="14" fill="#111111"/><text x="554" y="182" class="chipt" font-size="11">G</text>
+    <text x="586" y="174" class="ink" font-size="12" font-weight="bold">Gonçalo (you)</text>
+    <text x="586" y="190" class="muted" font-size="10">goncalo@gmail.com</text>
+    <rect x="760" y="166" width="76" height="24" rx="12" class="chip"/>
+    <text x="775" y="182" class="chipt" font-size="10">Owner</text>
+  </g>
+
+  <g>
+    <circle cx="560" cy="226" r="14" fill="#2f6f6a"/><text x="554" y="230" class="chipt" font-size="11">M</text>
+    <text x="586" y="222" class="ink" font-size="12" font-weight="bold">Maria</text>
+    <text x="586" y="238" class="muted" font-size="10">maria@gmail.com</text>
+    <rect x="748" y="214" width="88" height="24" rx="12" fill="#ffffff" stroke="#111111" stroke-width="1.5"/>
+    <text x="762" y="230" class="ink" font-size="10">Editor ▾</text>
+  </g>
+
+  <g>
+    <circle cx="560" cy="274" r="14" fill="#b06a2c"/><text x="554" y="278" class="chipt" font-size="11">A</text>
+    <text x="586" y="270" class="ink" font-size="12" font-weight="bold">Alex</text>
+    <text x="586" y="286" class="muted" font-size="10">alex@gmail.com</text>
+    <rect x="748" y="262" width="88" height="24" rx="12" fill="#ffffff" stroke="#111111" stroke-width="1.5"/>
+    <text x="762" y="278" class="ink" font-size="10">Viewer ▾</text>
+  </g>
+
+  <line x1="544" y1="312" x2="846" y2="312" class="line"/>
+
+  <!-- invite -->
+  <text x="544" y="340" class="muted" font-size="10" font-weight="bold">INVITE</text>
+  <rect x="544" y="352" width="210" height="34" rx="8" fill="#fafafa" stroke="#e0e0e0" stroke-width="1.5"/>
+  <text x="558" y="374" class="muted" font-size="11">friend@email.com</text>
+  <rect x="764" y="352" width="82" height="34" rx="8" class="chip"/>
+  <text x="784" y="374" class="chipt" font-size="11">Invite</text>
+
+  <!-- roles legend -->
+  <rect x="544" y="404" width="302" height="150" rx="10" fill="#fafafa" stroke="#e0e0e0" stroke-width="1.5"/>
+  <text x="562" y="430" class="ink" font-size="11" font-weight="bold">Roles</text>
+  <text x="562" y="456" class="ink" font-size="11">Owner</text>
+  <text x="640" y="456" class="muted" font-size="10">full control + sharing</text>
+  <text x="562" y="482" class="ink" font-size="11">Editor</text>
+  <text x="640" y="482" class="muted" font-size="10">edit plan, budget, journal</text>
+  <text x="562" y="508" class="ink" font-size="11">Viewer</text>
+  <text x="640" y="508" class="muted" font-size="10">read-only access</text>
+  <text x="562" y="538" class="muted" font-size="9.5">Admin backoffice manages all users &amp; trips.</text>
+</svg>
