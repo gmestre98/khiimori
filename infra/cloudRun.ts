@@ -9,6 +9,21 @@ import * as pulumi from '@pulumi/pulumi'
 import { region } from './config'
 import { cloudRunApi } from './services'
 import { serviceAccount } from './serviceAccount'
+import { databaseUrlSecret, mapsApiKeySecret, oauthClientSecret, secretVersions } from './secrets'
+
+// A Secret Manager-backed env var: the container receives the secret's *value*
+// at runtime, sourced from the named secret's latest version — never a literal
+// (PRD §6, §8.5). Rotating a secret adds a new version; the next revision (any
+// `pulumi up` that redeploys) picks up `latest` with no code change.
+function secretEnv(
+  name: string,
+  secret: gcp.secretmanager.Secret,
+): gcp.types.input.cloudrunv2.ServiceTemplateContainerEnv {
+  return {
+    name,
+    valueSource: { secretKeyRef: { secret: secret.secretId, version: 'latest' } },
+  }
+}
 
 const cfg = new pulumi.Config()
 
@@ -49,12 +64,17 @@ export const service = new gcp.cloudrunv2.Service(
         {
           image,
           ports: { containerPort: port },
-          // Non-secret runtime config. Secret-backed env (DB URL, OAuth, Maps)
-          // is added in S7. ENV/LOG_LEVEL/DB_POOLED match the app config layer.
+          // Runtime config. Non-secret values are literals; the DB URL, OAuth
+          // client secret, and Maps key are Secret Manager-backed (sourced at
+          // runtime, never literals). Env names match the app config layer
+          // (M01.2 S1) — DATABASE_URL today; OAuth/Maps land with M02/M07.
           envs: [
             { name: 'ENV', value: cfg.get('serviceEnv') ?? 'prod' },
             { name: 'LOG_LEVEL', value: cfg.get('logLevel') ?? 'error' },
             { name: 'DB_POOLED', value: 'true' },
+            secretEnv('DATABASE_URL', databaseUrlSecret),
+            secretEnv('GOOGLE_OAUTH_CLIENT_SECRET', oauthClientSecret),
+            secretEnv('MAPS_API_KEY', mapsApiKeySecret),
           ],
           // Liveness: dependency-free /healthz — restart only if the process
           // itself wedges, never because a dependency is down.
@@ -76,7 +96,9 @@ export const service = new gcp.cloudrunv2.Service(
       ],
     },
   },
-  { dependsOn: [cloudRunApi] },
+  // Depend on any secret versions created from Pulumi config so they exist
+  // before the service mounts them in the same `pulumi up`.
+  { dependsOn: [cloudRunApi, ...secretVersions] },
 )
 
 // Public invocation binding (see allowUnauthenticated above).

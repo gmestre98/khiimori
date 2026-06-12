@@ -19,6 +19,11 @@ import { secretManagerApi } from './services'
 
 const cfg = new pulumi.Config()
 
+// Versions created from Pulumi secret config (if any). The Cloud Run service
+// (S7) depends on these so that, when values are supplied via config, the
+// version exists before the service tries to mount it in the same `pulumi up`.
+const versions: gcp.secretmanager.SecretVersion[] = []
+
 /**
  * Create a Secret Manager container, and — only if a Pulumi *secret* config
  * value is provided — an initial version from it. When no config value is set
@@ -44,10 +49,12 @@ function managedSecret(
   // Pulumi state and never appears in plaintext in diffs or logs (PRD §8.5).
   const value = cfg.getSecret(valueConfigKey)
   if (value) {
-    new gcp.secretmanager.SecretVersion(name, {
-      secret: secret.id,
-      secretData: value,
-    })
+    versions.push(
+      new gcp.secretmanager.SecretVersion(name, {
+        secret: secret.id,
+        secretData: value,
+      }),
+    )
   }
 
   return secret
@@ -80,6 +87,13 @@ export const mapsApiKeySecret = managedSecret(
 
 /** All managed secrets — S5 grants the Cloud Run SA accessor on each. */
 export const allSecrets = [databaseUrlSecret, oauthClientSecret, mapsApiKeySecret]
+
+/**
+ * Secret versions created from Pulumi config this run (empty when values are
+ * supplied out-of-band). The Cloud Run service depends on these so the version
+ * exists before it mounts the secret (S7 ordering).
+ */
+export const secretVersions = versions
 
 /** Secret ids (short names) — exported for S7 to mount the versions. */
 export const secretIds = {
