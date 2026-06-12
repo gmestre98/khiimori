@@ -48,3 +48,27 @@ client-side keys) rather than adding cost (PRD §8.5). Negligible direct cost.
 ## Designs
 
 No UI — a review/audit deliverable (PRD §6, §8.5).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-authz-coverage-audit.md) | Authorization coverage audit (every endpoint) | ~3h | AC1 | M08, all features |
+| [S2](S2-privacy-secrets-review.md) | Privacy, secrets & key review (+ /security-review) | ~3h | AC2, AC3, AC4 | M02/M06/M07/M08, Epic 01 |
+| [S3](S3-findings-remediation.md) | Findings remediation & sign-off | ~2h | AC1–AC4 | S1, S2 |
+
+**Total:** ~8h (≈ 2 dev-days), consistent with the epic's ~2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Authz coverage audit ──┐
+S2 Privacy/secrets review ─┴─ S3 Findings remediation & sign-off
+```
+
+> A release gate: release-blocking findings (auth bypass, key/secret exposure, privacy leak) must be
+> fixed and re-verified before v1 ships.
