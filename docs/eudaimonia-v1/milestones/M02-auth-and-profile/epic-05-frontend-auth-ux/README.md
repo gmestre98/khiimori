@@ -50,3 +50,26 @@ Negligible — static assets served from Firebase Hosting free tier (PRD §8.1).
 Sign-in and profile surfaces using the black/white theme (PRD §5.10); mobile context in
 [assets/03-mobile-and-sharing.svg](../../../assets/03-mobile-and-sharing.svg). Directional only —
 final components from Milestone 09.
+
+## User stories
+
+The epic is split into **5 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-auth-context.md) | Auth context & state | ~3h | AC2 | M01.6, Epic 03, Epic 04 S1 |
+| [S2](S2-signin-signout-ui.md) | Sign-in / sign-out UI | ~3h | AC1 | S1, Epic 01, Epic 03 |
+| [S3](S3-route-gating.md) | Protected route gating & redirect | ~2.5h | AC2 | S1, S2 |
+| [S4](S4-401-reauth.md) | 401 detection → re-auth | ~2.5h | AC3 | S1, S3 |
+| [S5](S5-profile-screen.md) | Profile screen (view/edit, EUR display) | ~3.5h | AC4, AC5 | S1, S3, Epic 04 |
+
+**Total:** ~14.5h (≈ 2 dev-days), consistent with the epic's ~2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Auth context ──┬─ S2 Sign-in/out UI ── S3 Route gating ──┬─ S4 401 → re-auth
+                  └────────────────────────────────────────┴─ S5 Profile screen
+```
