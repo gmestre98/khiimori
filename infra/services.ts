@@ -25,3 +25,6 @@ export const storageApi = enableApi('storage', 'storage.googleapis.com')
 
 /** Secret Manager — runtime secret containers (DB URL, OAuth, Maps key). */
 export const secretManagerApi = enableApi('secretmanager', 'secretmanager.googleapis.com')
+
+/** Cloud Run — the service that runs the Go container. */
+export const cloudRunApi = enableApi('run', 'run.googleapis.com')

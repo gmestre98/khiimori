@@ -24,6 +24,19 @@ config:
   # eudaimonia:mediaBucketForceDestroy: "false"
   # Cloud Run runtime service account id (6-30 chars; default eudaimonia-run).
   # eudaimonia:cloudRunServiceAccountId: eudaimonia-run
+  # Cloud Run service name (default eudaimonia-api).
+  # eudaimonia:serviceName: eudaimonia-api
+  # Container image. Default is a public placeholder so a fresh stack stands up;
+  # CI (M01.5) overrides with the real S2 image, e.g. <imagePrefix>/api:<sha>.
+  # eudaimonia:serviceImage: europe-west2-docker.pkg.dev/your-project/eudaimonia/api:latest
+  # Container port the app listens on (default 8080).
+  # eudaimonia:servicePort: "8080"
+  # Deployment env / log level the service runs with (default prod / error).
+  # eudaimonia:serviceEnv: prod
+  # eudaimonia:logLevel: error
+  # Allow unauthenticated invocation so the browser SPA can call the API
+  # (default true; set false to make the service private).
+  # eudaimonia:allowUnauthenticated: "true"
 
   # --- Secret VALUES — never write them here in plaintext --------------------
   # The program creates the secret *containers*; their values are supplied
