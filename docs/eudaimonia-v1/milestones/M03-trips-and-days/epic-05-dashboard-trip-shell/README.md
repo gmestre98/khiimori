@@ -50,3 +50,27 @@ Negligible — static assets served from Firebase Hosting free tier (PRD §8.1).
 - Trips dashboard: [assets/01-trips-dashboard.svg](../../../assets/01-trips-dashboard.svg) (PRD §4.1).
 - Day plan shell: [assets/02-day-plan-map.svg](../../../assets/02-day-plan-map.svg) (PRD §4.2).
 - Mobile trip context: [assets/03-mobile-and-sharing.svg](../../../assets/03-mobile-and-sharing.svg) (PRD §4.3).
+
+## User stories
+
+The epic is split into **5 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-trips-dashboard.md) | Trips dashboard (Current/Upcoming/Past) | ~3h | AC1, AC4 | M02, Epic 03 S2 |
+| [S2](S2-current-trip-budget-glance-slot.md) | Current-trip prominence & budget-glance slot | ~2.5h | AC1 | S1, Epics 02/03 |
+| [S3](S3-trip-create-edit-form.md) | Trip create/edit form | ~3h | AC2 | S1, Epic 01 |
+| [S4](S4-archive-delete-affordances.md) | Archive & delete affordances | ~2h | AC2 | S1, S3, Epic 01 S4 |
+| [S5](S5-trip-shell-day-mount.md) | Trip shell & deep-linkable day mount points | ~3.5h | AC3, AC5 | Epic 02 S4 |
+
+**Total:** ~14h (≈ 2–3 dev-days), consistent with the epic's ~2–3 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Dashboard ──┬─ S2 Current-trip & budget slot
+               ├─ S3 Create/edit form ── S4 Archive/delete affordances
+               └─ S5 Trip shell & day mount points
+```
