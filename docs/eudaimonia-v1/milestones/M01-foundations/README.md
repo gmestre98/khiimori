@@ -24,17 +24,17 @@ guardrails in place. No product features yet, just the rails so Milestones 02–
 
 ## Epics in this milestone
 
-| Epic | Title | AC | Est. (dev-days) | Cost-relevant |
-|------|-------|----|-----------------|---------------|
-| [01](epic-01-repo-scaffolding/README.md) | Repository & project scaffolding | 5 | ~2–3 | — |
-| [02](epic-02-backend-service-skeleton/README.md) | Backend service skeleton & health endpoints | 5 | ~2–3 | — |
-| [03](epic-03-database-and-migrations/README.md) | Database & migrations (Neon, schema-per-module) | 5 | ~3–4 | yes (Neon) |
-| [04](epic-04-infrastructure-as-code/README.md) | Infrastructure as Code (Pulumi/TS) | 5 | ~4–5 | yes (provisions billable infra, €0 idle) |
-| [05](epic-05-cicd-pipeline/README.md) | CI/CD pipeline (GitHub Actions) | 5 | ~3–4 | yes (CI minutes) |
-| [06](epic-06-frontend-hosting-shell/README.md) | Frontend hosting & app shell | 5 | ~1–2 | — |
-| [07](epic-07-observability/README.md) | Observability (logs, metrics, alerting) | 5 | ~1–2 | — |
-| [08](epic-08-cost-guardrails/README.md) | Cost guardrails (billing budget, Maps caps, scale-up levers) | 5 | ~1–2 | yes (the cost epic) |
-| | **Milestone total** | **40** | **~17–25** (≈ 3.5–5 weeks, one developer) | |
+| Epic | Title | AC | Est. (dev-days) | Cost-relevant | Status |
+|------|-------|----|-----------------|---------------|--------|
+| [01](epic-01-repo-scaffolding/README.md) | Repository & project scaffolding | 5 | ~2–3 | — | ✅ Done |
+| [02](epic-02-backend-service-skeleton/README.md) | Backend service skeleton & health endpoints | 5 | ~2–3 | — | |
+| [03](epic-03-database-and-migrations/README.md) | Database & migrations (Neon, schema-per-module) | 5 | ~3–4 | yes (Neon) | |
+| [04](epic-04-infrastructure-as-code/README.md) | Infrastructure as Code (Pulumi/TS) | 5 | ~4–5 | yes (provisions billable infra, €0 idle) | |
+| [05](epic-05-cicd-pipeline/README.md) | CI/CD pipeline (GitHub Actions) | 5 | ~3–4 | yes (CI minutes) | |
+| [06](epic-06-frontend-hosting-shell/README.md) | Frontend hosting & app shell | 5 | ~1–2 | — | |
+| [07](epic-07-observability/README.md) | Observability (logs, metrics, alerting) | 5 | ~1–2 | — | |
+| [08](epic-08-cost-guardrails/README.md) | Cost guardrails (billing budget, Maps caps, scale-up levers) | 5 | ~1–2 | yes (the cost epic) | |
+| | **Milestone total** | **40** | **~17–25** (≈ 3.5–5 weeks, one developer) | | |
 
 > **Estimates** assume one developer familiar with the stack; they cover implementation, tests, and
 > review, and exclude the author-provided prerequisites (GCP project, Neon/Firebase accounts,

@@ -1,5 +1,7 @@
 # S5 — React + TypeScript (Vite) web app that builds
 
+> **Status:** ✅ Done.
+
 ## Context
 The web app and future mobile (PWA) experience share one **React + TypeScript** codebase, built with
 **Vite**. This story scaffolds that app so there's a real thing that builds — the app shell and
@@ -12,10 +14,10 @@ Assumes the monorepo layout from **S1** exists (`/web` directory present).
 Scaffold a Vite + React + TypeScript app under `/web` that installs, builds, and serves.
 
 ## Acceptance criteria
-- [ ] `/web` initialised with Vite + React + TypeScript; `npm install` succeeds.
-- [ ] `npm run build` produces a production bundle with **no type errors**.
-- [ ] `npm run dev` serves the default page locally.
-- [ ] TypeScript only — no extra languages/runtimes added.
+- [x] `/web` initialised with Vite + React + TypeScript; `npm install` succeeds.
+- [x] `npm run build` produces a production bundle with **no type errors**.
+- [x] `npm run dev` serves the default page locally.
+- [x] TypeScript only — no extra languages/runtimes added.
 
 ## Constraints
 - Keep it to the stock Vite React-TS template plus what's needed to build; no UI framework,

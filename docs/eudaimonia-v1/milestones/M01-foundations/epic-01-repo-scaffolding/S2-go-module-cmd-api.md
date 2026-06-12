@@ -1,5 +1,7 @@
 # S2 — Go module + `/cmd/api` entrypoint that compiles
 
+> **Status:** ✅ Done.
+
 ## Context
 Eudaimonia's backend is a **Go modular monolith** (a single Go service with clean internal modules,
 peelable into services later). This story stands up the Go module and a minimal API entrypoint —
@@ -11,12 +13,12 @@ Assumes the monorepo layout from **S1** exists (`/backend` directory present).
 Initialise the Go module under `/backend` and add a minimal `/cmd/api` entrypoint that compiles.
 
 ## Acceptance criteria
-- [ ] `go.mod` initialised under `/backend` with an agreed module path
+- [x] `go.mod` initialised under `/backend` with an agreed module path
   (e.g. `github.com/gmestre98/eudaimonia/backend`) and a pinned recent Go version.
-- [ ] `backend/cmd/api/main.go` exists with a `main()` that starts and exits cleanly (a stub is fine
+- [x] `backend/cmd/api/main.go` exists with a `main()` that starts and exits cleanly (a stub is fine
   — e.g. log "starting" and return).
-- [ ] From `/backend`: `go build ./...`, `go vet ./...`, and `go test ./...` all succeed.
-- [ ] No domain behaviour and no HTTP server yet — intentionally empty entrypoint.
+- [x] From `/backend`: `go build ./...`, `go vet ./...`, and `go test ./...` all succeed.
+- [x] No domain behaviour and no HTTP server yet — intentionally empty entrypoint.
 
 ## Constraints
 - One language per layer: Go only in `/backend`. No frameworks pulled in yet.

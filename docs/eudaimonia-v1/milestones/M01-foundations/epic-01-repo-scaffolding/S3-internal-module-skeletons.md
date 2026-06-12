@@ -1,5 +1,7 @@
 # S3 — Internal module package skeletons
 
+> **Status:** ✅ Done.
+
 ## Context
 The backend is a modular monolith whose internal modules mirror the target microservice boundaries,
 so any one can later be peeled into its own service **without changing the domain model**. This story
@@ -21,11 +23,11 @@ testable, with a doc comment describing its responsibility.
 - `geo` — geocoding, routing, Google Maps key protection (maps proxy).
 
 ## Acceptance criteria
-- [ ] Packages exist under `backend/internal/`: `platform`, `auth`, `trip`, `budget`, `journal`,
+- [x] Packages exist under `backend/internal/`: `platform`, `auth`, `trip`, `budget`, `journal`,
   `sharing`, `geo`.
-- [ ] Each package compiles independently and has a trivially-passing `_test.go`.
-- [ ] Each package has a package-level doc comment stating its domain responsibility (text above).
-- [ ] No package imports another module's package (boundaries enforced separately in S4).
+- [x] Each package compiles independently and has a trivially-passing `_test.go`.
+- [x] Each package has a package-level doc comment stating its domain responsibility (text above).
+- [x] No package imports another module's package (boundaries enforced separately in S4).
 
 ## Constraints
 - Empty-but-real: no domain logic yet, just the package shape and docs.
