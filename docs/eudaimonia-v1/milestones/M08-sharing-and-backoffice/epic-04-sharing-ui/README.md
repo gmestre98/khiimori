@@ -45,3 +45,23 @@ Negligible — static assets served from Firebase Hosting free tier (PRD §8.1).
 
 Trip sharing / access control UI:
 [assets/03-mobile-and-sharing.svg](../../../assets/03-mobile-and-sharing.svg) (PRD §4.3, §5.10).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-invite-ui.md) | Invite UI (email + role, status) | ~3h | AC1 | M03 Epic 05, Epic 03, Epic 02 |
+| [S2](S2-members-management.md) | Members list, change role & revoke | ~3h | AC2 | S1, Epics 01/03 |
+| [S3](S3-invited-only-visibility.md) | Invited-only trip visibility & tests | ~2.5h | AC3, AC4 | S1, S2, M03 |
+
+**Total:** ~8.5h (≈ 1–2 dev-days), consistent with the epic's ~1–2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Invite UI ── S2 Members management ── S3 Invited-only visibility & tests
+```
