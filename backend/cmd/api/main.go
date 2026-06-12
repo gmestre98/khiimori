@@ -24,6 +24,7 @@ import (
 	"github.com/gmestre98/eudaimonia/backend/internal/geo"
 	"github.com/gmestre98/eudaimonia/backend/internal/journal"
 	"github.com/gmestre98/eudaimonia/backend/internal/platform/config"
+	"github.com/gmestre98/eudaimonia/backend/internal/platform/health"
 	"github.com/gmestre98/eudaimonia/backend/internal/platform/httpx"
 	platformlog "github.com/gmestre98/eudaimonia/backend/internal/platform/log"
 	"github.com/gmestre98/eudaimonia/backend/internal/sharing"
@@ -123,13 +124,17 @@ func run() error {
 	}
 }
 
-// newRouter builds the service's root HTTP router by mounting every domain
-// module through the shared httpx.RouteRegistrar contract. Adding or removing a
-// module is a single edit to this list — the composition root — and no module
-// reaches into another's internals. The modules expose no endpoints yet; health
-// endpoints arrive in S7/S8.
+// newRouter builds the service's root HTTP router: the health probes plus every
+// domain module mounted through the shared httpx.RouteRegistrar contract.
+// Adding or removing a module is a single edit to this list — the composition
+// root — and no module reaches into another's internals. The modules expose no
+// endpoints yet.
 func newRouter() http.Handler {
 	mux := http.NewServeMux()
+
+	// Health probes are mounted on the root router so they inherit the shared
+	// middleware chain. Liveness (S7) is dependency-free; readiness arrives in S8.
+	mux.HandleFunc(health.LivenessPath, health.Healthz)
 
 	modules := []httpx.RouteRegistrar{
 		auth.New(),
