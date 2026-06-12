@@ -107,19 +107,23 @@ Neon console. M01.5 runs this in CI against an ephemeral branch.
 
 ## Roles
 
-The service currently connects as `neondb_owner` (Neon's default owner role).
+Local dev may still connect as `neondb_owner` (Neon's default owner role) for
+convenience. **Deployment is least-privilege:** the `DATABASE_URL` value stored
+in GCP Secret Manager (provisioned in M01.4 — see
+[`infra/secrets.ts`](../../infra/secrets.ts)) uses a dedicated **`app_rw`** role,
+**not** the owner. Create it once in the Neon SQL editor, then use *its*
+credential as the secret value:
 
-> **Follow-up (not blocking v1):** prefer a dedicated, least-privilege
-> application role rather than the owner. In the Neon SQL editor:
->
-> ```sql
-> CREATE ROLE app_rw LOGIN PASSWORD '<generated>';
-> GRANT USAGE ON SCHEMA auth, trip, budget, journal, sharing, geo TO app_rw;
-> GRANT ALL ON ALL TABLES    IN SCHEMA auth, trip, budget, journal, sharing, geo TO app_rw;
-> GRANT ALL ON ALL SEQUENCES IN SCHEMA auth, trip, budget, journal, sharing, geo TO app_rw;
-> ```
->
-> Then swap the user in `DATABASE_URL` / `DATABASE_URL_DIRECT`.
+```sql
+CREATE ROLE app_rw LOGIN PASSWORD '<generated>';
+GRANT USAGE ON SCHEMA auth, trip, budget, journal, sharing, geo TO app_rw;
+GRANT ALL ON ALL TABLES    IN SCHEMA auth, trip, budget, journal, sharing, geo TO app_rw;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA auth, trip, budget, journal, sharing, geo TO app_rw;
+```
+
+`app_rw` is intentionally **not** an owner: it can read/write data in the module
+schemas but cannot create/drop schemas or alter privileges. Schema changes
+(migrations) keep using the owner via `DATABASE_URL_DIRECT`.
 
 ## Regenerating the password
 

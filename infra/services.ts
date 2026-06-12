@@ -22,3 +22,6 @@ export const artifactRegistryApi = enableApi('artifactregistry', 'artifactregist
 
 /** Cloud Storage — private bucket for journal/media objects. */
 export const storageApi = enableApi('storage', 'storage.googleapis.com')
+
+/** Secret Manager — runtime secret containers (DB URL, OAuth, Maps key). */
+export const secretManagerApi = enableApi('secretmanager', 'secretmanager.googleapis.com')
