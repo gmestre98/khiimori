@@ -46,3 +46,23 @@ Negligible — static assets served from Firebase Hosting free tier (PRD §8.1).
 Budget progress within the day plan and dashboard glance:
 [assets/02-day-plan-map.svg](../../../assets/02-day-plan-map.svg) (PRD §4.2) and
 [assets/01-trips-dashboard.svg](../../../assets/01-trips-dashboard.svg) (PRD §4.1).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-rollup-display.md) | Roll-up display (spent / planned / remaining) | ~3.5h | AC1, AC4 | Epic 02 |
+| [S2](S2-dashboard-glance.md) | Current-trip dashboard budget glance | ~2.5h | AC2 | S1, M03 Epic 05 S2 |
+| [S3](S3-live-updates-graceful.md) | Live updates & graceful no-budget handling | ~2.5h | AC3 | S1, S2, M05 Epic 03 |
+
+**Total:** ~8.5h (≈ 1–2 dev-days), consistent with the epic's ~1–2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Roll-up display ── S2 Dashboard glance ── S3 Live updates & graceful no-budget
+```
