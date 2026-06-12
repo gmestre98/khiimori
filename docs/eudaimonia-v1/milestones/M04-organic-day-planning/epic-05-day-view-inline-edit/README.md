@@ -52,3 +52,26 @@ Negligible — static assets served from Firebase Hosting free tier (PRD §8.1).
 Day plan with itinerary/accommodation/activities:
 [assets/02-day-plan-map.svg](../../../assets/02-day-plan-map.svg) (PRD §4.2); mobile day view:
 [assets/03-mobile-and-sharing.svg](../../../assets/03-mobile-and-sharing.svg) (PRD §4.3).
+
+## User stories
+
+The epic is split into **5 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-day-view-layout.md) | Day view layout (timed / untimed / stays / backlog) | ~3.5h | AC1 | M03 Epic 05, Epics 01–04 |
+| [S2](S2-inline-add-edit.md) | Inline quick add/edit | ~3h | AC2 | S1, Epic 02 |
+| [S3](S3-replanning-affordances.md) | Re-planning affordances (drag / move / promote / status) | ~3.5h | AC3 | S1, Epics 03/04 |
+| [S4](S4-auto-save.md) | Auto-save (debounced) | ~2.5h | AC4 | S2, S3, Epic 06 |
+| [S5](S5-mobile-interactions.md) | Mobile-first interactions (sheets, thumb zones) | ~2.5h | AC5 | S1–S4 |
+
+**Total:** ~15h (≈ 2–3 dev-days), consistent with the epic's ~2–3 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Day view layout ── S2 Inline add/edit ── S3 Re-planning affordances ──┬─ S4 Auto-save
+                                                                         └─ S5 Mobile interactions
+```
