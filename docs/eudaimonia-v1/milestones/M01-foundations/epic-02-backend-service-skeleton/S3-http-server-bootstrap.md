@@ -1,5 +1,7 @@
 # S3 — HTTP server bootstrap & graceful shutdown
 
+> **Status:** ✅ Done.
+
 ## Context
 `/cmd/api` should boot **one** HTTP server that everything else hangs off of (PRD §7.1). This story
 turns the stub `main()` from M01.1 into a real server with a clean lifecycle — it builds `Config` (S1),
@@ -12,12 +14,12 @@ Assumes config (**S1**) and logging (**S2**) exist.
 Wire `/cmd/api/main.go` to construct config + logger and run an HTTP server with graceful shutdown.
 
 ## Acceptance criteria
-- [ ] `main()` loads `Config`, builds the logger, and starts a single `http.Server` on the configured port.
-- [ ] Server uses sensible read/write/idle timeouts (no unbounded defaults).
-- [ ] On SIGINT/SIGTERM the server stops accepting connections and drains in-flight requests within a
+- [x] `main()` loads `Config`, builds the logger, and starts a single `http.Server` on the configured port.
+- [x] Server uses sensible read/write/idle timeouts (no unbounded defaults).
+- [x] On SIGINT/SIGTERM the server stops accepting connections and drains in-flight requests within a
   bounded timeout, then exits 0; a failed bind/start exits non-zero with a logged error.
-- [ ] Startup and shutdown are logged via the S2 structured logger.
-- [ ] `go build ./...` and `go vet ./...` succeed.
+- [x] Startup and shutdown are logged via the S2 structured logger.
+- [x] `go build ./...` and `go vet ./...` succeed.
 
 ## Constraints
 - **Standard library `net/http` only** — no web framework or other third-party dependency; ask first and

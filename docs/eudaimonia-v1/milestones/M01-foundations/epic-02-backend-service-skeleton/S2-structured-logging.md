@@ -1,5 +1,7 @@
 # S2 — Structured JSON logging
 
+> **Status:** ✅ Done.
+
 ## Context
 Logs must be **structured JSON from the start** so they feed Cloud Logging cleanly once the service
 deploys (Epic M01.7). This story adds the shared logger to the `platform` layer; every module and the
@@ -15,13 +17,13 @@ Assumes the config loader from **S1** exists (the logger reads its level from `C
 Add `internal/platform/log` providing a structured JSON logger constructed from `Config`.
 
 ## Acceptance criteria
-- [ ] A constructor builds a logger that emits **JSON** lines with at least `level`, `time`, and `msg`.
-- [ ] Log level is driven by `Config.LogLevel` from S1; **all levels are supported** but the default is
+- [x] A constructor builds a logger that emits **JSON** lines with at least `level`, `time`, and `msg`.
+- [x] Log level is driven by `Config.LogLevel` from S1; **all levels are supported** but the default is
   `error` and v1 emits **error-level logs only** project-wide.
-- [ ] The logger supports structured key/value fields (e.g. `With`/attributes), not just format strings.
-- [ ] A way to attach a logger to / retrieve it from a `context.Context` so request-scoped fields
+- [x] The logger supports structured key/value fields (e.g. `With`/attributes), not just format strings.
+- [x] A way to attach a logger to / retrieve it from a `context.Context` so request-scoped fields
   (request id, etc. — added in S5) flow through.
-- [ ] Unit tests assert output is valid JSON and respects the configured level.
+- [x] Unit tests assert output is valid JSON and respects the configured level.
 
 ## Constraints
 - **Standard library only** — use `log/slog` with a JSON handler. No third-party logging library; if you

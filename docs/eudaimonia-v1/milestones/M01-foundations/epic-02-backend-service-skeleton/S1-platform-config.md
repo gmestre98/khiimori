@@ -1,5 +1,7 @@
 # S1 — Platform config loader
 
+> **Status:** ✅ Done.
+
 ## Context
 Eudaimonia's backend is a **Go modular monolith**. The `platform` layer is the single home for
 cross-cutting concerns so the domain modules stay thin (PRD §7.1). This story adds the first piece:
@@ -12,13 +14,13 @@ Assumes the Go module + `internal/platform` package skeleton from **M01.1** exis
 Add `internal/platform/config` that loads typed configuration from the environment with sane defaults.
 
 ## Acceptance criteria
-- [ ] A `Config` struct exposes at least: HTTP port, environment (`dev`/`prod`), and log level.
-- [ ] A `Load()` function reads from environment variables with documented defaults
+- [x] A `Config` struct exposes at least: HTTP port, environment (`dev`/`prod`), and log level.
+- [x] A `Load()` function reads from environment variables with documented defaults
   (e.g. `PORT=8080`, `ENV=dev`, `LOG_LEVEL=error`) and returns a clear error on invalid values.
   Default log level is `error` — project-wide we emit only error logs for now (see S2).
-- [ ] `Config` is loaded once at startup in `main` and read from there — no global mutable state.
+- [x] `Config` is loaded once at startup in `main` and read from there — no global mutable state.
   (No dependency-injection framework or wiring — plain Go, load once and pass the value where needed.)
-- [ ] Unit tests cover defaults, overrides, and at least one invalid-value path.
+- [x] Unit tests cover defaults, overrides, and at least one invalid-value path.
 
 ## Constraints
 - **Standard library only.** No config framework or any third-party dependency. If you think one is
