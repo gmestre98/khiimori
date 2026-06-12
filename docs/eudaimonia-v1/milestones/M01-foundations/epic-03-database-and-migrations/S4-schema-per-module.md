@@ -1,5 +1,7 @@
 # S4 — Schema-per-module layout & initial schemas
 
+> **Status:** ✅ Done.
+
 ## Context
 Each domain module owns its own Postgres **schema** (`auth.*`, `trip.*`, `budget.*`, `journal.*`,
 `sharing.*`, `geo.*`) so a module can later move to its own service/DB **without a data redesign**
@@ -13,12 +15,12 @@ Create a migration (or migrations) that establishes one Postgres schema per doma
 migration files per module.
 
 ## Acceptance criteria
-- [ ] A migration creates the six schemas: `auth`, `trip`, `budget`, `journal`, `sharing`, `geo`
+- [x] A migration creates the six schemas: `auth`, `trip`, `budget`, `journal`, `sharing`, `geo`
   (`CREATE SCHEMA IF NOT EXISTS …`), each owned by the application role.
-- [ ] Migrations are organised so each module's future tables live under its own schema and migration grouping.
-- [ ] No cross-schema foreign keys are introduced yet (keeps modules peelable); document this convention.
-- [ ] Up applies all schemas; down removes them cleanly on a throwaway DB.
-- [ ] Naming/placement convention for future per-module migrations is documented.
+- [x] Migrations are organised so each module's future tables live under its own schema and migration grouping.
+- [x] No cross-schema foreign keys are introduced yet (keeps modules peelable); document this convention.
+- [x] Up applies all schemas; down removes them cleanly on a throwaway DB.
+- [x] Naming/placement convention for future per-module migrations is documented.
 
 ## Constraints
 - Schemas only — **no domain tables** in this epic (those come with each feature milestone).

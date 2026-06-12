@@ -1,5 +1,7 @@
 # S2 — DB connection layer (serverless driver / pooler)
 
+> **Status:** ✅ Done.
+
 ## Context
 The service must connect to Neon through its **serverless driver / connection pooler** so that flipping
 between scale-to-zero and always-on is a **config change, not a code change** (PRD §8.6). This story adds the
@@ -13,13 +15,13 @@ Assumes the platform config loader (M01.2 S1) exists and Neon is provisioned (**
 Add `internal/platform/db` that opens a pooled Postgres connection from config and manages its lifecycle.
 
 ## Acceptance criteria
-- [ ] A constructor builds a connection pool from a config-supplied connection string (read from env/Secret
+- [x] A constructor builds a connection pool from a config-supplied connection string (read from env/Secret
   Manager, never hardcoded).
-- [ ] **Pooled vs direct** is a config toggle (e.g. `DB_POOLED=true`) — switching does not require code edits (PRD §8.6).
-- [ ] Sensible pool limits and connect/statement timeouts are set (suited to Neon scale-to-zero cold starts).
-- [ ] A `Ping`/health method exists for the readiness check (S6) to call.
-- [ ] The pool is closed cleanly on service shutdown (integrates with M01.2's graceful shutdown).
-- [ ] A unit test covers config→DSN construction and the pooled/direct toggle (no live DB needed).
+- [x] **Pooled vs direct** is a config toggle (e.g. `DB_POOLED=true`) — switching does not require code edits (PRD §8.6).
+- [x] Sensible pool limits and connect/statement timeouts are set (suited to Neon scale-to-zero cold starts).
+- [x] A `Ping`/health method exists for the readiness check (S6) to call.
+- [x] The pool is closed cleanly on service shutdown (integrates with M01.2's graceful shutdown).
+- [x] A unit test covers config→DSN construction and the pooled/direct toggle (no live DB needed).
 
 ## Constraints
 - Use Neon's recommended pooler/serverless path; keep the driver behind a thin interface so it can be
