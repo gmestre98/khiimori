@@ -47,3 +47,27 @@ tier).
 ## Designs
 
 No new visual surface; offline state is surfaced subtly within Epic 05's day view (PRD §5.10).
+
+## User stories
+
+The epic is split into **4 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-mutation-queue.md) | Client-side mutation queue | ~3.5h | AC1 | Epics 02–05 |
+| [S2](S2-replay-idempotent.md) | Replay on reconnect (ordered, idempotent) | ~3h | AC1, AC2 | S1, Epics 02–04 |
+| [S3](S3-conflict-resolution.md) | Conflict resolution (deterministic) | ~3h | AC2 | S1, S2, Epic 04 S1 |
+| [S4](S4-shared-contract-tests.md) | Shared-mechanism contract & tests | ~3h | AC3, AC4 | S1–S3 |
+
+**Total:** ~12.5h (≈ 2–3 dev-days), consistent with the epic's ~2–3 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Mutation queue ── S2 Replay (idempotent) ── S3 Conflict resolution ── S4 Shared contract & tests
+```
+
+> The shared queue/replay contract (S4) is **co-designed with Milestone 06 (Journal)** and reused by
+> Milestone 09's service worker — one offline mechanism, not three.
