@@ -10,6 +10,7 @@ import { region } from './config'
 import { cloudRunApi } from './services'
 import { serviceAccount } from './serviceAccount'
 import { databaseUrlSecret, mapsApiKeySecret, oauthClientSecret, secretVersions } from './secrets'
+import { maxInstances, minInstances } from './tunables'
 
 // A Secret Manager-backed env var: the container receives the secret's *value*
 // at runtime, sourced from the named secret's latest version — never a literal
@@ -58,8 +59,12 @@ export const service = new gcp.cloudrunv2.Service(
     template: {
       // Run as the dedicated SA from S5, never the default compute SA.
       serviceAccount: serviceAccount.email,
-      // Scale-to-zero by default: min instances is left unset here (defaults to
-      // 0) and wired to config in S9 — no warm instances pinned in this story.
+      // Scale tunables from typed config (S9). Defaults to scale-to-zero
+      // (minInstanceCount 0) so an idle service costs ≈€0 (PRD §8.6).
+      scaling: {
+        minInstanceCount: minInstances,
+        maxInstanceCount: maxInstances,
+      },
       containers: [
         {
           image,

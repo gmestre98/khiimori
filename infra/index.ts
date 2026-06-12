@@ -14,6 +14,7 @@ import { secretIds } from './secrets'
 import { serviceAccountEmail } from './serviceAccount'
 import { serviceUrl } from './cloudRun'
 import { hostingSiteId, hostingUrl } from './hosting'
+import { mapsDailyQuota, maxInstances, minInstances, neonTier } from './tunables'
 
 // Echo the resolved provider config as stack outputs. These are trivial (no
 // resources created) and double as a smoke test that project + region are set.
@@ -38,3 +39,11 @@ export const cloudRunUrl = serviceUrl
 // Firebase Hosting site — deploy target (M01.5) and web origin (M01.6).
 export const firebaseHostingSiteId = hostingSiteId
 export const firebaseHostingUrl = hostingUrl
+
+// Scale tunables (S9) — surfaced for visibility; defaults are the cheap ones.
+export const tunables = {
+  minInstances,
+  maxInstances,
+  neonTier,
+  mapsDailyQuota,
+}
