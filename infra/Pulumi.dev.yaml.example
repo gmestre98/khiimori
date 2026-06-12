@@ -22,3 +22,21 @@ config:
   # eudaimonia:mediaBucketName: your-project-media
   # Allow `pulumi destroy` to delete a non-empty media bucket (default false).
   # eudaimonia:mediaBucketForceDestroy: "false"
+
+  # --- Secret VALUES — never write them here in plaintext --------------------
+  # The program creates the secret *containers*; their values are supplied
+  # out-of-band. Two supported ways (pick one), both keep plaintext out of git:
+  #
+  #   a) Pulumi secret config (encrypted into the stack file, read by the
+  #      program to create the first version):
+  #        pulumi config set --secret eudaimonia:databaseUrl       "postgresql://app_rw:…"
+  #        pulumi config set --secret eudaimonia:oauthClientSecret "…"
+  #        pulumi config set --secret eudaimonia:mapsApiKey        "…"
+  #      (These land here as `secure:` blobs — encrypted, safe to commit if you
+  #       ever choose to track the stack file; this repo gitignores it anyway.)
+  #
+  #   b) Out-of-band after `pulumi up`, leaving config unset:
+  #        gcloud secrets versions add eudaimonia-database-url --data-file=-
+  #
+  # The databaseUrl value MUST use the least-privilege Neon role `app_rw`
+  # (not neondb_owner) — see backend/docs/database.md.
