@@ -47,3 +47,26 @@ assets on Firebase Hosting free tier (PRD §8.1).
 
 An intentionally minimal admin surface (PRD §5.9) using the same black/white system as the rest of
 the app (Milestone 09). No dedicated mockup beyond the shared design language.
+
+## User stories
+
+The epic is split into **4 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-admin-gating.md) | Admin gating & backoffice route | ~3h | AC1, AC3 | M02 (`is_admin`) |
+| [S2](S2-list-users-trips.md) | List users & list trips | ~3h | AC2 | S1, M02, M03 |
+| [S3](S3-admin-actions.md) | Grant/revoke access, change roles, deactivate users | ~3.5h | AC2 | S1, S2, Epics 01/02, M02 |
+| [S4](S4-admin-access-tests.md) | Admin access-control tests | ~2.5h | AC4 | S1–S3 |
+
+**Total:** ~12h (≈ 2 dev-days), consistent with the epic's ~2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Admin gating ── S2 List users & trips ── S3 Admin actions ── S4 Access-control tests
+```
+
+This completes the per-epic story breakdown for **Milestone 08 (5 epics)**.
