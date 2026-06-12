@@ -54,3 +54,26 @@ component (PRD §8 — within free tier).
 
 No UI in this epic — it is the data model and provisioning logic behind sign-in. The profile surface
 that edits these fields is Epic 04 / Milestone 09.
+
+## User stories
+
+The epic is split into **5 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-auth-schema-user-migration.md) | `auth.*` schema & `User` migration | ~3h | AC1 | — (M01.3) |
+| [S2](S2-provision-user-transaction.md) | Provision user + profile in one transaction | ~3.5h | AC2 | S1 (Epic 01 S3) |
+| [S3](S3-returning-user-resolution.md) | Returning-user resolution & email-change-no-duplicate | ~2.5h | AC3 | S1, S2 |
+| [S4](S4-admin-bootstrap.md) | Admin bootstrap path (`is_admin`) | ~2.5h | AC4 | S1, S2 |
+| [S5](S5-provisioning-integration-tests.md) | Provisioning integration tests | ~3h | AC5 | S1–S4 (M01.3 S7) |
+
+**Total:** ~14.5h (≈ 2 dev-days), consistent with the epic's ~2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Schema ── S2 Provision (tx) ──┬─ S3 Returning resolution ──┐
+                                 └─ S4 Admin bootstrap ────────┴─ S5 Integration tests
+```
