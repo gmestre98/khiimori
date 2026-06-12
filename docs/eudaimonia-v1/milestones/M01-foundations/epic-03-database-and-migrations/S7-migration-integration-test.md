@@ -1,5 +1,7 @@
 # S7 — Integration test: migrations on an ephemeral DB
 
+> **Status:** ✅ Done.
+
 ## Context
 The PRD requires integration tests for service-to-database behaviour (PRD §7.6). This story adds the first
 one: spin up an **ephemeral Neon branch** (or equivalent throwaway test database), run all migrations against
@@ -11,12 +13,12 @@ Assumes the migration runner (**S5**) and schema migrations (**S4**) exist.
 Add an integration test that provisions an ephemeral database, runs migrations, and verifies the schemas exist.
 
 ## Acceptance criteria
-- [ ] The test creates/targets an **ephemeral Neon branch** (preferred) or a disposable test database from config.
-- [ ] It runs the full migration set via the S5 runner and asserts the six module schemas exist (and roll back cleanly).
-- [ ] The test is **hermetic and CI-runnable**: connection details come from env/secrets, and it tears the
+- [x] The test creates/targets an **ephemeral Neon branch** (preferred) or a disposable test database from config.
+- [x] It runs the full migration set via the S5 runner and asserts the six module schemas exist (and roll back cleanly).
+- [x] The test is **hermetic and CI-runnable**: connection details come from env/secrets, and it tears the
   branch/DB down (or relies on Neon branch expiry) afterwards.
-- [ ] It is gated behind an integration build tag/flag so unit runs stay fast and DB-free.
-- [ ] Documented how to run it locally (env vars needed).
+- [x] It is gated behind an integration build tag/flag so unit runs stay fast and DB-free.
+- [x] Documented how to run it locally (env vars needed).
 
 ## Constraints
 - Never run integration migrations against the real prod DB — only ephemeral branches/test DBs.

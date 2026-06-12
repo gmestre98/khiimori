@@ -1,5 +1,7 @@
 # S3 — Select & wire a migration tool
 
+> **Status:** ✅ Done.
+
 ## Context
 Schema changes must be versioned and repeatable from day one (PRD §7.7). This story chooses a Go-friendly
 migration tool and wires it into the repo so migrations can be authored and applied consistently in local
@@ -12,12 +14,12 @@ Assumes the DB connection details from **S1** are available.
 Pick a migration tool, add it to the project, and establish the migration directory layout + naming convention.
 
 ## Acceptance criteria
-- [ ] A migration tool is added (e.g. `golang-migrate`, `goose`, or `atlas`) with a short rationale recorded.
-- [ ] A migrations directory and an explicit **up/down** (or versioned) naming convention are documented.
-- [ ] The tool reads the connection string from config/env (never hardcoded) and works against the **direct**
+- [x] A migration tool is added (e.g. `golang-migrate`, `goose`, or `atlas`) with a short rationale recorded.
+- [x] A migrations directory and an explicit **up/down** (or versioned) naming convention are documented.
+- [x] The tool reads the connection string from config/env (never hardcoded) and works against the **direct**
   Neon connection (migrations bypass the pooler).
-- [ ] A trivial throwaway migration applies and rolls back cleanly against the dev database to prove the wiring.
-- [ ] Tool version is pinned for reproducibility.
+- [x] A trivial throwaway migration applies and rolls back cleanly against the dev database to prove the wiring.
+- [x] Tool version is pinned for reproducibility.
 
 ## Constraints
 - One tool, minimal config (PRD §7.0). Prefer plain SQL migrations over a heavy ORM/DSL.
