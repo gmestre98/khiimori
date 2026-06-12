@@ -45,3 +45,23 @@ Negligible — stays are small relational rows in the existing Neon database (PR
 
 Accommodation within the day plan:
 [assets/02-day-plan-map.svg](../../../assets/02-day-plan-map.svg) (PRD §4.2).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-stay-schema-migration.md) | `Stay` schema & migration | ~2.5h | AC1 | M03 Epic 01 |
+| [S2](S2-stay-crud.md) | Stay CRUD | ~3h | AC2 | S1, M03 Epic 04 |
+| [S3](S3-multi-night-spanning.md) | Multi-night spanning & tests | ~3h | AC3, AC4 | S1, S2 |
+
+**Total:** ~8.5h (≈ 1–2 dev-days), consistent with the epic's ~1–2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Stay schema ── S2 Stay CRUD ── S3 Multi-night spanning & tests
+```
