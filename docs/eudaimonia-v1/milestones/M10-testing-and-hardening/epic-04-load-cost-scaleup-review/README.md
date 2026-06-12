@@ -50,3 +50,26 @@ budget/alert live, Maps quota caps, scale-to-zero, single-setting scale-up lever
 ## Designs
 
 No UI — a cost/operations review deliverable (PRD §8).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-cost-posture-review.md) | Cost posture review (idle ≈€0–3/mo, guardrails live) | ~3h | AC1, AC3, AC4 | M01 Epic 08, M03, M07 |
+| [S2](S2-scaleup-playbook.md) | Scale-up levers & mid-trip playbook validation | ~3.5h | AC1, AC2 | S1, M01 Epic 08 |
+| [S3](S3-ci-minutes-signoff.md) | CI-minutes watch & cost sign-off | ~2h | AC5 | S1, S2, Epics 01–02 |
+
+**Total:** ~8.5h (≈ 1–2 dev-days), consistent with the epic's ~1–2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Cost posture review ── S2 Scale-up levers & playbook ── S3 CI-minutes watch & sign-off
+```
+
+> A release gate that **verifies** the cost guardrails (it adds no cost). S2 actually exercises a scale-up
+> lever from mobile and reverts it.
