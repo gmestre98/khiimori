@@ -8,8 +8,12 @@
 // service (S6/S7/S9), and the Firebase Hosting site (S8).
 
 import { project, region } from './config'
+import { imagePathPrefix } from './artifactRegistry'
 
 // Echo the resolved provider config as stack outputs. These are trivial (no
 // resources created) and double as a smoke test that project + region are set.
 export const gcpProject = project
 export const gcpRegion = region
+
+// Artifact Registry image-path prefix CI pushes to and Cloud Run deploys from.
+export const artifactImagePrefix = imagePathPrefix

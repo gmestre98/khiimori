@@ -14,3 +14,7 @@ config:
   # GCP region. europe-west2 (London) pairs with the Neon DB in eu-west-2
   # (AWS London) for low cross-service latency — see backend/docs/database.md.
   gcp:region: europe-west2
+
+  # --- Optional: resource names (sensible defaults if omitted) ---------------
+  # Artifact Registry Docker repository id (last segment of the image prefix).
+  # eudaimonia:artifactRepoId: eudaimonia

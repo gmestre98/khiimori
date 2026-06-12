@@ -12,13 +12,13 @@ added across epic M01.4.
 
 ## Layout
 
-| Path | Purpose |
-|------|---------|
-| `Pulumi.yaml` | Pulumi project file (committed). |
-| `Pulumi.dev.yaml.example` | Template for the `dev` stack config. Copy to `Pulumi.dev.yaml` (gitignored). |
-| `index.ts` | Program entrypoint — declares the resources. |
-| `config.ts` | Typed stack-config surface (project, region; tunables later). |
-| `tsconfig.json` / `eslint.config.mjs` / `.prettierrc.json` | TS toolchain, matching `web/`. |
+| Path                                                       | Purpose                                                                      |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `Pulumi.yaml`                                              | Pulumi project file (committed).                                             |
+| `Pulumi.dev.yaml.example`                                  | Template for the `dev` stack config. Copy to `Pulumi.dev.yaml` (gitignored). |
+| `index.ts`                                                 | Program entrypoint — declares the resources.                                 |
+| `config.ts`                                                | Typed stack-config surface (project, region; tunables later).                |
+| `tsconfig.json` / `eslint.config.mjs` / `.prettierrc.json` | TS toolchain, matching `web/`.                                               |
 
 ## Prerequisites
 
