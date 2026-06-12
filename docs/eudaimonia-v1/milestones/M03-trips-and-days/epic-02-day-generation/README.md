@@ -46,3 +46,24 @@ Negligible — days are small relational rows in the existing Neon database (PRD
 
 Day-within-trip context: [assets/02-day-plan-map.svg](../../../assets/02-day-plan-map.svg)
 (PRD §4.2). No bespoke UI in this epic beyond the day shell rendered in Epic 05.
+
+## User stories
+
+The epic is split into **4 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-day-schema-migration.md) | `Day` schema & migration | ~2.5h | AC1 | Epic 01 S1 |
+| [S2](S2-generate-days-on-create.md) | Generate days on trip create | ~3h | AC2 | S1, Epic 01 S2 |
+| [S3](S3-regenerate-on-range-edit.md) | Regenerate days on range edit (add/remove, shrink guard) | ~3.5h | AC3 | S1, S2, Epic 01 S3 |
+| [S4](S4-day-addressability-tests.md) | Day addressability & generation tests | ~3h | AC4 | S1–S3 (M01.3 S7) |
+
+**Total:** ~12h (≈ 2 dev-days), consistent with the epic's ~2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Day schema ── S2 Generate on create ── S3 Regenerate on range edit ── S4 Addressability & tests
+```
