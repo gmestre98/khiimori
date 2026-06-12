@@ -22,9 +22,33 @@ S5.
 migrations/
   embed.go          # embeds sql/ as an fs.FS for goose
   sql/
-    .gitkeep        # keeps the dir present while empty (S3)
-    NNNNN_<module>_<description>.sql
+    00001_auth_init.sql      # creates schema auth
+    00002_trip_init.sql      # creates schema trip
+    00003_budget_init.sql    # creates schema budget
+    00004_journal_init.sql   # creates schema journal
+    00005_sharing_init.sql   # creates schema sharing
+    00006_geo_init.sql       # creates schema geo
+    NNNNN_<module>_<description>.sql   # future per-module migrations
 ```
+
+## Schema-per-module
+
+Each domain module owns its own Postgres **schema** so a module can later move to
+its own service/DB without a data redesign (PRD §7.7, §7.0). The first six
+migrations create the (empty) schemas — one per module: `auth`, `trip`,
+`budget`, `journal`, `sharing`, `geo`. Each is owned by the connecting
+application role (`CREATE SCHEMA` defaults ownership to the current role).
+
+Each module's future tables and migrations live **under its own schema** and
+carry its `<module>` filename prefix, e.g. auth's history is `00001_auth_init`,
+then `0000N_auth_users`, … Qualify every object with its schema (`trip.trips`,
+not `trips`).
+
+**No cross-schema foreign keys.** A FK from one module's schema into another's
+would couple them and break the "peel a module into its own service" property.
+Modules reference each other by id only; integrity across modules is enforced in
+application code, not the database. (This mirrors the backend's module-boundary
+rule.)
 
 - Files live in `sql/` and are named `NNNNN_<module>_<description>.sql`, e.g.
   `00001_auth_init.sql`, `00002_trip_add_trips_table.sql`.
@@ -48,11 +72,11 @@ CREATE TABLE trip.trips (...);
 DROP TABLE trip.trips;
 ```
 
-Conventions (enforced by convention, expanded in S4):
+Conventions:
 
 - One logical change per file; always provide a working `Down`.
-- Qualify objects with their module schema (`trip.trips`, not `trips`).
-- No cross-schema foreign keys (keeps modules peelable) — see S4.
+- Qualify objects with their module schema (`trip.trips`, not `trips`) and follow
+  the schema-per-module rules above (own schema, no cross-schema FKs).
 
 ## Running
 
