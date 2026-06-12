@@ -49,3 +49,29 @@ tier (~3k emails/mo)** at expected volume, **€0** (PRD §8.1). Memberships/inv
 
 Invite/share flow:
 [assets/03-mobile-and-sharing.svg](../../../assets/03-mobile-and-sharing.svg) (PRD §4.3).
+
+## User stories
+
+The epic is split into **5 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-invitation-schema.md) | `Invitation` schema & migration | ~2.5h | AC1 | M03, Epic 01 |
+| [S2](S2-email-sender.md) | Transactional email sender | ~3h | AC2 | M01.4 |
+| [S3](S3-create-send-invite.md) | Create & send invitation | ~3h | AC2 | S1, S2, Epic 02 |
+| [S4](S4-accept-invite.md) | Accept invitation on sign-in (claim → membership) | ~3.5h | AC3 | S1, S3, M02, Epic 01 |
+| [S5](S5-change-role-revoke-tests.md) | Change role / revoke & invitation tests | ~3h | AC4, AC5 | S1–S4, Epic 02 |
+
+**Total:** ~15h (≈ 2–3 dev-days), consistent with the epic's ~2–3 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Invitation schema ──┐
+S2 Email sender ───────┴─ S3 Create & send ── S4 Accept (claim → membership) ── S5 Change role/revoke & tests
+```
+
+> S2 flags confirming the transactional-email provider/library with the author. The one new billable
+> touchpoint is invite email — free tier (~3k/mo), €0 at expected volume.
