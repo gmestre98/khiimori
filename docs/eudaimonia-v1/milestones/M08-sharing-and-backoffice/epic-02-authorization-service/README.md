@@ -51,3 +51,30 @@ Negligible — authorization checks are small reads in the existing Neon databas
 ## Designs
 
 No UI — this is the server-side access guarantee behind every trip surface (PRD §5.9, §6).
+
+## User stories
+
+The epic is split into **5 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-membership-authorizer.md) | Membership-based `Authorizer` implementation | ~3.5h | AC1 | M03 Epic 04 S1, Epic 01 S2 |
+| [S2](S2-swap-shim.md) | Swap owner-only shim for the real `Authorizer` | ~3h | AC2 | S1, M03 Epic 04 |
+| [S3](S3-403-404-revocation.md) | 403/404 enforcement & immediate revocation | ~2.5h | AC3, AC4 | S1, S2 |
+| [S4](S4-cross-module-wiring.md) | Cross-module authorization wiring (Budget / Journal / Geo) | ~3h | AC2 | S2, M05–M07 |
+| [S5](S5-cross-module-authz-tests.md) | Cross-module role-enforcement tests | ~3.5h | AC5 | S1–S4 |
+
+**Total:** ~15.5h (≈ 2–3 dev-days), consistent with the epic's ~2–3 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Membership Authorizer ── S2 Swap shim ──┬─ S3 403/404 & revocation
+                                           ├─ S4 Cross-module wiring
+                                           └─ S5 Cross-module tests
+```
+
+> This is the safety-critical authorization authority. The interface was defined in Milestone 03 Epic 04,
+> so S2 is a mechanical drop-in swap and M03's behaviour-level tests keep passing.
