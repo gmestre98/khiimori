@@ -133,8 +133,15 @@ func newRouter() http.Handler {
 	mux := http.NewServeMux()
 
 	// Health probes are mounted on the root router so they inherit the shared
-	// middleware chain. Liveness (S7) is dependency-free; readiness arrives in S8.
+	// middleware chain. Liveness (S7) is dependency-free; readiness (S8)
+	// aggregates the checks registered below.
 	mux.HandleFunc(health.LivenessPath, health.Healthz)
+
+	readiness := health.NewReadiness()
+	// TODO(M01.3): register the database connectivity check here once the DB
+	// handle exists, e.g. readiness.Register("database", db ping) — the /readyz
+	// contract needs no other change.
+	mux.HandleFunc(health.ReadinessPath, readiness.Handler)
 
 	modules := []httpx.RouteRegistrar{
 		auth.New(),
