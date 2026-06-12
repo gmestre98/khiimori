@@ -40,3 +40,24 @@ None — pure client-side interaction over already-loaded map/itinerary data (PR
 
 Pin↔item correlation in the day plan:
 [assets/02-day-plan-map.svg](../../../assets/02-day-plan-map.svg) (PRD §4.2, §5.10).
+
+## User stories
+
+The epic is split into **2 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-shared-selection-state.md) | Shared selection/highlight state | ~2.5h | AC1, AC2 | Epic 03, M04 Epic 05 |
+| [S2](S2-two-way-highlight-tests.md) | Two-way highlighting & tests | ~3h | AC1, AC2, AC3 | S1 |
+
+**Total:** ~5.5h (≈ 1 dev-day), consistent with the epic's ~1 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Shared selection state ── S2 Two-way highlighting & tests
+```
+
+This completes the per-epic story breakdown for **Milestone 07 (4 epics)**.
