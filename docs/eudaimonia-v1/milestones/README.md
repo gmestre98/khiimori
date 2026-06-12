@@ -18,7 +18,7 @@ keep the stack small, prefer a modular monolith, and keep every decision easy to
 | # | Milestone | Theme | Status | Key PRD refs |
 |---|-----------|-------|--------|--------------|
 | [01](M01-foundations/README.md) | Foundations | Repo, backend, DB, IaC, CI/CD, hosting, observability, cost guardrails | **Broken into 8 epics** | §7.1, §7.4–7.8, §8 |
-| [02](M02-auth-and-profile/README.md) | Auth & Profile | Google SSO, user provisioning, profile | Overview — epics TBD | §5.7, §5.8, §7.1 |
+| [02](M02-auth-and-profile/README.md) | Auth & Profile | Google SSO, user provisioning, profile | **Broken into 5 epics** | §5.7, §5.8, §7.1 |
 | [03](M03-trips-and-days/README.md) | Trips & Days | Trip CRUD, Current/Upcoming/Past, auto-generated days | Overview — epics TBD | §5.1, §9 |
 | [04](M04-organic-day-planning/README.md) | Organic Day Planning | Stays, plan items, ideas backlog, re-planning | Overview — epics TBD | §5.2, §5.3, §9 |
 | [05](M05-budgets-and-cost-tracking/README.md) | Budgets & Cost Tracking | Trip/day budgets, costs, roll-ups | Overview — epics TBD | §5.4, §9 |
