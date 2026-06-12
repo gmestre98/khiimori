@@ -46,3 +46,23 @@ tier).
 ## Designs
 
 Daily budget panel: [assets/02-day-plan-map.svg](../../../assets/02-day-plan-map.svg) (PRD §4.2).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-budget-schema-migration.md) | `budget.*` schema & `BudgetLine` migration | ~3h | AC1 | M03 Epics 01/02 |
+| [S2](S2-set-budget-lines.md) | Set/update budget lines (trip & per-day, EUR) | ~3h | AC1, AC3 | S1, M03 Epic 04 |
+| [S3](S3-budget-line-tests.md) | Budget-line tests | ~2.5h | AC4 | S1, S2 |
+
+**Total:** ~8.5h (≈ 1–2 dev-days), consistent with the epic's ~1–2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Schema ── S2 Set/update lines ── S3 Tests
+```
