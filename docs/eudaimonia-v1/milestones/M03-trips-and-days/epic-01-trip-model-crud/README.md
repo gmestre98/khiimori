@@ -51,3 +51,26 @@ Uploaded covers use the Cloud Storage bucket (minor).
 Trip create/edit form and trip card surfaces:
 [assets/01-trips-dashboard.svg](../../../assets/01-trips-dashboard.svg) (PRD §4.1). Rendered by
 Epic 05 with Milestone 09 components.
+
+## User stories
+
+The epic is split into **5 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-trip-schema-migration.md) | `trip.*` schema & `Trip` migration | ~3h | AC1 | — (M01.3, M02) |
+| [S2](S2-trip-create-owner-membership.md) | Trip create + owner membership (transaction) | ~3.5h | AC2, AC4 | S1 |
+| [S3](S3-trip-edit.md) | Trip edit (emits date-range change) | ~2.5h | AC2 | S1, S2 |
+| [S4](S4-archive-delete-cascade.md) | Archive & delete (cascade, transactional) | ~3h | AC3 | S1, S2 (Epic 02) |
+| [S5](S5-crud-tests.md) | Trip CRUD & owner-membership tests | ~3h | AC5 | S1–S4 (M01.3 S7) |
+
+**Total:** ~15h (≈ 2–3 dev-days), consistent with the epic's ~2–3 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Schema ── S2 Create + owner membership ──┬─ S3 Edit ──────────────────┐
+                                            └─ S4 Archive & delete ───────┴─ S5 Tests
+```
