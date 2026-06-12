@@ -66,75 +66,69 @@ type Config struct {
 	DBPooled bool
 }
 
-// Defaults applied by Load when the corresponding environment variable is unset.
-const (
-	defaultPort     = 8080
-	defaultEnv      = EnvDev
-	defaultLogLevel = LevelError
-	defaultDBPooled = true
-)
-
-// Load reads configuration from the environment, applying defaults for unset
-// variables and returning an error if any value is invalid.
+// Load reads configuration from the environment and returns an error if any
+// variable is missing or invalid. There are no defaults: every value must be set
+// explicitly so a misconfiguration fails here, at startup — the earliest point —
+// rather than surprising the operator at runtime.
 //
-// Recognised variables:
+// Required variables:
 //
-//	PORT                 TCP port to listen on        (default 8080)
-//	ENV                  dev | prod                    (default dev)
-//	LOG_LEVEL            debug | info | warn | error    (default error)
+//	PORT                 TCP port to listen on          (1-65535)
+//	ENV                  dev | prod
+//	LOG_LEVEL            debug | info | warn | error
+//	DB_POOLED            true | false
 //	DATABASE_URL         pooled (pgBouncer) database DSN (required if DB_POOLED=true)
 //	DATABASE_URL_DIRECT  direct database DSN, migrations (required if DB_POOLED=false)
-//	DB_POOLED            true | false                   (default true)
 //
-// The active database DSN (per the DB_POOLED toggle) is mandatory: a missing
-// value fails here, at config time — the earliest point — rather than later.
+// Of the two DSNs, only the active one (per DB_POOLED) is required; the unused
+// endpoint stays optional so a pooled service isn't forced to carry the direct
+// secret it never uses.
 func Load() (Config, error) {
-	cfg := Config{
-		Port:              defaultPort,
-		Env:               defaultEnv,
-		LogLevel:          defaultLogLevel,
-		DatabaseURL:       os.Getenv("DATABASE_URL"),
-		DatabaseURLDirect: os.Getenv("DATABASE_URL_DIRECT"),
-		DBPooled:          defaultDBPooled,
+	var cfg Config
+
+	portStr, err := required("PORT")
+	if err != nil {
+		return Config{}, err
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: invalid PORT %q: %w", portStr, err)
+	}
+	if port < 1 || port > 65535 {
+		return Config{}, fmt.Errorf("config: PORT %d out of range 1-65535", port)
+	}
+	cfg.Port = port
+
+	envStr, err := required("ENV")
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.Env = Env(envStr)
+	if cfg.Env != EnvDev && cfg.Env != EnvProd {
+		return Config{}, fmt.Errorf("config: invalid ENV %q (want dev or prod)", envStr)
 	}
 
-	if v, ok := os.LookupEnv("PORT"); ok {
-		port, err := strconv.Atoi(v)
-		if err != nil {
-			return Config{}, fmt.Errorf("config: invalid PORT %q: %w", v, err)
-		}
-		if port < 1 || port > 65535 {
-			return Config{}, fmt.Errorf("config: PORT %d out of range 1-65535", port)
-		}
-		cfg.Port = port
+	levelStr, err := required("LOG_LEVEL")
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.LogLevel = LogLevel(levelStr)
+	if !cfg.LogLevel.valid() {
+		return Config{}, fmt.Errorf("config: invalid LOG_LEVEL %q (want debug, info, warn or error)", levelStr)
 	}
 
-	if v, ok := os.LookupEnv("ENV"); ok {
-		env := Env(v)
-		if env != EnvDev && env != EnvProd {
-			return Config{}, fmt.Errorf("config: invalid ENV %q (want dev or prod)", v)
-		}
-		cfg.Env = env
+	pooledStr, err := required("DB_POOLED")
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.DBPooled, err = strconv.ParseBool(pooledStr)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: invalid DB_POOLED %q (want true or false): %w", pooledStr, err)
 	}
 
-	if v, ok := os.LookupEnv("LOG_LEVEL"); ok {
-		level := LogLevel(v)
-		if !level.valid() {
-			return Config{}, fmt.Errorf("config: invalid LOG_LEVEL %q (want debug, info, warn or error)", v)
-		}
-		cfg.LogLevel = level
-	}
-
-	if v, ok := os.LookupEnv("DB_POOLED"); ok {
-		pooled, err := strconv.ParseBool(v)
-		if err != nil {
-			return Config{}, fmt.Errorf("config: invalid DB_POOLED %q (want true or false): %w", v, err)
-		}
-		cfg.DBPooled = pooled
-	}
-
-	// Require the DSN the service will actually use. The unused endpoint stays
-	// optional so we don't force the direct secret into a pooled service.
+	// Only the active DSN (per the DB_POOLED toggle) is required.
+	cfg.DatabaseURL = os.Getenv("DATABASE_URL")
+	cfg.DatabaseURLDirect = os.Getenv("DATABASE_URL_DIRECT")
 	if cfg.DBPooled && cfg.DatabaseURL == "" {
 		return Config{}, errors.New("config: DATABASE_URL is required (DB_POOLED=true)")
 	}
@@ -143,4 +137,14 @@ func Load() (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// required reads a mandatory environment variable, returning an error if it is
+// unset or empty.
+func required(key string) (string, error) {
+	v, ok := os.LookupEnv(key)
+	if !ok || v == "" {
+		return "", fmt.Errorf("config: %s is required", key)
+	}
+	return v, nil
 }

@@ -12,8 +12,11 @@ help: ## Show this help.
 dev: ## Start backend + web together (one-command local dev).
 	@node scripts/dev.ts
 
-dev-backend: ## Start only the Go backend.
-	@cd backend && go run ./cmd/api
+dev-backend: ## Start only the Go backend (loads backend/.env).
+	@cd backend && \
+		if [ ! -f .env ]; then echo "✖ backend/.env missing — copy backend/.env.example and fill it in"; exit 1; fi; \
+		set -a; . ./.env; set +a; \
+		go run ./cmd/api
 
 dev-web: ## Start only the Vite web app.
 	@cd web && npm run dev

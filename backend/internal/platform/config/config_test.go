@@ -18,48 +18,26 @@ func clearEnv(t *testing.T) {
 	}
 }
 
-// setValidDB sets the required database DSNs so a test exercising some other
-// field isn't tripped by the mandatory-DSN check.
-func setValidDB(t *testing.T) {
+// setAllValid sets every variable Load requires to a valid value (pooled mode),
+// so a test exercising one field isn't tripped by another's mandatory check.
+func setAllValid(t *testing.T) {
 	t.Helper()
+	t.Setenv("PORT", "8080")
+	t.Setenv("ENV", "dev")
+	t.Setenv("LOG_LEVEL", "error")
+	t.Setenv("DB_POOLED", "true")
 	t.Setenv("DATABASE_URL", "postgres://localhost/eudaimonia")
 	t.Setenv("DATABASE_URL_DIRECT", "postgres://localhost:5433/eudaimonia")
 }
 
-func TestLoadDefaults(t *testing.T) {
-	clearEnv(t)
-	// Only the required (active) DSN is set; everything else should default.
-	t.Setenv("DATABASE_URL", "postgres://localhost/eudaimonia")
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() returned error: %v", err)
-	}
-	if cfg.Port != defaultPort {
-		t.Errorf("Port = %d, want %d", cfg.Port, defaultPort)
-	}
-	if cfg.Env != EnvDev {
-		t.Errorf("Env = %q, want %q", cfg.Env, EnvDev)
-	}
-	if cfg.LogLevel != LevelError {
-		t.Errorf("LogLevel = %q, want %q (errors-only default)", cfg.LogLevel, LevelError)
-	}
-	if cfg.DatabaseURLDirect != "" {
-		t.Errorf("DatabaseURLDirect = %q, want empty (optional when pooled)", cfg.DatabaseURLDirect)
-	}
-	if !cfg.DBPooled {
-		t.Error("DBPooled = false, want true (pooled by default)")
-	}
-}
-
-func TestLoadOverrides(t *testing.T) {
+func TestLoadValid(t *testing.T) {
 	clearEnv(t)
 	t.Setenv("PORT", "9090")
 	t.Setenv("ENV", "prod")
 	t.Setenv("LOG_LEVEL", "info")
+	t.Setenv("DB_POOLED", "false")
 	t.Setenv("DATABASE_URL", "postgres://localhost/eudaimonia")
 	t.Setenv("DATABASE_URL_DIRECT", "postgres://localhost:5433/eudaimonia")
-	t.Setenv("DB_POOLED", "false")
 
 	cfg, err := Load()
 	if err != nil {
@@ -74,14 +52,32 @@ func TestLoadOverrides(t *testing.T) {
 	if cfg.LogLevel != LevelInfo {
 		t.Errorf("LogLevel = %q, want %q", cfg.LogLevel, LevelInfo)
 	}
+	if cfg.DBPooled {
+		t.Error("DBPooled = true, want false")
+	}
 	if cfg.DatabaseURL != "postgres://localhost/eudaimonia" {
 		t.Errorf("DatabaseURL = %q, unexpected", cfg.DatabaseURL)
 	}
 	if cfg.DatabaseURLDirect != "postgres://localhost:5433/eudaimonia" {
 		t.Errorf("DatabaseURLDirect = %q, unexpected", cfg.DatabaseURLDirect)
 	}
-	if cfg.DBPooled {
-		t.Error("DBPooled = true, want false (DB_POOLED=false override)")
+}
+
+// TestLoadRequired asserts that every mandatory variable must be set — omitting
+// any one fails Load. (DATABASE_URL_DIRECT is optional in pooled mode, so it is
+// covered separately in TestLoadActiveDSN.)
+func TestLoadRequired(t *testing.T) {
+	for _, omit := range []string{"PORT", "ENV", "LOG_LEVEL", "DB_POOLED", "DATABASE_URL"} {
+		t.Run("missing "+omit, func(t *testing.T) {
+			clearEnv(t)
+			setAllValid(t)
+			if err := os.Unsetenv(omit); err != nil {
+				t.Fatalf("unset %s: %v", omit, err)
+			}
+			if _, err := Load(); err == nil {
+				t.Fatalf("Load() without %s returned nil error, want error", omit)
+			}
+		})
 	}
 }
 
@@ -100,7 +96,7 @@ func TestLoadInvalid(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			clearEnv(t)
-			setValidDB(t) // isolate the failure to the field under test
+			setAllValid(t) // isolate the failure to the field under test
 			t.Setenv(tc.key, tc.val)
 
 			if _, err := Load(); err == nil {
@@ -110,27 +106,28 @@ func TestLoadInvalid(t *testing.T) {
 	}
 }
 
-// TestLoadRequiresActiveDSN asserts the active database DSN (per the DB_POOLED
-// toggle) is mandatory, while the unused endpoint stays optional.
-func TestLoadRequiresActiveDSN(t *testing.T) {
+// TestLoadActiveDSN asserts the active database DSN (per the DB_POOLED toggle) is
+// mandatory, while the unused endpoint stays optional.
+func TestLoadActiveDSN(t *testing.T) {
 	tests := []struct {
 		name      string
-		pooled    string // DB_POOLED value ("" = unset → default true)
-		url       string // DATABASE_URL value ("" = unset)
-		urlDirect string // DATABASE_URL_DIRECT value ("" = unset)
+		pooled    string
+		url       string
+		urlDirect string
 		wantErr   bool
 	}{
-		{name: "pooled default, no DATABASE_URL", wantErr: true},
-		{name: "pooled, only DATABASE_URL", url: "postgres://p", wantErr: false},
+		{name: "pooled, no DATABASE_URL", pooled: "true", urlDirect: "postgres://d", wantErr: true},
+		{name: "pooled, only DATABASE_URL", pooled: "true", url: "postgres://p", wantErr: false},
 		{name: "direct, no DATABASE_URL_DIRECT", pooled: "false", url: "postgres://p", wantErr: true},
 		{name: "direct, only DATABASE_URL_DIRECT", pooled: "false", urlDirect: "postgres://d", wantErr: false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			clearEnv(t)
-			if tc.pooled != "" {
-				t.Setenv("DB_POOLED", tc.pooled)
-			}
+			t.Setenv("PORT", "8080")
+			t.Setenv("ENV", "dev")
+			t.Setenv("LOG_LEVEL", "error")
+			t.Setenv("DB_POOLED", tc.pooled)
 			if tc.url != "" {
 				t.Setenv("DATABASE_URL", tc.url)
 			}
