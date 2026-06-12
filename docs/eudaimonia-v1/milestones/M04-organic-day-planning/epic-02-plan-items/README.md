@@ -49,3 +49,24 @@ Negligible — plan items are small relational rows in the existing Neon databas
 
 Activities within the day plan:
 [assets/02-day-plan-map.svg](../../../assets/02-day-plan-map.svg) (PRD §4.2).
+
+## User stories
+
+The epic is split into **4 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-planitem-schema-migration.md) | `PlanItem` schema & migration | ~3h | AC1, AC4 | M03 Epics 01/02 |
+| [S2](S2-create-timed-untimed.md) | Create plan item (title-only) & timed/untimed | ~3h | AC2, AC3 | S1, M03 Epic 04 |
+| [S3](S3-edit-delete.md) | Edit & delete plan items | ~2.5h | AC2 | S1, S2 |
+| [S4](S4-planitem-tests.md) | Plan-item CRUD & timed/untimed tests | ~3h | AC5 | S1–S3 |
+
+**Total:** ~11.5h (≈ 2 dev-days), consistent with the epic's ~2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Schema ── S2 Create (title-only, timed/untimed) ── S3 Edit & delete ── S4 Tests
+```
