@@ -47,3 +47,26 @@ and Milestone 01's quota caps, surprise bills are designed out (PRD §8.5).
 
 Indicative route between ordered pins:
 [assets/02-day-plan-map.svg](../../../assets/02-day-plan-map.svg) (PRD §4.2).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-server-geocoding.md) | Server-side geocoding | ~3h | AC1 | Epic 01 |
+| [S2](S2-geocode-cache.md) | Geocode cache (hit/miss) | ~3h | AC2 | S1, Epic 01 S1 |
+| [S3](S3-route-hints-tests.md) | Ordered route hints & tests | ~3h | AC3, AC4 | S1, S2, M04 |
+
+**Total:** ~9h (≈ 1–2 dev-days), consistent with the epic's ~1–2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Server geocoding ── S2 Geocode cache ── S3 Route hints & tests
+```
+
+> Caching geocodes is the core Maps-cost mitigation (PRD §8.4 #2) — verified in Milestone 10's cost
+> review.
