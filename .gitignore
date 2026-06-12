@@ -29,6 +29,8 @@ yarn-error.log*
 # Go
 *.test
 *.out
+# Compiled binary from `go build ./cmd/api` run inside backend/.
+/backend/api
 
 # Pulumi
 Pulumi.*.yaml
