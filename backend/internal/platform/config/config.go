@@ -139,6 +139,16 @@ func Load() (Config, error) {
 	return cfg, nil
 }
 
+// LoadMigrationDSN returns the direct (un-pooled) database DSN used for
+// migrations, which must bypass the connection pooler. It is read from the
+// required DATABASE_URL_DIRECT and is needed regardless of the DB_POOLED toggle
+// (migrations always use the direct endpoint). Unlike Load, it reads only this
+// one variable, so the migrate command isn't burdened with the full service
+// config.
+func LoadMigrationDSN() (string, error) {
+	return required("DATABASE_URL_DIRECT")
+}
+
 // required reads a mandatory environment variable, returning an error if it is
 // unset or empty.
 func required(key string) (string, error) {
