@@ -1,0 +1,53 @@
+# Epic M02.1 — Google OAuth sign-in (OIDC authorization-code flow)
+
+> Milestone: [02 — Auth & Profile](../README.md) · PRD refs: §5.8, §6, §7.0, §8.5.
+
+## Description
+
+Implement **Google SSO** as the only authentication method in v1. The backend runs the OAuth 2.0 /
+OpenID Connect **authorization-code flow**: it builds the Google consent URL, handles the redirect
+callback, exchanges the code for tokens, and verifies the ID token to obtain a trustworthy
+`google_sub`, `email`, `name`, and `avatar`. Google is wrapped behind a thin internal
+`IdentityProvider` interface so the provider can be swapped later without touching callers
+(PRD §7.0). All OAuth secrets live only in Secret Manager and are never logged.
+
+**Estimated effort:** ~2–3 developer-days (one developer).
+
+## Acceptance Criteria
+
+- [ ] An **`IdentityProvider` interface** wraps Google OAuth/OIDC; the v1 implementation runs the
+      **authorization-code flow** (build consent URL → handle callback → exchange code → verify ID
+      token) (PRD §5.8, §7.0).
+- [ ] The verified identity yields `google_sub`, `email`, `name`, `avatar`; ID-token signature,
+      audience, issuer, and expiry are validated before the identity is trusted (PRD §6).
+- [ ] **CSRF/replay protection** on the flow (state parameter and nonce) and exact-match of the
+      authorized redirect URI.
+- [ ] OAuth **client ID/secret and any signing material come from config/Secret Manager**, never
+      hardcoded, and tokens/codes are **never logged** (PRD §6, §8.5).
+- [ ] Unit tests cover token verification (valid, expired, wrong audience/issuer, bad signature)
+      against the `IdentityProvider` interface with the network boundary mocked (PRD §7.6).
+
+## Implementation Details / Architecture
+
+- Lives in the **`auth` module** (PRD §7.1). The `IdentityProvider` interface keeps Google behind a
+  seam: `AuthCodeURL(state, nonce)` and `Exchange(code) → VerifiedIdentity`.
+- The callback hands the verified identity to provisioning (Epic 02) and session issuance (Epic 03);
+  this epic owns only the provider integration, not the user row or the session.
+- Redirect URIs and client credentials are author-provided in the Google Cloud console and injected
+  via the platform config loader (M01.2 S1) reading Secret Manager (M01.4).
+
+## Dependencies
+
+- **Upstream:** M01.2 (config loader, HTTP server), M01.4 (Secret Manager). Google OAuth client
+  ID/secret + authorized redirect URIs are author-provided.
+- **Downstream:** Epic 02 (provisioning) consumes the verified identity; Epic 03 (sessions) issues a
+  session after a successful flow; Epic 05 starts the flow from the web app.
+
+## Costs Impact
+
+Negligible. Google OAuth is free; no new billable component (PRD §8 — within free tier).
+
+## Designs
+
+Sign-in is a simple surface using the black/white theme (PRD §5.10); the redirect flow has no
+bespoke UI beyond the Google consent screen and a return landing handled in Epic 05.
