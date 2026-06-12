@@ -6,8 +6,21 @@ Go modular monolith (microservice-ready). Scaffolded across the stories of
 ## Layout
 
 - `cmd/api` — the service entrypoint (single binary).
+- `cmd/migrate` — the database migration runner (goose).
 - `internal/platform` — shared infra/cross-cutting helpers (config, logging, db handles). Not a domain module.
 - `internal/{auth,trip,budget,journal,sharing,geo}` — domain modules, mirroring the target microservice boundaries.
+- `migrations/` — schema-per-module SQL migrations.
+
+## Database & migrations
+
+The service connects to one Neon Postgres database (schema per module) and is a
+hard startup dependency. To connect, run migrations, and find where secrets live,
+see **[docs/database.md](docs/database.md)**. Day to day:
+
+```sh
+make migrate-up        # apply pending migrations (loads backend/.env if present)
+make migrate-status    # show applied / pending
+```
 
 ## Build, test, lint & format
 

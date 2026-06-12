@@ -1,11 +1,12 @@
 // Command api is the entrypoint for the Eudaimonia backend.
 //
 // It boots a single HTTP server for the whole modular monolith: it loads typed
-// configuration, builds the structured logger, binds the configured port, and
-// serves until interrupted, draining in-flight requests on SIGINT/SIGTERM
-// (important for Cloud Run). The root router is assembled here so the domain
-// modules can be mounted through their interfaces (S4) and the health endpoints
-// added (S7/S8); for now it serves no routes. Standard library net/http only.
+// configuration, builds the structured logger, opens the database pool, binds
+// the configured port, and serves until interrupted, draining in-flight requests
+// on SIGINT/SIGTERM (important for Cloud Run). The root router is assembled here
+// so the domain modules mount through their interfaces and the health probes
+// (/healthz, /readyz) share the middleware chain. net/http for serving; pgx for
+// the database.
 package main
 
 import (
