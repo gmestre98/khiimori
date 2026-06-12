@@ -80,14 +80,26 @@ Conventions:
 
 ## Running
 
-Set `DATABASE_URL_DIRECT` (see [`../docs/database.md`](../docs/database.md)) and
-run from the `backend/` directory:
+The one command for migrations everywhere — local dev, CI, deploy — is the
+`make migrate-*` target (run from the repo root):
 
 ```sh
-go run ./cmd/migrate up       # apply all pending migrations
-go run ./cmd/migrate down     # roll back the most recent migration
-go run ./cmd/migrate status   # show applied / pending
+make migrate-up        # apply all pending migrations
+make migrate-down      # roll back the most recent migration
+make migrate-reset     # roll back all migrations
+make migrate-status    # show applied / pending
 ```
 
-Any failure exits non-zero with a message on stderr. S5 wraps these in
-`make migrate-*` targets.
+The target loads `backend/.env` when present (local dev) and otherwise uses the
+ambient environment, so it migrates **whatever `DATABASE_URL_DIRECT` points at**
+(dev, an ephemeral test branch, prod) with no code change. See
+[`../docs/database.md`](../docs/database.md) for the connection strings.
+
+Under the hood each target runs `go run ./cmd/migrate <command>` (the same
+binary CI and the S7 integration test use). Any failure exits non-zero with a
+message on stderr — no secrets in the output — so CI can gate on it. You can call
+it directly too, with `DATABASE_URL_DIRECT` set:
+
+```sh
+cd backend && go run ./cmd/migrate up
+```

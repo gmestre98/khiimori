@@ -10,10 +10,11 @@
 //
 //	migrate up        apply all pending migrations
 //	migrate down      roll back the most recent migration
+//	migrate reset     roll back all migrations
 //	migrate status    show applied/pending migrations
 //
 // Any failure exits non-zero with a message on stderr, so CI can gate on it.
-// (S5 wraps these in one-command make targets; this is the mechanism.)
+// The make migrate-* targets wrap these and load backend/.env for local dev.
 package main
 
 import (
@@ -40,15 +41,15 @@ func main() {
 
 func run(args []string) error {
 	if len(args) != 1 {
-		return fmt.Errorf("usage: migrate <up|down|status>")
+		return fmt.Errorf("usage: migrate <up|down|reset|status>")
 	}
 	command := args[0]
 	// Validate the command before touching config or the database, so a typo
 	// fails fast without needing a connection.
 	switch command {
-	case "up", "down", "status":
+	case "up", "down", "reset", "status":
 	default:
-		return fmt.Errorf("unknown command %q (want up, down or status)", command)
+		return fmt.Errorf("unknown command %q (want up, down, reset or status)", command)
 	}
 
 	dsn, err := config.LoadMigrationDSN()
@@ -73,6 +74,8 @@ func run(args []string) error {
 		cmdErr = goose.Up(db, migrations.Dir)
 	case "down":
 		cmdErr = goose.Down(db, migrations.Dir)
+	case "reset":
+		cmdErr = goose.Reset(db, migrations.Dir)
 	case "status":
 		cmdErr = goose.Status(db, migrations.Dir)
 	}
