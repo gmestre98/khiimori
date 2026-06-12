@@ -23,7 +23,7 @@ keep the stack small, prefer a modular monolith, and keep every decision easy to
 | [04](M04-organic-day-planning/README.md) | Organic Day Planning | Stays, plan items, ideas backlog, re-planning | **Broken into 6 epics** | §5.2, §5.3, §9 |
 | [05](M05-budgets-and-cost-tracking/README.md) | Budgets & Cost Tracking | Trip/day budgets, costs, roll-ups | **Broken into 4 epics** | §5.4, §9 |
 | [06](M06-journal-and-media/README.md) | Journal & Media | Journal entries, photos, offline, 1 GB/trip cap | **Broken into 4 epics** | §5.5, §6, §9 |
-| [07](M07-maps/README.md) | Maps | Geo proxy, per-day map, key/cost protection | Overview — epics TBD | §5.6, §8.4–8.5 |
+| [07](M07-maps/README.md) | Maps | Geo proxy, per-day map, key/cost protection | **Broken into 4 epics** | §5.6, §8.4–8.5 |
 | [08](M08-sharing-and-backoffice/README.md) | Sharing & Backoffice | Memberships, invitations, roles, admin | Overview — epics TBD | §3, §5.9, §9 |
 | [09](M09-design-system-and-mobile-pwa/README.md) | Design System & Mobile/PWA | Theme, responsive, installable, a11y | Overview — epics TBD | §5.10, §7.2 |
 | [10](M10-testing-and-hardening/README.md) | Testing & Hardening | E2E journeys, load/cost review, security review | Overview — epics TBD | §6, §7.6, §8.5 |
