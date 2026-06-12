@@ -47,3 +47,26 @@ observability stack (PRD §8.1).
 ## Designs
 
 No new UI — validates existing screens meet the accessibility/performance bars (PRD §5.10, §6).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-performance-verification.md) | Performance re-verification (< 1.5s day view) | ~2.5h | AC1 | M09 Epic 05 |
+| [S2](S2-availability-offline.md) | Availability & offline behaviour verification | ~3h | AC2 | M04/M06/M09, M01 |
+| [S3](S3-observability-alert.md) | Observability & alert-reaches-author-abroad verification | ~3h | AC3, AC4 | M01 Epic 07, Epic 01 |
+
+**Total:** ~8.5h (≈ 1–2 dev-days), consistent with the epic's ~1–2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Performance re-verification ──┐
+S2 Availability & offline ───────┼─ S3 Observability/alert + consolidated release-gate summary
+```
+
+This completes the per-epic story breakdown for **Milestone 10 (5 epics)** — and for all of M02–M10.
