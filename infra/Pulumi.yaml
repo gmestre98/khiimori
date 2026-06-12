@@ -1,0 +1,6 @@
+name: eudaimonia
+runtime: nodejs
+description: >-
+  Eudaimonia infrastructure on GCP (Pulumi/TypeScript) — Artifact Registry,
+  Cloud Storage, Secret Manager, a least-privilege Cloud Run service, and the
+  Firebase Hosting site. One language across infra and scripting (PRD §7.4).
