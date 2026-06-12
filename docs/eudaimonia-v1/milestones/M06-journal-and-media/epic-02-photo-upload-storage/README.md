@@ -49,3 +49,27 @@ Epic 03.
 
 Photos as visual content in the journal:
 [assets/03-mobile-and-sharing.svg](../../../assets/03-mobile-and-sharing.svg) (PRD §4.3, §5.10).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-photo-schema-migration.md) | `Photo` schema & migration | ~2.5h | AC1 | Epic 01 |
+| [S2](S2-mediastore-interface.md) | `MediaStore` interface & Cloud Storage implementation | ~3.5h | AC3 | M01.4 |
+| [S3](S3-photo-upload-attach.md) | Photo upload & attach to entry | ~3.5h | AC2, AC4 | S1, S2, M03 Epic 04 |
+
+**Total:** ~9.5h (≈ 2 dev-days), consistent with the epic's ~2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Photo schema ──┐
+S2 MediaStore ────┴─ S3 Photo upload & attach
+```
+
+> S3 leaves a **quota-check seam** in front of `MediaStore.Put` so Epic 03's 1 GB/trip enforcement and
+> thumbnailing slot in without rework.
