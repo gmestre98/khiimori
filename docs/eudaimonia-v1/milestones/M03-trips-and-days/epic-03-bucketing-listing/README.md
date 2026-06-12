@@ -47,3 +47,23 @@ tier).
 
 Trips dashboard (Current/Upcoming/Past):
 [assets/01-trips-dashboard.svg](../../../assets/01-trips-dashboard.svg) (PRD §4.1).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-bucketing-function.md) | Bucketing function (Current/Upcoming/Past) | ~3h | AC1, AC2 | Epic 01 |
+| [S2](S2-trips-listing-endpoint.md) | Trips listing endpoint (authorization-scoped) | ~3h | AC1, AC2 | S1, Epic 04 |
+| [S3](S3-bucketing-tests.md) | Bucketing edge-case tests | ~2.5h | AC3, AC4 | S1, S2 |
+
+**Total:** ~8.5h (≈ 1–2 dev-days), consistent with the epic's ~1–2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Bucketing function ── S2 Listing endpoint ── S3 Edge-case tests
+```
