@@ -36,6 +36,11 @@ import (
 // requests to drain before the process exits.
 const shutdownTimeout = 15 * time.Second
 
+// startupDBTimeout bounds the eager connectivity check at boot. It is generous
+// enough to absorb a Neon cold-start wake-up but still fails fast if the
+// database is genuinely unreachable.
+const startupDBTimeout = 10 * time.Second
+
 func main() {
 	if err := run(); err != nil {
 		os.Exit(1)
@@ -56,22 +61,25 @@ func run() error {
 
 	logger := platformlog.NewStdout(cfg)
 
-	// Open the database pool from config and close it on shutdown. Open is lazy
-	// (it doesn't dial), so a cold Neon instance never blocks boot; real
-	// connectivity is surfaced through /readyz. The DB is optional at this stage
-	// so the service still runs locally without credentials — when a DSN is set,
-	// a bad one is a hard startup error.
-	if cfg.DatabaseURL != "" || cfg.DatabaseURLDirect != "" {
-		database, err := db.Open(context.Background(), cfg)
-		if err != nil {
-			logger.Error("opening database", "err", err.Error())
-			return err
-		}
-		defer database.Close()
-		logger.Info("database pool ready", "pooled", cfg.DBPooled)
-	} else {
-		logger.Info("database not configured (DATABASE_URL unset); starting without a DB pool")
+	// The service can't do anything useful without its database, so connect
+	// eagerly and fail fast: a missing DSN (db.Open) or an unreachable database
+	// (the startup Ping) is a hard startup error, surfaced now rather than at
+	// request time. The pool is closed on shutdown.
+	database, err := db.Open(context.Background(), cfg)
+	if err != nil {
+		logger.Error("opening database", "err", err.Error())
+		return err
 	}
+	defer database.Close()
+
+	pingCtx, cancelPing := context.WithTimeout(context.Background(), startupDBTimeout)
+	pingErr := database.Ping(pingCtx)
+	cancelPing()
+	if pingErr != nil {
+		logger.Error("database unreachable at startup", "err", pingErr.Error())
+		return pingErr
+	}
+	logger.Info("database connected", "pooled", cfg.DBPooled)
 
 	addr := net.JoinHostPort("", strconv.Itoa(cfg.Port))
 	// Apply the shared middleware chain once at the root so every module

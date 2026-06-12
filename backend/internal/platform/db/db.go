@@ -55,8 +55,9 @@ type DB struct {
 // Open builds a connection pool from config and returns a handle. The endpoint
 // is chosen by the DB_POOLED toggle (pooled DATABASE_URL by default, direct
 // DATABASE_URL_DIRECT when false). It does not dial the database — the first
-// real connection is established lazily on use (or by Ping), so a cold/asleep
-// Neon instance doesn't block startup. The caller must Close the returned DB.
+// real connection is established lazily, so the caller decides when to verify
+// connectivity (cmd/api Pings eagerly at startup to fail fast). The caller must
+// Close the returned DB.
 func Open(ctx context.Context, cfg config.Config) (*DB, error) {
 	connString, err := selectDSN(cfg)
 	if err != nil {
