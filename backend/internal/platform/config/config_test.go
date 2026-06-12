@@ -18,8 +18,18 @@ func clearEnv(t *testing.T) {
 	}
 }
 
+// setValidDB sets the required database DSNs so a test exercising some other
+// field isn't tripped by the mandatory-DSN check.
+func setValidDB(t *testing.T) {
+	t.Helper()
+	t.Setenv("DATABASE_URL", "postgres://localhost/eudaimonia")
+	t.Setenv("DATABASE_URL_DIRECT", "postgres://localhost:5433/eudaimonia")
+}
+
 func TestLoadDefaults(t *testing.T) {
 	clearEnv(t)
+	// Only the required (active) DSN is set; everything else should default.
+	t.Setenv("DATABASE_URL", "postgres://localhost/eudaimonia")
 
 	cfg, err := Load()
 	if err != nil {
@@ -34,11 +44,8 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.LogLevel != LevelError {
 		t.Errorf("LogLevel = %q, want %q (errors-only default)", cfg.LogLevel, LevelError)
 	}
-	if cfg.DatabaseURL != "" {
-		t.Errorf("DatabaseURL = %q, want empty", cfg.DatabaseURL)
-	}
 	if cfg.DatabaseURLDirect != "" {
-		t.Errorf("DatabaseURLDirect = %q, want empty", cfg.DatabaseURLDirect)
+		t.Errorf("DatabaseURLDirect = %q, want empty (optional when pooled)", cfg.DatabaseURLDirect)
 	}
 	if !cfg.DBPooled {
 		t.Error("DBPooled = false, want true (pooled by default)")
@@ -93,10 +100,50 @@ func TestLoadInvalid(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			clearEnv(t)
+			setValidDB(t) // isolate the failure to the field under test
 			t.Setenv(tc.key, tc.val)
 
 			if _, err := Load(); err == nil {
 				t.Fatalf("Load() with %s=%q returned nil error, want error", tc.key, tc.val)
+			}
+		})
+	}
+}
+
+// TestLoadRequiresActiveDSN asserts the active database DSN (per the DB_POOLED
+// toggle) is mandatory, while the unused endpoint stays optional.
+func TestLoadRequiresActiveDSN(t *testing.T) {
+	tests := []struct {
+		name      string
+		pooled    string // DB_POOLED value ("" = unset → default true)
+		url       string // DATABASE_URL value ("" = unset)
+		urlDirect string // DATABASE_URL_DIRECT value ("" = unset)
+		wantErr   bool
+	}{
+		{name: "pooled default, no DATABASE_URL", wantErr: true},
+		{name: "pooled, only DATABASE_URL", url: "postgres://p", wantErr: false},
+		{name: "direct, no DATABASE_URL_DIRECT", pooled: "false", url: "postgres://p", wantErr: true},
+		{name: "direct, only DATABASE_URL_DIRECT", pooled: "false", urlDirect: "postgres://d", wantErr: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			clearEnv(t)
+			if tc.pooled != "" {
+				t.Setenv("DB_POOLED", tc.pooled)
+			}
+			if tc.url != "" {
+				t.Setenv("DATABASE_URL", tc.url)
+			}
+			if tc.urlDirect != "" {
+				t.Setenv("DATABASE_URL_DIRECT", tc.urlDirect)
+			}
+
+			_, err := Load()
+			if tc.wantErr && err == nil {
+				t.Fatal("Load() returned nil error, want error for missing active DSN")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("Load() returned error %v, want success", err)
 			}
 		})
 	}

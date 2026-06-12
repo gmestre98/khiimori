@@ -6,6 +6,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -51,11 +52,13 @@ type Config struct {
 	// LogLevel is the minimum log severity emitted.
 	LogLevel LogLevel
 	// DatabaseURL is the pooled (pgBouncer) connection string for the primary
-	// database — the endpoint app traffic and the readiness check use.
+	// database — the endpoint app traffic and the readiness check use. It is
+	// required when DBPooled is true (the default).
 	DatabaseURL string
 	// DatabaseURLDirect is the direct (un-pooled) connection string, used by
-	// migrations and admin tasks that must bypass the pooler. It may be empty
-	// when the service only serves traffic and never runs migrations.
+	// migrations and admin tasks that must bypass the pooler. It is required
+	// when DBPooled is false; otherwise it is optional (e.g. only migrations
+	// need it), so the running service isn't forced to carry the direct secret.
 	DatabaseURLDirect string
 	// DBPooled selects which endpoint the application connection pool uses:
 	// true → DatabaseURL (pooled, the default), false → DatabaseURLDirect.
@@ -79,9 +82,12 @@ const (
 //	PORT                 TCP port to listen on        (default 8080)
 //	ENV                  dev | prod                    (default dev)
 //	LOG_LEVEL            debug | info | warn | error    (default error)
-//	DATABASE_URL         pooled (pgBouncer) database DSN (default empty)
-//	DATABASE_URL_DIRECT  direct database DSN, migrations (default empty)
+//	DATABASE_URL         pooled (pgBouncer) database DSN (required if DB_POOLED=true)
+//	DATABASE_URL_DIRECT  direct database DSN, migrations (required if DB_POOLED=false)
 //	DB_POOLED            true | false                   (default true)
+//
+// The active database DSN (per the DB_POOLED toggle) is mandatory: a missing
+// value fails here, at config time — the earliest point — rather than later.
 func Load() (Config, error) {
 	cfg := Config{
 		Port:              defaultPort,
@@ -125,6 +131,15 @@ func Load() (Config, error) {
 			return Config{}, fmt.Errorf("config: invalid DB_POOLED %q (want true or false): %w", v, err)
 		}
 		cfg.DBPooled = pooled
+	}
+
+	// Require the DSN the service will actually use. The unused endpoint stays
+	// optional so we don't force the direct secret into a pooled service.
+	if cfg.DBPooled && cfg.DatabaseURL == "" {
+		return Config{}, errors.New("config: DATABASE_URL is required (DB_POOLED=true)")
+	}
+	if !cfg.DBPooled && cfg.DatabaseURLDirect == "" {
+		return Config{}, errors.New("config: DATABASE_URL_DIRECT is required (DB_POOLED=false)")
 	}
 
 	return cfg, nil
