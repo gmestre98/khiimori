@@ -47,3 +47,25 @@ tier).
 A simple form surface using the black/white theme (PRD §5.10); mobile profile context in
 [assets/03-mobile-and-sharing.svg](../../../assets/03-mobile-and-sharing.svg). Final visual treatment
 via Milestone 09.
+
+## User stories
+
+The epic is split into **4 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-profile-read.md) | Profile read endpoint | ~2.5h | AC1 | Epic 02, Epic 03 |
+| [S2](S2-profile-edit.md) | Profile edit endpoint | ~3h | AC2 | S1 |
+| [S3](S3-eur-readonly.md) | EUR read-only enforcement (server-side) | ~2h | AC3 | S1, S2 |
+| [S4](S4-profile-authz-tests.md) | Own-row authorization & profile tests | ~2.5h | AC4 | S1–S3 |
+
+**Total:** ~10h (≈ 1–2 dev-days), consistent with the epic's ~1–2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Read ── S2 Edit ──┬─ S3 EUR read-only
+                     └─ S4 Own-row authz & tests
+```
