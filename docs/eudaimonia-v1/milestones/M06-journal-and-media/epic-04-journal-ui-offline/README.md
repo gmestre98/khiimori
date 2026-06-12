@@ -50,3 +50,29 @@ Negligible direct cost — static assets on Firebase Hosting free tier; serving 
 
 Mobile journal view: [assets/03-mobile-and-sharing.svg](../../../assets/03-mobile-and-sharing.svg)
 (PRD §4.3, §5.10).
+
+## User stories
+
+The epic is split into **5 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-journal-editor.md) | Journal editor (body / rating / weather / mood) | ~3h | AC1 | M03 Epic 05, Epic 01 |
+| [S2](S2-photo-attach-grid.md) | Photo attach & light grid | ~3h | AC1 | S1, Epics 02/03 |
+| [S3](S3-usage-warning.md) | Per-trip usage display & cap warning | ~2.5h | AC2 | S2, Epic 03 |
+| [S4](S4-offline-journal.md) | Offline journaling (shared queue/replay) | ~3.5h | AC3 | S1, S2, M04 Epic 06 |
+| [S5](S5-past-trip-record.md) | Past-trip journals as a permanent record | ~2h | AC4 | S1, S2, M03 |
+
+**Total:** ~14h (≈ 2–3 dev-days), consistent with the epic's ~2–3 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Journal editor ── S2 Photo attach & grid ──┬─ S3 Usage display & warning
+                                              ├─ S4 Offline journaling
+                                              └─ S5 Past-trip record
+```
+
+This completes the per-epic story breakdown for **Milestone 06 (4 epics)**.
