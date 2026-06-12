@@ -4,15 +4,16 @@
 // M01.5).
 //
 // Migrations are plain SQL in the sql/ subdirectory, applied by cmd/migrate via
-// goose. See README.md for the naming and authoring conventions. This package
-// (S3) sets up the mechanism only; the per-module schemas arrive in S4.
+// goose. See README.md for the naming and authoring conventions. The initial
+// migrations create one schema per domain module (auth, trip, budget, journal,
+// sharing, geo).
 package migrations
 
 import "embed"
 
 // FS is the embedded set of SQL migration files (the sql/ subtree). The
-// "all:sql" pattern keeps the build working while sql/ holds only .gitkeep, and
-// picks up real migrations as they are added.
+// "all:sql" pattern embeds every file under sql/, so new migrations are included
+// automatically without touching this file.
 //
 //go:embed all:sql
 var FS embed.FS
