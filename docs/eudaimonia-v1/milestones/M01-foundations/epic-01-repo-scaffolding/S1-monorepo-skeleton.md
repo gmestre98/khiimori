@@ -1,5 +1,7 @@
 # S1 — Monorepo skeleton & top-level layout
 
+> **Status:** ✅ Done.
+
 ## Context
 Eudaimonia is a personal travel-manager app. The stack is deliberately small: **Go** backend
 (modular monolith), **React + TypeScript** (Vite) web app, **TypeScript** for scripts and infra
@@ -11,14 +13,14 @@ Create the top-level monorepo directory layout so every later piece of work has 
 No application behaviour — just the repo shape.
 
 ## Acceptance criteria
-- [ ] These top-level directories exist and are tracked by git: `/backend`, `/web`, `/infra`,
+- [x] These top-level directories exist and are tracked by git: `/backend`, `/web`, `/infra`,
   `/scripts`, `.github/workflows`.
-- [ ] Each empty directory has a placeholder (`.gitkeep` or a one-line `README.md`) so it commits.
-- [ ] Root `.gitignore` covers Go build output, Node/`node_modules`, build dirs, and OS/editor noise
+- [x] Each empty directory has a placeholder (`.gitkeep` or a one-line `README.md`) so it commits.
+- [x] Root `.gitignore` covers Go build output, Node/`node_modules`, build dirs, and OS/editor noise
   (`.DS_Store`, `.idea/`, `.vscode/`).
-- [ ] Root `.editorconfig` sets sane defaults (UTF-8, LF, final newline, 2-space for TS/JSON/YAML,
+- [x] Root `.editorconfig` sets sane defaults (UTF-8, LF, final newline, 2-space for TS/JSON/YAML,
   tabs for Go).
-- [ ] Root `README.md` states the monorepo intent and links to `docs/eudaimonia-v1/`.
+- [x] Root `README.md` states the monorepo intent and links to `docs/eudaimonia-v1/`.
 
 ## Constraints
 - Don't scaffold the Go module or web app yet — those are separate stories (S2, S5).

@@ -1,5 +1,7 @@
 # Epic M01.1 — Repository & Project Scaffolding
 
+> **Status:** ✅ Done — all 9 stories implemented and all 5 acceptance criteria verified.
+>
 > Milestone: [01 — Foundations](../README.md) · PRD refs: §7.0, §7.1, §7.3.
 
 ## Description
@@ -12,11 +14,11 @@ and a one-command local dev story. No behaviour yet — just the shape everythin
 
 ## Acceptance Criteria
 
-- [ ] Monorepo created with `/backend`, `/web`, `/infra`, `/scripts`, `.github/workflows` (PRD §7.0, §7.3).
-- [ ] Go module initialised with `/cmd/api` and `internal/{platform,auth,trip,budget,journal,sharing,geo}`, each a compiling, independently-testable package that does **not** import another module's internals (PRD §7.1).
-- [ ] React + TypeScript app (Vite) initialised and builds (`/web`).
-- [ ] Linters/formatters configured for Go and TS and runnable locally.
-- [ ] A documented **one command** brings up backend + web for local dev.
+- [x] Monorepo created with `/backend`, `/web`, `/infra`, `/scripts`, `.github/workflows` (PRD §7.0, §7.3).
+- [x] Go module initialised with `/cmd/api` and `internal/{platform,auth,trip,budget,journal,sharing,geo}`, each a compiling, independently-testable package that does **not** import another module's internals (PRD §7.1).
+- [x] React + TypeScript app (Vite) initialised and builds (`/web`).
+- [x] Linters/formatters configured for Go and TS and runnable locally.
+- [x] A documented **one command** brings up backend + web for local dev.
 
 ## Implementation Details / Architecture
 

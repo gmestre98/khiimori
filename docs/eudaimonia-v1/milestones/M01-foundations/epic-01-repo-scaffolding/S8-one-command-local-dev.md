@@ -1,5 +1,7 @@
 # S8 — One-command local dev (backend + web)
 
+> **Status:** ✅ Done.
+
 ## Context
 A new contributor (the author, in v1) should go from clone to a running stack with **one command**.
 This story wires up that command to start the Go backend and the Vite web app together. Tooling
@@ -12,12 +14,12 @@ Assumes the Go backend (**S2**) and the web app (**S5**) exist and run individua
 Provide a single documented command that brings up backend + web together for local development.
 
 ## Acceptance criteria
-- [ ] One command starts both processes together — e.g. `make dev`, a `Taskfile`, or
+- [x] One command starts both processes together — e.g. `make dev`, a `Taskfile`, or
   `scripts/dev.ts` (TypeScript, per the one-language-for-scripting rule).
-- [ ] No new languages/runtimes introduced beyond Go + the Node toolchain already present.
-- [ ] If a prerequisite is missing (Go, Node, ports in use), the command fails with clear, actionable
+- [x] No new languages/runtimes introduced beyond Go + the Node toolchain already present.
+- [x] If a prerequisite is missing (Go, Node, ports in use), the command fails with clear, actionable
   output instead of a cryptic error.
-- [ ] Verified on a clean checkout: both processes come up and the web app can reach the backend
+- [x] Verified on a clean checkout: both processes come up and the web app can reach the backend
   (a trivial reachability check is fine; full health endpoints come in a later epic).
 
 ## Constraints
