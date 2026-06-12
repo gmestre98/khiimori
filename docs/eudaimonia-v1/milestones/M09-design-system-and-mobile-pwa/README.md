@@ -1,80 +1,69 @@
 # Milestone 09 — Design System & Mobile/PWA Polish
 
-**Status:** Milestone overview — to be split into focused epics (≤5 acceptance criteria each) following the [Milestone 01](../M01-foundations/README.md) pattern. The criteria below are the milestone-level spec and the source material for that split.
-
 > The minimal black/white theme and component library, a genuinely usable responsive + installable
-> (PWA) mobile experience, and accessibility — the shared UI foundation for every screen.
+> (PWA) mobile experience, accessibility, and a performance budget — the shared UI foundation every
+> screen reuses.
 >
 > PRD refs: §5.10, §6 (Performance, Offline), §7.2 (React/TS, PWA).
 
 ---
 
-## Description
+## Milestone goal
 
 Establish the **look, feel, and front-end foundations** the whole app shares. The default theme is
 **minimal black & white**, with **restrained accent colour** only where it adds clarity (status,
-budget bars, map pins). Layouts are **simple and uncluttered** with few primary actions per
-screen. The app is **genuinely responsive** — a comfortable laptop layout and a real mobile layout
-(bottom nav, thumb-reachable actions), **not a shrunk desktop** — and **installable as a PWA**
-that is **offline-capable**. The system is built to **evolve on real user feedback after v1**, so
-components and theming are easy to tweak.
+budget bars, map pins). Layouts are simple and uncluttered. The app is **genuinely responsive** — a
+comfortable laptop layout and a real **mobile layout** (bottom nav, thumb-reachable actions), not a
+shrunk desktop — and **installable as a PWA** that is **offline-capable**, with the service worker
+coordinating the **offline write queue** shared with Planning (04) and Journal (06). Accessibility
+and a measured **performance budget** (day view interactive < 1.5s on a mid-range phone on 4G) are
+baked in. The system is **tokenised so post-v1 restyling is cheap**. This milestone can start early
+(foundation) and polishes late, running alongside Milestones 03–08.
 
-## Acceptance Criteria
+## Milestone-level Definition of Done
 
-- [ ] A **component library + design tokens** implement the **black/white theme** with accent
-      colour reserved for **status, budget bars, and map pins** (PRD §5.10).
-- [ ] **Theming is easy to change** (tokenised colours/typography) so post-v1 restyling is cheap
-      (PRD §5.10 "designed to evolve", §7.2).
-- [ ] **Responsive layouts**: a comfortable laptop layout and a **purpose-built mobile layout**
-      with **bottom navigation and thumb-reachable primary actions** — not a scaled-down desktop
-      (PRD §5.10).
-- [ ] The app is an **installable PWA** (manifest, service worker, icons) and launches standalone
-      on a phone (PRD §7.2).
-- [ ] The PWA is **offline-capable**: app shell and current-trip viewing work offline; the service
-      worker coordinates with the **offline write queue** used by Journal (06) and Planning (04)
-      (PRD §6 Offline).
-- [ ] **Accessibility:** keyboard navigation, sufficient contrast, readable type (PRD §5.10).
-- [ ] **Performance target:** the day view is **interactive in < 1.5s on a mid-range phone on 4G**
-      (PRD §6 Performance) — validated against real-ish content.
-- [ ] Shared primitives (buttons, lists, forms, sheets/drawers, progress bars, nav) are documented
-      and reused by Epics 02–08 rather than re-implemented per screen.
+- A **component library + design tokens** implement the **black/white theme** (accent reserved for
+  status, budget bars, map pins) and are **easy to re-theme** by editing tokens (PRD §5.10, §7.2).
+- **Responsive layouts**: a comfortable laptop layout and a **purpose-built mobile layout** with
+  **bottom navigation and thumb-reachable actions** — not a scaled-down desktop (PRD §5.10).
+- The app is an **installable PWA** (manifest, service worker, icons) that launches standalone and is
+  **offline-capable** (app shell + current-trip viewing), with the service worker coordinating the
+  **offline write queue** used by Milestones 04 and 06 (PRD §6, §7.2).
+- **Accessibility** (keyboard nav, sufficient contrast, readable type) and the **performance target**
+  (day view interactive < 1.5s on a mid-range phone on 4G) are met and validated (PRD §5.10, §6).
+- Shared primitives (buttons, lists, forms, sheets/drawers, progress bars, nav) are **documented and
+  reused** by Milestones 02–08 rather than re-implemented per screen (PRD §5.10).
 
-## Implementation Details / Architecture
+## Epics in this milestone
 
-- Part of the **`/web` React + TypeScript** app (PRD §7.2); one codebase serves laptop and mobile.
-- **Design tokens** (colours, spacing, type) drive a small component library; black/white default
-  with a single configurable accent — chosen so the whole app can be re-skinned by editing tokens
-  (PRD §5.10, §7.2). Component-library/tooling choice should favour easy theming and small
-  footprint (PRD §7.0 "fewest moving parts").
-- **PWA:** web app manifest + service worker for installability and offline shell. The service
-  worker's caching and the **offline write queue** are **co-owned with Epics 04 and 06** so there
-  is **one** offline mechanism, not three (PRD §6, §7.0).
-- **Mobile-first interaction model:** bottom nav, thumb zones, large tap targets, sheets for quick
-  add/edit — these directly enable the "spontaneous changes are fast on mobile" requirement of
-  Epic 04 (PRD §5.3, §5.10).
-- **Performance budget:** code-splitting, lazy maps, and light thumbnails (from Epic 06) to hit the
-  <1.5s day-view target on 4G (PRD §6).
-- **Accessibility** baked into the primitives (focus states, contrast, semantic markup).
+| Epic | Title | AC | Est. (dev-days) | Cost-relevant |
+|------|-------|----|-----------------|---------------|
+| [01](epic-01-design-tokens-theming/README.md) | Design tokens & theming (black/white + accent) | 4 | ~1–2 | — |
+| [02](epic-02-component-library/README.md) | Core component library | 4 | ~2–3 | — |
+| [03](epic-03-responsive-mobile-nav/README.md) | Responsive layouts & mobile navigation | 4 | ~2 | — |
+| [04](epic-04-pwa-offline-shell/README.md) | PWA installability & offline shell | 5 | ~2–3 | — |
+| [05](epic-05-accessibility-performance/README.md) | Accessibility & performance budget | 4 | ~1–2 | yes (indirectly cost-positive) |
+| | **Milestone total** | **21** | **~8–12** (≈ 2–2.5 weeks, one developer) | — |
 
-## Dependencies
+> **Estimates** assume one developer familiar with the stack; they cover implementation, tests, and
+> review. Tokens + components (Epics 01–02) should land early so Milestones 02–08 consume them; PWA,
+> a11y, and performance (Epics 04–05) polish late. The service worker / offline shell (Epic 04) is
+> **co-owned with Milestones 04 and 06** so there is one offline mechanism.
 
-- **Upstream:** Epic 01 (web app shell, hosting/CDN). Can start early in parallel.
-- **Cross-cutting:** consumed by Epics 02–08 (every screen uses these components); **offline**
-  bits are co-designed with Epics 04 and 06.
-- **Downstream:** Epic 10 validates the performance and accessibility targets.
+## Sequencing within the milestone
 
-## Costs Impact
-
-No direct infra cost. **Indirectly cost-positive:** lazy-loading maps and serving light
-thumbnails reduce **Maps calls** (PRD §8.4 #2) and **photo egress** (PRD §8.4 #3), the two named
-variable-cost risks. Hosting stays within the **Firebase Hosting free tier** (PRD §8.1).
+```
+01 Design tokens & theming ── 02 Core component library ──┬─ 03 Responsive & mobile navigation
+                                                          ├─ 04 PWA & offline shell (co-owned w/ M04, M06)
+                                                          └─ 05 Accessibility & performance budget
+```
 
 ## Designs
 
-This epic **implements** the directional concepts across all mockups:
-- Trips dashboard: [assets/01-trips-dashboard.svg](../assets/01-trips-dashboard.svg) (PRD §4.1)
-- Day plan + map: [assets/02-day-plan-map.svg](../assets/02-day-plan-map.svg) (PRD §4.2)
-- Mobile + sharing: [assets/03-mobile-and-sharing.svg](../assets/03-mobile-and-sharing.svg) (PRD §4.3)
+This milestone **implements** the directional concepts across all mockups:
+- Trips dashboard: [assets/01-trips-dashboard.svg](../../assets/01-trips-dashboard.svg) (PRD §4.1)
+- Day plan + map: [assets/02-day-plan-map.svg](../../assets/02-day-plan-map.svg) (PRD §4.2)
+- Mobile + sharing: [assets/03-mobile-and-sharing.svg](../../assets/03-mobile-and-sharing.svg) (PRD §4.3)
 
-The mockups are **directional, not final** (PRD §4); this epic produces the real, accessible,
+The mockups are **directional, not final** (PRD §4); this milestone produces the real, accessible,
 themeable components and is expected to iterate on user feedback after v1 (PRD §5.10).
