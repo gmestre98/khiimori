@@ -1,5 +1,7 @@
 # S6 — Shared error handling & JSON error responses
 
+> **Status:** ✅ Done.
+
 ## Context
 Every module returns errors the same way, so the API speaks one consistent error shape and modules stay
 thin (PRD §7.1). This story adds the `platform` error helpers: a typed API error and a single writer that
@@ -12,12 +14,12 @@ Assumes the logger (**S2**) exists; pairs with the middleware story (**S5**).
 Add shared error types and a JSON error-response writer to the `platform` layer.
 
 ## Acceptance criteria
-- [ ] A typed API error carries an HTTP status, a stable machine-readable `code`, and a safe message.
-- [ ] A single `WriteError`-style helper renders any error as JSON (e.g. `{ "error": { "code", "message" } }`)
+- [x] A typed API error carries an HTTP status, a stable machine-readable `code`, and a safe message.
+- [x] A single `WriteError`-style helper renders any error as JSON (e.g. `{ "error": { "code", "message" } }`)
   with the correct status; unknown/unmapped errors become a generic `500` without leaking internals.
-- [ ] Consistent `Content-Type: application/json` and inclusion of the request id (from S5) when present.
-- [ ] Helpers are reusable by every module — they live in `platform`, not in a single module.
-- [ ] Unit tests cover: a typed error → mapped status/body, and an unknown error → generic 500.
+- [x] Consistent `Content-Type: application/json` and inclusion of the request id (from S5) when present.
+- [x] Helpers are reusable by every module — they live in `platform`, not in a single module.
+- [x] Unit tests cover: a typed error → mapped status/body, and an unknown error → generic 500.
 
 ## Constraints
 - Standard library `encoding/json` only (PRD §7.0).

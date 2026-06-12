@@ -1,5 +1,7 @@
 # S4 — Module route-mounting interface
 
+> **Status:** ✅ Done.
+
 ## Context
 The whole point of the modular monolith is that `/cmd/api` mounts **each module's routes through their
 own interface**, with no module reaching into another's internals (PRD §7.1). This story defines that
@@ -14,14 +16,14 @@ Define a route-registration interface in `platform` and have `/cmd/api` build th
 every module through it.
 
 ## Acceptance criteria
-- [ ] A small interface (e.g. `RouteRegistrar` with `RegisterRoutes(r)` / `Mount(mux)`) lives in `platform`.
-- [ ] Each domain module exposes a constructor returning a value that satisfies the interface; routes may
+- [x] A small interface (e.g. `RouteRegistrar` with `RegisterRoutes(r)` / `Mount(mux)`) lives in `platform`.
+- [x] Each domain module exposes a constructor returning a value that satisfies the interface; routes may
   be empty for now (no handlers required yet).
-- [ ] `/cmd/api` assembles the root router by iterating the modules and mounting each — adding/removing a
+- [x] `/cmd/api` assembles the root router by iterating the modules and mounting each — adding/removing a
   module is a single edit in the composition root, not scattered.
-- [ ] Cross-module imports stay clean: `main` depends on each module's public surface only; no module
+- [x] Cross-module imports stay clean: `main` depends on each module's public surface only; no module
   imports another module's internals (consistent with M01.1 boundary rules).
-- [ ] `go build ./...` and `go vet ./...` succeed with all modules mounted.
+- [x] `go build ./...` and `go vet ./...` succeed with all modules mounted.
 
 ## Constraints
 - Standard library router (`http.ServeMux`) is sufficient — no framework (PRD §7.0).

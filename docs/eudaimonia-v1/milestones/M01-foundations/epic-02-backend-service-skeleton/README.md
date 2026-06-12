@@ -1,5 +1,7 @@
 # Epic M01.2 — Backend Service Skeleton & Health Endpoints
 
+> **Status:** ✅ Done — all 8 stories implemented and all 5 acceptance criteria verified.
+>
 > Milestone: [01 — Foundations](../README.md) · PRD refs: §6, §7.1.
 
 ## Description
@@ -12,11 +14,11 @@ endpoints so deployment and monitoring have something to check.
 
 ## Acceptance Criteria
 
-- [ ] `/cmd/api` boots one HTTP server that mounts each module's (empty) routes through their interfaces (PRD §7.1).
-- [ ] `platform` provides config loading, structured logging, common HTTP middleware, and error handling reused by all modules.
-- [ ] `GET /healthz` returns 200 liveness with no external dependencies.
-- [ ] `GET /readyz` reports readiness (and will gate on DB connectivity once Epic M01.3 lands).
-- [ ] Unit tests cover middleware and the health handlers (PRD §7.6).
+- [x] `/cmd/api` boots one HTTP server that mounts each module's (empty) routes through their interfaces (PRD §7.1).
+- [x] `platform` provides config loading, structured logging, common HTTP middleware, and error handling reused by all modules.
+- [x] `GET /healthz` returns 200 liveness with no external dependencies.
+- [x] `GET /readyz` reports readiness (and will gate on DB connectivity once Epic M01.3 lands).
+- [x] Unit tests cover middleware and the health handlers (PRD §7.6).
 
 ## Implementation Details / Architecture
 
@@ -70,4 +72,20 @@ S1 Config ──┬─ S2 Logging ─┬─ S5 Middleware (needs S3)
 
 S2 and (after it) S6 can run alongside the server work; S7 and S8 can run in parallel once S4 lands.
 AC5's required tests live in S5 (middleware) and S7/S8 (health handlers).
+
+## Verification (2026-06-12)
+
+All 8 stories were audited against the code; `go build ./...`, `go vet ./...`, and `go test ./...`
+are green. Where each story landed:
+
+| Story | Implementation | Tests |
+|-------|----------------|-------|
+| S1 config | `internal/platform/config` — typed `Config` (port, env, log level, `DatabaseURL` placeholder), `Load()` with defaults `PORT=8080`/`ENV=dev`/`LOG_LEVEL=error`, loaded once in `cmd/api` | defaults, overrides, invalid `PORT`/`ENV`/`LOG_LEVEL` |
+| S2 logging | `internal/platform/log` — `log/slog` JSON logger from `Config`, `WithContext`/`FromContext` for request-scoped loggers, no global default | JSON shape, level filtering, structured fields, context round-trip & fallback |
+| S3 bootstrap | `cmd/api/main.go` — single `http.Server` with read/write/idle timeouts, graceful drain on SIGINT/SIGTERM (15s bound), non-zero exit + logged error on failed bind | covered via build/vet (per story DoD) |
+| S4 mounting | `internal/platform/httpx.RouteRegistrar`; all six modules (`auth`, `trip`, `budget`, `journal`, `sharing`, `geo`) expose `New()` satisfying it; `cmd/api.newRouter` is the single composition root | compile-time interface checks per module; `internal/boundaries` guards imports |
+| S5 middleware | `internal/platform/httpx/middleware.go` — `RequestIDMiddleware` (honours inbound `X-Request-Id`), `Logging` (error-level line for 5xx only; success path exists at info), `Recovery` (clean JSON 500 via S6) | id generation/echo, inbound id honoured, 5xx logs / 200 silent, panic → 500 without leaking the panic value |
+| S6 errors | `internal/platform/httpx/error.go` — typed `APIError` (status/code/message), `WriteError` renders `{"error":{code,message,request_id}}`; unmapped errors → generic 500 | typed error mapped, unknown → generic 500, request id included/omitted |
+| S7 `/healthz` | `internal/platform/health/healthz.go` — constant 200 `{"status":"ok"}`, zero I/O, mounted on the root router inside the middleware chain | 200 + body via `httptest` |
+| S8 `/readyz` | `internal/platform/health/readyz.go` — named `ReadinessCheck` registry, per-check JSON status, 503 naming failures, 2s probe timeout; `TODO(M01.3)` seam in `cmd/api` for the DB check | no checks → 200, passing → 200, failing → 503, hung check bounded |
 
