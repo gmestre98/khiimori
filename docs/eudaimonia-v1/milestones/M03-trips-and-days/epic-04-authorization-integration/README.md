@@ -49,3 +49,27 @@ Negligible — authorization checks are small reads in the existing Neon databas
 ## Designs
 
 No UI — this is the server-side access guarantee behind every trip surface (PRD §5.9, §6).
+
+## User stories
+
+The epic is split into **4 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-authorizer-interface.md) | `Authorizer` interface definition | ~2.5h | AC1 | Milestone 02 |
+| [S2](S2-owner-only-shim.md) | Owner-only shim implementation | ~2.5h | AC2 | S1, Epic 01 S2 |
+| [S3](S3-wire-authz-endpoints.md) | Wire authorization into trip read/write paths | ~3h | AC3 | S1, S2, Epics 01/03 |
+| [S4](S4-authz-tests.md) | Authorization tests (owner allowed / non-owner denied) | ~2.5h | AC4 | S1–S3 |
+
+**Total:** ~10.5h (≈ 1–2 dev-days), consistent with the epic's ~1–2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Authorizer interface ── S2 Owner-only shim ── S3 Wire into endpoints ── S4 Authz tests
+```
+
+> Milestone 08 Epic 02 replaces the S2 shim with the membership-based `Authorizer` — no caller changes,
+> and S4's behaviour-level tests keep passing.
