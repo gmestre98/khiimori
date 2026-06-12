@@ -43,6 +43,17 @@ config:
   # Firebase Hosting site id (globally unique, <=30 chars; default <project>-web).
   # eudaimonia:hostingSiteId: your-project-web
 
+  # --- Scale tunables (S9) — defaults are the cheap, idle-≈€0 ones -----------
+  # Cloud Run min instances. 0 = scale-to-zero (default). 1 keeps one warm 24/7
+  # (no cold starts) and bills continuously — the single "scale up" toggle.
+  # eudaimonia:minInstances: "0"
+  # Cloud Run max instances (default 2). Caps concurrency + worst-case spend.
+  # eudaimonia:maxInstances: "2"
+  # Neon tier reference (default free). Lever: free -> paid in the Neon console.
+  # eudaimonia:neonTier: free
+  # Google Maps daily request quota reference (default 1000). Hard cap is M01.8.
+  # eudaimonia:mapsDailyQuota: "1000"
+
   # --- Secret VALUES — never write them here in plaintext --------------------
   # The program creates the secret *containers*; their values are supplied
   # out-of-band. Two supported ways (pick one), both keep plaintext out of git:
