@@ -55,9 +55,19 @@ func run() error {
 	logger := platformlog.NewStdout(cfg)
 
 	addr := net.JoinHostPort("", strconv.Itoa(cfg.Port))
+	// Apply the shared middleware chain once at the root so every module
+	// inherits request ids, access logging, and panic recovery. RequestID is
+	// outermost so the id is available to logging and recovery; Recovery is
+	// innermost so a handler panic becomes a 500 the access log can observe.
+	handler := httpx.Chain(newRouter(),
+		httpx.RequestIDMiddleware(),
+		httpx.Logging(logger),
+		httpx.Recovery(),
+	)
+
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           newRouter(),
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      15 * time.Second,
