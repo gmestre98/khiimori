@@ -103,3 +103,24 @@ it directly too, with `DATABASE_URL_DIRECT` set:
 ```sh
 cd backend && go run ./cmd/migrate up
 ```
+
+## Integration test
+
+`integration_test.go` (build tag `integration`) runs the full migration set
+against a real database and asserts the six module schemas appear and roll back
+cleanly. It is excluded from the default `go test ./...` so unit runs stay fast
+and DB-free.
+
+It targets a **dedicated** `DATABASE_URL_TEST` — a throwaway database, ideally an
+ephemeral Neon branch — and resets it; it intentionally does **not** fall back to
+`DATABASE_URL_DIRECT`, so a real dev/prod DSN is never wiped by accident. If
+`DATABASE_URL_TEST` is unset the test skips.
+
+```sh
+# point at a throwaway DB / ephemeral branch, then:
+DATABASE_URL_TEST="postgres://…/eud_test?sslmode=require" make test-integration
+# or directly:
+cd backend && DATABASE_URL_TEST="…" go test -tags=integration ./migrations/...
+```
+
+M01.5 runs this in CI against an ephemeral Neon branch.
