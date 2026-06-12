@@ -48,3 +48,25 @@ Negligible — small relational row updates in the existing Neon database (PRD �
 Quick re-planning interactions:
 [assets/03-mobile-and-sharing.svg](../../../assets/03-mobile-and-sharing.svg) (PRD §4.3) and the day
 plan in [assets/02-day-plan-map.svg](../../../assets/02-day-plan-map.svg) (PRD §4.2).
+
+## User stories
+
+The epic is split into **4 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-ordering-reorder.md) | Ordering scheme & reorder within a day | ~3h | AC1 | Epic 02, Epic 03 |
+| [S2](S2-move-between-days.md) | Move item to another day | ~3h | AC2 | S1, Epic 03 |
+| [S3](S3-status-transitions.md) | Status transitions (done/skipped/cancelled) | ~2.5h | AC3 | Epic 02 |
+| [S4](S4-replanning-tests.md) | Re-planning tests (reorder / move / status) | ~3h | AC4 | S1–S3 |
+
+**Total:** ~11.5h (≈ 2 dev-days), consistent with the epic's ~2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Ordering & reorder ── S2 Move between days ──┐
+S3 Status transitions ──────────────────────────┴─ S4 Re-planning tests
+```
