@@ -54,3 +54,29 @@ This is the **main storage-cost epic** (PRD §8.1, §8.4):
 
 Per-trip usage indicator and light photo grids:
 [assets/03-mobile-and-sharing.svg](../../../assets/03-mobile-and-sharing.svg) (PRD §4.3, §5.10).
+
+## User stories
+
+The epic is split into **5 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-usage-tracking.md) | Per-trip photo usage tracking | ~3h | AC1 | Epic 02 |
+| [S2](S2-cap-enforcement.md) | 1 GB-per-trip cap enforcement | ~3h | AC1 | S1, Epic 02 S3 |
+| [S3](S3-thumbnails.md) | Server-side resize / thumbnail generation | ~3.5h | AC3, AC4 | Epic 02 |
+| [S4](S4-usage-exposure-delete.md) | Usage exposure & delete decrement | ~2.5h | AC2 | S1, S2 |
+| [S5](S5-quota-thumbnail-tests.md) | Cap, usage & thumbnail tests | ~3h | AC5 | S1–S4 |
+
+**Total:** ~15h (≈ 2–3 dev-days), consistent with the epic's ~2–3 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Usage tracking ── S2 Cap enforcement ──┬─ S4 Usage exposure & delete ──┐
+S3 Thumbnails ────────────────────────────┴───────────────────────────────┴─ S5 Tests
+```
+
+> S2/S3 flag confirming any image-processing library with the author; thumbnailing stays **inline** in v1
+> (the scale-up lever is async thumbnailing — documented, not built).
