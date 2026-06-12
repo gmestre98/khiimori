@@ -26,11 +26,12 @@ keep the stack small, prefer a modular monolith, and keep every decision easy to
 | [07](M07-maps/README.md) | Maps | Geo proxy, per-day map, key/cost protection | **Broken into 4 epics** | §5.6, §8.4–8.5 |
 | [08](M08-sharing-and-backoffice/README.md) | Sharing & Backoffice | Memberships, invitations, roles, admin | **Broken into 5 epics** | §3, §5.9, §9 |
 | [09](M09-design-system-and-mobile-pwa/README.md) | Design System & Mobile/PWA | Theme, responsive, installable, a11y | **Broken into 5 epics** | §5.10, §7.2 |
-| [10](M10-testing-and-hardening/README.md) | Testing & Hardening | E2E journeys, load/cost review, security review | Overview — epics TBD | §6, §7.6, §8.5 |
+| [10](M10-testing-and-hardening/README.md) | Testing & Hardening | E2E journeys, load/cost review, security review | **Broken into 5 epics** | §6, §7.6, §8.5 |
 
-> **Status legend:** Milestone 01 is fully broken into ≤5-AC epics as the template. Milestones
-> 02–10 currently hold a detailed milestone-level spec (the original breakdown) and will be split
-> into epics the same way.
+> **Status legend:** All milestones (01–10) are now broken into ≤5-AC epics, each as a folder with a
+> `README.md` (Description · Acceptance Criteria · Implementation Details · Dependencies · Costs ·
+> Designs). Per-epic user-story breakdowns (≤4h agent-ready stories) are added in follow-up PRs —
+> complete for Milestone 01, in progress for 02–10.
 
 ## Recommended sequencing (milestone level)
 
