@@ -51,3 +51,27 @@ Negligible. No new billable component (PRD §8 — within free tier).
 ## Designs
 
 No bespoke UI; the client-side handling of `401`/sign-out lives in Epic 05's auth context.
+
+## User stories
+
+The epic is split into **5 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-session-issuance.md) | Session issuance after sign-in | ~3.5h | AC1 | Epic 01 S3, Epic 02 S2 |
+| [S2](S2-auth-middleware.md) | Auth middleware: validate session, attach user, 401 | ~3.5h | AC2, AC3 | S1 (M01.2) |
+| [S3](S3-sign-out.md) | Sign-out / session invalidation | ~2.5h | AC4 | S1, S2 |
+| [S4](S4-session-secret-expiry.md) | Session secret from Secret Manager & expiry/refresh | ~2.5h | AC1 | S1 (M01.4) |
+| [S5](S5-session-middleware-tests.md) | Session & middleware tests | ~3h | AC5 | S1–S4 |
+
+**Total:** ~15h (≈ 2–3 dev-days), consistent with the epic's ~2–3 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Session issuance ──┬─ S2 Auth middleware ──┐
+                      ├─ S3 Sign-out ─────────┤
+                      └─ S4 Secret & expiry ───┴─ S5 Tests
+```
