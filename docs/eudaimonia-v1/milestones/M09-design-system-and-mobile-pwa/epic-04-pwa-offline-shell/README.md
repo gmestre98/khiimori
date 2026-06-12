@@ -51,3 +51,30 @@ repeat network/API calls. Hosting stays within the **Firebase Hosting free tier*
 
 Standalone mobile/PWA experience:
 [assets/03-mobile-and-sharing.svg](../../../assets/03-mobile-and-sharing.svg) (PRD §4.3).
+
+## User stories
+
+The epic is split into **5 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-manifest-installability.md) | Web app manifest, icons & installability | ~3h | AC1 | M01.6, Epic 01 |
+| [S2](S2-service-worker-shell.md) | Service worker & app-shell caching | ~3.5h | AC2 | S1 |
+| [S3](S3-offline-current-trip.md) | Offline current-trip viewing | ~3h | AC2 | S2, M03–M06 |
+| [S4](S4-write-queue-coordination.md) | Service worker coordinates the offline write queue | ~3h | AC3 | S2, M04 Epic 06, M06 Epic 04 |
+| [S5](S5-update-handling-tests.md) | Update/version handling & offline tests | ~3h | AC4, AC5 | S1–S4 |
+
+**Total:** ~15.5h (≈ 2–3 dev-days), consistent with the epic's ~2–3 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Manifest & installability ── S2 Service worker & shell ──┬─ S3 Offline current-trip
+                                                            ├─ S4 Write-queue coordination
+                                                            └─ S5 Update handling & tests
+```
+
+> S4 **integrates** Milestone 04's offline write queue (one mechanism, reused by M06) — it does not
+> redefine it. S2 flags confirming any service-worker tooling with the author.
