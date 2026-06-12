@@ -18,3 +18,7 @@ config:
   # --- Optional: resource names (sensible defaults if omitted) ---------------
   # Artifact Registry Docker repository id (last segment of the image prefix).
   # eudaimonia:artifactRepoId: eudaimonia
+  # Cloud Storage media bucket name (globally unique; default <project>-media).
+  # eudaimonia:mediaBucketName: your-project-media
+  # Allow `pulumi destroy` to delete a non-empty media bucket (default false).
+  # eudaimonia:mediaBucketForceDestroy: "false"

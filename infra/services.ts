@@ -19,3 +19,6 @@ function enableApi(name: string, service: string): gcp.projects.Service {
 
 /** Artifact Registry — Docker image repository for the service container. */
 export const artifactRegistryApi = enableApi('artifactregistry', 'artifactregistry.googleapis.com')
+
+/** Cloud Storage — private bucket for journal/media objects. */
+export const storageApi = enableApi('storage', 'storage.googleapis.com')
