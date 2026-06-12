@@ -28,3 +28,9 @@ export const secretManagerApi = enableApi('secretmanager', 'secretmanager.google
 
 /** Cloud Run — the service that runs the Go container. */
 export const cloudRunApi = enableApi('run', 'run.googleapis.com')
+
+/** Firebase Management — needed to manage the Hosting site on the project. */
+export const firebaseApi = enableApi('firebase', 'firebase.googleapis.com')
+
+/** Firebase Hosting — the web app's CDN-backed static host. */
+export const firebaseHostingApi = enableApi('firebasehosting', 'firebasehosting.googleapis.com')

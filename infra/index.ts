@@ -13,6 +13,7 @@ import { mediaBucketName } from './storage'
 import { secretIds } from './secrets'
 import { serviceAccountEmail } from './serviceAccount'
 import { serviceUrl } from './cloudRun'
+import { hostingSiteId, hostingUrl } from './hosting'
 
 // Echo the resolved provider config as stack outputs. These are trivial (no
 // resources created) and double as a smoke test that project + region are set.
@@ -33,3 +34,7 @@ export const cloudRunServiceAccount = serviceAccountEmail
 
 // Cloud Run service URL — M01.6 web shell + CORS origin.
 export const cloudRunUrl = serviceUrl
+
+// Firebase Hosting site — deploy target (M01.5) and web origin (M01.6).
+export const firebaseHostingSiteId = hostingSiteId
+export const firebaseHostingUrl = hostingUrl

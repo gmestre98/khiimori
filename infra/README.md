@@ -30,6 +30,10 @@ added across epic M01.4.
 - A **GCP project with billing enabled** (PRD §8.3) — author-provided. Billing
   must be on even within free allowances; all resources here are
   scale-to-zero / free-tier so idle cost is ≈€0 (PRD §8.1, §8.8).
+- **Firebase enabled on that GCP project** (author-provided, one-time) for the
+  Hosting site — `firebase projects:addfirebase <project>` or the Firebase
+  console. The program manages the Hosting _site_; enabling Firebase itself is
+  the manual prerequisite.
 
 ## State backend
 
