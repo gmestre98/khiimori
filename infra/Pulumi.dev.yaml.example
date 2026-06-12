@@ -37,6 +37,11 @@ config:
   # Allow unauthenticated invocation so the browser SPA can call the API
   # (default true; set false to make the service private).
   # eudaimonia:allowUnauthenticated: "true"
+  # Firebase project id (default: same as gcp:project). Firebase must already be
+  # enabled on it — `firebase projects:addfirebase <project>` (one-time).
+  # eudaimonia:firebaseProject: your-firebase-project-id
+  # Firebase Hosting site id (globally unique, <=30 chars; default <project>-web).
+  # eudaimonia:hostingSiteId: your-project-web
 
   # --- Secret VALUES — never write them here in plaintext --------------------
   # The program creates the secret *containers*; their values are supplied
