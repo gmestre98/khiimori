@@ -49,3 +49,23 @@ Maps calls (PRD §8.4 #2, §8.1).
 Day plan with map and pins:
 [assets/02-day-plan-map.svg](../../../assets/02-day-plan-map.svg) (PRD §4.2). Pins may use restrained
 accent colour (PRD §5.10).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-map-component.md) | Map component (proxy data, lazy-loaded, no client key) | ~3.5h | AC4 | Epic 01 S4, M04 Epic 05 |
+| [S2](S2-pins-itinerary-order.md) | Render pins in itinerary order | ~3h | AC1 | S1, Epic 02, M04 |
+| [S3](S3-route-omission.md) | Indicative route & location-less omission | ~2.5h | AC2, AC3 | S1, S2, Epic 02 S3 |
+
+**Total:** ~9h (≈ 2 dev-days), consistent with the epic's ~2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Map component (lazy, no key) ── S2 Pins in order ── S3 Indicative route & omission
+```
