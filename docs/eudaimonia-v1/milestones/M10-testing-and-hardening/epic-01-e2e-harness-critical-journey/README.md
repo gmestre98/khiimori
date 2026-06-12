@@ -48,3 +48,26 @@ standing cost (~€0 idle).
 ## Designs
 
 No new UI — validates the implemented screens against the directional concepts (PRD §4).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-e2e-harness.md) | E2E harness (runner + staging + auth setup) | ~3.5h | AC1, AC4 | M01.5, M02 |
+| [S2](S2-critical-journey.md) | Critical-journey E2E test | ~3.5h | AC2 | S1, M02–M08 |
+| [S3](S3-ci-staging-stage.md) | CI staging stage integration | ~3h | AC3 | S1, S2, M01.5 |
+
+**Total:** ~10h (≈ 2–3 dev-days), consistent with the epic's ~2–3 dev-day estimate.
+
+### Sequencing
+
+```
+S1 E2E harness ── S2 Critical journey ── S3 CI staging stage
+```
+
+> S1 flags confirming the E2E runner (Playwright is the PRD's example) with the author. CI minutes are
+> the cost to watch (PRD §8.4 #4).
