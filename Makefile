@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 .PHONY: help dev dev-backend dev-web install \
-	migrate-up migrate-down migrate-reset migrate-status
+	migrate-up migrate-down migrate-reset migrate-status test-integration
 
 # Load backend/.env if present (local dev); in CI / deploy the environment is
 # already set, so migrations target whatever DATABASE_URL_DIRECT points at.
@@ -40,3 +40,6 @@ migrate-reset: ## Roll back all migrations.
 
 migrate-status: ## Show applied / pending migrations.
 	@$(MIGRATE_ENV) && go run ./cmd/migrate status
+
+test-integration: ## Run DB integration tests (needs DATABASE_URL_TEST: a throwaway DB).
+	@$(MIGRATE_ENV) && go test -tags=integration ./migrations/...
