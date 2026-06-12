@@ -48,3 +48,23 @@ Photos (the storage cost) are Epics 02–03.
 
 Mobile journal view: [assets/03-mobile-and-sharing.svg](../../../assets/03-mobile-and-sharing.svg)
 (PRD §4.3).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-journal-schema-migration.md) | `journal.*` schema & `JournalEntry` migration | ~2.5h | AC1 | M03 Epic 02, M02 |
+| [S2](S2-entry-crud-autosave.md) | Entry CRUD & idempotent auto-save | ~3h | AC1, AC3 | S1, M02 |
+| [S3](S3-authz-tests.md) | Authorization & entry tests | ~3h | AC1 | S1, S2, M03 Epic 04 |
+
+**Total:** ~8.5h (≈ 1–2 dev-days), consistent with the epic's ~1–2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Schema ── S2 Entry CRUD (idempotent) ── S3 Authorization & tests
+```
