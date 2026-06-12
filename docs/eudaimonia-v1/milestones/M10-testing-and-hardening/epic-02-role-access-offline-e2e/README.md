@@ -46,3 +46,24 @@ the shared staging environment (~€0 idle).
 ## Designs
 
 No new UI — validates access and offline behaviour across existing screens (PRD §4, §5.9, §6).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-role-access-e2e.md) | Role-based access E2E | ~3.5h | AC1, AC4 | Epic 01, M08 |
+| [S2](S2-offline-sync-e2e.md) | Offline → online sync E2E | ~3.5h | AC2 | Epic 01, M04/M06/M09 |
+| [S3](S3-ci-integration.md) | CI integration of role & offline suites | ~2.5h | AC3 | S1, S2, Epic 01 S3 |
+
+**Total:** ~9.5h (≈ 2 dev-days), consistent with the epic's ~2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Role-based access E2E ──┐
+S2 Offline-sync E2E ───────┴─ S3 CI integration
+```
