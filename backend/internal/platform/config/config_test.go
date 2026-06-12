@@ -10,7 +10,7 @@ import (
 // following os.Unsetenv then clears it so LookupEnv reports the variable absent.
 func clearEnv(t *testing.T) {
 	t.Helper()
-	for _, k := range []string{"PORT", "ENV", "LOG_LEVEL", "DATABASE_URL"} {
+	for _, k := range []string{"PORT", "ENV", "LOG_LEVEL", "DATABASE_URL", "DATABASE_URL_DIRECT", "DB_POOLED"} {
 		t.Setenv(k, "")
 		if err := os.Unsetenv(k); err != nil {
 			t.Fatalf("unset %s: %v", k, err)
@@ -35,7 +35,13 @@ func TestLoadDefaults(t *testing.T) {
 		t.Errorf("LogLevel = %q, want %q (errors-only default)", cfg.LogLevel, LevelError)
 	}
 	if cfg.DatabaseURL != "" {
-		t.Errorf("DatabaseURL = %q, want empty (wired in M01.3)", cfg.DatabaseURL)
+		t.Errorf("DatabaseURL = %q, want empty", cfg.DatabaseURL)
+	}
+	if cfg.DatabaseURLDirect != "" {
+		t.Errorf("DatabaseURLDirect = %q, want empty", cfg.DatabaseURLDirect)
+	}
+	if !cfg.DBPooled {
+		t.Error("DBPooled = false, want true (pooled by default)")
 	}
 }
 
@@ -45,6 +51,8 @@ func TestLoadOverrides(t *testing.T) {
 	t.Setenv("ENV", "prod")
 	t.Setenv("LOG_LEVEL", "info")
 	t.Setenv("DATABASE_URL", "postgres://localhost/eudaimonia")
+	t.Setenv("DATABASE_URL_DIRECT", "postgres://localhost:5433/eudaimonia")
+	t.Setenv("DB_POOLED", "false")
 
 	cfg, err := Load()
 	if err != nil {
@@ -62,6 +70,12 @@ func TestLoadOverrides(t *testing.T) {
 	if cfg.DatabaseURL != "postgres://localhost/eudaimonia" {
 		t.Errorf("DatabaseURL = %q, unexpected", cfg.DatabaseURL)
 	}
+	if cfg.DatabaseURLDirect != "postgres://localhost:5433/eudaimonia" {
+		t.Errorf("DatabaseURLDirect = %q, unexpected", cfg.DatabaseURLDirect)
+	}
+	if cfg.DBPooled {
+		t.Error("DBPooled = true, want false (DB_POOLED=false override)")
+	}
 }
 
 func TestLoadInvalid(t *testing.T) {
@@ -74,6 +88,7 @@ func TestLoadInvalid(t *testing.T) {
 		{"port out of range", "PORT", "70000"},
 		{"unknown env", "ENV", "staging"},
 		{"unknown log level", "LOG_LEVEL", "verbose"},
+		{"non-bool DB_POOLED", "DB_POOLED", "yes"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

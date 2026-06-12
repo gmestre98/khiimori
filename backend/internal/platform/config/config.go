@@ -50,9 +50,17 @@ type Config struct {
 	Env Env
 	// LogLevel is the minimum log severity emitted.
 	LogLevel LogLevel
-	// DatabaseURL is the connection string for the primary database. It is
-	// optional for now and wired in by Epic M01.3; it stays empty until then.
+	// DatabaseURL is the pooled (pgBouncer) connection string for the primary
+	// database — the endpoint app traffic and the readiness check use.
 	DatabaseURL string
+	// DatabaseURLDirect is the direct (un-pooled) connection string, used by
+	// migrations and admin tasks that must bypass the pooler. It may be empty
+	// when the service only serves traffic and never runs migrations.
+	DatabaseURLDirect string
+	// DBPooled selects which endpoint the application connection pool uses:
+	// true → DatabaseURL (pooled, the default), false → DatabaseURLDirect.
+	// Flipping it is a config change, not a code change (PRD §8.6).
+	DBPooled bool
 }
 
 // Defaults applied by Load when the corresponding environment variable is unset.
@@ -60,6 +68,7 @@ const (
 	defaultPort     = 8080
 	defaultEnv      = EnvDev
 	defaultLogLevel = LevelError
+	defaultDBPooled = true
 )
 
 // Load reads configuration from the environment, applying defaults for unset
@@ -67,16 +76,20 @@ const (
 //
 // Recognised variables:
 //
-//	PORT          TCP port to listen on          (default 8080)
-//	ENV           dev | prod                      (default dev)
-//	LOG_LEVEL     debug | info | warn | error     (default error)
-//	DATABASE_URL  primary database DSN            (default empty; wired in M01.3)
+//	PORT                 TCP port to listen on        (default 8080)
+//	ENV                  dev | prod                    (default dev)
+//	LOG_LEVEL            debug | info | warn | error    (default error)
+//	DATABASE_URL         pooled (pgBouncer) database DSN (default empty)
+//	DATABASE_URL_DIRECT  direct database DSN, migrations (default empty)
+//	DB_POOLED            true | false                   (default true)
 func Load() (Config, error) {
 	cfg := Config{
-		Port:        defaultPort,
-		Env:         defaultEnv,
-		LogLevel:    defaultLogLevel,
-		DatabaseURL: os.Getenv("DATABASE_URL"),
+		Port:              defaultPort,
+		Env:               defaultEnv,
+		LogLevel:          defaultLogLevel,
+		DatabaseURL:       os.Getenv("DATABASE_URL"),
+		DatabaseURLDirect: os.Getenv("DATABASE_URL_DIRECT"),
+		DBPooled:          defaultDBPooled,
 	}
 
 	if v, ok := os.LookupEnv("PORT"); ok {
@@ -104,6 +117,14 @@ func Load() (Config, error) {
 			return Config{}, fmt.Errorf("config: invalid LOG_LEVEL %q (want debug, info, warn or error)", v)
 		}
 		cfg.LogLevel = level
+	}
+
+	if v, ok := os.LookupEnv("DB_POOLED"); ok {
+		pooled, err := strconv.ParseBool(v)
+		if err != nil {
+			return Config{}, fmt.Errorf("config: invalid DB_POOLED %q (want true or false): %w", v, err)
+		}
+		cfg.DBPooled = pooled
 	}
 
 	return cfg, nil

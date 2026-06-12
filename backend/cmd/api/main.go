@@ -24,6 +24,7 @@ import (
 	"github.com/gmestre98/eudaimonia/backend/internal/geo"
 	"github.com/gmestre98/eudaimonia/backend/internal/journal"
 	"github.com/gmestre98/eudaimonia/backend/internal/platform/config"
+	"github.com/gmestre98/eudaimonia/backend/internal/platform/db"
 	"github.com/gmestre98/eudaimonia/backend/internal/platform/health"
 	"github.com/gmestre98/eudaimonia/backend/internal/platform/httpx"
 	platformlog "github.com/gmestre98/eudaimonia/backend/internal/platform/log"
@@ -54,6 +55,23 @@ func run() error {
 	}
 
 	logger := platformlog.NewStdout(cfg)
+
+	// Open the database pool from config and close it on shutdown. Open is lazy
+	// (it doesn't dial), so a cold Neon instance never blocks boot; real
+	// connectivity is surfaced through /readyz. The DB is optional at this stage
+	// so the service still runs locally without credentials — when a DSN is set,
+	// a bad one is a hard startup error.
+	if cfg.DatabaseURL != "" || cfg.DatabaseURLDirect != "" {
+		database, err := db.Open(context.Background(), cfg)
+		if err != nil {
+			logger.Error("opening database", "err", err.Error())
+			return err
+		}
+		defer database.Close()
+		logger.Info("database pool ready", "pooled", cfg.DBPooled)
+	} else {
+		logger.Info("database not configured (DATABASE_URL unset); starting without a DB pool")
+	}
 
 	addr := net.JoinHostPort("", strconv.Itoa(cfg.Port))
 	// Apply the shared middleware chain once at the root so every module
