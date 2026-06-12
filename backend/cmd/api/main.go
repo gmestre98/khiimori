@@ -86,7 +86,7 @@ func run() error {
 	// inherits request ids, access logging, and panic recovery. RequestID is
 	// outermost so the id is available to logging and recovery; Recovery is
 	// innermost so a handler panic becomes a 500 the access log can observe.
-	handler := httpx.Chain(newRouter(),
+	handler := httpx.Chain(newRouter(database),
 		httpx.RequestIDMiddleware(),
 		httpx.Logging(logger),
 		httpx.Recovery(),
@@ -155,18 +155,23 @@ func run() error {
 // Adding or removing a module is a single edit to this list — the composition
 // root — and no module reaches into another's internals. The modules expose no
 // endpoints yet.
-func newRouter() http.Handler {
+//
+// dbPinger is the database handle whose connectivity backs the readiness probe;
+// it is the narrow db.Pinger seam so the router doesn't depend on the concrete
+// pool.
+func newRouter(dbPinger db.Pinger) http.Handler {
 	mux := http.NewServeMux()
 
 	// Health probes are mounted on the root router so they inherit the shared
-	// middleware chain. Liveness (S7) is dependency-free; readiness (S8)
-	// aggregates the checks registered below.
+	// middleware chain. Liveness is dependency-free; readiness aggregates the
+	// checks registered below.
 	mux.HandleFunc(health.LivenessPath, health.Healthz)
 
 	readiness := health.NewReadiness()
-	// TODO(M01.3): register the database connectivity check here once the DB
-	// handle exists, e.g. readiness.Register("database", db ping) — the /readyz
-	// contract needs no other change.
+	// Readiness reflects real database connectivity: the check pings through the
+	// (pooled) connection real traffic uses, under the registry's bounded
+	// timeout. /readyz returns 503 naming "db" when it fails.
+	readiness.Register("db", dbPinger.Ping)
 	mux.HandleFunc(health.ReadinessPath, readiness.Handler)
 
 	modules := []httpx.RouteRegistrar{
