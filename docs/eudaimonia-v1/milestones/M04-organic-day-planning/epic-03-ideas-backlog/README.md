@@ -44,3 +44,23 @@ Negligible — small relational row updates in the existing Neon database (PRD �
 Ideas/backlog and day list:
 [assets/02-day-plan-map.svg](../../../assets/02-day-plan-map.svg) and the mobile quick-add context in
 [assets/03-mobile-and-sharing.svg](../../../assets/03-mobile-and-sharing.svg) (PRD §4.2–4.3).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-backlog-read.md) | Ideas backlog list (`day_id = null`) | ~2.5h | AC1 | Epic 02, M03 Epic 04 |
+| [S2](S2-promote-demote.md) | Promote & demote (no re-entry) | ~3h | AC2 | S1, Epic 02 |
+| [S3](S3-preservation-tests.md) | Field/order preservation & tests | ~2.5h | AC3, AC4 | S1, S2 |
+
+**Total:** ~8h (≈ 1–2 dev-days), consistent with the epic's ~1–2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Backlog read ── S2 Promote/demote ── S3 Preservation & tests
+```
