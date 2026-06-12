@@ -77,6 +77,15 @@ npm run lint          # ESLint
 npm run format:check  # Prettier check (npm run format to apply)
 ```
 
+**Infra** (Pulumi/TypeScript on GCP — run from `infra/`, see [`infra/README.md`](infra/README.md)):
+
+```sh
+npm run build         # type-check (tsc --noEmit)
+npm run lint          # ESLint
+npm run format:check  # Prettier check (npm run format to apply)
+pulumi preview        # show planned cloud changes (needs Pulumi + gcloud auth)
+```
+
 ## Documentation
 
 The full Product Requirements Document and delivery plan live in

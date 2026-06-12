@@ -1,0 +1,16 @@
+# Stack config template for the `dev` stack.
+#
+# Copy this to `Pulumi.dev.yaml` and fill in your values:
+#
+#     cp Pulumi.dev.yaml.example Pulumi.dev.yaml
+#
+# `Pulumi.dev.yaml` is gitignored (it may hold Pulumi-encrypted secret config),
+# so it never reaches git — this `.example` is the committed reference of the
+# config surface the stack expects. Keep the two in sync when adding config.
+config:
+  # GCP project to deploy into (author-provided, billing enabled — PRD §8.3).
+  # Read natively by the @pulumi/gcp provider; also surfaced as a typed value.
+  gcp:project: your-gcp-project-id
+  # GCP region. europe-west2 (London) pairs with the Neon DB in eu-west-2
+  # (AWS London) for low cross-service latency — see backend/docs/database.md.
+  gcp:region: europe-west2
