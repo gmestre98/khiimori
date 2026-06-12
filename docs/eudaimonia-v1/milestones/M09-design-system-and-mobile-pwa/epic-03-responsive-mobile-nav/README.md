@@ -46,3 +46,23 @@ Mobile layout / bottom nav / thumb zones:
 [assets/03-mobile-and-sharing.svg](../../../assets/03-mobile-and-sharing.svg) (PRD §4.3); laptop
 layouts in [assets/01](../../../assets/01-trips-dashboard.svg) and
 [02](../../../assets/02-day-plan-map.svg) (PRD §4.1–4.2).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-responsive-layout-system.md) | Responsive layout system | ~3h | AC1, AC4 | Epic 02, M03 |
+| [S2](S2-mobile-bottom-nav.md) | Mobile bottom navigation & thumb zones | ~3h | AC2 | S1, Epic 02 S3 |
+| [S3](S3-sheets-quick-edit.md) | Sheets/drawers for quick add/edit | ~3h | AC3 | S1, S2, Epic 02 S2 |
+
+**Total:** ~9h (≈ 2 dev-days), consistent with the epic's ~2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Responsive layout system ── S2 Mobile bottom nav ── S3 Sheets for quick add/edit
+```
