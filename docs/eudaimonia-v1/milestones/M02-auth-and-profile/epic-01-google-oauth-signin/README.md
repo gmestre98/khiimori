@@ -51,3 +51,29 @@ Negligible. Google OAuth is free; no new billable component (PRD §8 — within 
 
 Sign-in is a simple surface using the black/white theme (PRD §5.10); the redirect flow has no
 bespoke UI beyond the Google consent screen and a return landing handled in Epic 05.
+
+## User stories
+
+The epic is split into **6 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt — hand a single file to a coding
+agent and it has enough context (background, task, acceptance criteria, constraints, dependencies,
+definition of done) to implement it without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-identity-provider-interface.md) | `IdentityProvider` interface & Google provider scaffold | ~3h | AC1 | — (M01.1, M01.2) |
+| [S2](S2-authorization-code-consent-url.md) | Authorization-code consent URL (state + nonce) | ~3h | AC1, AC3 | S1 |
+| [S3](S3-callback-code-exchange-verification.md) | Callback: code exchange & ID-token verification | ~3.5h | AC1, AC2, AC3 | S1, S2 |
+| [S4](S4-token-verification-tests.md) | Token-verification unit tests | ~3h | AC5 | S3 |
+| [S5](S5-secrets-and-no-logging.md) | OAuth secrets via Secret Manager & no-logging | ~2.5h | AC4 | S1–S3 (M01.4) |
+| [S6](S6-document-oauth-signin.md) | Document the OAuth sign-in story | ~2h | — | S1–S5 |
+
+**Total:** ~17h (≈ 2–3 dev-days), consistent with the epic's ~2–3 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Interface ── S2 Consent URL ── S3 Callback & verification ──┬─ S4 Verification tests
+                                                               └─ S5 Secrets & no-logging
+S6 Document ◄── needs S1–S5
+```
