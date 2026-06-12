@@ -47,3 +47,26 @@ Negligible — memberships are small relational rows in the existing Neon databa
 
 Trip access/roles surface:
 [assets/03-mobile-and-sharing.svg](../../../assets/03-mobile-and-sharing.svg) (PRD §4.3).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-membership-lifecycle.md) | Membership lifecycle (add / change role / revoke) | ~3h | AC1, AC2 | M03 S2 (membership table) |
+| [S2](S2-membership-reads.md) | Membership reads for authorization & listing | ~2.5h | AC3 | S1, M03 |
+| [S3](S3-integrity-tests.md) | Referential integrity & lifecycle tests | ~3h | AC4 | S1, S2 |
+
+**Total:** ~8.5h (≈ 1–2 dev-days), consistent with the epic's ~1–2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Membership lifecycle ── S2 Membership reads ── S3 Integrity & lifecycle tests
+```
+
+> The `TripMembership` table (and the Owner row) was introduced in Milestone 03 S2 in the `sharing.*`
+> schema — this epic **extends** its lifecycle, no data redesign.
