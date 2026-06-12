@@ -12,6 +12,7 @@ import { imagePathPrefix } from './artifactRegistry'
 import { mediaBucketName } from './storage'
 import { secretIds } from './secrets'
 import { serviceAccountEmail } from './serviceAccount'
+import { serviceUrl } from './cloudRun'
 
 // Echo the resolved provider config as stack outputs. These are trivial (no
 // resources created) and double as a smoke test that project + region are set.
@@ -29,3 +30,6 @@ export const secrets = secretIds
 
 // Least-privilege Cloud Run runtime service account — for S6 to attach.
 export const cloudRunServiceAccount = serviceAccountEmail
+
+// Cloud Run service URL — M01.6 web shell + CORS origin.
+export const cloudRunUrl = serviceUrl
