@@ -54,3 +54,25 @@ part of why the PRD chose Postgres over NoSQL (PRD §7.7, §8 free tier).
 
 Budget figures within the day plan:
 [assets/02-day-plan-map.svg](../../../assets/02-day-plan-map.svg) (PRD §4.2).
+
+## User stories
+
+The epic is split into **5 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-costentry-schema.md) | `CostEntry` schema & migration | ~2.5h | AC1 | Epic 01, M03/M04 |
+| [S2](S2-costentry-crud.md) | Cost entry CRUD | ~3h | AC3 | S1, M03 Epic 04 |
+| [S3](S3-rollup-engine.md) | Roll-up aggregation engine | ~3.5h | AC2 | S1, S2, M04 (via interface) |
+| [S4](S4-edit-delete-propagation.md) | Edit/delete propagation & transactional consistency | ~3h | AC4 | S2, S3 |
+| [S5](S5-rollup-tests.md) | Roll-up & aggregation tests | ~3h | AC5 | S1–S4 |
+
+**Total:** ~15h (≈ 2–3 dev-days), consistent with the epic's ~2–3 dev-day estimate.
+
+### Sequencing
+
+```
+S1 CostEntry schema ── S2 CostEntry CRUD ── S3 Roll-up engine ── S4 Edit/delete propagation ── S5 Tests
+```
