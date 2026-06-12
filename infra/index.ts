@@ -11,6 +11,7 @@ import { project, region } from './config'
 import { imagePathPrefix } from './artifactRegistry'
 import { mediaBucketName } from './storage'
 import { secretIds } from './secrets'
+import { serviceAccountEmail } from './serviceAccount'
 
 // Echo the resolved provider config as stack outputs. These are trivial (no
 // resources created) and double as a smoke test that project + region are set.
@@ -25,3 +26,6 @@ export const mediaBucket = mediaBucketName
 
 // Secret Manager container ids (values supplied out-of-band) — for S7 to mount.
 export const secrets = secretIds
+
+// Least-privilege Cloud Run runtime service account — for S6 to attach.
+export const cloudRunServiceAccount = serviceAccountEmail

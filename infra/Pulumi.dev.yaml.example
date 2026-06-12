@@ -22,6 +22,8 @@ config:
   # eudaimonia:mediaBucketName: your-project-media
   # Allow `pulumi destroy` to delete a non-empty media bucket (default false).
   # eudaimonia:mediaBucketForceDestroy: "false"
+  # Cloud Run runtime service account id (6-30 chars; default eudaimonia-run).
+  # eudaimonia:cloudRunServiceAccountId: eudaimonia-run
 
   # --- Secret VALUES — never write them here in plaintext --------------------
   # The program creates the secret *containers*; their values are supplied
