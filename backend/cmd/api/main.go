@@ -19,8 +19,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gmestre98/eudaimonia/backend/internal/auth"
+	"github.com/gmestre98/eudaimonia/backend/internal/budget"
+	"github.com/gmestre98/eudaimonia/backend/internal/geo"
+	"github.com/gmestre98/eudaimonia/backend/internal/journal"
 	"github.com/gmestre98/eudaimonia/backend/internal/platform/config"
+	"github.com/gmestre98/eudaimonia/backend/internal/platform/httpx"
 	platformlog "github.com/gmestre98/eudaimonia/backend/internal/platform/log"
+	"github.com/gmestre98/eudaimonia/backend/internal/sharing"
+	"github.com/gmestre98/eudaimonia/backend/internal/trip"
 )
 
 // shutdownTimeout bounds how long a graceful shutdown waits for in-flight
@@ -106,9 +113,25 @@ func run() error {
 	}
 }
 
-// newRouter builds the service's root HTTP router. The domain modules are
-// mounted through their interfaces in S4 and the health endpoints added in
-// S7/S8; for now it serves no routes.
+// newRouter builds the service's root HTTP router by mounting every domain
+// module through the shared httpx.RouteRegistrar contract. Adding or removing a
+// module is a single edit to this list — the composition root — and no module
+// reaches into another's internals. The modules expose no endpoints yet; health
+// endpoints arrive in S7/S8.
 func newRouter() http.Handler {
-	return http.NewServeMux()
+	mux := http.NewServeMux()
+
+	modules := []httpx.RouteRegistrar{
+		auth.New(),
+		trip.New(),
+		budget.New(),
+		journal.New(),
+		sharing.New(),
+		geo.New(),
+	}
+	for _, m := range modules {
+		m.RegisterRoutes(mux)
+	}
+
+	return mux
 }
