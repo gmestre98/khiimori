@@ -24,6 +24,7 @@ import (
 	"github.com/gmestre98/eudaimonia/backend/internal/geo"
 	"github.com/gmestre98/eudaimonia/backend/internal/journal"
 	"github.com/gmestre98/eudaimonia/backend/internal/platform/config"
+	"github.com/gmestre98/eudaimonia/backend/internal/platform/db"
 	"github.com/gmestre98/eudaimonia/backend/internal/platform/health"
 	"github.com/gmestre98/eudaimonia/backend/internal/platform/httpx"
 	platformlog "github.com/gmestre98/eudaimonia/backend/internal/platform/log"
@@ -34,6 +35,11 @@ import (
 // shutdownTimeout bounds how long a graceful shutdown waits for in-flight
 // requests to drain before the process exits.
 const shutdownTimeout = 15 * time.Second
+
+// startupDBTimeout bounds the eager connectivity check at boot. It is generous
+// enough to absorb a Neon cold-start wake-up but still fails fast if the
+// database is genuinely unreachable.
+const startupDBTimeout = 10 * time.Second
 
 func main() {
 	if err := run(); err != nil {
@@ -54,6 +60,26 @@ func run() error {
 	}
 
 	logger := platformlog.NewStdout(cfg)
+
+	// The service can't do anything useful without its database, so connect
+	// eagerly and fail fast: a missing DSN (db.Open) or an unreachable database
+	// (the startup Ping) is a hard startup error, surfaced now rather than at
+	// request time. The pool is closed on shutdown.
+	database, err := db.Open(context.Background(), cfg)
+	if err != nil {
+		logger.Error("opening database", "err", err.Error())
+		return err
+	}
+	defer database.Close()
+
+	pingCtx, cancelPing := context.WithTimeout(context.Background(), startupDBTimeout)
+	pingErr := database.Ping(pingCtx)
+	cancelPing()
+	if pingErr != nil {
+		logger.Error("database unreachable at startup", "err", pingErr.Error())
+		return pingErr
+	}
+	logger.Info("database connected", "pooled", cfg.DBPooled)
 
 	addr := net.JoinHostPort("", strconv.Itoa(cfg.Port))
 	// Apply the shared middleware chain once at the root so every module

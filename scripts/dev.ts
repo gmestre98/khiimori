@@ -9,13 +9,14 @@
 
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
 import { createConnection } from 'node:net'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(scriptDir, '..')
 const backendDir = resolve(repoRoot, 'backend')
+const backendEnvPath = resolve(backendDir, '.env')
 const webDir = resolve(repoRoot, 'web')
 
 const BACKEND_PORT = Number(process.env.PORT ?? 8080)
@@ -26,6 +27,30 @@ const WEB_PORT = Number(process.env.WEB_PORT ?? 5173)
 function fail(message: string): never {
   console.error(`\n✖ ${message}\n`)
   process.exit(1)
+}
+
+// loadEnvFile parses a KEY=value .env file into a record. Blank lines and
+// '#' comments are ignored and optional surrounding quotes are stripped. The
+// backend reads its config from the environment (no Go dotenv dependency), so
+// the dev orchestrator injects backend/.env into the backend child process.
+function loadEnvFile(path: string): Record<string, string> {
+  const env: Record<string, string> = {}
+  for (const raw of readFileSync(path, 'utf8').split('\n')) {
+    const line = raw.trim()
+    if (line === '' || line.startsWith('#')) continue
+    const eq = line.indexOf('=')
+    if (eq === -1) continue
+    const key = line.slice(0, eq).trim()
+    let value = line.slice(eq + 1).trim()
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1)
+    }
+    if (key) env[key] = value
+  }
+  return env
 }
 
 function hasCommand(cmd: string): boolean {
@@ -93,6 +118,10 @@ async function preflight(): Promise<void> {
     fail(`Web dependencies are not installed (web/node_modules missing).\nRun \`make install\` (or \`cd web && npm install\`) first, then \`make dev\`.`)
   }
 
+  if (!existsSync(backendEnvPath)) {
+    fail(`Backend env file backend/.env is missing.\nThe backend now requires its config to be set explicitly. Copy backend/.env.example to backend/.env and fill in the values, then re-run \`make dev\`.`)
+  }
+
   if (await portInUse(BACKEND_PORT)) {
     fail(`Backend port ${BACKEND_PORT} is already in use.\nStop whatever is using it, or set PORT to a free port: \`PORT=8090 make dev\`.`)
   }
@@ -142,7 +171,14 @@ async function main(): Promise<void> {
   process.on('SIGTERM', () => shutdown(0))
 
   console.log(`▸ starting backend  (go run ./cmd/api)  on :${BACKEND_PORT}`)
-  start('backend', 'go', ['run', './cmd/api'], backendDir, { ...process.env, PORT: String(BACKEND_PORT) })
+  // backend/.env supplies the required config; a real shell export still wins
+  // over the file (dotenv convention), and dev manages the port itself.
+  const backendEnv = loadEnvFile(backendEnvPath)
+  start('backend', 'go', ['run', './cmd/api'], backendDir, {
+    ...backendEnv,
+    ...process.env,
+    PORT: String(BACKEND_PORT),
+  })
 
   console.log(`▸ starting web      (npm run dev)       on :${WEB_PORT}`)
   start('web', 'npm', ['run', 'dev', '--', '--port', String(WEB_PORT), '--strictPort'], webDir, {
