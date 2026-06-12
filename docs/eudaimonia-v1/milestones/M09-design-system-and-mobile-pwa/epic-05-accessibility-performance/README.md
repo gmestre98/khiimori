@@ -50,3 +50,26 @@ No new UI — validates the implemented screens against the directional mockups
 ([assets/01](../../../assets/01-trips-dashboard.svg), [02](../../../assets/02-day-plan-map.svg),
 [03](../../../assets/03-mobile-and-sharing.svg)) and the accessibility/performance bars (PRD §5.10,
 §6).
+
+## User stories
+
+The epic is split into **3 small user stories**, each sized **≤4h for one developer** (implementation +
+tests + review). Each story file is a standalone agent-ready prompt with enough context to implement it
+without reading the rest of the docs.
+
+| # | Story | Est. | Epic AC | Depends on |
+|---|-------|------|---------|-----------|
+| [S1](S1-accessibility-audit.md) | Accessibility audit & fixes | ~3h | AC1 | Epic 02, M02–M08 |
+| [S2](S2-performance-techniques.md) | Performance techniques (code-splitting, lazy maps, thumbnails) | ~3h | AC3 | M06, M07, Epics 01–04 |
+| [S3](S3-perf-measurement.md) | Performance measurement & < 1.5s validation | ~2.5h | AC2, AC4 | S2, M04–M07 |
+
+**Total:** ~8.5h (≈ 1–2 dev-days), consistent with the epic's ~1–2 dev-day estimate.
+
+### Sequencing
+
+```
+S1 Accessibility audit ──┐
+S2 Performance techniques ── S3 Measurement & < 1.5s validation
+```
+
+This completes the per-epic story breakdown for **Milestone 09 (5 epics)**.
