@@ -12,6 +12,7 @@ import { project } from './config'
 import { iamApi } from './services'
 import { repository } from './artifactRegistry'
 import { serviceAccount as runtimeServiceAccount } from './serviceAccount'
+import { databaseUrlDirectSecret } from './secrets'
 
 const cfg = new pulumi.Config()
 
@@ -103,6 +104,15 @@ new gcp.serviceaccount.IAMMember('ci-deployer-actas-runtime', {
 new gcp.projects.IAMMember('ci-deployer-hosting', {
   project,
   role: 'roles/firebasehosting.admin',
+  member: deployerMember,
+})
+
+// Read the direct (owner) DB DSN to run migrations at deploy time (S7). Scoped
+// to that one secret — the deployer never reads the runtime app/OAuth/Maps
+// secrets (those are the runtime SA's).
+new gcp.secretmanager.SecretIamMember('ci-deployer-db-direct-access', {
+  secretId: databaseUrlDirectSecret.id,
+  role: 'roles/secretmanager.secretAccessor',
   member: deployerMember,
 })
 
