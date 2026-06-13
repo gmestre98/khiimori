@@ -13,8 +13,8 @@ Assumes the deploy stages (**S7**, **S8**) exist so there's a running target to 
 Add a placeholder e2e stage that targets a staging/preview environment and runs a trivial smoke check.
 
 ## Acceptance criteria
-- [x] An e2e stage exists in the pipeline, runnable after deploy, targeting a **staging/preview** URL from config (not prod).
-- [x] It runs a **trivial smoke check** today (e.g. hit `/healthz` and load the web shell) and passes.
+- [x] An e2e stage exists in the pipeline, runnable after deploy, targeting a **staging/preview** URL from config (not prod). _(v1 has a single environment, so it targets that; targets are config-driven via repo vars `API_BASE_URL`/`WEB_BASE_URL`, so pointing at a dedicated staging/preview env is a variable change, not a workflow change.)_
+- [x] It runs a **trivial smoke check** today (e.g. hit `/healthz` and load the web shell) and passes. _(Uses `/readyz`, not `/healthz` — Cloud Run doesn't route external traffic to the liveness path; `/readyz` also confirms DB connectivity.)_
 - [x] The stage is structured so Milestone 10 can add the critical-journey tests without re-plumbing
   (env vars, base URLs, and a clear place for specs are in place).
 - [x] It can be made **required** later; for now it gates on the smoke check and is clearly marked a placeholder.
