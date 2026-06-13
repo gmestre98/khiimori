@@ -34,3 +34,12 @@ export const firebaseApi = enableApi('firebase', 'firebase.googleapis.com')
 
 /** Firebase Hosting — the web app's CDN-backed static host. */
 export const firebaseHostingApi = enableApi('firebasehosting', 'firebasehosting.googleapis.com')
+
+/** IAM — Workload Identity Federation pool/provider + service accounts (M01.5). */
+export const iamApi = enableApi('iam', 'iam.googleapis.com')
+
+/** STS — OIDC token exchange for Workload Identity Federation (M01.5). */
+export const stsApi = enableApi('sts', 'sts.googleapis.com')
+
+/** IAM Credentials — short-lived credential minting for SA impersonation (M01.5). */
+export const iamCredentialsApi = enableApi('iamcredentials', 'iamcredentials.googleapis.com')

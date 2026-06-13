@@ -181,3 +181,37 @@ jobs:
         run: |
           test -n "$DATABASE_URL_TEST" || { echo "DATABASE_URL_TEST unset — refusing to pass the integration gate without a DB"; exit 1; }
           go test -tags=integration -v ./migrations/...
+
+  gcp-auth:
+    name: GCP auth (WIF) — verify
+    runs-on: ubuntu-latest
+    # Minting the GitHub OIDC token requires id-token: write; nothing else is
+    # elevated. This same keyless auth is reused by the deploy stages (S6–S8).
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # Exchange GitHub's OIDC token for short-lived GCP credentials that
+      # impersonate the least-privilege deployer SA — no JSON key anywhere
+      # (S5, PRD §8.5). The provider name + SA email are non-secret repo
+      # variables set from the IaC stack outputs (infra/cicd.ts).
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      # Prove auth works with a real authenticated call that exercises the
+      # deployer's actual (repo-scoped) Artifact Registry permission. No secrets
+      # are printed; a failure here means WIF/permissions are misconfigured.
+      - name: Verify authenticated access
+        run: |
+          echo "Authenticated as: $(gcloud config get-value account 2>/dev/null)"
+          gcloud artifacts repositories describe "${{ vars.GCP_AR_REPO }}" \
+            --project="${{ vars.GCP_PROJECT_ID }}" \
+            --location="${{ vars.GCP_REGION }}" \
+            --format="value(name)"

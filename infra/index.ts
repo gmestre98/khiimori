@@ -14,6 +14,7 @@ import { secretIds } from './secrets'
 import { serviceAccountEmail } from './serviceAccount'
 import { serviceUrl } from './cloudRun'
 import { hostingSiteId, hostingUrl } from './hosting'
+import { ciDeployerServiceAccount, wifProvider } from './cicd'
 import { mapsDailyQuota, maxInstances, minInstances, neonTier } from './tunables'
 
 // Echo the resolved provider config as stack outputs. These are trivial (no
@@ -39,6 +40,11 @@ export const cloudRunUrl = serviceUrl
 // Firebase Hosting site — deploy target (M01.5) and web origin (M01.6).
 export const firebaseHostingSiteId = hostingSiteId
 export const firebaseHostingUrl = hostingUrl
+
+// Keyless CI/CD auth (M01.5 S5): the WIF provider resource name + deployer SA
+// email GitHub Actions uses with google-github-actions/auth. Neither is secret.
+export const cicdWifProvider = wifProvider
+export const cicdDeployerServiceAccount = ciDeployerServiceAccount
 
 // Scale tunables (S9) — surfaced for visibility; defaults are the cheap ones.
 export const tunables = {
