@@ -10,10 +10,12 @@
 const LOCAL_DEFAULT_BASE_URL = 'http://localhost:8080'
 
 // apiBaseURL is the resolved API base URL — read once from the build-time env
-// var, falling back to the local default. Trailing slashes are trimmed so
-// apiUrl can join paths without producing a double slash.
+// var, falling back to the local default. `||` (not `??`) so an empty/unset
+// value both fall back: an empty VITE_API_BASE_URL would otherwise leave a blank
+// base and turn API calls into same-origin (Hosting) paths. Trailing slashes
+// are trimmed so apiUrl can join paths without producing a double slash.
 export const apiBaseURL: string = (
-  import.meta.env.VITE_API_BASE_URL ?? LOCAL_DEFAULT_BASE_URL
+  import.meta.env.VITE_API_BASE_URL?.trim() || LOCAL_DEFAULT_BASE_URL
 ).replace(/\/+$/, '')
 
 // apiUrl joins an API path onto the configured base URL. Pass a leading-slash
