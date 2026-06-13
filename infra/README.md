@@ -119,6 +119,27 @@ consume (M01.5 CI, M01.6 web shell, M01.7/M01.8):
 (`pulumi stack output secrets` shows only the secret **ids/names** — never the
 values.)
 
+## CORS (allowed web origins) — M01.6 S3
+
+The web app (Firebase Hosting) and the API (Cloud Run) are on different origins,
+so the API only accepts browser calls from an explicit allowlist (matched
+exactly — no wildcard, PRD §6). The list is delivered to the service as the
+`CORS_ALLOWED_ORIGINS` env var (comma-separated); the API's CORS middleware
+([`backend/internal/platform/httpx/cors.go`](../backend/internal/platform/httpx/cors.go))
+echoes an allowed `Origin` back and answers preflight `OPTIONS`.
+
+- **Deployed:** `cloudRun.ts` sets `CORS_ALLOWED_ORIGINS` from the Firebase
+  Hosting origin by default (the `firebaseHostingUrl` output).
+- **Add an origin** (e.g. a custom domain — M01.6 S5): set the
+  `corsAllowedOrigins` stack config to a comma-separated list, then `pulumi up`:
+
+  ```sh
+  pulumi config set khiimori:corsAllowedOrigins "https://app.example.com,https://your-project-web.web.app"
+  ```
+
+- **Local dev:** the origin is the Vite dev server (`http://localhost:5173`),
+  set via `CORS_ALLOWED_ORIGINS` in `backend/.env` (see `backend/.env.example`).
+
 ## Teardown (`pulumi destroy`)
 
 ```sh

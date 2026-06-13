@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Env is the deployment environment the service runs in.
@@ -64,6 +65,13 @@ type Config struct {
 	// true → DatabaseURL (pooled, the default), false → DatabaseURLDirect.
 	// Flipping it is a config change, not a code change (PRD §8.6).
 	DBPooled bool
+	// CORSAllowedOrigins is the exact list of browser origins permitted to make
+	// cross-origin requests to the API (the web app's local dev origin and the
+	// Firebase Hosting origin). Matched exactly — never a wildcard (PRD §6).
+	// Optional: when empty no cross-origin request is allowed (same-origin and
+	// non-browser callers are unaffected). Set CORS_ALLOWED_ORIGINS to a
+	// comma-separated list to populate it.
+	CORSAllowedOrigins []string
 }
 
 // Load reads configuration from the environment and returns an error if any
@@ -79,6 +87,10 @@ type Config struct {
 //	DB_POOLED            true | false
 //	DATABASE_URL         pooled (pgBouncer) database DSN (required if DB_POOLED=true)
 //	DATABASE_URL_DIRECT  direct database DSN, migrations (required if DB_POOLED=false)
+//
+// Optional variables:
+//
+//	CORS_ALLOWED_ORIGINS  comma-separated browser origins allowed cross-origin
 //
 // Of the two DSNs, only the active one (per DB_POOLED) is required; the unused
 // endpoint stays optional so a pooled service isn't forced to carry the direct
@@ -136,7 +148,25 @@ func Load() (Config, error) {
 		return Config{}, errors.New("config: DATABASE_URL_DIRECT is required (DB_POOLED=false)")
 	}
 
+	// Optional: the cross-origin allowlist. Empty (unset) means no cross-origin
+	// request is allowed, which is the safe default for a same-origin or
+	// non-browser deployment.
+	cfg.CORSAllowedOrigins = parseOrigins(os.Getenv("CORS_ALLOWED_ORIGINS"))
+
 	return cfg, nil
+}
+
+// parseOrigins splits a comma-separated origin list, trimming surrounding
+// whitespace and dropping empty entries, so " https://a.app , " yields
+// ["https://a.app"]. A blank input yields a nil slice (no allowed origins).
+func parseOrigins(raw string) []string {
+	var origins []string
+	for _, part := range strings.Split(raw, ",") {
+		if o := strings.TrimSpace(part); o != "" {
+			origins = append(origins, o)
+		}
+	}
+	return origins
 }
 
 // LoadMigrationDSN returns the direct (un-pooled) database DSN used for

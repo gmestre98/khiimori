@@ -84,11 +84,14 @@ func run() error {
 
 	addr := net.JoinHostPort("", strconv.Itoa(cfg.Port))
 	// Apply the shared middleware chain once at the root so every module
-	// inherits request ids, access logging, and panic recovery. RequestID is
-	// outermost so the id is available to logging and recovery; Recovery is
+	// inherits request ids, access logging, panic recovery, and CORS. RequestID
+	// is outermost so the id is available to logging and recovery; CORS sits
+	// above the rest so cross-origin headers land on every response (including a
+	// 500) and a preflight short-circuits before the handlers; Recovery is
 	// innermost so a handler panic becomes a 500 the access log can observe.
 	handler := httpx.Chain(newRouter(database),
 		httpx.RequestIDMiddleware(),
+		httpx.CORS(cfg.CORSAllowedOrigins),
 		httpx.Logging(logger),
 		httpx.Recovery(),
 	)

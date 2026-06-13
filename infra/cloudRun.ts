@@ -11,6 +11,7 @@ import { cloudRunApi } from './services'
 import { serviceAccount } from './serviceAccount'
 import { databaseUrlSecret, mapsApiKeySecret, oauthClientSecret, secretVersions } from './secrets'
 import { maxInstances, minInstances } from './tunables'
+import { hostingUrl } from './hosting'
 
 // A Secret Manager-backed env var: the container receives the secret's *value*
 // at runtime, sourced from the named secret's latest version — never a literal
@@ -46,6 +47,14 @@ const port = cfg.getNumber('servicePort') ?? 8080
 // off to make the service private (e.g. if fronted by an authenticated proxy).
 const allowUnauthenticated = cfg.getBoolean('allowUnauthenticated') ?? true
 
+// Cross-origin allowlist for the API (M01.6 S3). Browsers may call the API only
+// from these exact origins (no wildcard — PRD §6). Defaults to the Firebase
+// Hosting origin (where the web app is served); override `corsAllowedOrigins`
+// with a comma-separated list to add origins (e.g. a custom domain — M01.6 S5).
+const corsAllowedOriginsOverride = cfg.get('corsAllowedOrigins')
+const corsAllowedOrigins =
+  corsAllowedOriginsOverride !== undefined ? pulumi.output(corsAllowedOriginsOverride) : hostingUrl
+
 /** The Cloud Run (v2) service running the Go API as the least-privilege SA. */
 export const service = new gcp.cloudrunv2.Service(
   'api',
@@ -77,6 +86,8 @@ export const service = new gcp.cloudrunv2.Service(
             { name: 'ENV', value: cfg.get('serviceEnv') ?? 'prod' },
             { name: 'LOG_LEVEL', value: cfg.get('logLevel') ?? 'error' },
             { name: 'DB_POOLED', value: 'true' },
+            // Cross-origin allowlist — the web app's Hosting origin (S3).
+            { name: 'CORS_ALLOWED_ORIGINS', value: corsAllowedOrigins },
             secretEnv('DATABASE_URL', databaseUrlSecret),
             secretEnv('GOOGLE_OAUTH_CLIENT_SECRET', oauthClientSecret),
             secretEnv('MAPS_API_KEY', mapsApiKeySecret),
