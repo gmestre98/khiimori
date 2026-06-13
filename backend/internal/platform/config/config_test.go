@@ -10,7 +10,7 @@ import (
 // following os.Unsetenv then clears it so LookupEnv reports the variable absent.
 func clearEnv(t *testing.T) {
 	t.Helper()
-	for _, k := range []string{"PORT", "ENV", "LOG_LEVEL", "DATABASE_URL", "DATABASE_URL_DIRECT", "DB_POOLED"} {
+	for _, k := range []string{"PORT", "ENV", "LOG_LEVEL", "DATABASE_URL", "DATABASE_URL_DIRECT", "DB_POOLED", "CORS_ALLOWED_ORIGINS"} {
 		t.Setenv(k, "")
 		if err := os.Unsetenv(k); err != nil {
 			t.Fatalf("unset %s: %v", k, err)
@@ -61,6 +61,45 @@ func TestLoadValid(t *testing.T) {
 	if cfg.DatabaseURLDirect != "postgres://localhost:5433/khiimori" {
 		t.Errorf("DatabaseURLDirect = %q, unexpected", cfg.DatabaseURLDirect)
 	}
+}
+
+// TestLoadCORSAllowedOrigins covers the optional cross-origin allowlist: a
+// comma-separated value is split and trimmed, and an unset value yields none.
+func TestLoadCORSAllowedOrigins(t *testing.T) {
+	t.Run("parses and trims a comma-separated list", func(t *testing.T) {
+		clearEnv(t)
+		setAllValid(t)
+		// Includes surrounding whitespace, a trailing slash, and a blank entry —
+		// all normalised away so the value matches the browser's bare Origin.
+		t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173, https://khiimori-web.web.app/ ,")
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() returned error: %v", err)
+		}
+		want := []string{"http://localhost:5173", "https://khiimori-web.web.app"}
+		if len(cfg.CORSAllowedOrigins) != len(want) {
+			t.Fatalf("CORSAllowedOrigins = %v, want %v", cfg.CORSAllowedOrigins, want)
+		}
+		for i, o := range want {
+			if cfg.CORSAllowedOrigins[i] != o {
+				t.Errorf("CORSAllowedOrigins[%d] = %q, want %q", i, cfg.CORSAllowedOrigins[i], o)
+			}
+		}
+	})
+
+	t.Run("unset yields no allowed origins", func(t *testing.T) {
+		clearEnv(t)
+		setAllValid(t)
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() returned error: %v", err)
+		}
+		if len(cfg.CORSAllowedOrigins) != 0 {
+			t.Errorf("CORSAllowedOrigins = %v, want empty", cfg.CORSAllowedOrigins)
+		}
+	})
 }
 
 // TestLoadRequired asserts that every mandatory variable must be set — omitting

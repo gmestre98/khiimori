@@ -42,6 +42,10 @@ config:
   # khiimori:firebaseProject: your-firebase-project-id
   # Firebase Hosting site id (globally unique, <=30 chars; default <project>-web).
   # khiimori:hostingSiteId: your-project-web
+  # Cross-origin allowlist (M01.6 S3) — comma-separated browser origins allowed
+  # to call the API. Default: the Firebase Hosting origin. Override to add more
+  # (e.g. a custom domain — M01.6 S5): "https://app.example.com,https://...".
+  # khiimori:corsAllowedOrigins: https://your-project-web.web.app
 
   # --- CI/CD keyless auth (M01.5 S5) -----------------------------------------
   # GitHub repo (owner/name) whose Actions may impersonate the deployer SA via
