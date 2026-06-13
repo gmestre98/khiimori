@@ -69,7 +69,9 @@ func TestLoadCORSAllowedOrigins(t *testing.T) {
 	t.Run("parses and trims a comma-separated list", func(t *testing.T) {
 		clearEnv(t)
 		setAllValid(t)
-		t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173, https://khiimori-web.web.app ,")
+		// Includes surrounding whitespace, a trailing slash, and a blank entry —
+		// all normalised away so the value matches the browser's bare Origin.
+		t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173, https://khiimori-web.web.app/ ,")
 
 		cfg, err := Load()
 		if err != nil {

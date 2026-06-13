@@ -157,12 +157,15 @@ func Load() (Config, error) {
 }
 
 // parseOrigins splits a comma-separated origin list, trimming surrounding
-// whitespace and dropping empty entries, so " https://a.app , " yields
-// ["https://a.app"]. A blank input yields a nil slice (no allowed origins).
+// whitespace and a trailing slash, and dropping empty entries, so
+// " https://a.app/ , " yields ["https://a.app"]. The trailing-slash trim makes
+// the allowlist match the browser's Origin header, which is always bare
+// scheme://host[:port] with no path or trailing slash. A blank input yields a
+// nil slice (no allowed origins).
 func parseOrigins(raw string) []string {
 	var origins []string
 	for _, part := range strings.Split(raw, ",") {
-		if o := strings.TrimSpace(part); o != "" {
+		if o := strings.TrimRight(strings.TrimSpace(part), "/"); o != "" {
 			origins = append(origins, o)
 		}
 	}
