@@ -14,10 +14,12 @@ permissions:
   contents: read
 
 # A newer push to the same branch cancels the in-flight run — no point spending
-# CI minutes finishing a run that's already superseded (PRD §8.4 #4).
+# CI minutes finishing a run that's already superseded (PRD §8.4 #4). On `main`
+# we never cancel: once S6/S7 add deploy stages, a cancelled run could leave a
+# half-finished deploy (image pushed but service not rolled).
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   backend:
