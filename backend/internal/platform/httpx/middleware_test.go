@@ -129,6 +129,7 @@ func TestCloudTraceParsing(t *testing.T) {
 		{"full header", "abc/42;o=1", "p", "projects/p/traces/abc", "42"},
 		{"trace only", "abc", "p", "projects/p/traces/abc", ""},
 		{"trace and span no options", "abc/42", "p", "projects/p/traces/abc", "42"},
+		{"span-less options suffix", "abc;o=1", "p", "projects/p/traces/abc", ""},
 		{"no project", "abc/42", "", "", ""},
 		{"no header", "", "p", "", ""},
 		{"empty trace id", "/42", "p", "", ""},

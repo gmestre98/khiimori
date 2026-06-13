@@ -122,6 +122,11 @@ func cloudTrace(header, projectID string) (trace, span string) {
 			span = span[:j]
 		}
 	}
+	// Defensively drop any options suffix that arrived without a span
+	// ("TRACE_ID;o=1"), so it can't leak into the trace resource name.
+	if j := strings.IndexByte(traceID, ';'); j >= 0 {
+		traceID = traceID[:j]
+	}
 	if traceID == "" {
 		return "", ""
 	}
