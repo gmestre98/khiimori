@@ -1,9 +1,11 @@
 name: CI
 
-# Lint + unit tests gate every change before it can land (PRD §7.5). This is the
-# base pipeline the rest of M01.5 builds on (build, containerise, deploy stages
-# are layered on by later stories). Backend and web run as independent parallel
-# jobs to keep wall-clock and CI minutes down (PRD §8.4 #4).
+# Lint, unit tests, and build gate every change before it can land (PRD §7.5).
+# This is the base pipeline the rest of M01.5 builds on (containerise + deploy
+# stages are layered on by later stories). Backend and web run as independent
+# parallel jobs to keep wall-clock and CI minutes down (PRD §8.4 #4); within each
+# job the build step reuses that job's warm toolchain + cache rather than paying
+# for a separate stage (S2).
 on:
   push:
     branches: [main]
@@ -23,7 +25,7 @@ concurrency:
 
 jobs:
   backend:
-    name: Backend — lint, vet, test
+    name: Backend — lint, vet, test, build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -64,8 +66,15 @@ jobs:
       - name: Unit tests
         run: go test ./...
 
+      # Build (S2): prove every package and the binaries (cmd/api, cmd/migrate)
+      # compile and link — a gate beyond `go test`'s type-check. `go vet` already
+      # runs in the lint step above, so it isn't repeated here. No artifact upload:
+      # the deployable container image is built and pushed in S6, not here.
+      - name: Build
+        run: go build ./...
+
   web:
-    name: Web — lint, format
+    name: Web — lint, format, build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -89,6 +98,12 @@ jobs:
 
       - name: Format check (prettier)
         run: npm run format:check
+
+      # Build (S2): the production bundle — `tsc -b` (typecheck) + `vite build`.
+      # Catches type/bundle breakage before deploy. The bundle is rebuilt with the
+      # env-injected API URL at deploy time (S8), so nothing is uploaded here.
+      - name: Build (production bundle)
+        run: npm run build
 
       # NB: the web app has no unit-test suite yet (the frontend shell lands in
       # M01.6). When tests are added (e.g. vitest), add an "npm test" step here —
