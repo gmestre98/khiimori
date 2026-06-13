@@ -11,23 +11,23 @@ scale-to-zero tunables), and the Firebase Hosting site.
 
 ## Layout
 
-| Path                                                       | Purpose                                                    |
-| ---------------------------------------------------------- | ---------------------------------------------------------- |
-| `Pulumi.yaml`                                              | Pulumi project file (committed).                           |
-| `Pulumi.dev.yaml.example`                                  | Annotated template for the `dev` stack config.             |
-| `Pulumi.dev.yaml`                                          | Committed `dev` stack config (encrypted secrets; CI reads).|
-| `cicd.ts`                                                  | CI deployer SA + Workload Identity Federation (M01.5 S5).  |
-| `index.ts`                                                 | Entrypoint — wires the modules and declares stack outputs. |
-| `config.ts`                                                | Typed project/region config surface.                       |
-| `services.ts`                                              | GCP API enablement (one place).                            |
-| `artifactRegistry.ts`                                      | Docker image repository (S2).                              |
-| `storage.ts`                                               | Private media bucket (S3).                                 |
-| `secrets.ts`                                               | Secret Manager containers (S4).                            |
-| `serviceAccount.ts`                                        | Least-privilege Cloud Run SA + IAM (S5).                   |
-| `cloudRun.ts`                                              | Cloud Run service + runtime secrets + scaling (S6/S7/S9).  |
-| `hosting.ts`                                               | Firebase Hosting site (S8).                                |
-| `tunables.ts`                                              | Scale tunables / cost levers (S9).                         |
-| `tsconfig.json` / `eslint.config.mjs` / `.prettierrc.json` | TS toolchain, matching `web/`.                             |
+| Path                                                       | Purpose                                                     |
+| ---------------------------------------------------------- | ----------------------------------------------------------- |
+| `Pulumi.yaml`                                              | Pulumi project file (committed).                            |
+| `Pulumi.dev.yaml.example`                                  | Annotated template for the `dev` stack config.              |
+| `Pulumi.dev.yaml`                                          | Committed `dev` stack config (encrypted secrets; CI reads). |
+| `cicd.ts`                                                  | CI deployer SA + Workload Identity Federation (M01.5 S5).   |
+| `index.ts`                                                 | Entrypoint — wires the modules and declares stack outputs.  |
+| `config.ts`                                                | Typed project/region config surface.                        |
+| `services.ts`                                              | GCP API enablement (one place).                             |
+| `artifactRegistry.ts`                                      | Docker image repository (S2).                               |
+| `storage.ts`                                               | Private media bucket (S3).                                  |
+| `secrets.ts`                                               | Secret Manager containers (S4).                             |
+| `serviceAccount.ts`                                        | Least-privilege Cloud Run SA + IAM (S5).                    |
+| `cloudRun.ts`                                              | Cloud Run service + runtime secrets + scaling (S6/S7/S9).   |
+| `hosting.ts`                                               | Firebase Hosting site (S8).                                 |
+| `tunables.ts`                                              | Scale tunables / cost levers (S9).                          |
+| `tsconfig.json` / `eslint.config.mjs` / `.prettierrc.json` | TS toolchain, matching `web/`.                              |
 
 ## Prerequisites
 
