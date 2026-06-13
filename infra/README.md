@@ -14,7 +14,9 @@ scale-to-zero tunables), and the Firebase Hosting site.
 | Path                                                       | Purpose                                                    |
 | ---------------------------------------------------------- | ---------------------------------------------------------- |
 | `Pulumi.yaml`                                              | Pulumi project file (committed).                           |
-| `Pulumi.dev.yaml.example`                                  | Template for the `dev` stack config (copy, don't commit).  |
+| `Pulumi.dev.yaml.example`                                  | Annotated template for the `dev` stack config.             |
+| `Pulumi.dev.yaml`                                          | Committed `dev` stack config (encrypted secrets; CI reads).|
+| `cicd.ts`                                                  | CI deployer SA + Workload Identity Federation (M01.5 S5).  |
 | `index.ts`                                                 | Entrypoint — wires the modules and declares stack outputs. |
 | `config.ts`                                                | Typed project/region config surface.                       |
 | `services.ts`                                              | GCP API enablement (one place).                            |
@@ -77,15 +79,18 @@ secret wiring) goes live **without a manual apply**. Mechanics:
 - `refresh: true` adopts live state first, so the SHA-tagged image the deploy job
   sets out-of-band is preserved (`cloudRun.ts` `ignoreChanges` on the image).
 
-**One-time setup (required before the job does anything — it is skipped until
-configured):**
+**One-time setup. Order matters** — do the manual apply _before_ arming CI, or
+the first CI run executes `pulumi up` as the still-narrow identity and fails:
 
-1. Repo **variable** `PULUMI_STACK_NAME` = `<your-pulumi-org>/khiimori/dev`.
-2. Repo **secret** `PULUMI_ACCESS_TOKEN` = a Pulumi Cloud access token.
-3. **Bootstrap once manually:** `cd infra && pulumi up`. The new `roles/owner`
-   binding can't be applied by the old least-privilege CI identity, so the first
-   apply must be run by you (it also applies any pending config, e.g. CORS). After
-   this, `main` pushes self-reconcile.
+1. Add the repo **secret** `PULUMI_ACCESS_TOKEN` (a Pulumi Cloud access token).
+   Harmless on its own — the job stays skipped until step 3.
+2. **Bootstrap once manually:** `cd infra && pulumi up` (as yourself, project
+   owner). The new `roles/owner` binding can't be applied by the old
+   least-privilege CI identity, so this first apply must be run by you — it also
+   applies any pending config (e.g. the CORS allowlist), fixing the live app now.
+3. **Last:** add the repo **variable** `PULUMI_STACK_NAME` =
+   `<your-pulumi-org>/khiimori/dev`. This arms the `pulumi-up` job; from here
+   every `main` push self-reconciles.
 
 ## Provisioning (`pulumi up`)
 

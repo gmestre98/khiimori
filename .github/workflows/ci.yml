@@ -312,9 +312,17 @@ jobs:
   deploy:
     name: Deploy to Cloud Run (main)
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    # Runs after the image is pushed; consumes its SHA-tagged reference.
-    needs: [build-push]
+    # Serialised AFTER pulumi-up so the two never modify the Cloud Run service
+    # concurrently (a parallel update can 409) and the image revision inherits the
+    # env pulumi reconciled. `!cancelled()` + the result checks let deploy still
+    # run when pulumi-up is *skipped* (stack not yet configured) while blocking on
+    # a pulumi-up *failure* (don't ship onto a half-reconciled service).
+    if: >-
+      !cancelled() && github.ref == 'refs/heads/main' && github.event_name == 'push' &&
+      needs.build-push.result == 'success' && needs.pulumi-up.result != 'failure'
+    # Runs after the image is pushed (consumes its SHA-tagged reference) and after
+    # the infra reconcile.
+    needs: [build-push, pulumi-up]
     permissions:
       contents: read
       id-token: write
