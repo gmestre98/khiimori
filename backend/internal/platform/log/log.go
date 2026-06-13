@@ -20,7 +20,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/gmestre98/eudaimonia/backend/internal/platform/config"
+	"github.com/gmestre98/khiimori/backend/internal/platform/config"
 )
 
 // New builds a JSON logger that writes to w and emits at or above the level in

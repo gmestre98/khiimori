@@ -1,4 +1,4 @@
-# Eudaimonia — Travel Manager
+# Khiimori — Travel Manager
 
 A personal travel-management app to plan, budget, navigate, and journal trips —
 a better replacement for the spreadsheet I use today.
@@ -43,8 +43,8 @@ that span them stay in one place and one history.
 ### From clone to running
 
 ```sh
-git clone https://github.com/gmestre98/Eudaimonia.git
-cd Eudaimonia
+git clone https://github.com/gmestre98/Khiimori.git
+cd Khiimori
 make install      # install web dependencies (Go deps are fetched on first build)
 make dev          # start backend + web together
 ```
@@ -89,9 +89,9 @@ pulumi preview        # show planned cloud changes (needs Pulumi + gcloud auth)
 ## Documentation
 
 The full Product Requirements Document and delivery plan live in
-[`docs/eudaimonia-v1/`](docs/eudaimonia-v1/):
+[`docs/khiimori-v1/`](docs/khiimori-v1/):
 
-- **[Eudaimonia v1 PRD](docs/eudaimonia-v1/PRD.md)** — product scope, architecture
+- **[Khiimori v1 PRD](docs/khiimori-v1/PRD.md)** — product scope, architecture
   decisions, cost estimates, and the run-at-€0 scaling plan.
 
 Each PRD gets its own folder under `docs/`; epics will be added as sub-folders,
@@ -105,4 +105,4 @@ with one file per story.
 - **CI/CD:** GitHub Actions
 - **Auth:** Google SSO
 
-See the [PRD](docs/eudaimonia-v1/PRD.md) for the reasoning behind each choice.
+See the [PRD](docs/khiimori-v1/PRD.md) for the reasoning behind each choice.

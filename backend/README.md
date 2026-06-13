@@ -1,7 +1,7 @@
 # backend
 
 Go modular monolith (microservice-ready). Scaffolded across the stories of
-[Epic M01.1](../docs/eudaimonia-v1/milestones/M01-foundations/epic-01-repo-scaffolding/README.md).
+[Epic M01.1](../docs/khiimori-v1/milestones/M01-foundations/epic-01-repo-scaffolding/README.md).
 
 ## Layout
 

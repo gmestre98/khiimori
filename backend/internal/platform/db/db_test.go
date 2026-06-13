@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gmestre98/eudaimonia/backend/internal/platform/config"
+	"github.com/gmestre98/khiimori/backend/internal/platform/config"
 )
 
 // compile-time check: *DB satisfies the Pinger interface the readiness check

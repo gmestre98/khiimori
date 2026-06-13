@@ -1,7 +1,7 @@
 # web
 
-The Eudaimonia web app (and future installable PWA): **React + TypeScript**, built with **Vite**.
-Scaffolded in [Epic M01.1 · S5](../docs/eudaimonia-v1/milestones/M01-foundations/epic-01-repo-scaffolding/S5-web-app-vite.md).
+The Khiimori web app (and future installable PWA): **React + TypeScript**, built with **Vite**.
+Scaffolded in [Epic M01.1 · S5](../docs/khiimori-v1/milestones/M01-foundations/epic-01-repo-scaffolding/S5-web-app-vite.md).
 The app shell and product UI arrive in later epics — this is the build-ready skeleton.
 
 ## Prerequisites

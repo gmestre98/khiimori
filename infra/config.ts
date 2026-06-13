@@ -1,4 +1,4 @@
-// Typed stack-config surface for the Eudaimonia infrastructure.
+// Typed stack-config surface for the Khiimori infrastructure.
 //
 // All cloud config is read here, once, and imported by the resource modules —
 // no string keys scattered across the program. The GCP provider reads

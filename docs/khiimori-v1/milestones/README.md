@@ -1,4 +1,4 @@
-# Eudaimonia v1 — Milestone & Epic Breakdown
+# Khiimori v1 — Milestone & Epic Breakdown
 
 This folder breaks the [v1 PRD](../PRD.md) into **milestones** and **epics**.
 

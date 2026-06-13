@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/gmestre98/eudaimonia/backend/internal/platform/config"
+	"github.com/gmestre98/khiimori/backend/internal/platform/config"
 )
 
 // parseLine unmarshals a single JSON log line, failing the test if it is not

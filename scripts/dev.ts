@@ -1,4 +1,4 @@
-// One-command local dev orchestrator for Eudaimonia.
+// One-command local dev orchestrator for Khiimori.
 //
 // Starts the Go backend and the Vite web app together, after checking that the
 // prerequisites and ports are available, and verifies the web host can reach

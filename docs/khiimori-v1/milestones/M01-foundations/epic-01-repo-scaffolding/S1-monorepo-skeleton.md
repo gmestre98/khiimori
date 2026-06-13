@@ -3,7 +3,7 @@
 > **Status:** ✅ Done.
 
 ## Context
-Eudaimonia is a personal travel-manager app. The stack is deliberately small: **Go** backend
+Khiimori is a personal travel-manager app. The stack is deliberately small: **Go** backend
 (modular monolith), **React + TypeScript** (Vite) web app, **TypeScript** for scripts and infra
 (Pulumi/GCP). This is the very first piece of work — the repo currently only holds `docs/`.
 Guiding principle: keep the stack small and every decision easy to reverse.
@@ -20,7 +20,7 @@ No application behaviour — just the repo shape.
   (`.DS_Store`, `.idea/`, `.vscode/`).
 - [x] Root `.editorconfig` sets sane defaults (UTF-8, LF, final newline, 2-space for TS/JSON/YAML,
   tabs for Go).
-- [x] Root `README.md` states the monorepo intent and links to `docs/eudaimonia-v1/`.
+- [x] Root `README.md` states the monorepo intent and links to `docs/khiimori-v1/`.
 
 ## Constraints
 - Don't scaffold the Go module or web app yet — those are separate stories (S2, S5).

@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	platformlog "github.com/gmestre98/eudaimonia/backend/internal/platform/log"
+	platformlog "github.com/gmestre98/khiimori/backend/internal/platform/log"
 )
 
 // requestIDHeader is the header carrying the per-request id, both inbound (so a

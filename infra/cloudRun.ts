@@ -28,7 +28,7 @@ function secretEnv(
 
 const cfg = new pulumi.Config()
 
-const serviceName = cfg.get('serviceName') ?? 'eudaimonia-api'
+const serviceName = cfg.get('serviceName') ?? 'khiimori-api'
 
 // Container image. Defaults to Google's public Cloud Run sample so a *fresh*
 // stack stands up with no pre-pushed image (S10 reproducibility — Cloud Run

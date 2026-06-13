@@ -1,4 +1,4 @@
-// Eudaimonia infrastructure — Pulumi (TypeScript) entrypoint.
+// Khiimori infrastructure — Pulumi (TypeScript) entrypoint.
 //
 // This program defines all GCP infrastructure for the project. It is built up
 // story-by-story across epic M01.4; this scaffold (S1) wires the GCP provider

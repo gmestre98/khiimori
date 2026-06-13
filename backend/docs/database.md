@@ -1,6 +1,6 @@
 # Database (Neon Postgres)
 
-Eudaimonia stores all data in a single Postgres database on [Neon](https://neon.tech).
+Khiimori stores all data in a single Postgres database on [Neon](https://neon.tech).
 This is the operational guide: how to connect, run migrations, and where the
 secrets live. Migration authoring detail lives in
 [`../migrations/README.md`](../migrations/README.md); this page is the hub.
@@ -139,7 +139,7 @@ documented lever is **Neon free → paid tier** (~€10–18/mo) — a dashboard
 toggle in the Neon console, **not** a code change or rewrite (PRD §8.6). Because
 app traffic already goes through the pooler, flipping scale-to-zero ↔ always-on
 needs no code. See the cost guardrails in
-[M01.8](../../docs/eudaimonia-v1/milestones/M01-foundations/epic-08-cost-guardrails/README.md).
+[M01.8](../../docs/khiimori-v1/milestones/M01-foundations/epic-08-cost-guardrails/README.md).
 
 ## Quick connectivity check
 

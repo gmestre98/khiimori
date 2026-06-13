@@ -28,8 +28,8 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
-	"github.com/gmestre98/eudaimonia/backend/internal/platform/config"
-	"github.com/gmestre98/eudaimonia/backend/migrations"
+	"github.com/gmestre98/khiimori/backend/internal/platform/config"
+	"github.com/gmestre98/khiimori/backend/migrations"
 )
 
 func main() {

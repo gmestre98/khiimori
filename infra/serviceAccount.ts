@@ -13,12 +13,12 @@ import { mediaBucket } from './storage'
 const cfg = new pulumi.Config()
 
 // account_id: 6–30 chars, lowercase letters/digits/hyphens. Config-driven.
-const accountId = cfg.get('cloudRunServiceAccountId') ?? 'eudaimonia-run'
+const accountId = cfg.get('cloudRunServiceAccountId') ?? 'khiimori-run'
 
 /** Dedicated runtime identity for the Cloud Run service (attached in S6). */
 export const serviceAccount = new gcp.serviceaccount.Account('cloud-run', {
   accountId,
-  displayName: 'Eudaimonia Cloud Run runtime',
+  displayName: 'Khiimori Cloud Run runtime',
   description: 'Least-privilege identity for the Cloud Run service (epic M01.4).',
 })
 

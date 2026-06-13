@@ -1,4 +1,4 @@
-// Command api is the entrypoint for the Eudaimonia backend.
+// Command api is the entrypoint for the Khiimori backend.
 //
 // It boots a single HTTP server for the whole modular monolith: it loads typed
 // configuration, builds the structured logger, opens the database pool, binds
@@ -20,17 +20,17 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gmestre98/eudaimonia/backend/internal/auth"
-	"github.com/gmestre98/eudaimonia/backend/internal/budget"
-	"github.com/gmestre98/eudaimonia/backend/internal/geo"
-	"github.com/gmestre98/eudaimonia/backend/internal/journal"
-	"github.com/gmestre98/eudaimonia/backend/internal/platform/config"
-	"github.com/gmestre98/eudaimonia/backend/internal/platform/db"
-	"github.com/gmestre98/eudaimonia/backend/internal/platform/health"
-	"github.com/gmestre98/eudaimonia/backend/internal/platform/httpx"
-	platformlog "github.com/gmestre98/eudaimonia/backend/internal/platform/log"
-	"github.com/gmestre98/eudaimonia/backend/internal/sharing"
-	"github.com/gmestre98/eudaimonia/backend/internal/trip"
+	"github.com/gmestre98/khiimori/backend/internal/auth"
+	"github.com/gmestre98/khiimori/backend/internal/budget"
+	"github.com/gmestre98/khiimori/backend/internal/geo"
+	"github.com/gmestre98/khiimori/backend/internal/journal"
+	"github.com/gmestre98/khiimori/backend/internal/platform/config"
+	"github.com/gmestre98/khiimori/backend/internal/platform/db"
+	"github.com/gmestre98/khiimori/backend/internal/platform/health"
+	"github.com/gmestre98/khiimori/backend/internal/platform/httpx"
+	platformlog "github.com/gmestre98/khiimori/backend/internal/platform/log"
+	"github.com/gmestre98/khiimori/backend/internal/sharing"
+	"github.com/gmestre98/khiimori/backend/internal/trip"
 )
 
 // shutdownTimeout bounds how long a graceful shutdown waits for in-flight
