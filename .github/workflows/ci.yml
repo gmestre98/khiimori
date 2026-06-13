@@ -105,9 +105,11 @@ jobs:
       - name: Build (production bundle)
         run: npm run build
 
-      # NB: the web app has no unit-test suite yet (the frontend shell lands in
-      # M01.6). When tests are added (e.g. vitest), add an "npm test" step here —
-      # the job is already structured for it.
+      # Unit/component tests (Vitest + Testing Library), added with the app shell
+      # in M01.6 — e.g. the /healthz health-check view (S2). `vitest run` is a
+      # one-shot (non-watch) run for CI.
+      - name: Test (vitest)
+        run: npm test
 
   infra:
     name: Infra — typecheck, lint, format
