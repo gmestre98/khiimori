@@ -101,9 +101,16 @@ export const service = new gcp.cloudrunv2.Service(
       ],
     },
   },
-  // Depend on any secret versions created from Pulumi config so they exist
-  // before the service mounts them in the same `pulumi up`.
-  { dependsOn: [cloudRunApi, ...secretVersions] },
+  {
+    // Depend on any secret versions created from Pulumi config so they exist
+    // before the service mounts them in the same `pulumi up`.
+    dependsOn: [cloudRunApi, ...secretVersions],
+    // The CI/CD pipeline (M01.5 S7) owns the deployed image: it rolls new
+    // revisions to the SHA-tagged build on every push to main. IaC stays the
+    // source of truth for the service *shape* (SA, secrets, scaling, probes) but
+    // must not revert the image back to the placeholder on the next `pulumi up`.
+    ignoreChanges: ['template.containers[0].image'],
+  },
 )
 
 // Public invocation binding (see allowUnauthenticated above).

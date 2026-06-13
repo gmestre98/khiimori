@@ -273,3 +273,65 @@ jobs:
             ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_AR_REPO }}/api:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to Cloud Run (main)
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Runs after the image is pushed; consumes its SHA-tagged reference.
+    needs: [build-push]
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      # Migrations run BEFORE the new revision serves traffic (PRD §7.6). The
+      # owner direct DSN is fetched from Secret Manager (never a CI secret/log)
+      # and masked; the M01.3 runner applies forward migrations only. A failure
+      # here aborts the job, so the new image never deploys against a stale schema.
+      - name: Run database migrations
+        working-directory: backend
+        run: |
+          DATABASE_URL_DIRECT="$(gcloud secrets versions access latest \
+            --secret=khiimori-database-url-direct --project=${{ vars.GCP_PROJECT_ID }})"
+          echo "::add-mask::$DATABASE_URL_DIRECT"
+          export DATABASE_URL_DIRECT
+          go run ./cmd/migrate up
+
+      # Roll the IaC-managed service to the exact SHA-tagged image from S6. Only
+      # the image changes — the service's SA, secrets, scaling and probes are
+      # owned by Pulumi (which ignores the image), so there's no config drift.
+      # `gcloud run deploy` blocks until the new revision is serving, i.e. it
+      # passed its /readyz startup probe — a bad revision fails the stage here.
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy khiimori-api \
+            --image="${{ needs.build-push.outputs.image }}" \
+            --region="${{ vars.GCP_REGION }}" \
+            --project="${{ vars.GCP_PROJECT_ID }}" \
+            --quiet
+
+      # Belt-and-suspenders: independently confirm the live revision is ready.
+      - name: Verify deployed revision
+        run: |
+          url="$(gcloud run services describe khiimori-api \
+            --region=${{ vars.GCP_REGION }} --project=${{ vars.GCP_PROJECT_ID }} \
+            --format='value(status.url)')"
+          echo "Service URL: $url"
+          code="$(curl -fsS -o /dev/null -w '%{http_code}' "$url/readyz" || true)"
+          echo "/readyz -> $code"
+          test "$code" = "200"

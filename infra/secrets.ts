@@ -85,6 +85,19 @@ export const mapsApiKeySecret = managedSecret(
   'mapsApiKey',
 )
 
+/**
+ * Direct (un-pooled) DB DSN used by CI to run migrations at deploy time (M01.5
+ * S7). Migrations need the OWNER role via the direct endpoint — DDL must bypass
+ * the pgBouncer pooler (backend/docs/database.md). This is NOT mounted to the
+ * runtime service (which uses the pooled app_rw `database-url`); only the CI
+ * deployer SA is granted access to it (infra/cicd.ts).
+ */
+export const databaseUrlDirectSecret = managedSecret(
+  'database-url-direct',
+  'khiimori-database-url-direct',
+  'databaseUrlDirect',
+)
+
 /** All managed secrets — S5 grants the Cloud Run SA accessor on each. */
 export const allSecrets = [databaseUrlSecret, oauthClientSecret, mapsApiKeySecret]
 
