@@ -3,7 +3,6 @@
 # but excluding these keeps the build context small and safe regardless.
 .env
 *.env
-!.env.example
 .git
 .gitignore
 Dockerfile

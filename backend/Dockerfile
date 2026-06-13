@@ -26,8 +26,10 @@ RUN go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api
 # ---- runtime stage --------------------------------------------------------
 # distroless/static: no shell, no package manager — minimal attack surface
 # (PRD §7.0, §6). The ":nonroot" variant runs as uid 65532, satisfying the
-# non-root requirement without creating a user ourselves.
-FROM gcr.io/distroless/static-debian12:nonroot
+# non-root requirement without creating a user ourselves. Pinned by digest (the
+# tag is rolling/unversioned) so the deployed image is reproducible; the tag is
+# kept alongside for readability. Refresh the digest when intentionally updating.
+FROM gcr.io/distroless/static-debian12:nonroot@sha256:d093aa3e30dbadd3efe1310db061a14da60299baff8450a17fe0ccc514a16639
 WORKDIR /
 COPY --from=build /out/api /api
 
