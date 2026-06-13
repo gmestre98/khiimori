@@ -84,10 +84,14 @@ the first CI run executes `pulumi up` as the still-narrow identity and fails:
 
 1. Add the repo **secret** `PULUMI_ACCESS_TOKEN` (a Pulumi Cloud access token).
    Harmless on its own — the job stays skipped until step 3.
-2. **Bootstrap once manually:** `cd infra && pulumi up` (as yourself, project
-   owner). The new `roles/owner` binding can't be applied by the old
+2. **Bootstrap once manually:** `cd infra && pulumi up --refresh` (as yourself,
+   project owner). The new `roles/owner` binding can't be applied by the old
    least-privilege CI identity, so this first apply must be run by you — it also
    applies any pending config (e.g. the CORS allowlist), fixing the live app now.
+   **Always pass `--refresh`** for a manual apply: CI rolls the real image
+   out-of-band, so a bare `pulumi up` (whose state still holds the placeholder
+   image) will revert the running service to the placeholder. CI's `pulumi-up`
+   job refreshes automatically.
 3. **Last:** add the repo **variable** `PULUMI_STACK_NAME` =
    `<your-pulumi-org>/khiimori/dev`. This arms the `pulumi-up` job; from here
    every `main` push self-reconciles.

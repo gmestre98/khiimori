@@ -120,7 +120,15 @@ export const service = new gcp.cloudrunv2.Service(
     // revisions to the SHA-tagged build on every push to main. IaC stays the
     // source of truth for the service *shape* (SA, secrets, scaling, probes) but
     // must not revert the image back to the placeholder on the next `pulumi up`.
-    ignoreChanges: ['template.containers[0].image'],
+    // NB: `ignoreChanges` only holds the image across a `pulumi up` that has
+    // *refreshed* state from live first — a bare `pulumi up` whose state still
+    // carries the placeholder will write it back. CI's pulumi-up runs with
+    // refresh; manual runs must use `pulumi up --refresh` (see infra/README).
+    //
+    // `client`/`clientVersion` are stamped by `gcloud run deploy` (CI's image
+    // roll) to "gcloud"/"<ver>". Ignoring them keeps a no-change `pulumi up` a
+    // clean no-op instead of perpetually trying to strip them.
+    ignoreChanges: ['template.containers[0].image', 'client', 'clientVersion'],
   },
 )
 
