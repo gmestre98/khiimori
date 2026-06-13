@@ -14,7 +14,7 @@ A push to `main` runs the pipeline. The relevant jobs:
 | --- | --- |
 | `web` | Lint, format, **build** (`tsc -b` + `vite build`), and **test** (Vitest) — gate. |
 | `deploy-web` | On `main`: rebuilds the bundle with `VITE_API_BASE_URL` injected, authenticates to GCP via WIF (keyless), and `firebase deploy --only hosting` to the M01.4 site. |
-| `deploy` | Builds/pushes the API image and rolls a Cloud Run revision (incl. CORS env). |
+| `deploy` | Builds/pushes the API image and rolls a Cloud Run revision to it (only the image — env/secrets/scaling are Pulumi-owned). |
 | `e2e` | Smoke-checks the deployed env (`e2e/smoke.sh`): API `/readyz` + web shell load. |
 
 The Hosting target is fixed in [`firebase.json`](../../../../../firebase.json) (the
