@@ -1,5 +1,7 @@
 # Epic M01.4 — Infrastructure as Code (Pulumi/TS)
 
+> **Status:** ✅ Done — all 10 stories implemented and all 5 acceptance criteria verified; the stack is deployed live to the `dev` stack (Artifact Registry, media bucket, Secret Manager, least-privilege runtime SA, Cloud Run, Firebase Hosting site, scale tunables) and is the deploy target for the M01.5 pipeline.
+>
 > Milestone: [01 — Foundations](../README.md) · PRD refs: §6, §7.4, §7.8, §8.6.
 
 ## Description
@@ -13,11 +15,11 @@ scripting (PRD §7.4).
 
 ## Acceptance Criteria
 
-- [ ] Pulumi (TS) provisions the Cloud Run service, Artifact Registry repo, a Cloud Storage bucket, and Secret Manager secrets (PRD §7.8).
-- [ ] The Firebase Hosting site (for M01.6) is provisioned/configured via IaC.
-- [ ] Secrets (DB URL, OAuth client, Maps key) are injected into Cloud Run **at runtime from Secret Manager** — none committed or shipped to the client (PRD §6, §8.5).
-- [ ] Scale tunables — Cloud Run `min-instances`, Neon tier reference, Maps quota — are **IaC config** defaulting to scale-to-zero (PRD §8.6).
-- [ ] `pulumi up` provisions a clean environment reproducibly; teardown documented.
+- [x] Pulumi (TS) provisions the Cloud Run service, Artifact Registry repo, a Cloud Storage bucket, and Secret Manager secrets (PRD §7.8).
+- [x] The Firebase Hosting site (for M01.6) is provisioned/configured via IaC.
+- [x] Secrets (DB URL, OAuth client, Maps key) are injected into Cloud Run **at runtime from Secret Manager** — none committed or shipped to the client (PRD §6, §8.5).
+- [x] Scale tunables — Cloud Run `min-instances`, Neon tier reference, Maps quota — are **IaC config** defaulting to scale-to-zero (PRD §8.6).
+- [x] `pulumi up` provisions a clean environment reproducibly; teardown documented.
 
 ## Implementation Details / Architecture
 

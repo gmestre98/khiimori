@@ -1,5 +1,7 @@
 # S10 — Reproducible `pulumi up` & documented teardown
 
+> **Status:** ✅ Done — reproducible pulumi up + documented teardown (#117). Deployed live to the dev stack.
+
 ## Context
 The epic's contract is that `pulumi up` provisions a **clean environment reproducibly** and teardown is
 **documented** (epic AC5). This closing story verifies the whole stack stands up from scratch on a fresh
@@ -11,14 +13,14 @@ Assumes all resource stories (**S2–S9**) are in place.
 Verify clean end-to-end provisioning on a fresh stack and document the up/teardown procedure.
 
 ## Acceptance criteria
-- [ ] On a **new, empty** stack, `pulumi up` provisions the full set (Artifact Registry, bucket, secrets, SA,
+- [x] On a **new, empty** stack, `pulumi up` provisions the full set (Artifact Registry, bucket, secrets, SA,
   Cloud Run, Hosting site, scale config) without manual fix-ups beyond the documented author-provided prerequisites
   (GCP project + billing, Firebase project, secret values).
-- [ ] All required **stack outputs** are exported and listed: Cloud Run URL, Hosting origin, image-path prefix,
+- [x] All required **stack outputs** are exported and listed: Cloud Run URL, Hosting origin, image-path prefix,
   bucket name, secret ids.
-- [ ] `pulumi destroy` tears everything down cleanly; any intentionally retained resources (and why) are noted.
-- [ ] A short **runbook** documents prerequisites, `pulumi up`, outputs, and teardown.
-- [ ] API enablement and resource creation ordering are handled by IaC (no undocumented manual steps).
+- [x] `pulumi destroy` tears everything down cleanly; any intentionally retained resources (and why) are noted.
+- [x] A short **runbook** documents prerequisites, `pulumi up`, outputs, and teardown.
+- [x] API enablement and resource creation ordering are handled by IaC (no undocumented manual steps).
 
 ## Constraints
 - Reproducibility over cleverness — a fresh checkout + documented prerequisites must reach a running stack (PRD §7.0).
