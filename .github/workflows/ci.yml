@@ -1,0 +1,95 @@
+name: CI
+
+# Lint + unit tests gate every change before it can land (PRD §7.5). This is the
+# base pipeline the rest of M01.5 builds on (build, containerise, deploy stages
+# are layered on by later stories). Backend and web run as independent parallel
+# jobs to keep wall-clock and CI minutes down (PRD §8.4 #4).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Least privilege: these jobs only need to read the repository.
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the in-flight run — no point spending
+# CI minutes finishing a run that's already superseded (PRD §8.4 #4). On `main`
+# we never cancel: once S6/S7 add deploy stages, a cancelled run could leave a
+# half-finished deploy (image pushed but service not rolled).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  backend:
+    name: Backend — lint, vet, test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          # Pin to the repo's Go version — single source of truth is backend/go.mod.
+          go-version-file: backend/go.mod
+          # Cache the module + build cache, keyed on go.sum (PRD §8.4 #4).
+          cache-dependency-path: backend/go.sum
+
+      # gofmt is the format check (backend/README.md): any listed file fails.
+      - name: Format check (gofmt)
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-clean — run 'gofmt -w .':"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      # The single backend lint command (.golangci.yml). Pinned to the v1.x line
+      # that matches the repo's v1-format config; action@v6 is the v1 line.
+      - name: Lint (golangci-lint)
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.64.2
+          working-directory: backend
+
+      # Unit tests. The integration suite is build-tagged ('integration') and runs
+      # in its own stage (S4) against an ephemeral DB — this stays DB-free and fast.
+      - name: Unit tests
+        run: go test ./...
+
+  web:
+    name: Web — lint, format
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # No repo-level Node pin yet; pin CI to the current LTS (Vite 8 needs
+          # >=20.19/22.12). Revisit if the repo adopts an .nvmrc.
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Lint (eslint)
+        run: npm run lint
+
+      - name: Format check (prettier)
+        run: npm run format:check
+
+      # NB: the web app has no unit-test suite yet (the frontend shell lands in
+      # M01.6). When tests are added (e.g. vitest), add an "npm test" step here —
+      # the job is already structured for it.
