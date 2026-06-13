@@ -35,7 +35,7 @@ export function HealthCheck() {
   }, [])
 
   return (
-    <section className="health-check" aria-live="polite">
+    <section className="health-check">
       <h2>API health</h2>
       <p className="health-target">
         <code>{apiBaseURL}/healthz</code>
