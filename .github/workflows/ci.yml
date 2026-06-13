@@ -109,6 +109,39 @@ jobs:
       # M01.6). When tests are added (e.g. vitest), add an "npm test" step here —
       # the job is already structured for it.
 
+  infra:
+    name: Infra — typecheck, lint, format
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: infra/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Typecheck (tsc)
+        run: npm run build
+
+      - name: Lint (eslint)
+        run: npm run lint
+
+      - name: Format check (prettier)
+        run: npm run format:check
+
+      # scripts/ has no toolchain of its own (it's run via `node scripts/dev.ts`),
+      # so check its TypeScript against infra's prettier config — one shared style
+      # for the repo's TS scripting, so it can't silently drift like infra did.
+      - name: Format check (scripts/)
+        run: npx prettier --check --config .prettierrc.json '../scripts/**/*.ts'
+
   image:
     name: Container image — build (no push)
     runs-on: ubuntu-latest

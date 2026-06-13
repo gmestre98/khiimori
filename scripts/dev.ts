@@ -111,22 +111,32 @@ async function preflight(): Promise<void> {
   if (!hasCommand('go')) missing.push('go (https://go.dev/dl/)')
   if (!hasCommand('npm')) missing.push('npm / node (https://nodejs.org/)')
   if (missing.length > 0) {
-    fail(`Missing prerequisite(s):\n  - ${missing.join('\n  - ')}\nInstall them and re-run \`make dev\`.`)
+    fail(
+      `Missing prerequisite(s):\n  - ${missing.join('\n  - ')}\nInstall them and re-run \`make dev\`.`,
+    )
   }
 
   if (!existsSync(resolve(webDir, 'node_modules'))) {
-    fail(`Web dependencies are not installed (web/node_modules missing).\nRun \`make install\` (or \`cd web && npm install\`) first, then \`make dev\`.`)
+    fail(
+      `Web dependencies are not installed (web/node_modules missing).\nRun \`make install\` (or \`cd web && npm install\`) first, then \`make dev\`.`,
+    )
   }
 
   if (!existsSync(backendEnvPath)) {
-    fail(`Backend env file backend/.env is missing.\nThe backend now requires its config to be set explicitly. Copy backend/.env.example to backend/.env and fill in the values, then re-run \`make dev\`.`)
+    fail(
+      `Backend env file backend/.env is missing.\nThe backend now requires its config to be set explicitly. Copy backend/.env.example to backend/.env and fill in the values, then re-run \`make dev\`.`,
+    )
   }
 
   if (await portInUse(BACKEND_PORT)) {
-    fail(`Backend port ${BACKEND_PORT} is already in use.\nStop whatever is using it, or set PORT to a free port: \`PORT=8090 make dev\`.`)
+    fail(
+      `Backend port ${BACKEND_PORT} is already in use.\nStop whatever is using it, or set PORT to a free port: \`PORT=8090 make dev\`.`,
+    )
   }
   if (await portInUse(WEB_PORT)) {
-    fail(`Web port ${WEB_PORT} is already in use.\nStop whatever is using it, or set WEB_PORT to a free port: \`WEB_PORT=5180 make dev\`.`)
+    fail(
+      `Web port ${WEB_PORT} is already in use.\nStop whatever is using it, or set WEB_PORT to a free port: \`WEB_PORT=5180 make dev\`.`,
+    )
   }
 }
 
@@ -146,12 +156,20 @@ function shutdown(code: number): void {
   process.exit(code)
 }
 
-function start(name: string, command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv): ChildProcess {
+function start(
+  name: string,
+  command: string,
+  args: string[],
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+): ChildProcess {
   const child = spawn(command, args, { cwd, env, stdio: ['ignore', 'inherit', 'inherit'] })
   children.push(child)
   child.on('exit', (code, signal) => {
     if (shuttingDown) return
-    console.error(`\n✖ ${name} exited unexpectedly (code=${code ?? 'null'}, signal=${signal ?? 'null'}). Shutting down the dev stack.`)
+    console.error(
+      `\n✖ ${name} exited unexpectedly (code=${code ?? 'null'}, signal=${signal ?? 'null'}). Shutting down the dev stack.`,
+    )
     shutdown(1)
   })
   child.on('error', (err) => {
@@ -190,7 +208,9 @@ async function main(): Promise<void> {
     fail(`Backend did not become reachable on :${BACKEND_PORT} within 20s.`)
   }
   console.log(`✔ web host can reach backend on :${BACKEND_PORT}`)
-  console.log(`\nDev stack is up. Web: http://localhost:${WEB_PORT}  ·  Backend: tcp://localhost:${BACKEND_PORT}`)
+  console.log(
+    `\nDev stack is up. Web: http://localhost:${WEB_PORT}  ·  Backend: tcp://localhost:${BACKEND_PORT}`,
+  )
   console.log('Press Ctrl-C to stop both.\n')
 }
 
