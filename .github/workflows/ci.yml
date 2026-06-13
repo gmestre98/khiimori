@@ -326,12 +326,20 @@ jobs:
             --quiet
 
       # Belt-and-suspenders: independently confirm the live revision is ready.
+      # Retry a few times — with minInstances=0 the warm instance from the deploy
+      # may have scaled to zero, so this can trigger a cold start + Neon wake and
+      # briefly 503 before serving (the startup-probe window is ~60s).
       - name: Verify deployed revision
         run: |
           url="$(gcloud run services describe khiimori-api \
             --region=${{ vars.GCP_REGION }} --project=${{ vars.GCP_PROJECT_ID }} \
             --format='value(status.url)')"
           echo "Service URL: $url"
-          code="$(curl -fsS -o /dev/null -w '%{http_code}' "$url/readyz" || true)"
+          code=""
+          for i in $(seq 1 6); do
+            code="$(curl -fsS -o /dev/null -w '%{http_code}' "$url/readyz" || true)"
+            [ "$code" = "200" ] && break
+            echo "/readyz -> $code (attempt $i), retrying…"; sleep 5
+          done
           echo "/readyz -> $code"
           test "$code" = "200"
