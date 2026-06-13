@@ -23,10 +23,17 @@ Only `VITE_`-prefixed variables are exposed to the client. The base URL is centr
 ## Commands
 
 ```sh
-npm install      # install dependencies
-npm run dev      # start the Vite dev server
-npm run build    # type-check (tsc -b) and produce a production bundle in dist/
-npm run preview  # serve the production build locally
+npm install        # install dependencies
+npm run dev        # start the Vite dev server
+npm run build      # type-check (tsc -b) and produce a production bundle in dist/
+npm test           # run the unit/component tests once (Vitest)
+npm run test:watch # run the tests in watch mode
+npm run preview    # serve the production build locally
 ```
 
-Lint and format tooling is added in S7.
+## Testing
+
+Unit/component tests use **Vitest** + **React Testing Library** (jsdom), added with the app shell
+in M01.6 S2 (the project's first frontend tests — Vitest is the natural Vite-native runner). Config
+lives in [`vitest.config.ts`](vitest.config.ts), kept separate from `vite.config.ts` so the build's
+plugin typing stays independent of Vitest's bundled Vite. CI runs `npm test` in the web gate.

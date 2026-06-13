@@ -13,3 +13,21 @@
 .tagline {
   color: var(--text);
 }
+
+.health-check {
+  margin-top: 24px;
+  text-align: center;
+}
+
+.health-target {
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.health-ok {
+  color: #1a7f37;
+}
+
+.health-error {
+  color: #cf222e;
+}

@@ -24,3 +24,20 @@ export function apiUrl(path: string): string {
   const suffix = path.startsWith('/') ? path : `/${path}`
   return `${apiBaseURL}${suffix}`
 }
+
+// HealthStatus is the API's /healthz response shape (a small JSON status body).
+export interface HealthStatus {
+  status: string
+}
+
+// fetchHealth calls GET /healthz through the configured base URL and returns the
+// parsed status. It throws on a non-2xx response or any network/parse error, so
+// the caller can render success vs failure off resolve/reject. An optional
+// AbortSignal lets the caller cancel an in-flight check (e.g. on unmount).
+export async function fetchHealth(signal?: AbortSignal): Promise<HealthStatus> {
+  const res = await fetch(apiUrl('/healthz'), { signal })
+  if (!res.ok) {
+    throw new Error(`API returned HTTP ${res.status}`)
+  }
+  return (await res.json()) as HealthStatus
+}
