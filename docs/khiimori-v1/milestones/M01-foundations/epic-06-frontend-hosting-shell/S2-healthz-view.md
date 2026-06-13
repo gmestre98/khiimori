@@ -1,6 +1,6 @@
 # S2 — Health-check view (call `/healthz` and show the result)
 
-> **Status:** ✅ Done — `/healthz` view (loading/healthy/error) via the S1 client, with Vitest + Testing Library component tests ([#134](https://github.com/gmestre98/khiimori/pull/134)).
+> **Status:** ✅ Done — health view (loading/healthy/error) via the S1 client, with Vitest + Testing Library component tests ([#134](https://github.com/gmestre98/khiimori/pull/134)). Probes **`/readyz`**, not `/healthz`: Cloud Run doesn't route `/healthz` externally (corrected in the post-merge `/readyz` fix).
 
 ## Context
 The proof that the whole stack is wired is the web app successfully calling the API's **`/healthz`** and

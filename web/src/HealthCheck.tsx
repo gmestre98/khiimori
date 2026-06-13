@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { apiBaseURL, fetchHealth } from './lib/api'
+import { fetchHealth, healthUrl } from './lib/api'
 
 // State of the health probe: loading on mount, then either the healthy status
 // from /healthz or an error message. A discriminated union so the render can't
@@ -38,7 +38,7 @@ export function HealthCheck() {
     <section className="health-check">
       <h2>API health</h2>
       <p className="health-target">
-        <code>{apiBaseURL}/healthz</code>
+        <code>{healthUrl}</code>
       </p>
       {state.kind === 'loading' && <p role="status">Checking…</p>}
       {state.kind === 'healthy' && (

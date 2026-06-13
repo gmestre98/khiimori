@@ -10,20 +10,22 @@ afterEach(() => {
 // Mocking the global fetch lets us assert both renderings without a real API —
 // the view's only dependency is the S1 client, which calls fetch under the hood.
 describe('HealthCheck', () => {
-  it('renders healthy when /healthz returns ok', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({ status: 'ok' }),
-      }),
-    )
+  it('renders healthy and probes /readyz (not the externally-unrouted /healthz)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 'ready' }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
 
     render(<HealthCheck />)
 
     expect(await screen.findByText(/healthy/i)).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    // Cloud Run doesn't route /healthz externally — the browser must hit /readyz.
+    const calledUrl = String(fetchMock.mock.calls[0][0])
+    expect(calledUrl).toMatch(/\/readyz$/)
+    expect(calledUrl).not.toMatch(/\/healthz/)
   })
 
   it('renders an error when the API is unreachable', async () => {

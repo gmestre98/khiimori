@@ -1,6 +1,6 @@
 # S4 — Deploy app shell to Firebase Hosting + verify round-trip
 
-> **Status:** ✅ Done — pipeline deploys the shell to Hosting (CI green); deploy path + manual round-trip checklist in [`deploy-and-verify-runbook.md`](deploy-and-verify-runbook.md). Live deploy + in-browser confirmation are the author's step ([#136](https://github.com/gmestre98/khiimori/pull/136)).
+> **Status:** 🚧 Deploy path done; live round-trip pending. Pipeline deploys the shell to Hosting (CI green); deploy path + verification checklist in [`deploy-and-verify-runbook.md`](deploy-and-verify-runbook.md) ([#136](https://github.com/gmestre98/khiimori/pull/136)). The in-browser round-trip is **not yet green** — it needs the `/readyz` view fix deployed **and** `pulumi up` to apply `CORS_ALLOWED_ORIGINS` to the running revision (see the runbook's CORS prerequisite).
 
 ## Context
 This story proves the foundation works end to end: the shell deploys to **Firebase Hosting + CDN** and the
@@ -14,9 +14,9 @@ Deploy the app shell to Firebase Hosting and verify the deployed-to-deployed `/h
 
 ## Acceptance criteria
 - [x] The app shell is served from **Firebase Hosting + CDN** at the Hosting URL.
-- [x] The deployed app, built with the **production API base URL** (S1), successfully calls the deployed
-  Cloud Run `/healthz` and shows healthy (epic AC2).
-- [x] CORS (S3) works from the real Hosting origin to the real API — no console CORS errors.
+- [ ] The deployed app, built with the **production API base URL** (S1), successfully calls the deployed
+  Cloud Run readiness probe and shows healthy (epic AC2). _Pending the `/readyz` view fix deploy + `pulumi up` for CORS. (Probes `/readyz`, not `/healthz` — Cloud Run doesn't route `/healthz` externally.)_
+- [ ] CORS (S3) works from the real Hosting origin to the real API — no console CORS errors. _Pending `pulumi up`: the running revision's `CORS_ALLOWED_ORIGINS` is currently empty._
 - [x] Deployment goes through the **pipeline** (M01.5 S8), not a manual one-off, and is documented.
 - [x] A short manual verification checklist (load URL → see healthy) is recorded.
 
