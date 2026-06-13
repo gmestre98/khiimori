@@ -107,6 +107,15 @@ new gcp.projects.IAMMember('ci-deployer-hosting', {
   member: deployerMember,
 })
 
+// Read-only project metadata so the Firebase CLI can resolve the project during
+// `firebase deploy` (it calls firebase.projects.get); firebasehosting.admin
+// alone manages Hosting but doesn't guarantee project read.
+new gcp.projects.IAMMember('ci-deployer-firebase-viewer', {
+  project,
+  role: 'roles/firebase.viewer',
+  member: deployerMember,
+})
+
 // Read the direct (owner) DB DSN to run migrations at deploy time (S7). Scoped
 // to that one secret — the deployer never reads the runtime app/OAuth/Maps
 // secrets (those are the runtime SA's).
