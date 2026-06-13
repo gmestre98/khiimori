@@ -11,11 +11,14 @@ without it (epic AC5).
 
 ## IaC or manual?
 
-**Manual (documented), not IaC.** The Pulumi `@pulumi/gcp` provider has no
-Firebase Hosting *custom-domain* resource, so the site itself is IaC-managed
-([`infra/hosting.ts`](../../../../../infra/hosting.ts), M01.4 S8) but the domain
-attachment is a one-time manual step in the Firebase console (or the Hosting
-REST API). Do it once per domain; it does not need repeating on each deploy.
+**A documented manual step for v1 — though IaC is possible.** The provider *does*
+expose `gcp.firebase.HostingCustomDomain` (`siteId` + `customDomain`), so the
+attachment could be Pulumi-managed. For v1 we keep it a one-time manual step in
+the Firebase console because the resource is **beta** (needs the google-beta
+provider) and the domain is author-provided and attached once. The Hosting site
+itself stays IaC-managed ([`infra/hosting.ts`](../../../../../infra/hosting.ts),
+M01.4 S8). Either way, the **DNS records must be created manually** at the domain
+registrar — neither path manages an external DNS zone.
 
 ## Steps
 
