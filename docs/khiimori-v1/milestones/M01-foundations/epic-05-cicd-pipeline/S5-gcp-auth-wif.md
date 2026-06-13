@@ -1,5 +1,7 @@
 # S5 — GCP auth from Actions (Workload Identity Federation)
 
+> **Status:** ✅ Done — keyless WIF auth + least-privilege deployer SA, verified live (#123).
+
 ## Context
 The deploy stages (S6–S8) need to authenticate to GCP, but the project's security posture forbids long-lived
 service-account keys in CI (PRD §6, §8.5). This story sets up **Workload Identity Federation** so GitHub
@@ -12,11 +14,11 @@ Assumes the IaC stack (M01.4) and the base workflow (**S1**) exist.
 Configure keyless GCP authentication from GitHub Actions via Workload Identity Federation.
 
 ## Acceptance criteria
-- [ ] A reusable auth step authenticates to GCP using **WIF** (`google-github-actions/auth`) — **no JSON key** in secrets.
-- [ ] The CI deployer service account and WIF pool/provider binding are defined in IaC (M01.4) or documented if added there.
-- [ ] The deployer SA is **least-privilege**: only the roles needed to push images, deploy Cloud Run, and deploy Hosting (PRD §6).
-- [ ] A trivial authenticated `gcloud`/API call in CI proves auth works, with no credentials leaked to logs.
-- [ ] Auth is scoped to the intended branch/environment (e.g. `main` for deploys).
+- [x] A reusable auth step authenticates to GCP using **WIF** (`google-github-actions/auth`) — **no JSON key** in secrets.
+- [x] The CI deployer service account and WIF pool/provider binding are defined in IaC (M01.4) or documented if added there.
+- [x] The deployer SA is **least-privilege**: only the roles needed to push images, deploy Cloud Run, and deploy Hosting (PRD §6).
+- [x] A trivial authenticated `gcloud`/API call in CI proves auth works, with no credentials leaked to logs.
+- [x] Auth is scoped to the intended branch/environment (e.g. `main` for deploys).
 
 ## Constraints
 - No exported SA keys anywhere (PRD §8.5) — federation only.
