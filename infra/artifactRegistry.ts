@@ -20,8 +20,7 @@ export const repository = new gcp.artifactregistry.Repository(
     repositoryId,
     location: region,
     format: 'DOCKER',
-    description:
-      'Khiimori service container images — pushed by CI (M01.5), deployed by Cloud Run.',
+    description: 'Khiimori service container images — pushed by CI (M01.5), deployed by Cloud Run.',
   },
   { dependsOn: [artifactRegistryApi] },
 )

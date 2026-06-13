@@ -79,11 +79,7 @@ export const oauthClientSecret = managedSecret(
 )
 
 /** Google Maps API key. */
-export const mapsApiKeySecret = managedSecret(
-  'maps-api-key',
-  'khiimori-maps-api-key',
-  'mapsApiKey',
-)
+export const mapsApiKeySecret = managedSecret('maps-api-key', 'khiimori-maps-api-key', 'mapsApiKey')
 
 /**
  * Direct (un-pooled) DB DSN used by CI to run migrations at deploy time (M01.5
