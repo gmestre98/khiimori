@@ -1,4 +1,4 @@
-# Eudaimonia — developer commands.
+# Khiimori — developer commands.
 # `make dev` brings up the backend + web app together for local development.
 
 .DEFAULT_GOAL := help

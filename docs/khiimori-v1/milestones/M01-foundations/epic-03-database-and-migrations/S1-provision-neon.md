@@ -3,7 +3,7 @@
 > **Status:** ✅ Done — except the dedicated least-privilege app role (the service connects as `neondb_owner`); SQL to add `app_rw` is documented in `backend/docs/database.md` as a non-blocking follow-up.
 
 ## Context
-Eudaimonia stores all data in a single **Postgres** database on **Neon** (PRD §7.7, §7.8). Neon is the
+Khiimori stores all data in a single **Postgres** database on **Neon** (PRD §7.7, §7.8). Neon is the
 one component that doesn't scale to zero for free indefinitely, so v1 starts on the **free tier ≈€0**
 (PRD §8.4 #1, §8.6). This story stands up the project/database and captures the connection details so the
 rest of the epic (driver, migrations, readiness) has something real to talk to. The connection string is a

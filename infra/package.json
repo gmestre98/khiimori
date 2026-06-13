@@ -1,7 +1,7 @@
 {
-  "name": "eudaimonia-infra",
+  "name": "khiimori-infra",
   "private": true,
-  "description": "Infrastructure as code (Pulumi / TypeScript on GCP) for Eudaimonia.",
+  "description": "Infrastructure as code (Pulumi / TypeScript on GCP) for Khiimori.",
   "scripts": {
     "build": "tsc --noEmit",
     "lint": "eslint .",

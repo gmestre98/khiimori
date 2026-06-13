@@ -17,42 +17,42 @@ config:
 
   # --- Optional: resource names (sensible defaults if omitted) ---------------
   # Artifact Registry Docker repository id (last segment of the image prefix).
-  # eudaimonia:artifactRepoId: eudaimonia
+  # khiimori:artifactRepoId: khiimori
   # Cloud Storage media bucket name (globally unique; default <project>-media).
-  # eudaimonia:mediaBucketName: your-project-media
+  # khiimori:mediaBucketName: your-project-media
   # Allow `pulumi destroy` to delete a non-empty media bucket (default false).
-  # eudaimonia:mediaBucketForceDestroy: "false"
-  # Cloud Run runtime service account id (6-30 chars; default eudaimonia-run).
-  # eudaimonia:cloudRunServiceAccountId: eudaimonia-run
-  # Cloud Run service name (default eudaimonia-api).
-  # eudaimonia:serviceName: eudaimonia-api
+  # khiimori:mediaBucketForceDestroy: "false"
+  # Cloud Run runtime service account id (6-30 chars; default khiimori-run).
+  # khiimori:cloudRunServiceAccountId: khiimori-run
+  # Cloud Run service name (default khiimori-api).
+  # khiimori:serviceName: khiimori-api
   # Container image. Default is a public placeholder so a fresh stack stands up;
   # CI (M01.5) overrides with the real S2 image, e.g. <imagePrefix>/api:<sha>.
-  # eudaimonia:serviceImage: europe-west2-docker.pkg.dev/your-project/eudaimonia/api:latest
+  # khiimori:serviceImage: europe-west2-docker.pkg.dev/your-project/khiimori/api:latest
   # Container port the app listens on (default 8080).
-  # eudaimonia:servicePort: "8080"
+  # khiimori:servicePort: "8080"
   # Deployment env / log level the service runs with (default prod / error).
-  # eudaimonia:serviceEnv: prod
-  # eudaimonia:logLevel: error
+  # khiimori:serviceEnv: prod
+  # khiimori:logLevel: error
   # Allow unauthenticated invocation so the browser SPA can call the API
   # (default true; set false to make the service private).
-  # eudaimonia:allowUnauthenticated: "true"
+  # khiimori:allowUnauthenticated: "true"
   # Firebase project id (default: same as gcp:project). Firebase must already be
   # enabled on it — `firebase projects:addfirebase <project>` (one-time).
-  # eudaimonia:firebaseProject: your-firebase-project-id
+  # khiimori:firebaseProject: your-firebase-project-id
   # Firebase Hosting site id (globally unique, <=30 chars; default <project>-web).
-  # eudaimonia:hostingSiteId: your-project-web
+  # khiimori:hostingSiteId: your-project-web
 
   # --- Scale tunables (S9) — defaults are the cheap, idle-≈€0 ones -----------
   # Cloud Run min instances. 0 = scale-to-zero (default). 1 keeps one warm 24/7
   # (no cold starts) and bills continuously — the single "scale up" toggle.
-  # eudaimonia:minInstances: "0"
+  # khiimori:minInstances: "0"
   # Cloud Run max instances (default 2). Caps concurrency + worst-case spend.
-  # eudaimonia:maxInstances: "2"
+  # khiimori:maxInstances: "2"
   # Neon tier reference (default free). Lever: free -> paid in the Neon console.
-  # eudaimonia:neonTier: free
+  # khiimori:neonTier: free
   # Google Maps daily request quota reference (default 1000). Hard cap is M01.8.
-  # eudaimonia:mapsDailyQuota: "1000"
+  # khiimori:mapsDailyQuota: "1000"
 
   # --- Secret VALUES — never write them here in plaintext --------------------
   # The program creates the secret *containers*; their values are supplied
@@ -60,14 +60,14 @@ config:
   #
   #   a) Pulumi secret config (encrypted into the stack file, read by the
   #      program to create the first version):
-  #        pulumi config set --secret eudaimonia:databaseUrl       "postgresql://app_rw:…"
-  #        pulumi config set --secret eudaimonia:oauthClientSecret "…"
-  #        pulumi config set --secret eudaimonia:mapsApiKey        "…"
+  #        pulumi config set --secret khiimori:databaseUrl       "postgresql://app_rw:…"
+  #        pulumi config set --secret khiimori:oauthClientSecret "…"
+  #        pulumi config set --secret khiimori:mapsApiKey        "…"
   #      (These land here as `secure:` blobs — encrypted, safe to commit if you
   #       ever choose to track the stack file; this repo gitignores it anyway.)
   #
   #   b) Out-of-band after `pulumi up`, leaving config unset:
-  #        gcloud secrets versions add eudaimonia-database-url --data-file=-
+  #        gcloud secrets versions add khiimori-database-url --data-file=-
   #
   # The databaseUrl value MUST use the least-privilege Neon role `app_rw`
   # (not neondb_owner) — see backend/docs/database.md.

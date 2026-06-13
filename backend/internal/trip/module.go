@@ -3,7 +3,7 @@ package trip
 import (
 	"net/http"
 
-	"github.com/gmestre98/eudaimonia/backend/internal/platform/httpx"
+	"github.com/gmestre98/khiimori/backend/internal/platform/httpx"
 )
 
 // Module is the trip module's public surface. It satisfies httpx.RouteRegistrar

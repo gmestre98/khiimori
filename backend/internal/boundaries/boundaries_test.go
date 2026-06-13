@@ -24,7 +24,7 @@ import (
 )
 
 // modulePrefix is the import path prefix for the backend's internal modules.
-const modulePrefix = "github.com/gmestre98/eudaimonia/backend/internal/"
+const modulePrefix = "github.com/gmestre98/khiimori/backend/internal/"
 
 // sharedModule may be imported by any domain module; it is not a domain module.
 const sharedModule = "platform"

@@ -11,7 +11,7 @@
     .band{fill:#f6f6f6}
   </style>
 
-  <text x="40" y="40" class="ink" font-size="18" font-weight="bold">Eudaimonia — System Architecture (v1)</text>
+  <text x="40" y="40" class="ink" font-size="18" font-weight="bold">Khiimori — System Architecture (v1)</text>
 
   <!-- CLIENTS -->
   <rect x="40" y="64" width="820" height="86" rx="10" class="band"/>

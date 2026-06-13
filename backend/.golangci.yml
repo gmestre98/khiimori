@@ -14,7 +14,7 @@ linters:
 linters-settings:
   goimports:
     # Group our own module's imports separately from third-party ones.
-    local-prefixes: github.com/gmestre98/eudaimonia/backend
+    local-prefixes: github.com/gmestre98/khiimori/backend
 
 issues:
   # Show every issue rather than golangci-lint's default per-linter cap.

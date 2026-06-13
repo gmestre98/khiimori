@@ -1,4 +1,4 @@
-# Eudaimonia — Travel Manager
+# Khiimori — Travel Manager
 ### Product Requirements Document · v1 (First Release)
 
 **Author:** Gonçalo Mestre
@@ -9,7 +9,7 @@
 
 ## 1. Summary
 
-Eudaimonia is a personal travel-management app that replaces and upgrades the spreadsheet the author currently uses to plan and record trips. It lets a traveller plan a trip day-by-day (where to stay, what activities/tours to take, daily budgets), keep a daily journal, see each day's plan on a map, and share a trip with travel companions through granular access control.
+Khiimori is a personal travel-management app that replaces and upgrades the spreadsheet the author currently uses to plan and record trips. It lets a traveller plan a trip day-by-day (where to stay, what activities/tours to take, daily budgets), keep a daily journal, see each day's plan on a map, and share a trip with travel companions through granular access control.
 
 The product ships as a **responsive web app** (laptop) and an **installable mobile experience (PWA)** from a single React/TypeScript codebase, backed by a **Go backend** on GCP. Planning is **organic and easy to change on the fly** — loose ideas or precise schedules, freely re-arranged mid-trip. The stack is kept **deliberately small and easy to maintain** (§7.0). The visual style is minimal: **black & white as the primary theme**, with restrained accent colour only where it adds clarity (status, maps, budget).
 

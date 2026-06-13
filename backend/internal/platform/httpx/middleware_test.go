@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gmestre98/eudaimonia/backend/internal/platform/config"
-	platformlog "github.com/gmestre98/eudaimonia/backend/internal/platform/log"
+	"github.com/gmestre98/khiimori/backend/internal/platform/config"
+	platformlog "github.com/gmestre98/khiimori/backend/internal/platform/log"
 )
 
 func TestRequestIDGeneratesAndEchoes(t *testing.T) {

@@ -22,7 +22,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/gmestre98/eudaimonia/backend/internal/platform/config"
+	"github.com/gmestre98/khiimori/backend/internal/platform/config"
 )
 
 // Pool tuning. Defaults are sized for Neon's free tier and its scale-to-zero

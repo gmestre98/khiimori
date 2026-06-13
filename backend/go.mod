@@ -1,4 +1,4 @@
-module github.com/gmestre98/eudaimonia/backend
+module github.com/gmestre98/khiimori/backend
 
 go 1.23.4
 

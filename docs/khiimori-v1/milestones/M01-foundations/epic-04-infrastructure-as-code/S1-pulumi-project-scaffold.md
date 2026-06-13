@@ -1,7 +1,7 @@
 # S1 — Pulumi (TS) project scaffold & GCP provider
 
 ## Context
-All cloud infrastructure for Eudaimonia is defined in **Pulumi (TypeScript)** targeting GCP — one language
+All cloud infrastructure for Khiimori is defined in **Pulumi (TypeScript)** targeting GCP — one language
 across infra and scripting (PRD §7.4). This story stands up the Pulumi project in `/infra`: the program,
 the GCP provider, and a typed stack-config surface that later stories add resources to. No billable
 resources yet — just a `pulumi preview`-clean program.

@@ -67,21 +67,21 @@ function managedSecret(
  */
 export const databaseUrlSecret = managedSecret(
   'database-url',
-  'eudaimonia-database-url',
+  'khiimori-database-url',
   'databaseUrl',
 )
 
 /** Google OAuth client secret (the client id is non-secret, supplied in M02). */
 export const oauthClientSecret = managedSecret(
   'oauth-client-secret',
-  'eudaimonia-oauth-client-secret',
+  'khiimori-oauth-client-secret',
   'oauthClientSecret',
 )
 
 /** Google Maps API key. */
 export const mapsApiKeySecret = managedSecret(
   'maps-api-key',
-  'eudaimonia-maps-api-key',
+  'khiimori-maps-api-key',
   'mapsApiKey',
 )
 

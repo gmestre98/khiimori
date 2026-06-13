@@ -1,6 +1,6 @@
 # infra
 
-Infrastructure as code for Eudaimonia — **Pulumi (TypeScript) on GCP**. One
+Infrastructure as code for Khiimori — **Pulumi (TypeScript) on GCP**. One
 language across infra and scripting (PRD §7.4). This program provisions the
 project's cloud resources: Artifact Registry, a private Cloud Storage bucket,
 Secret Manager, a least-privilege Cloud Run service (with runtime secrets and
@@ -78,11 +78,11 @@ pulumi stack init dev                           # if the stack doesn't exist yet
 # 3. Supply the three secret VALUES — encrypted into the stack, never plaintext
 #    in git. The DB URL MUST use the least-privilege Neon role `app_rw`
 #    (backend/docs/database.md), not neondb_owner.
-pulumi config set --secret eudaimonia:databaseUrl       "postgresql://app_rw:…"
-pulumi config set --secret eudaimonia:oauthClientSecret "…"
-pulumi config set --secret eudaimonia:mapsApiKey        "…"
+pulumi config set --secret khiimori:databaseUrl       "postgresql://app_rw:…"
+pulumi config set --secret khiimori:oauthClientSecret "…"
+pulumi config set --secret khiimori:mapsApiKey        "…"
 #    (Or leave these unset and add versions out-of-band after `up`:
-#     gcloud secrets versions add eudaimonia-database-url --data-file=- )
+#     gcloud secrets versions add khiimori-database-url --data-file=- )
 
 # 4. Preview, then provision.
 pulumi preview
@@ -137,7 +137,7 @@ retained** and the one gotcha:
   prerequisite this program doesn't own.
 - **Non-empty media bucket:** `destroy` will fail if the bucket holds objects
   and `mediaBucketForceDestroy` is false (the safe default). For an ephemeral
-  test stack, set `eudaimonia:mediaBucketForceDestroy: true` (or empty the
+  test stack, set `khiimori:mediaBucketForceDestroy: true` (or empty the
   bucket first); for a real environment, leave it false and remove objects
   deliberately.
 

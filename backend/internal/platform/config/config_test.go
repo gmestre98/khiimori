@@ -26,8 +26,8 @@ func setAllValid(t *testing.T) {
 	t.Setenv("ENV", "dev")
 	t.Setenv("LOG_LEVEL", "error")
 	t.Setenv("DB_POOLED", "true")
-	t.Setenv("DATABASE_URL", "postgres://localhost/eudaimonia")
-	t.Setenv("DATABASE_URL_DIRECT", "postgres://localhost:5433/eudaimonia")
+	t.Setenv("DATABASE_URL", "postgres://localhost/khiimori")
+	t.Setenv("DATABASE_URL_DIRECT", "postgres://localhost:5433/khiimori")
 }
 
 func TestLoadValid(t *testing.T) {
@@ -36,8 +36,8 @@ func TestLoadValid(t *testing.T) {
 	t.Setenv("ENV", "prod")
 	t.Setenv("LOG_LEVEL", "info")
 	t.Setenv("DB_POOLED", "false")
-	t.Setenv("DATABASE_URL", "postgres://localhost/eudaimonia")
-	t.Setenv("DATABASE_URL_DIRECT", "postgres://localhost:5433/eudaimonia")
+	t.Setenv("DATABASE_URL", "postgres://localhost/khiimori")
+	t.Setenv("DATABASE_URL_DIRECT", "postgres://localhost:5433/khiimori")
 
 	cfg, err := Load()
 	if err != nil {
@@ -55,10 +55,10 @@ func TestLoadValid(t *testing.T) {
 	if cfg.DBPooled {
 		t.Error("DBPooled = true, want false")
 	}
-	if cfg.DatabaseURL != "postgres://localhost/eudaimonia" {
+	if cfg.DatabaseURL != "postgres://localhost/khiimori" {
 		t.Errorf("DatabaseURL = %q, unexpected", cfg.DatabaseURL)
 	}
-	if cfg.DatabaseURLDirect != "postgres://localhost:5433/eudaimonia" {
+	if cfg.DatabaseURLDirect != "postgres://localhost:5433/khiimori" {
 		t.Errorf("DatabaseURLDirect = %q, unexpected", cfg.DatabaseURLDirect)
 	}
 }

@@ -3,7 +3,7 @@
 > **Status:** ✅ Done.
 
 ## Context
-Eudaimonia's backend is a **Go modular monolith**. The `platform` layer is the single home for
+Khiimori's backend is a **Go modular monolith**. The `platform` layer is the single home for
 cross-cutting concerns so the domain modules stay thin (PRD §7.1). This story adds the first piece:
 a small, typed configuration loader the rest of the service reads from — HTTP port, environment name,
 log level, and a placeholder for the (later) database URL.

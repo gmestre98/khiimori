@@ -3,7 +3,7 @@
 > **Status:** ✅ Done.
 
 ## Context
-Eudaimonia's backend is a **Go modular monolith** (a single Go service with clean internal modules,
+Khiimori's backend is a **Go modular monolith** (a single Go service with clean internal modules,
 peelable into services later). This story stands up the Go module and a minimal API entrypoint —
 the real, compiling binary everything else builds on. No behaviour yet.
 
@@ -14,7 +14,7 @@ Initialise the Go module under `/backend` and add a minimal `/cmd/api` entrypoin
 
 ## Acceptance criteria
 - [x] `go.mod` initialised under `/backend` with an agreed module path
-  (e.g. `github.com/gmestre98/eudaimonia/backend`) and a pinned recent Go version.
+  (e.g. `github.com/gmestre98/khiimori/backend`) and a pinned recent Go version.
 - [x] `backend/cmd/api/main.go` exists with a `main()` that starts and exits cleanly (a stub is fine
   — e.g. log "starting" and return).
 - [x] From `/backend`: `go build ./...`, `go vet ./...`, and `go test ./...` all succeed.
