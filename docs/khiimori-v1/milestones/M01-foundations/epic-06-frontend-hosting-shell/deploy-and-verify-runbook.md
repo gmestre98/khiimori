@@ -83,6 +83,10 @@ API revision is serving (`/readyz` 200).
 
 ## Status
 
-Pipeline path and verification steps are documented here. The **live deploy and
-the on-screen confirmation are the author's step** (author-provided GCP project,
-WIF, and repo variables); record the outcome against this checklist when run.
+✅ **Verified 2026-06-13.** The shell is deployed to Firebase Hosting via the
+pipeline and the deployed-to-deployed round-trip is green: the health card shows
+`✓ Healthy` with no console CORS errors, and `curl -H "Origin: <hosting>"
+<api>/readyz` returns `200` with `access-control-allow-origin` for the Hosting
+origin. Deploy and CORS (`CORS_ALLOWED_ORIGINS`) self-reconcile on every `main`
+push (web deploy + the CI `pulumi-up` job); re-verify against this checklist
+after any change to the Hosting origin or the API URL.

@@ -1,6 +1,6 @@
 # Epic M01.6 — Frontend Hosting & App Shell
 
-> **Status:** 🚧 Code complete; live round-trip pending a one-time bootstrap. All 5 stories are implemented — the shell builds + tests green in CI and deploys to **Firebase Hosting** on `main`, CORS is config-driven, the API base URL is env-driven, and custom-domain wiring is documented. The in-browser round-trip initially failed (`✗ Unreachable — Failed to fetch`) for two reasons the CI e2e smoke (server-to-server on `/readyz`) couldn't catch: (1) the web view probed `/healthz`, which Cloud Run doesn't route externally — **fixed to `/readyz`**; and (2) the running Cloud Run revision had an empty CORS allowlist because `pulumi up` hadn't run since S3 added the env — now **CI runs `pulumi up` automatically on `main`** ([`infra/README.md` → CI auto-reconcile](../../../../../infra/README.md)). **Done when:** the one-time CI bootstrap is set up (`PULUMI_STACK_NAME` + `PULUMI_ACCESS_TOKEN` + a first manual `pulumi up`); thereafter the health card shows `✓ Healthy` with no console CORS errors and stays reconciled.
+> **Status:** ✅ Done — all 5 stories implemented and all 5 acceptance criteria verified live. The minimal React/TS shell builds + tests green in CI and is deployed to **Firebase Hosting**; the deployed app calls the deployed Cloud Run API and the health card shows **`✓ Healthy`** with no console CORS errors (verified 2026-06-13: `/readyz` → `{"status":"ready"}` with `access-control-allow-origin` for the Hosting origin). CORS is config-driven for the Hosting origin, the API base URL is env-driven (no hardcoded prod URL), and custom-domain wiring is documented. Getting here surfaced — and fixed — two things the CI e2e smoke (server-to-server on `/readyz`) couldn't catch: the web view probed `/healthz` (which Cloud Run doesn't route externally — corrected to `/readyz`), and infra config only went live once **CI was made to run `pulumi up` automatically on `main`** ([`infra/README.md` → CI auto-reconcile](../../../../../infra/README.md)).
 >
 > Milestone: [01 — Foundations](../README.md) · PRD refs: §7.2, §7.8.
 
@@ -15,7 +15,7 @@ environment-driven API base URL.
 ## Acceptance Criteria
 
 - [x] The minimal app shell deploys to **Firebase Hosting + CDN** (PRD §7.8).
-- [ ] The deployed app calls the API on Cloud Run and shows the result (end-to-end round-trip). _View + CI deploy done; the live browser round-trip is pending the `/readyz` fix deploy + `pulumi up` for CORS. NB: probes `/readyz`, not `/healthz` — Cloud Run doesn't route `/healthz` externally._
+- [x] The deployed app calls the API on Cloud Run and shows the result (end-to-end round-trip works — health card `✓ Healthy`). _NB: probes `/readyz`, not `/healthz` — Cloud Run doesn't route `/healthz` externally._
 - [x] **CORS** is correctly configured between the Hosting origin and the Cloud Run API.
 - [x] The API base URL is **environment-driven** (no hardcoded prod URL).
 - [x] Custom-domain wiring is documented (the domain itself is author-provided).

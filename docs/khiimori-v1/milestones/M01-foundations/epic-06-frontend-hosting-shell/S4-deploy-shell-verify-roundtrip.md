@@ -1,6 +1,6 @@
 # S4 — Deploy app shell to Firebase Hosting + verify round-trip
 
-> **Status:** 🚧 Deploy path done; live round-trip pending. Pipeline deploys the shell to Hosting (CI green); deploy path + verification checklist in [`deploy-and-verify-runbook.md`](deploy-and-verify-runbook.md) ([#136](https://github.com/gmestre98/khiimori/pull/136)). The in-browser round-trip is **not yet green** — it needs the `/readyz` view fix deployed **and** `pulumi up` to apply `CORS_ALLOWED_ORIGINS` to the running revision (see the runbook's CORS prerequisite).
+> **Status:** ✅ Done — pipeline deploys the shell to Hosting and the deployed-to-deployed round-trip is **verified green** (health card `✓ Healthy`, no console CORS errors; `/readyz` returns the API status with `access-control-allow-origin` for the Hosting origin). Deploy path + verification checklist in [`deploy-and-verify-runbook.md`](deploy-and-verify-runbook.md) ([#136](https://github.com/gmestre98/khiimori/pull/136)). Required the `/readyz` view fix ([#139](https://github.com/gmestre98/khiimori/pull/139)) and CI-automated `pulumi up` ([#140](https://github.com/gmestre98/khiimori/pull/140)/[#141](https://github.com/gmestre98/khiimori/pull/141)) to apply `CORS_ALLOWED_ORIGINS` to the running revision.
 
 ## Context
 This story proves the foundation works end to end: the shell deploys to **Firebase Hosting + CDN** and the
@@ -14,9 +14,9 @@ Deploy the app shell to Firebase Hosting and verify the deployed-to-deployed `/h
 
 ## Acceptance criteria
 - [x] The app shell is served from **Firebase Hosting + CDN** at the Hosting URL.
-- [ ] The deployed app, built with the **production API base URL** (S1), successfully calls the deployed
-  Cloud Run readiness probe and shows healthy (epic AC2). _Pending the `/readyz` view fix deploy + `pulumi up` for CORS. (Probes `/readyz`, not `/healthz` — Cloud Run doesn't route `/healthz` externally.)_
-- [ ] CORS (S3) works from the real Hosting origin to the real API — no console CORS errors. _Pending `pulumi up`: the running revision's `CORS_ALLOWED_ORIGINS` is currently empty._
+- [x] The deployed app, built with the **production API base URL** (S1), successfully calls the deployed
+  Cloud Run readiness probe and shows healthy (epic AC2). _(Probes `/readyz`, not `/healthz` — Cloud Run doesn't route `/healthz` externally.)_
+- [x] CORS (S3) works from the real Hosting origin to the real API — no console CORS errors.
 - [x] Deployment goes through the **pipeline** (M01.5 S8), not a manual one-off, and is documented.
 - [x] A short manual verification checklist (load URL → see healthy) is recorded.
 
