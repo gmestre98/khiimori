@@ -1,0 +1,15 @@
+# Keep the SHA-pinned GitHub Actions up to date. The workflows pin every action
+# to a commit SHA (with a version comment) for supply-chain safety; Dependabot
+# bumps those SHAs as new releases ship, so pinning doesn't mean going stale.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # One grouped PR per week instead of one per action — less noise (PRD §8.4).
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci"
