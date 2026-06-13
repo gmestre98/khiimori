@@ -1,0 +1,11 @@
+# Keep the build context minimal and ensure no local secrets or VCS metadata can
+# enter an image layer (PRD §8.5). The final image copies only the built binary,
+# but excluding these keeps the build context small and safe regardless.
+.env
+*.env
+.git
+.gitignore
+Dockerfile
+.dockerignore
+README.md
+docs/
