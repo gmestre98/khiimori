@@ -175,4 +175,9 @@ jobs:
       - name: Integration tests
         env:
           DATABASE_URL_TEST: postgres://postgres:postgres@localhost:5432/khiimori_test?sslmode=disable
-        run: go test -tags=integration ./migrations/...
+        # The test t.Skip()s (and Go exits 0) when DATABASE_URL_TEST is unset, so
+        # guard against the gate silently passing without a DB; -v makes the run
+        # visibly show the test actually executing.
+        run: |
+          test -n "$DATABASE_URL_TEST" || { echo "DATABASE_URL_TEST unset — refusing to pass the integration gate without a DB"; exit 1; }
+          go test -tags=integration -v ./migrations/...
