@@ -115,6 +115,77 @@ func TestStructuredFields(t *testing.T) {
 	}
 }
 
+func TestRedactsSensitiveAttributes(t *testing.T) {
+	// Each key names a secret and must never reach the output with its value;
+	// the key stays so it's visible a field was present.
+	sensitive := []string{
+		"authorization", "Authorization", "password", "passwd", "secret",
+		"client_secret", "token", "access_token", "refresh_token", "api_key",
+		"apikey", "x-api-key", "cookie", "set-cookie", "db_url", "database_url",
+		"credential",
+	}
+	for _, key := range sensitive {
+		t.Run(key, func(t *testing.T) {
+			var buf bytes.Buffer
+			logger := New(config.Config{LogLevel: config.LevelError}, &buf)
+
+			logger.Error("boom", key, "super-secret-value")
+
+			m := parseLine(t, buf.Bytes())
+			if got := m[key]; got != "[REDACTED]" {
+				t.Errorf("%q = %v, want [REDACTED]", key, got)
+			}
+			if bytes.Contains(buf.Bytes(), []byte("super-secret-value")) {
+				t.Errorf("secret value leaked: %s", buf.Bytes())
+			}
+		})
+	}
+}
+
+func TestRedactsSensitiveKeysInGroups(t *testing.T) {
+	// Sensitive keys nested inside a group (e.g. a request's headers logged as a
+	// struct/map) must be redacted too.
+	var buf bytes.Buffer
+	logger := New(config.Config{LogLevel: config.LevelError}, &buf)
+
+	logger.Error("request",
+		slog.Group("headers",
+			"authorization", "Bearer abc123",
+			"x-request-id", "keep-me",
+		),
+	)
+
+	if bytes.Contains(buf.Bytes(), []byte("Bearer abc123")) {
+		t.Errorf("nested secret leaked: %s", buf.Bytes())
+	}
+	m := parseLine(t, buf.Bytes())
+	headers, ok := m["headers"].(map[string]any)
+	if !ok {
+		t.Fatalf("headers group missing or not an object: %v", m)
+	}
+	if headers["authorization"] != "[REDACTED]" {
+		t.Errorf("nested authorization = %v, want [REDACTED]", headers["authorization"])
+	}
+	// Non-sensitive sibling keys are preserved.
+	if headers["x-request-id"] != "keep-me" {
+		t.Errorf("x-request-id = %v, want keep-me", headers["x-request-id"])
+	}
+}
+
+func TestNonSensitiveAttributesPassThrough(t *testing.T) {
+	var buf bytes.Buffer
+	logger := New(config.Config{LogLevel: config.LevelError}, &buf)
+
+	logger.Error("request", "method", "GET", "path", "/trips", "status", 500)
+
+	m := parseLine(t, buf.Bytes())
+	for k, want := range map[string]any{"method": "GET", "path": "/trips", "status": float64(500)} {
+		if m[k] != want {
+			t.Errorf("%q = %v, want %v (must not be redacted)", k, m[k], want)
+		}
+	}
+}
+
 func TestContextRoundTrip(t *testing.T) {
 	var buf bytes.Buffer
 	logger := New(config.Config{LogLevel: config.LevelError}, &buf)

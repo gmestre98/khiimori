@@ -80,6 +80,29 @@ func TestLoggingErrorsOnlyByDefault(t *testing.T) {
 	})
 }
 
+func TestLoggingOmitsSecrets(t *testing.T) {
+	// The access log records method/path/status/duration only — never request
+	// headers (auth, cookies) and only the URL path, not the raw query (which
+	// could carry secret params). Verify a 500 line for a request laden with
+	// secrets stays clean (S2 AC).
+	var buf bytes.Buffer
+	logger := platformlog.New(config.Config{LogLevel: config.LevelError}, &buf)
+	h := Logging(logger, "")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/trips?token=leak-me&id=7", nil)
+	req.Header.Set("Authorization", "Bearer secret-token")
+	req.Header.Set("Cookie", "session=leak-cookie")
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	for _, secret := range []string{"leak-me", "secret-token", "leak-cookie"} {
+		if bytes.Contains(buf.Bytes(), []byte(secret)) {
+			t.Errorf("access log leaked %q: %s", secret, buf.Bytes())
+		}
+	}
+}
+
 func TestLoggingTraceCorrelation(t *testing.T) {
 	t.Run("attaches the Cloud Logging trace when project + header present", func(t *testing.T) {
 		var buf bytes.Buffer
