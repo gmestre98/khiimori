@@ -427,6 +427,62 @@ jobs:
       - name: Deploy to Firebase Hosting
         run: npx --yes firebase-tools@15 deploy --only hosting --project "${{ vars.GCP_PROJECT_ID }}" --non-interactive
 
+  pulumi-up:
+    name: Reconcile infra (pulumi up, main)
+    runs-on: ubuntu-latest
+    # Main-only, and skipped until the Pulumi stack is wired up: set the
+    # PULUMI_STACK_NAME repo variable (e.g. <pulumi-org>/khiimori/dev) and the
+    # PULUMI_ACCESS_TOKEN repo secret. Once set, every push to main reconciles
+    # infra/ automatically, so a merged config change (e.g. the Cloud Run
+    # CORS_ALLOWED_ORIGINS / scaling / secret wiring) goes live with no manual
+    # `pulumi up`. The deployer SA is broadened to project owner for this (see
+    # infra/cicd.ts) — and the very first apply of that role is a manual bootstrap.
+    if: >-
+      github.ref == 'refs/heads/main' && github.event_name == 'push' &&
+      vars.PULUMI_STACK_NAME != ''
+    # Reconcile only on a fully-green main build (same gates as build-push, plus
+    # the infra gate) so a broken change isn't applied to live infra.
+    needs: [backend, web, infra, integration]
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: infra/package-lock.json
+
+      - name: Install deps
+        working-directory: infra
+        run: npm ci
+
+      # Keyless auth as the deployer SA (now project owner so a full reconcile can
+      # touch IAM/SAs/secrets/the WIF pool — see infra/cicd.ts). Sets ADC, which
+      # Pulumi's gcp provider uses.
+      - id: auth
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      # Reconcile the stack. refresh:true adopts live state first — notably the
+      # SHA-tagged image the deploy job sets out-of-band (cloudRun.ts ignoreChanges
+      # keeps it, so this never reverts the running image to the placeholder).
+      # Config comes from the committed Pulumi.<stack>.yaml; secret config stays
+      # encrypted by the Pulumi Cloud backend (decrypted via PULUMI_ACCESS_TOKEN).
+      - name: pulumi up
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          command: up
+          stack-name: ${{ vars.PULUMI_STACK_NAME }}
+          work-dir: infra
+          refresh: true
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
   e2e:
     name: E2E smoke (deployed env) [placeholder]
     runs-on: ubuntu-latest

@@ -62,6 +62,31 @@ bucket must be created out-of-band first; `pulumi login --local` keeps state on
 disk (not durable/shareable). Switching backends is a `pulumi login` change, not
 a code change.
 
+## CI auto-reconcile (`pulumi up` on merge)
+
+On every push to `main`, the `pulumi-up` job in CI runs a full `pulumi up` so a
+merged `infra/` change (e.g. the Cloud Run `CORS_ALLOWED_ORIGINS`, scaling, or
+secret wiring) goes live **without a manual apply**. Mechanics:
+
+- The committed [`Pulumi.dev.yaml`](Pulumi.dev.yaml) supplies stack config;
+  secret values are Pulumi `secure:` blobs, decrypted via `PULUMI_ACCESS_TOKEN`.
+- The job authenticates as the CI deployer SA, which holds **`roles/owner`** so a
+  full reconcile can touch IAM/SAs/Secret Manager/the WIF pool ([`cicd.ts`](cicd.ts)).
+  This makes the CI identity high-privilege — a deliberate tradeoff for hands-off
+  deploys, bounded by repo-locked WIF and main-only jobs.
+- `refresh: true` adopts live state first, so the SHA-tagged image the deploy job
+  sets out-of-band is preserved (`cloudRun.ts` `ignoreChanges` on the image).
+
+**One-time setup (required before the job does anything — it is skipped until
+configured):**
+
+1. Repo **variable** `PULUMI_STACK_NAME` = `<your-pulumi-org>/khiimori/dev`.
+2. Repo **secret** `PULUMI_ACCESS_TOKEN` = a Pulumi Cloud access token.
+3. **Bootstrap once manually:** `cd infra && pulumi up`. The new `roles/owner`
+   binding can't be applied by the old least-privilege CI identity, so the first
+   apply must be run by you (it also applies any pending config, e.g. CORS). After
+   this, `main` pushes self-reconcile.
+
 ## Provisioning (`pulumi up`)
 
 From a fresh checkout, with the prerequisites above met:

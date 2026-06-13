@@ -1,18 +1,22 @@
 // CI/CD identity — keyless GitHub Actions → GCP auth via Workload Identity
 // Federation (M01.5 S5; PRD §6, §8.5). There is NO exported service-account key:
 // GitHub's OIDC token is exchanged (STS) for short-lived credentials that
-// impersonate a dedicated, least-privilege deployer service account. The pool's
-// provider is locked to THIS repository, so no other repo can assume the
-// identity, and the deployer SA holds only the roles CI needs to push images and
-// deploy Cloud Run + Firebase Hosting.
+// impersonate a dedicated deployer service account. The pool's provider is
+// locked to THIS repository, so no other repo can assume the identity.
+//
+// Privilege level (M01.6 follow-up): CI now runs a full `pulumi up` on main to
+// reconcile infra automatically (so a merged config change — e.g. the Cloud Run
+// CORS allowlist — goes live without a manual apply). A full reconcile touches
+// project IAM, service accounts, Secret Manager and the WIF pool, so the deployer
+// holds a broad project role (see the owner binding below) rather than the former
+// least-privilege set. Deliberate tradeoff (owner decision): hands-off deploys at
+// the cost of a high-privilege CI identity, bounded by repo-locked WIF + main-only
+// jobs.
 
 import * as gcp from '@pulumi/gcp'
 import * as pulumi from '@pulumi/pulumi'
 import { project } from './config'
 import { iamApi } from './services'
-import { repository } from './artifactRegistry'
-import { serviceAccount as runtimeServiceAccount } from './serviceAccount'
-import { databaseUrlDirectSecret } from './secrets'
 
 const cfg = new pulumi.Config()
 
@@ -75,53 +79,22 @@ new gcp.serviceaccount.IAMMember('ci-deployer-wif', {
   member: pulumi.interpolate`principalSet://iam.googleapis.com/${pool.name}/attribute.repository/${githubRepo}`,
 })
 
-// Push images to the Artifact Registry repo — repo-scoped, not project-wide.
-new gcp.artifactregistry.RepositoryIamMember('ci-deployer-ar-writer', {
-  project: repository.project,
-  location: repository.location,
-  repository: repository.name,
-  role: 'roles/artifactregistry.writer',
-  member: deployerMember,
-})
-
-// Deploy/update the Cloud Run service. `developer` (not `admin`) — it rolls new
-// revisions but cannot change the service's IAM policy (PRD §6).
-new gcp.projects.IAMMember('ci-deployer-run', {
+// Broad project role so CI can run a full `pulumi up` (reconciling project IAM
+// bindings, service accounts, Secret Manager, the WIF pool, Cloud Run + its IAM,
+// Artifact Registry, Storage and Firebase Hosting) AND the existing per-step work
+// (push images, deploy/migrate Cloud Run, deploy Hosting, read the direct DB
+// secret). `roles/owner` is used rather than enumerating a curated set so a new
+// resource in the program doesn't silently fail the pipeline on a missing role.
+//
+// SECURITY: this makes the CI identity high-privilege — a compromised Actions run
+// on this repo could rewrite the whole project. It is the accepted cost of
+// hands-off `pulumi up`, mitigated by repo-locked WIF (above) and main-only
+// deploy jobs. Bootstrapping note: the FIRST application of this binding must be
+// a manual `pulumi up` by an owner — the former least-privilege CI identity
+// cannot grant itself this role.
+new gcp.projects.IAMMember('ci-deployer-owner', {
   project,
-  role: 'roles/run.developer',
-  member: deployerMember,
-})
-
-// actAs the runtime SA so a deploy can run the service as that identity (Cloud
-// Run requires serviceAccountUser on the runtime SA). Scoped to that one SA.
-new gcp.serviceaccount.IAMMember('ci-deployer-actas-runtime', {
-  serviceAccountId: runtimeServiceAccount.name,
-  role: 'roles/iam.serviceAccountUser',
-  member: deployerMember,
-})
-
-// Deploy the web bundle to Firebase Hosting.
-new gcp.projects.IAMMember('ci-deployer-hosting', {
-  project,
-  role: 'roles/firebasehosting.admin',
-  member: deployerMember,
-})
-
-// Read-only project metadata so the Firebase CLI can resolve the project during
-// `firebase deploy` (it calls firebase.projects.get); firebasehosting.admin
-// alone manages Hosting but doesn't guarantee project read.
-new gcp.projects.IAMMember('ci-deployer-firebase-viewer', {
-  project,
-  role: 'roles/firebase.viewer',
-  member: deployerMember,
-})
-
-// Read the direct (owner) DB DSN to run migrations at deploy time (S7). Scoped
-// to that one secret — the deployer never reads the runtime app/OAuth/Maps
-// secrets (those are the runtime SA's).
-new gcp.secretmanager.SecretIamMember('ci-deployer-db-direct-access', {
-  secretId: databaseUrlDirectSecret.id,
-  role: 'roles/secretmanager.secretAccessor',
+  role: 'roles/owner',
   member: deployerMember,
 })
 
