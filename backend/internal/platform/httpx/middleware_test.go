@@ -51,7 +51,7 @@ func TestLoggingErrorsOnlyByDefault(t *testing.T) {
 	t.Run("failed request logs a line", func(t *testing.T) {
 		var buf bytes.Buffer
 		logger := platformlog.New(config.Config{LogLevel: config.LevelError}, &buf)
-		h := Logging(logger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := Logging(logger, "")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
 
@@ -68,7 +68,7 @@ func TestLoggingErrorsOnlyByDefault(t *testing.T) {
 	t.Run("successful request stays silent", func(t *testing.T) {
 		var buf bytes.Buffer
 		logger := platformlog.New(config.Config{LogLevel: config.LevelError}, &buf)
-		h := Logging(logger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := Logging(logger, "")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}))
 
@@ -78,6 +78,71 @@ func TestLoggingErrorsOnlyByDefault(t *testing.T) {
 			t.Fatalf("expected no log line for a 200 under the default error level, got: %s", buf.Bytes())
 		}
 	})
+}
+
+func TestLoggingTraceCorrelation(t *testing.T) {
+	t.Run("attaches the Cloud Logging trace when project + header present", func(t *testing.T) {
+		var buf bytes.Buffer
+		logger := platformlog.New(config.Config{LogLevel: config.LevelError}, &buf)
+		h := Logging(logger, "my-project")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+
+		req := httptest.NewRequest(http.MethodGet, "/boom", nil)
+		req.Header.Set(cloudTraceHeader, "abc123/456;o=1")
+		h.ServeHTTP(httptest.NewRecorder(), req)
+
+		want := `"logging.googleapis.com/trace":"projects/my-project/traces/abc123"`
+		if !bytes.Contains(buf.Bytes(), []byte(want)) {
+			t.Errorf("log line missing trace field %s: %s", want, buf.Bytes())
+		}
+		if !bytes.Contains(buf.Bytes(), []byte(`"logging.googleapis.com/spanId":"456"`)) {
+			t.Errorf("log line missing span id: %s", buf.Bytes())
+		}
+	})
+
+	t.Run("omits trace when no project id is configured", func(t *testing.T) {
+		var buf bytes.Buffer
+		logger := platformlog.New(config.Config{LogLevel: config.LevelError}, &buf)
+		h := Logging(logger, "")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+
+		req := httptest.NewRequest(http.MethodGet, "/boom", nil)
+		req.Header.Set(cloudTraceHeader, "abc123/456;o=1")
+		h.ServeHTTP(httptest.NewRecorder(), req)
+
+		if bytes.Contains(buf.Bytes(), []byte("logging.googleapis.com/trace")) {
+			t.Errorf("trace field present without a project id: %s", buf.Bytes())
+		}
+	})
+}
+
+func TestCloudTraceParsing(t *testing.T) {
+	cases := []struct {
+		name      string
+		header    string
+		project   string
+		wantTrace string
+		wantSpan  string
+	}{
+		{"full header", "abc/42;o=1", "p", "projects/p/traces/abc", "42"},
+		{"trace only", "abc", "p", "projects/p/traces/abc", ""},
+		{"trace and span no options", "abc/42", "p", "projects/p/traces/abc", "42"},
+		{"span-less options suffix", "abc;o=1", "p", "projects/p/traces/abc", ""},
+		{"no project", "abc/42", "", "", ""},
+		{"no header", "", "p", "", ""},
+		{"empty trace id", "/42", "p", "", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			trace, span := cloudTrace(tc.header, tc.project)
+			if trace != tc.wantTrace || span != tc.wantSpan {
+				t.Errorf("cloudTrace(%q, %q) = (%q, %q), want (%q, %q)",
+					tc.header, tc.project, trace, span, tc.wantTrace, tc.wantSpan)
+			}
+		})
+	}
 }
 
 func TestRecoveryReturns500AndLogs(t *testing.T) {
@@ -91,7 +156,7 @@ func TestRecoveryReturns500AndLogs(t *testing.T) {
 			panic("kaboom")
 		}),
 		RequestIDMiddleware(),
-		Logging(logger),
+		Logging(logger, ""),
 		Recovery(),
 	)
 

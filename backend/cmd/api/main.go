@@ -92,7 +92,7 @@ func run() error {
 	handler := httpx.Chain(newRouter(database),
 		httpx.RequestIDMiddleware(),
 		httpx.CORS(cfg.CORSAllowedOrigins),
-		httpx.Logging(logger),
+		httpx.Logging(logger, cfg.GCPProject),
 		httpx.Recovery(),
 	)
 

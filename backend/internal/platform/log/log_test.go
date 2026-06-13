@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"testing"
 
 	"github.com/gmestre98/khiimori/backend/internal/platform/config"
@@ -20,23 +21,54 @@ func parseLine(t *testing.T, b []byte) map[string]any {
 	return m
 }
 
-func TestEmitsJSONWithStandardFields(t *testing.T) {
+func TestEmitsJSONWithCloudLoggingFields(t *testing.T) {
 	var buf bytes.Buffer
 	logger := New(config.Config{LogLevel: config.LevelError}, &buf)
 
 	logger.Error("boom")
 
 	m := parseLine(t, buf.Bytes())
-	for _, key := range []string{"level", "time", "msg"} {
+	// Cloud Logging's conventional field names, so entries are ingested as
+	// structured, severity-classified logs (not opaque text). `time` is slog's
+	// own field, already a recognised timestamp.
+	for _, key := range []string{"severity", "time", "message"} {
 		if _, ok := m[key]; !ok {
 			t.Errorf("log line missing %q field: %v", key, m)
 		}
 	}
-	if m["msg"] != "boom" {
-		t.Errorf("msg = %v, want %q", m["msg"], "boom")
+	if m["message"] != "boom" {
+		t.Errorf("message = %v, want %q", m["message"], "boom")
 	}
-	if m["level"] != "ERROR" {
-		t.Errorf("level = %v, want ERROR", m["level"])
+	if m["severity"] != "ERROR" {
+		t.Errorf("severity = %v, want ERROR", m["severity"])
+	}
+	// The slog defaults must not also appear under their original names.
+	if _, ok := m["msg"]; ok {
+		t.Errorf("unexpected raw slog %q field present: %v", "msg", m)
+	}
+	if _, ok := m["level"]; ok {
+		t.Errorf("unexpected raw slog %q field present: %v", "level", m)
+	}
+}
+
+func TestSeverityMapping(t *testing.T) {
+	cases := []struct {
+		level config.LogLevel
+		emit  func(*slog.Logger)
+		want  string
+	}{
+		{config.LevelDebug, func(l *slog.Logger) { l.Debug("x") }, "DEBUG"},
+		{config.LevelDebug, func(l *slog.Logger) { l.Info("x") }, "INFO"},
+		{config.LevelDebug, func(l *slog.Logger) { l.Warn("x") }, "WARNING"},
+		{config.LevelDebug, func(l *slog.Logger) { l.Error("x") }, "ERROR"},
+	}
+	for _, tc := range cases {
+		var buf bytes.Buffer
+		tc.emit(New(config.Config{LogLevel: tc.level}, &buf))
+		m := parseLine(t, buf.Bytes())
+		if m["severity"] != tc.want {
+			t.Errorf("severity = %v, want %v", m["severity"], tc.want)
+		}
 	}
 }
 

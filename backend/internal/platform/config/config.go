@@ -72,6 +72,12 @@ type Config struct {
 	// non-browser callers are unaffected). Set CORS_ALLOWED_ORIGINS to a
 	// comma-separated list to populate it.
 	CORSAllowedOrigins []string
+	// GCPProject is the Google Cloud project id, used only to build the Cloud
+	// Logging trace resource name so request logs correlate with the Cloud Run
+	// trace (M01.7 S1). Optional: when empty (e.g. local dev) trace correlation
+	// is simply omitted — logs still carry the request id. Set via the
+	// GOOGLE_CLOUD_PROJECT env var (the IaC wires it on Cloud Run).
+	GCPProject string
 }
 
 // Load reads configuration from the environment and returns an error if any
@@ -91,6 +97,7 @@ type Config struct {
 // Optional variables:
 //
 //	CORS_ALLOWED_ORIGINS  comma-separated browser origins allowed cross-origin
+//	GOOGLE_CLOUD_PROJECT  GCP project id, for Cloud Logging trace correlation
 //
 // Of the two DSNs, only the active one (per DB_POOLED) is required; the unused
 // endpoint stays optional so a pooled service isn't forced to carry the direct
@@ -152,6 +159,11 @@ func Load() (Config, error) {
 	// request is allowed, which is the safe default for a same-origin or
 	// non-browser deployment.
 	cfg.CORSAllowedOrigins = parseOrigins(os.Getenv("CORS_ALLOWED_ORIGINS"))
+
+	// Optional: the GCP project id, used only for Cloud Logging trace
+	// correlation. Unset off Cloud Run (local dev) — logs still carry the
+	// request id.
+	cfg.GCPProject = os.Getenv("GOOGLE_CLOUD_PROJECT")
 
 	return cfg, nil
 }

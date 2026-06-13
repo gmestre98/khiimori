@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"time"
 
 	platformlog "github.com/gmestre98/khiimori/backend/internal/platform/log"
@@ -17,6 +18,19 @@ import (
 // requestIDHeader is the header carrying the per-request id, both inbound (so a
 // caller / load balancer can supply one) and outbound (echoed on the response).
 const requestIDHeader = "X-Request-Id"
+
+// cloudTraceHeader is the trace context Cloud Run injects on every inbound
+// request. Its value is "TRACE_ID/SPAN_ID;o=TRACE_TRUE"; the trace id lets Cloud
+// Logging group all log entries for one request.
+const cloudTraceHeader = "X-Cloud-Trace-Context"
+
+// Cloud Logging's well-known structured fields for trace correlation. Setting
+// them as top-level attributes links a log entry to its request's trace in the
+// Logs Explorer and the trace view.
+const (
+	cloudTraceField = "logging.googleapis.com/trace"
+	cloudSpanField  = "logging.googleapis.com/spanId"
+)
 
 // Middleware wraps an http.Handler with cross-cutting behaviour.
 type Middleware func(http.Handler) http.Handler
@@ -57,20 +71,30 @@ func newRequestID() string {
 	return hex.EncodeToString(b[:])
 }
 
-// Logging attaches a request-scoped logger (carrying the request id) to the
-// context so downstream handlers log through it, and emits a structured access
-// log line per request.
+// Logging attaches a request-scoped logger (carrying the request id, and the
+// Cloud Run trace where present) to the context so downstream handlers log
+// through it, and emits a structured access log line per request.
 //
-// Per the project-wide errors-only policy (S2) a line is emitted at error level
-// only for failed requests (5xx); the success path logs at info, which stays
+// projectID is the GCP project id used to build the Cloud Logging trace resource
+// name; pass "" off Cloud Run (local dev) to skip trace correlation — the
+// request id still ties a request's logs together.
+//
+// Per the project-wide errors-only policy a line is emitted at error level only
+// for failed requests (5xx); the success path logs at info, which stays
 // suppressed under the default error level until the level is raised later.
-func Logging(base *slog.Logger) Middleware {
+func Logging(base *slog.Logger, projectID string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 
 			reqLogger := base.With("request_id", RequestID(r.Context()))
+			if trace, span := cloudTrace(r.Header.Get(cloudTraceHeader), projectID); trace != "" {
+				reqLogger = reqLogger.With(cloudTraceField, trace)
+				if span != "" {
+					reqLogger = reqLogger.With(cloudSpanField, span)
+				}
+			}
 			ctx := platformlog.WithContext(r.Context(), reqLogger)
 
 			next.ServeHTTP(rec, r.WithContext(ctx))
@@ -78,6 +102,35 @@ func Logging(base *slog.Logger) Middleware {
 			logAccess(reqLogger, r, rec.status, time.Since(start))
 		})
 	}
+}
+
+// cloudTrace parses Cloud Run's X-Cloud-Trace-Context header into the Cloud
+// Logging trace resource name ("projects/<projectID>/traces/<traceID>") and the
+// span id. It returns "", "" when there is nothing to correlate (no header, no
+// project id, or an empty trace id) so the caller simply omits the fields.
+func cloudTrace(header, projectID string) (trace, span string) {
+	if header == "" || projectID == "" {
+		return "", ""
+	}
+	// Header shape: "TRACE_ID/SPAN_ID;o=TRACE_TRUE"; both the span and the
+	// options suffix are optional.
+	traceID := header
+	if i := strings.IndexByte(traceID, '/'); i >= 0 {
+		span = traceID[i+1:]
+		traceID = traceID[:i]
+		if j := strings.IndexByte(span, ';'); j >= 0 {
+			span = span[:j]
+		}
+	}
+	// Defensively drop any options suffix that arrived without a span
+	// ("TRACE_ID;o=1"), so it can't leak into the trace resource name.
+	if j := strings.IndexByte(traceID, ';'); j >= 0 {
+		traceID = traceID[:j]
+	}
+	if traceID == "" {
+		return "", ""
+	}
+	return "projects/" + projectID + "/traces/" + traceID, span
 }
 
 // logAccess emits one access-log line. Failed requests log at error (visible

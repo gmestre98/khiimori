@@ -6,7 +6,7 @@
 
 import * as gcp from '@pulumi/gcp'
 import * as pulumi from '@pulumi/pulumi'
-import { region } from './config'
+import { project, region } from './config'
 import { cloudRunApi } from './services'
 import { serviceAccount } from './serviceAccount'
 import { databaseUrlSecret, mapsApiKeySecret, oauthClientSecret, secretVersions } from './secrets'
@@ -86,6 +86,11 @@ export const service = new gcp.cloudrunv2.Service(
             { name: 'ENV', value: cfg.get('serviceEnv') ?? 'prod' },
             { name: 'LOG_LEVEL', value: cfg.get('logLevel') ?? 'error' },
             { name: 'DB_POOLED', value: 'true' },
+            // Project id for Cloud Logging trace correlation (M01.7 S1): the app
+            // builds the trace resource name from it so request logs link to the
+            // Cloud Run trace. Cloud Run doesn't inject this automatically, so we
+            // pass it explicitly (it's the project id, not a secret).
+            { name: 'GOOGLE_CLOUD_PROJECT', value: project },
             // Cross-origin allowlist — the web app's Hosting origin (S3).
             { name: 'CORS_ALLOWED_ORIGINS', value: corsAllowedOrigins },
             secretEnv('DATABASE_URL', databaseUrlSecret),
