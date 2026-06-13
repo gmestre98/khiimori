@@ -112,6 +112,9 @@ jobs:
   image:
     name: Container image — build (no push)
     runs-on: ubuntu-latest
+    # PRs only: on `main` the build-push job below is the authoritative build
+    # (and pushes), so there's no need to build the image twice (PRD §8.4 #4).
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
@@ -215,3 +218,58 @@ jobs:
             --project="${{ vars.GCP_PROJECT_ID }}" \
             --location="${{ vars.GCP_REGION }}" \
             --format="value(name)"
+
+  build-push:
+    name: Build & push image (main)
+    runs-on: ubuntu-latest
+    # Deploy path: only on a real push to main, and only after every gate passed.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [backend, web, integration]
+    permissions:
+      contents: read
+      id-token: write
+    # Expose the SHA-tagged image reference so the deploy stage (S7) consumes the
+    # exact image this job pushed — no moving tag for the deploy reference.
+    outputs:
+      image: ${{ steps.ref.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Immutable, traceable reference: <registry>/<project>/<repo>/api:<commit>.
+      - id: ref
+        run: |
+          echo "image=${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_AR_REPO }}/api:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      # Keyless auth (S5); request an access token to log Docker into Artifact Registry.
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+          token_format: access_token
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.GCP_REGION }}-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Build from the S3 Dockerfile and push the SHA tag (+ a convenience :latest).
+      # The deploy (S7) pins to the SHA tag, never :latest. GHA cache shared with
+      # the PR image job keeps this fast (PRD §8.4 #4).
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile
+          push: true
+          # Pin to Cloud Run's runtime arch so the pushed image always deploys,
+          # regardless of the runner's default architecture.
+          platforms: linux/amd64
+          tags: |
+            ${{ steps.ref.outputs.image }}
+            ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_AR_REPO }}/api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
