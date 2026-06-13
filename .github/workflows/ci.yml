@@ -391,3 +391,22 @@ jobs:
       # CLI prints the Hosting URL, satisfying the "report the URL" AC.
       - name: Deploy to Firebase Hosting
         run: npx --yes firebase-tools@15 deploy --only hosting --project "${{ vars.GCP_PROJECT_ID }}" --non-interactive
+
+  e2e:
+    name: E2E smoke (deployed env) [placeholder]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # After both deploys so there's a live target to exercise (S9). Milestone 10
+    # fills in the critical-journey tests here (see e2e/README.md).
+    needs: [deploy, deploy-web]
+    steps:
+      - uses: actions/checkout@v4
+
+      # Real smoke check against the deployed environment — API /readyz and the
+      # web shell must serve. Targets are config-driven (repo variables) so this
+      # can point at a dedicated staging/preview env later with no workflow change.
+      - name: Smoke check the deployed environment
+        env:
+          E2E_API_URL: ${{ vars.API_BASE_URL }}
+          E2E_WEB_URL: ${{ vars.WEB_BASE_URL }}
+        run: bash e2e/smoke.sh
