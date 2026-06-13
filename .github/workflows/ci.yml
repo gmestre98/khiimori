@@ -265,6 +265,9 @@ jobs:
           context: backend
           file: backend/Dockerfile
           push: true
+          # Pin to Cloud Run's runtime arch so the pushed image always deploys,
+          # regardless of the runner's default architecture.
+          platforms: linux/amd64
           tags: |
             ${{ steps.ref.outputs.image }}
             ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_AR_REPO }}/api:latest
