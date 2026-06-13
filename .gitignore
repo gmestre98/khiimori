@@ -35,6 +35,11 @@ yarn-error.log*
 # Pulumi
 Pulumi.*.yaml
 !Pulumi.yaml
+# The dev stack config IS committed: CI runs `pulumi up` and needs it, and its
+# secret values are Pulumi-encrypted (`secure:` blobs, safe to commit) or held
+# out-of-band in Secret Manager. Verify there are no PLAINTEXT secrets before
+# committing infra/Pulumi.dev.yaml.
+!Pulumi.dev.yaml
 .pulumi/
 
 # Firebase CLI deploy cache (firebase.json is committed)

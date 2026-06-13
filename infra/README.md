@@ -11,21 +11,23 @@ scale-to-zero tunables), and the Firebase Hosting site.
 
 ## Layout
 
-| Path                                                       | Purpose                                                    |
-| ---------------------------------------------------------- | ---------------------------------------------------------- |
-| `Pulumi.yaml`                                              | Pulumi project file (committed).                           |
-| `Pulumi.dev.yaml.example`                                  | Template for the `dev` stack config (copy, don't commit).  |
-| `index.ts`                                                 | Entrypoint — wires the modules and declares stack outputs. |
-| `config.ts`                                                | Typed project/region config surface.                       |
-| `services.ts`                                              | GCP API enablement (one place).                            |
-| `artifactRegistry.ts`                                      | Docker image repository (S2).                              |
-| `storage.ts`                                               | Private media bucket (S3).                                 |
-| `secrets.ts`                                               | Secret Manager containers (S4).                            |
-| `serviceAccount.ts`                                        | Least-privilege Cloud Run SA + IAM (S5).                   |
-| `cloudRun.ts`                                              | Cloud Run service + runtime secrets + scaling (S6/S7/S9).  |
-| `hosting.ts`                                               | Firebase Hosting site (S8).                                |
-| `tunables.ts`                                              | Scale tunables / cost levers (S9).                         |
-| `tsconfig.json` / `eslint.config.mjs` / `.prettierrc.json` | TS toolchain, matching `web/`.                             |
+| Path                                                       | Purpose                                                     |
+| ---------------------------------------------------------- | ----------------------------------------------------------- |
+| `Pulumi.yaml`                                              | Pulumi project file (committed).                            |
+| `Pulumi.dev.yaml.example`                                  | Annotated template for the `dev` stack config.              |
+| `Pulumi.dev.yaml`                                          | Committed `dev` stack config (encrypted secrets; CI reads). |
+| `cicd.ts`                                                  | CI deployer SA + Workload Identity Federation (M01.5 S5).   |
+| `index.ts`                                                 | Entrypoint — wires the modules and declares stack outputs.  |
+| `config.ts`                                                | Typed project/region config surface.                        |
+| `services.ts`                                              | GCP API enablement (one place).                             |
+| `artifactRegistry.ts`                                      | Docker image repository (S2).                               |
+| `storage.ts`                                               | Private media bucket (S3).                                  |
+| `secrets.ts`                                               | Secret Manager containers (S4).                             |
+| `serviceAccount.ts`                                        | Least-privilege Cloud Run SA + IAM (S5).                    |
+| `cloudRun.ts`                                              | Cloud Run service + runtime secrets + scaling (S6/S7/S9).   |
+| `hosting.ts`                                               | Firebase Hosting site (S8).                                 |
+| `tunables.ts`                                              | Scale tunables / cost levers (S9).                          |
+| `tsconfig.json` / `eslint.config.mjs` / `.prettierrc.json` | TS toolchain, matching `web/`.                              |
 
 ## Prerequisites
 
@@ -61,6 +63,34 @@ Alternatives (not used here): a self-managed **GCS backend**
 bucket must be created out-of-band first; `pulumi login --local` keeps state on
 disk (not durable/shareable). Switching backends is a `pulumi login` change, not
 a code change.
+
+## CI auto-reconcile (`pulumi up` on merge)
+
+On every push to `main`, the `pulumi-up` job in CI runs a full `pulumi up` so a
+merged `infra/` change (e.g. the Cloud Run `CORS_ALLOWED_ORIGINS`, scaling, or
+secret wiring) goes live **without a manual apply**. Mechanics:
+
+- The committed [`Pulumi.dev.yaml`](Pulumi.dev.yaml) supplies stack config;
+  secret values are Pulumi `secure:` blobs, decrypted via `PULUMI_ACCESS_TOKEN`.
+- The job authenticates as the CI deployer SA, which holds **`roles/owner`** so a
+  full reconcile can touch IAM/SAs/Secret Manager/the WIF pool ([`cicd.ts`](cicd.ts)).
+  This makes the CI identity high-privilege — a deliberate tradeoff for hands-off
+  deploys, bounded by repo-locked WIF and main-only jobs.
+- `refresh: true` adopts live state first, so the SHA-tagged image the deploy job
+  sets out-of-band is preserved (`cloudRun.ts` `ignoreChanges` on the image).
+
+**One-time setup. Order matters** — do the manual apply _before_ arming CI, or
+the first CI run executes `pulumi up` as the still-narrow identity and fails:
+
+1. Add the repo **secret** `PULUMI_ACCESS_TOKEN` (a Pulumi Cloud access token).
+   Harmless on its own — the job stays skipped until step 3.
+2. **Bootstrap once manually:** `cd infra && pulumi up` (as yourself, project
+   owner). The new `roles/owner` binding can't be applied by the old
+   least-privilege CI identity, so this first apply must be run by you — it also
+   applies any pending config (e.g. the CORS allowlist), fixing the live app now.
+3. **Last:** add the repo **variable** `PULUMI_STACK_NAME` =
+   `<your-pulumi-org>/khiimori/dev`. This arms the `pulumi-up` job; from here
+   every `main` push self-reconciles.
 
 ## Provisioning (`pulumi up`)
 

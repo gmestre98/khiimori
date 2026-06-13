@@ -52,10 +52,13 @@ After a `main` deploy completes (both `deploy-web` and `deploy` green):
 > returns 404 from the edge), so the browser can only reach `/readyz` (which
 > also pings the DB). Same reason the e2e smoke uses `/readyz`.
 
-> **CORS prerequisite — run `pulumi up`.** `CORS_ALLOWED_ORIGINS` is set by IaC
-> (`infra/cloudRun.ts`), not the CI deploy (which only swaps the image). After
-> adding/changing the CORS env you **must `pulumi up`** or the running revision
-> keeps an empty allowlist and the browser fetch fails with “Failed to fetch”.
+> **CORS env is auto-applied by CI.** `CORS_ALLOWED_ORIGINS` is set by IaC
+> (`infra/cloudRun.ts`). The `pulumi-up` job reconciles it on every push to
+> `main`, so it stays in sync with no manual step — **once the one-time bootstrap
+> is done** (set `PULUMI_STACK_NAME` + `PULUMI_ACCESS_TOKEN` and run `pulumi up`
+> locally the first time; see [`infra/README.md` → CI auto-reconcile](../../../../../infra/README.md)).
+> Until that bootstrap, the running revision keeps an empty allowlist and the
+> browser fetch fails with “Failed to fetch”.
 
 1. **Load the Hosting URL** (`firebaseHostingUrl`, e.g. `https://<site>.web.app`)
    in a browser. The app shell renders (title *Khiimori* + the health card).

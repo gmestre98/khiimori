@@ -1,0 +1,79 @@
+# Stack config for the `dev` stack.
+#
+# This file IS committed (it is un-ignored in .gitignore): CI runs `pulumi up`
+# and needs it. That is safe because every secret value below is a Pulumi
+# `secure:` blob — encrypted by the Pulumi Cloud backend, decryptable only with
+# the stack's key. NEVER add a plaintext secret here; set secrets with
+# `pulumi config set --secret <key> <value>` (see Pulumi.dev.yaml.example).
+config:
+  # GCP project to deploy into (author-provided, billing enabled — PRD §8.3).
+  # Read natively by the @pulumi/gcp provider; also surfaced as a typed value.
+  gcp:project: intricate-reef-424222-d6
+  # GCP region. europe-west2 (London) pairs with the Neon DB in eu-west-2
+  # (AWS London) for low cross-service latency — see backend/docs/database.md.
+  gcp:region: europe-west2
+  khiimori:databaseUrl:
+    secure: AAABALFjeYE+Q8q/od/KAPZQ8c8IPSSgTadHzgPWQadRXPy4Kf0OaoTaqBXIgWI13OhRKQ1bxqCYLA8mdN6YTmDsUc+qrAcTvhZLSaf6wty25y78xftVMy9MdvLlSxnm8RqLzb323rav6QWXNntXkBu4fVWkTH7rU2PIgi9aqLYQSY6Fz3bWsSFpXFeQrm6Fsmzg7LeQlQ==
+  khiimori:oauthClientSecret:
+    secure: AAABABMoJwjkZLoitvSNJUi9H6cz3LyNfT0fEFrnbAb6UQfQ4s993FT2AUagxsyjSZkiFwP1
+  khiimori:mapsApiKey:
+    secure: AAABADlJ76UE/hOw5Dpd4CSWeLM4iOvv7EQg+s1HFr3lIIJgJ56TT61L2bcYT59N0FYOmf3W
+  khiimori:databaseUrlDirect:
+    secure: AAABALiqsu2azllaF/xKEjh5QYHaZq6OAWMfmfKBKE/w3oc5fVHeN+DdL0M1TkjW36wIoRITXki7l/b3idODKxXCRvts/R/unQkqN1G0oV4DuxZrfBKyZGYq1xnMqTodYtikrG7eeU9b+5wzf/AVYyE6xNiN61eWEvYkYP6mZrgrHe3C2Tp9lsnfpt6EbKiP9A==
+
+# --- Optional: resource names (sensible defaults if omitted) ---------------
+# Artifact Registry Docker repository id (last segment of the image prefix).
+# khiimori:artifactRepoId: khiimori
+# Cloud Storage media bucket name (globally unique; default <project>-media).
+# khiimori:mediaBucketName: your-project-media
+# Allow `pulumi destroy` to delete a non-empty media bucket (default false).
+# khiimori:mediaBucketForceDestroy: "false"
+# Cloud Run runtime service account id (6-30 chars; default khiimori-run).
+# khiimori:cloudRunServiceAccountId: khiimori-run
+# Cloud Run service name (default khiimori-api).
+# khiimori:serviceName: khiimori-api
+# Container image. Default is a public placeholder so a fresh stack stands up;
+# CI (M01.5) overrides with the real S2 image, e.g. <imagePrefix>/api:<sha>.
+# khiimori:serviceImage: europe-west2-docker.pkg.dev/your-project/khiimori/api:latest
+# Container port the app listens on (default 8080).
+# khiimori:servicePort: "8080"
+# Deployment env / log level the service runs with (default prod / error).
+# khiimori:serviceEnv: prod
+# khiimori:logLevel: error
+# Allow unauthenticated invocation so the browser SPA can call the API
+# (default true; set false to make the service private).
+# khiimori:allowUnauthenticated: "true"
+# Firebase project id (default: same as gcp:project). Firebase must already be
+# enabled on it — `firebase projects:addfirebase <project>` (one-time).
+# khiimori:firebaseProject: your-firebase-project-id
+# Firebase Hosting site id (globally unique, <=30 chars; default <project>-web).
+# khiimori:hostingSiteId: your-project-web
+
+# --- Scale tunables (S9) — defaults are the cheap, idle-≈€0 ones -----------
+# Cloud Run min instances. 0 = scale-to-zero (default). 1 keeps one warm 24/7
+# (no cold starts) and bills continuously — the single "scale up" toggle.
+# khiimori:minInstances: "0"
+# Cloud Run max instances (default 2). Caps concurrency + worst-case spend.
+# khiimori:maxInstances: "2"
+# Neon tier reference (default free). Lever: free -> paid in the Neon console.
+# khiimori:neonTier: free
+# Google Maps daily request quota reference (default 1000). Hard cap is M01.8.
+# khiimori:mapsDailyQuota: "1000"
+
+# --- Secret VALUES — never write them here in plaintext --------------------
+# The program creates the secret *containers*; their values are supplied
+# out-of-band. Two supported ways (pick one), both keep plaintext out of git:
+#
+#   a) Pulumi secret config (encrypted into the stack file, read by the
+#      program to create the first version):
+#        pulumi config set --secret khiimori:databaseUrl       "postgresql://app_rw:…"
+#        pulumi config set --secret khiimori:oauthClientSecret "…"
+#        pulumi config set --secret khiimori:mapsApiKey        "…"
+#      (These land here as `secure:` blobs — encrypted, safe to commit if you
+#       ever choose to track the stack file; this repo gitignores it anyway.)
+#
+#   b) Out-of-band after `pulumi up`, leaving config unset:
+#        gcloud secrets versions add khiimori-database-url --data-file=-
+#
+# The databaseUrl value MUST use the least-privilege Neon role `app_rw`
+# (not neondb_owner) — see backend/docs/database.md.

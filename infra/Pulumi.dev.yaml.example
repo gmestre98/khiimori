@@ -4,9 +4,11 @@
 #
 #     cp Pulumi.dev.yaml.example Pulumi.dev.yaml
 #
-# `Pulumi.dev.yaml` is gitignored (it may hold Pulumi-encrypted secret config),
-# so it never reaches git — this `.example` is the committed reference of the
-# config surface the stack expects. Keep the two in sync when adding config.
+# `Pulumi.dev.yaml` IS committed (un-ignored in .gitignore) because CI runs
+# `pulumi up` and needs it — safe as long as secret values are Pulumi `secure:`
+# blobs (encrypted) and there are no plaintext secrets. This `.example` is the
+# annotated reference of the config surface; keep the two in sync when adding
+# config. NEVER write a plaintext secret in either file.
 config:
   # GCP project to deploy into (author-provided, billing enabled — PRD §8.3).
   # Read natively by the @pulumi/gcp provider; also surfaced as a typed value.
