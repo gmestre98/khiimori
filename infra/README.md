@@ -118,7 +118,9 @@ pulumi config set --secret khiimori:mapsApiKey        "…"
 #    (Or leave these unset and add versions out-of-band after `up`:
 #     gcloud secrets versions add khiimori-database-url --data-file=- )
 
-# 4. Preview, then provision.
+# 4. Preview, then provision. (Fresh stack: bare `up` is fine — no real image
+#    exists yet. Re-running on a stack CI has already deployed to? Use
+#    `pulumi up --refresh`, or it reverts the live image to the placeholder.)
 pulumi preview
 pulumi up
 ```
