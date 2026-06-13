@@ -2,7 +2,7 @@
 
 This runbook records how the web app shell reaches Firebase Hosting and how to
 verify the end-to-end round-trip: the **deployed** web app calling the
-**deployed** API's `/healthz` cross-origin (epic AC1 + AC2). Deployment is fully
+**deployed** API's readiness probe cross-origin (epic AC1 + AC2). Deployment is fully
 through the **pipeline** ([`.github/workflows/ci.yml`](../../../../../.github/workflows/ci.yml)) —
 never a manual `firebase deploy` from a laptop.
 
@@ -47,12 +47,22 @@ domain — S5), add it via the `corsAllowedOrigins` stack config and `pulumi up`
 
 After a `main` deploy completes (both `deploy-web` and `deploy` green):
 
+> **Endpoint note:** the health card probes **`/readyz`, not `/healthz`** —
+> Cloud Run does not route external traffic to the liveness path (`/healthz`
+> returns 404 from the edge), so the browser can only reach `/readyz` (which
+> also pings the DB). Same reason the e2e smoke uses `/readyz`.
+
+> **CORS prerequisite — run `pulumi up`.** `CORS_ALLOWED_ORIGINS` is set by IaC
+> (`infra/cloudRun.ts`), not the CI deploy (which only swaps the image). After
+> adding/changing the CORS env you **must `pulumi up`** or the running revision
+> keeps an empty allowlist and the browser fetch fails with “Failed to fetch”.
+
 1. **Load the Hosting URL** (`firebaseHostingUrl`, e.g. `https://<site>.web.app`)
    in a browser. The app shell renders (title *Khiimori* + the health card).
 2. **Health card shows `✓ Healthy`** — the deployed app reached the deployed
-   API's `/healthz`. It names the API base URL it called (the prod Cloud Run URL,
-   not `localhost`), confirming the env-driven base URL (S1) took effect.
-3. **No CORS errors in the browser console** (DevTools → Console). The `/healthz`
+   API's `/readyz`. It names the URL it called (the prod Cloud Run URL, not
+   `localhost`), confirming the env-driven base URL (S1) took effect.
+3. **No CORS errors in the browser console** (DevTools → Console). The `/readyz`
    request in the Network tab shows `200` with an
    `access-control-allow-origin: <Hosting origin>` response header (S3).
 4. **Served via CDN** — the Hosting response carries Firebase's CDN headers
@@ -60,9 +70,13 @@ After a `main` deploy completes (both `deploy-web` and `deploy` green):
 5. **Pipeline, not manual** — confirm the deploy came from the `deploy-web` job
    on the `main` run (Actions tab), not a local `firebase deploy`.
 
-If step 2 shows `✗ Unreachable`: check (a) `API_BASE_URL` repo variable points at
-the live Cloud Run URL, (b) the API revision is serving (`/readyz` 200), and
-(c) `CORS_ALLOWED_ORIGINS` on the running revision includes the Hosting origin.
+If step 2 shows `✗ Unreachable — Failed to fetch`: the browser hit a response
+with no `access-control-allow-origin` (a CORS rejection, not an HTTP error).
+Check (a) you have run **`pulumi up`** since the CORS env was added, so the
+running revision's `CORS_ALLOWED_ORIGINS` includes the Hosting origin
+(`curl -H "Origin: <hosting>" -i <api>/readyz` should show the ACAO header),
+(b) `API_BASE_URL` repo variable points at the live Cloud Run URL, and (c) the
+API revision is serving (`/readyz` 200).
 
 ## Status
 

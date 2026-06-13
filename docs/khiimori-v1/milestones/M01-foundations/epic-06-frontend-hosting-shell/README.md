@@ -1,6 +1,6 @@
 # Epic M01.6 — Frontend Hosting & App Shell
 
-> **Status:** ✅ Done — all 5 stories implemented and all 5 acceptance criteria satisfied. The minimal React/TS shell builds + tests green in CI and deploys to **Firebase Hosting** on `main` (with the API on Cloud Run); CORS is config-driven for the Hosting origin, the API base URL is env-driven (no hardcoded prod URL), and custom-domain wiring is documented. The pipeline runs green end-to-end (e2e smoke loads the web shell + hits the API). The live in-browser round-trip confirmation (health card `✓ Healthy`, no CORS errors) is the author's step per [`deploy-and-verify-runbook.md`](deploy-and-verify-runbook.md).
+> **Status:** 🚧 Code complete; live round-trip not yet green. All 5 stories are implemented — the shell builds + tests green in CI and deploys to **Firebase Hosting** on `main`, CORS is config-driven, the API base URL is env-driven, and custom-domain wiring is documented. **But the in-browser round-trip currently fails** (`✗ Unreachable — Failed to fetch`), which surfaced two gaps the CI e2e smoke (server-to-server on `/readyz`) couldn't catch: (1) the web view probed `/healthz`, which Cloud Run doesn't route externally — fixed to `/readyz` (see [`deploy-and-verify-runbook.md`](deploy-and-verify-runbook.md) endpoint note); and (2) the running Cloud Run revision has an empty CORS allowlist because `pulumi up` hasn't been run since S3 added the env. **Done when:** the `/readyz` fix is deployed **and** `pulumi up` applies `CORS_ALLOWED_ORIGINS`, then the health card shows `✓ Healthy` with no console CORS errors.
 >
 > Milestone: [01 — Foundations](../README.md) · PRD refs: §7.2, §7.8.
 
@@ -15,7 +15,7 @@ environment-driven API base URL.
 ## Acceptance Criteria
 
 - [x] The minimal app shell deploys to **Firebase Hosting + CDN** (PRD §7.8).
-- [x] The deployed app calls `GET /healthz` on Cloud Run and shows the result (end-to-end round-trip works).
+- [ ] The deployed app calls the API on Cloud Run and shows the result (end-to-end round-trip). _View + CI deploy done; the live browser round-trip is pending the `/readyz` fix deploy + `pulumi up` for CORS. NB: probes `/readyz`, not `/healthz` — Cloud Run doesn't route `/healthz` externally._
 - [x] **CORS** is correctly configured between the Hosting origin and the Cloud Run API.
 - [x] The API base URL is **environment-driven** (no hardcoded prod URL).
 - [x] Custom-domain wiring is documented (the domain itself is author-provided).

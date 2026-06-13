@@ -25,19 +25,32 @@ export function apiUrl(path: string): string {
   return `${apiBaseURL}${suffix}`
 }
 
-// HealthStatus is the API's /healthz response shape (a small JSON status body).
+// healthPath is the API endpoint the browser probes. It is /readyz, NOT
+// /healthz: Cloud Run does not route external traffic to the liveness-probe
+// path (/healthz returns 404 from the edge before reaching the app), so a
+// browser can only reach /readyz — which also pings the DB, making a 200 a
+// stronger "the API + its database are live" signal. The deployed e2e smoke
+// (e2e/smoke.sh) probes /readyz for the same reason.
+const healthPath = '/readyz'
+
+// HealthStatus is the parsed shape of the readiness response we care about
+// (e.g. {"status":"ready",...}); extra fields like per-check detail are ignored.
 export interface HealthStatus {
   status: string
 }
 
-// fetchHealth calls GET /healthz through the configured base URL and returns the
+// fetchHealth calls GET /readyz through the configured base URL and returns the
 // parsed status. It throws on a non-2xx response or any network/parse error, so
 // the caller can render success vs failure off resolve/reject. An optional
 // AbortSignal lets the caller cancel an in-flight check (e.g. on unmount).
 export async function fetchHealth(signal?: AbortSignal): Promise<HealthStatus> {
-  const res = await fetch(apiUrl('/healthz'), { signal })
+  const res = await fetch(apiUrl(healthPath), { signal })
   if (!res.ok) {
     throw new Error(`API returned HTTP ${res.status}`)
   }
   return (await res.json()) as HealthStatus
 }
+
+// healthUrl is the full URL the health probe hits — exported so the UI can show
+// exactly which endpoint it called.
+export const healthUrl = apiUrl(healthPath)

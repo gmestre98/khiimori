@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { apiBaseURL, fetchHealth } from './lib/api'
+import { fetchHealth, healthUrl } from './lib/api'
 
 // State of the health probe: loading on mount, then either the healthy status
-// from /healthz or an error message. A discriminated union so the render can't
+// from /readyz or an error message. A discriminated union so the render can't
 // show a stale status alongside an error.
 type State =
   | { kind: 'loading' }
@@ -10,7 +10,7 @@ type State =
   | { kind: 'error'; message: string }
 
 // HealthCheck is Milestone 01's connectivity probe: on mount it calls the API's
-// /healthz through the env-driven client (S1) and shows whether the deployed
+// /readyz through the env-driven client (S1) and shows whether the deployed
 // stack is wired end to end (epic AC2). This is not real UI — it's the proof the
 // web app can reach the API cross-origin (verified against prod in S4).
 export function HealthCheck() {
@@ -38,7 +38,7 @@ export function HealthCheck() {
     <section className="health-check">
       <h2>API health</h2>
       <p className="health-target">
-        <code>{apiBaseURL}/healthz</code>
+        <code>{healthUrl}</code>
       </p>
       {state.kind === 'loading' && <p role="status">Checking…</p>}
       {state.kind === 'healthy' && (

@@ -48,7 +48,7 @@ requires two config updates — **otherwise the app or its API calls break**:
 2. **CORS allowed origins (S3)** — **required** whenever the web app is served
    from a new origin. Add the new origin to the API's allowlist via the
    `corsAllowedOrigins` stack config and `pulumi up`, or the browser will block
-   the `/healthz` (and every future API) call from the new domain:
+   the health (`/readyz`) and every future API call from the new domain:
 
    ```sh
    pulumi config set khiimori:corsAllowedOrigins \
