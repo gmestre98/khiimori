@@ -43,6 +43,13 @@ config:
   # Firebase Hosting site id (globally unique, <=30 chars; default <project>-web).
   # khiimori:hostingSiteId: your-project-web
 
+  # --- CI/CD keyless auth (M01.5 S5) -----------------------------------------
+  # GitHub repo (owner/name) whose Actions may impersonate the deployer SA via
+  # Workload Identity Federation. Default: gmestre98/khiimori.
+  # khiimori:githubRepo: gmestre98/khiimori
+  # CI/CD deployer service account id (6-30 chars; default khiimori-ci).
+  # khiimori:ciDeployerServiceAccountId: khiimori-ci
+
   # --- Scale tunables (S9) — defaults are the cheap, idle-≈€0 ones -----------
   # Cloud Run min instances. 0 = scale-to-zero (default). 1 keeps one warm 24/7
   # (no cold starts) and bills continuously — the single "scale up" toggle.
