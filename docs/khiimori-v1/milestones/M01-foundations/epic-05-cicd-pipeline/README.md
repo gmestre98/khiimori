@@ -1,5 +1,7 @@
 # Epic M01.5 — CI/CD Pipeline (GitHub Actions)
 
+> **Status:** ✅ Done — all 9 stories implemented and all 5 acceptance criteria verified; the pipeline runs green end-to-end on `main` (gates → WIF auth → build & push → migrate & deploy Cloud Run → deploy web → e2e smoke), with the real service + web app live.
+>
 > Milestone: [01 — Foundations](../README.md) · PRD refs: §7.5, §7.6, §8.4.
 
 ## Description
@@ -12,11 +14,11 @@ the e2e suite that Milestone 10 fills in.
 
 ## Acceptance Criteria
 
-- [ ] On every change: `lint → unit tests → build` runs and gates the change (PRD §7.5).
-- [ ] An integration-test stage runs against an ephemeral DB (PRD §7.6).
-- [ ] On `main`: build container → push to Artifact Registry → deploy to Cloud Run.
-- [ ] The web app builds and deploys to Firebase Hosting from the pipeline.
-- [ ] A placeholder e2e stage runs against a preview/staging environment (journeys added in Milestone 10).
+- [x] On every change: `lint → unit tests → build` runs and gates the change (PRD §7.5).
+- [x] An integration-test stage runs against an ephemeral DB (PRD §7.6).
+- [x] On `main`: build container → push to Artifact Registry → deploy to Cloud Run.
+- [x] The web app builds and deploys to Firebase Hosting from the pipeline.
+- [x] A placeholder e2e stage runs against a preview/staging environment (journeys added in Milestone 10).
 
 ## Implementation Details / Architecture
 
