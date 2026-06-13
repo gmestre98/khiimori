@@ -1,5 +1,7 @@
 # Epic M01.6 — Frontend Hosting & App Shell
 
+> **Status:** ✅ Done — all 5 stories implemented and all 5 acceptance criteria satisfied. The minimal React/TS shell builds + tests green in CI and deploys to **Firebase Hosting** on `main` (with the API on Cloud Run); CORS is config-driven for the Hosting origin, the API base URL is env-driven (no hardcoded prod URL), and custom-domain wiring is documented. The pipeline runs green end-to-end (e2e smoke loads the web shell + hits the API). The live in-browser round-trip confirmation (health card `✓ Healthy`, no CORS errors) is the author's step per [`deploy-and-verify-runbook.md`](deploy-and-verify-runbook.md).
+>
 > Milestone: [01 — Foundations](../README.md) · PRD refs: §7.2, §7.8.
 
 ## Description
@@ -12,11 +14,11 @@ environment-driven API base URL.
 
 ## Acceptance Criteria
 
-- [ ] The minimal app shell deploys to **Firebase Hosting + CDN** (PRD §7.8).
-- [ ] The deployed app calls `GET /healthz` on Cloud Run and shows the result (end-to-end round-trip works).
-- [ ] **CORS** is correctly configured between the Hosting origin and the Cloud Run API.
-- [ ] The API base URL is **environment-driven** (no hardcoded prod URL).
-- [ ] Custom-domain wiring is documented (the domain itself is author-provided).
+- [x] The minimal app shell deploys to **Firebase Hosting + CDN** (PRD §7.8).
+- [x] The deployed app calls `GET /healthz` on Cloud Run and shows the result (end-to-end round-trip works).
+- [x] **CORS** is correctly configured between the Hosting origin and the Cloud Run API.
+- [x] The API base URL is **environment-driven** (no hardcoded prod URL).
+- [x] Custom-domain wiring is documented (the domain itself is author-provided).
 
 ## Implementation Details / Architecture
 
