@@ -343,3 +343,47 @@ jobs:
           done
           echo "/readyz -> $code"
           test "$code" = "200"
+
+  deploy-web:
+    name: Deploy web to Firebase Hosting (main)
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Runs after the web gate (lint/format/build) passes.
+    needs: [web]
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install deps
+        working-directory: web
+        run: npm ci
+
+      # Inject the API base URL at build time — no hardcoded prod URL (aligns with
+      # M01.6 S1). The variable is the Cloud Run service URL.
+      - name: Build web (production)
+        working-directory: web
+        env:
+          VITE_API_BASE_URL: ${{ vars.API_BASE_URL }}
+        run: npm run build
+
+      # Keyless auth (S5): the auth step writes a WIF credential file and points
+      # GOOGLE_APPLICATION_CREDENTIALS at it, which the Firebase CLI uses as ADC —
+      # no long-lived Firebase token.
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      # Atomic release to the M01.4 Hosting site (target in firebase.json). The
+      # CLI prints the Hosting URL, satisfying the "report the URL" AC.
+      - name: Deploy to Firebase Hosting
+        run: npx --yes firebase-tools@15 deploy --only hosting --project "${{ vars.GCP_PROJECT_ID }}" --non-interactive

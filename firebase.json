@@ -1,0 +1,8 @@
+{
+  "hosting": {
+    "site": "intricate-reef-424222-d6-web",
+    "public": "web/dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [{ "source": "**", "destination": "/index.html" }]
+  }
+}

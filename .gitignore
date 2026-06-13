@@ -36,3 +36,6 @@ yarn-error.log*
 Pulumi.*.yaml
 !Pulumi.yaml
 .pulumi/
+
+# Firebase CLI deploy cache (firebase.json is committed)
+.firebase/
