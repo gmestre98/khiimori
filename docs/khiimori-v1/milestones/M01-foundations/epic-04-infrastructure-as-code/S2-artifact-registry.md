@@ -1,5 +1,7 @@
 # S2 — Artifact Registry repository
 
+> **Status:** ✅ Done — Artifact Registry Docker repository (#109). Deployed live to the dev stack.
+
 ## Context
 The CI pipeline (M01.5) builds the service container and pushes it to **Artifact Registry**, from which
 Cloud Run deploys (PRD §7.8). This story provisions that Docker repository in Pulumi so a tagged image has
@@ -11,10 +13,10 @@ Assumes the Pulumi scaffold (**S1**) exists.
 Provision a GCP Artifact Registry Docker repository via Pulumi, exporting its address for CI and Cloud Run.
 
 ## Acceptance criteria
-- [ ] An Artifact Registry **Docker** repository is created in the configured region.
-- [ ] Its name/location come from stack config; the full image-path prefix is a Pulumi **stack output**.
-- [ ] Required GCP APIs (e.g. `artifactregistry.googleapis.com`) are enabled via IaC.
-- [ ] `pulumi up` creates it cleanly and `pulumi destroy` removes it.
+- [x] An Artifact Registry **Docker** repository is created in the configured region.
+- [x] Its name/location come from stack config; the full image-path prefix is a Pulumi **stack output**.
+- [x] Required GCP APIs (e.g. `artifactregistry.googleapis.com`) are enabled via IaC.
+- [x] `pulumi up` creates it cleanly and `pulumi destroy` removes it.
 
 ## Constraints
 - Single repo is enough for v1 (PRD §7.0) — no per-service sprawl.

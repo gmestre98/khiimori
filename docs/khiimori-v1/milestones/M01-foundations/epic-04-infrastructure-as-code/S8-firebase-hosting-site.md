@@ -1,5 +1,7 @@
 # S8 — Firebase Hosting site (IaC)
 
+> **Status:** ✅ Done — Firebase Hosting site via IaC (#115). Deployed live to the dev stack.
+
 ## Context
 The web app deploys to **Firebase Hosting + CDN** (PRD §7.8), and the PRD wants that site provisioned via
 IaC alongside everything else (epic AC2). This story provisions/configures the Hosting site in Pulumi so
@@ -11,13 +13,13 @@ Assumes the Pulumi scaffold (**S1**) exists. Author-provided: a Firebase project
 Provision/configure the Firebase Hosting site for the web app via Pulumi.
 
 ## Acceptance criteria
-- [ ] The Firebase Hosting site is provisioned/configured through Pulumi (using the GCP/Firebase provider
+- [x] The Firebase Hosting site is provisioned/configured through Pulumi (using the GCP/Firebase provider
   resources available), referencing the author's Firebase project from config.
-- [ ] Required API(s) (e.g. `firebasehosting.googleapis.com`) are enabled via IaC.
-- [ ] The site id / default Hosting URL is a Pulumi **stack output** (M01.6 and CORS in M01.6 need the origin).
-- [ ] Any parts that genuinely cannot be expressed in IaC (e.g. a one-time Firebase project link) are
+- [x] Required API(s) (e.g. `firebasehosting.googleapis.com`) are enabled via IaC.
+- [x] The site id / default Hosting URL is a Pulumi **stack output** (M01.6 and CORS in M01.6 need the origin).
+- [x] Any parts that genuinely cannot be expressed in IaC (e.g. a one-time Firebase project link) are
   **documented** as a manual prerequisite, not left implicit.
-- [ ] `pulumi up`/`destroy` behave cleanly (within Firebase's IaC support).
+- [x] `pulumi up`/`destroy` behave cleanly (within Firebase's IaC support).
 
 ## Constraints
 - Free-tier Hosting + CDN (PRD §8.1); no paid add-ons.

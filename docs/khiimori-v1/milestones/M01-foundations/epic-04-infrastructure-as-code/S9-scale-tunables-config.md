@@ -1,5 +1,7 @@
 # S9 — Scale tunables as IaC config (default scale-to-zero)
 
+> **Status:** ✅ Done — scale tunables as IaC config (#116). Deployed live to the dev stack.
+
 ## Context
 The PRD's cost posture is "**run at ≈€0, scale up on demand with a single setting**" (PRD §8.6). The scale
 levers — Cloud Run `min-instances`, the Neon tier reference, and the Maps quota — must be **IaC config**
@@ -13,13 +15,13 @@ Express the scale tunables as typed Pulumi stack config (defaulting to scale-to-
 `min-instances` to Cloud Run.
 
 ## Acceptance criteria
-- [ ] Stack config exposes: Cloud Run `minInstances` (default **0**) and `maxInstances`, a **Neon tier**
+- [x] Stack config exposes: Cloud Run `minInstances` (default **0**) and `maxInstances`, a **Neon tier**
   reference value, and a **Maps daily quota** value (the cap enforcement itself is M01.8).
-- [ ] Cloud Run `min-instances` is driven by that config and **defaults to 0** (scale-to-zero) (PRD §8.6).
-- [ ] Changing `minInstances` in config + `pulumi up` is the **only** action needed to keep an instance warm
+- [x] Cloud Run `min-instances` is driven by that config and **defaults to 0** (scale-to-zero) (PRD §8.6).
+- [x] Changing `minInstances` in config + `pulumi up` is the **only** action needed to keep an instance warm
   (no code change) — verified by a preview diff.
-- [ ] Each tunable is documented inline (what it costs to raise, where the matching dashboard toggle is).
-- [ ] Defaults confirmed to produce an **idle ≈€0** posture (PRD §8.1, §8.6).
+- [x] Each tunable is documented inline (what it costs to raise, where the matching dashboard toggle is).
+- [x] Defaults confirmed to produce an **idle ≈€0** posture (PRD §8.1, §8.6).
 
 ## Constraints
 - Defaults must be the cheap ones; raising them is an explicit opt-in (PRD §8.6).
