@@ -130,3 +130,54 @@ jobs:
           tags: khiimori-api:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  integration:
+    name: Integration tests (ephemeral DB)
+    runs-on: ubuntu-latest
+    # Sequenced after the backend job (lint/vet/test/build) so we don't spin up a
+    # database for a change that already fails an earlier gate (PRD §8.4 #4).
+    needs: [backend]
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      # Throwaway Postgres for the migration integration test (M01.3 S7). Pinned to
+      # Postgres 18 to match Neon's prod major version. It's runner-local and dies
+      # with the job, so nothing accumulates (PRD §8.1) and there are no real DB
+      # credentials to leak (PRD §8.5) — a stronger posture than masking a secret.
+      # Switching to ephemeral Neon branches later is a workflow change, not a code
+      # change, if testing against Neon specifically is ever wanted.
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: khiimori_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      # The integration-tagged migration test applies the full set, asserts the six
+      # module schemas exist, then rolls back — hermetic against a disposable DB. A
+      # failure here gates the change. The DSN is the direct (un-pooled) connection
+      # to the local service DB; it is not a secret, so nothing is masked/printed.
+      - name: Integration tests
+        env:
+          DATABASE_URL_TEST: postgres://postgres:postgres@localhost:5432/khiimori_test?sslmode=disable
+        # The test t.Skip()s (and Go exits 0) when DATABASE_URL_TEST is unset, so
+        # guard against the gate silently passing without a DB; -v makes the run
+        # visibly show the test actually executing.
+        run: |
+          test -n "$DATABASE_URL_TEST" || { echo "DATABASE_URL_TEST unset — refusing to pass the integration gate without a DB"; exit 1; }
+          go test -tags=integration -v ./migrations/...
