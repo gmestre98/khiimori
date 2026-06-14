@@ -2,9 +2,11 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"time"
 
+	"github.com/gmestre98/khiimori/backend/internal/platform/authn"
 	"github.com/gmestre98/khiimori/backend/internal/platform/httpx"
 	platformlog "github.com/gmestre98/khiimori/backend/internal/platform/log"
 )
@@ -14,6 +16,10 @@ import (
 const (
 	LoginPath    = "/auth/login"
 	CallbackPath = "/auth/callback"
+	// SessionPath is the authenticated session-check ("who am I") endpoint, behind
+	// RequireAuth; the web app (Epic 05) calls it to learn whether a session is
+	// live and for which user.
+	SessionPath = "/auth/session"
 )
 
 // exchangeTimeout bounds the callback's outbound calls to Google (token
@@ -104,4 +110,21 @@ func (m *Module) handleCallback(w http.ResponseWriter, r *http.Request) {
 
 	// Hand off to provisioning (Epic 02) + session issuance (Epic 03).
 	m.onVerified(w, r, identity)
+}
+
+// handleSession answers the authenticated session-check: it returns the current
+// user's id. It runs behind RequireAuth, so reaching it means the session is
+// valid and a principal is attached; the !ok branch is defensive only.
+func (m *Module) handleSession(w http.ResponseWriter, r *http.Request) {
+	p, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusUnauthorized, "auth_required", "authentication required"))
+		return
+	}
+	// A session check must never be cached — the answer is per-request identity.
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{"user_id": p.UserID})
 }

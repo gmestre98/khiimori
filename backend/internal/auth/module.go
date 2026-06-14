@@ -58,6 +58,9 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Module {
 func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET "+LoginPath, m.handleLogin)
 	mux.HandleFunc("GET "+CallbackPath, m.handleCallback)
+	// The session-check is the first route behind the auth middleware; protected
+	// routes in later modules wrap with RequireAuth the same way.
+	mux.Handle("GET "+SessionPath, m.RequireAuth(http.HandlerFunc(m.handleSession)))
 }
 
 // completeSignIn finishes a verified sign-in: it provisions the user (Epic 02) —
