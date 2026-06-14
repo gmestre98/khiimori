@@ -20,6 +20,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/gmestre98/khiimori/backend/internal/auth"
 	"github.com/gmestre98/khiimori/backend/internal/budget"
 	"github.com/gmestre98/khiimori/backend/internal/geo"
@@ -89,7 +91,7 @@ func run() error {
 	// above the rest so cross-origin headers land on every response (including a
 	// 500) and a preflight short-circuits before the handlers; Recovery is
 	// innermost so a handler panic becomes a 500 the access log can observe.
-	handler := httpx.Chain(newRouter(database, cfg),
+	handler := httpx.Chain(newRouter(database, database.Pool(), cfg),
 		httpx.RequestIDMiddleware(),
 		httpx.CORS(cfg.CORSAllowedOrigins),
 		httpx.Logging(logger, cfg.GCPProject),
@@ -161,8 +163,10 @@ func run() error {
 //
 // dbPinger is the database handle whose connectivity backs the readiness probe;
 // it is the narrow db.Pinger seam so the router doesn't depend on the concrete
-// pool.
-func newRouter(dbPinger db.Pinger, cfg config.Config) http.Handler {
+// pool. pool is the same database's connection pool, handed to the modules that
+// run queries (auth provisioning); it is kept separate from dbPinger so the
+// readiness seam stays narrow.
+func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config) http.Handler {
 	mux := http.NewServeMux()
 
 	// Health probes are mounted on the root router so they inherit the shared
@@ -178,7 +182,7 @@ func newRouter(dbPinger db.Pinger, cfg config.Config) http.Handler {
 	mux.HandleFunc(health.ReadinessPath, readiness.Handler)
 
 	modules := []httpx.RouteRegistrar{
-		auth.New(cfg),
+		auth.New(cfg, pool),
 		trip.New(),
 		budget.New(),
 		journal.New(),
