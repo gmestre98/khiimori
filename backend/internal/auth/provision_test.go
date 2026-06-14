@@ -35,14 +35,15 @@ func newProvisioningModule(repo userRepo) (*Module, *oauthStateStore) {
 }
 
 // fakeUserRepo is an in-memory userRepo for unit-testing provisioning without a
-// database. It mimics auth.users: Save creates a row keyed on google_sub with
-// the server-set defaults the real table applies (EUR, empty prefs,
-// is_admin=false). For S2's create-only contract it errors on a duplicate
-// google_sub; S3 extends it to upsert.
+// database. It mirrors the real upsert: Save creates a row keyed on google_sub
+// with the server-set defaults the real table applies (EUR, empty prefs,
+// is_admin=false) on first sign-in, and on a returning sign-in refreshes only
+// the identity fields — preserving the id, the user-editable fields, and the
+// admin flag, exactly as the ON CONFLICT DO UPDATE does.
 type fakeUserRepo struct {
 	bySub  map[string]User
 	nextID int
-	saves  int // number of Save calls, to assert no redundant writes
+	saves  int // number of Save calls, to tell creates from resolves
 }
 
 func newFakeUserRepo() *fakeUserRepo {
@@ -51,8 +52,13 @@ func newFakeUserRepo() *fakeUserRepo {
 
 func (f *fakeUserRepo) Save(_ context.Context, in provisionParams) (User, error) {
 	f.saves++
-	if _, ok := f.bySub[in.GoogleSub]; ok {
-		return User{}, errors.New("duplicate google_sub")
+	if existing, ok := f.bySub[in.GoogleSub]; ok {
+		// Returning sign-in: refresh the Google-sourced identity fields only.
+		existing.Email = in.Email
+		existing.Name = in.Name
+		existing.Avatar = in.Avatar
+		f.bySub[in.GoogleSub] = existing
+		return existing, nil
 	}
 	f.nextID++
 	u := User{
@@ -156,5 +162,112 @@ func TestCallbackProvisionFailureReturns500(t *testing.T) {
 	}
 	if strings.Contains(rec.Body.String(), "signed_in") {
 		t.Error("a failed provisioning must not return a signed_in ack")
+	}
+}
+
+// TestProvisionResolvesReturningUser: a second sign-in with the same google_sub
+// resolves to the same user — no new row is created.
+func TestProvisionResolvesReturningUser(t *testing.T) {
+	t.Parallel()
+
+	repo := newFakeUserRepo()
+	p := &Provisioner{repo: repo}
+	id := VerifiedIdentity{GoogleSub: "sub-1", Email: "a@example.com", Name: "Ann", Avatar: "https://pic"}
+
+	first, err := p.Provision(context.Background(), id)
+	if err != nil {
+		t.Fatalf("first Provision: %v", err)
+	}
+	second, err := p.Provision(context.Background(), id)
+	if err != nil {
+		t.Fatalf("second Provision: %v", err)
+	}
+
+	if second.ID != first.ID {
+		t.Errorf("returning sign-in got ID %q, want the same row %q", second.ID, first.ID)
+	}
+	if len(repo.bySub) != 1 {
+		t.Errorf("rows = %d, want 1 (no duplicate on returning sign-in)", len(repo.bySub))
+	}
+	if repo.saves != 2 {
+		t.Errorf("Save calls = %d, want 2 (both sign-ins went through the upsert)", repo.saves)
+	}
+}
+
+// TestProvisionEmailChangeUpdatesNotDuplicate: a returning sign-in whose Google
+// email/name/avatar changed updates the existing row (keyed on google_sub)
+// rather than creating a duplicate.
+func TestProvisionEmailChangeUpdatesNotDuplicate(t *testing.T) {
+	t.Parallel()
+
+	repo := newFakeUserRepo()
+	p := &Provisioner{repo: repo}
+
+	first, err := p.Provision(context.Background(),
+		VerifiedIdentity{GoogleSub: "sub-1", Email: "old@example.com", Name: "Old", Avatar: "https://old"})
+	if err != nil {
+		t.Fatalf("first Provision: %v", err)
+	}
+
+	updated, err := p.Provision(context.Background(),
+		VerifiedIdentity{GoogleSub: "sub-1", Email: "new@example.com", Name: "New", Avatar: "https://new"})
+	if err != nil {
+		t.Fatalf("second Provision: %v", err)
+	}
+
+	if updated.ID != first.ID {
+		t.Errorf("email change created a new row (ID %q), want the same row %q", updated.ID, first.ID)
+	}
+	if len(repo.bySub) != 1 {
+		t.Errorf("rows = %d, want 1 (email change must not duplicate)", len(repo.bySub))
+	}
+	if updated.Email != "new@example.com" || updated.Name != "New" || updated.Avatar != "https://new" {
+		t.Errorf("identity not refreshed: %+v", updated)
+	}
+}
+
+// TestProvisionPreservesUserEditableFieldsOnRefresh: an identity refresh updates
+// only the Google-sourced fields; the user-editable profile (home_base, prefs)
+// and the admin flag set out-of-band survive a returning sign-in.
+func TestProvisionPreservesUserEditableFieldsOnRefresh(t *testing.T) {
+	t.Parallel()
+
+	repo := newFakeUserRepo()
+	p := &Provisioner{repo: repo}
+
+	created, err := p.Provision(context.Background(),
+		VerifiedIdentity{GoogleSub: "sub-1", Email: "a@example.com", Name: "Ann", Avatar: "https://pic"})
+	if err != nil {
+		t.Fatalf("Provision: %v", err)
+	}
+
+	// Simulate later edits the upsert must not clobber: a profile edit (Epic 04)
+	// and the admin bootstrap (S4).
+	stored := repo.bySub["sub-1"]
+	stored.HomeBase = "Lisbon"
+	stored.Prefs = json.RawMessage(`{"theme":"dark"}`)
+	stored.IsAdmin = true
+	repo.bySub["sub-1"] = stored
+
+	refreshed, err := p.Provision(context.Background(),
+		VerifiedIdentity{GoogleSub: "sub-1", Email: "a@example.com", Name: "Ann Renamed", Avatar: "https://pic2"})
+	if err != nil {
+		t.Fatalf("re-Provision: %v", err)
+	}
+
+	if refreshed.ID != created.ID {
+		t.Errorf("ID changed on refresh: got %q, want %q", refreshed.ID, created.ID)
+	}
+	if refreshed.HomeBase != "Lisbon" {
+		t.Errorf("HomeBase = %q, want it preserved (Lisbon)", refreshed.HomeBase)
+	}
+	if string(refreshed.Prefs) != `{"theme":"dark"}` {
+		t.Errorf("Prefs = %s, want them preserved", refreshed.Prefs)
+	}
+	if !refreshed.IsAdmin {
+		t.Error("IsAdmin was reset on refresh, want it preserved")
+	}
+	if refreshed.Name != "Ann Renamed" || refreshed.Avatar != "https://pic2" {
+		t.Errorf("identity fields not refreshed: %+v", refreshed)
 	}
 }

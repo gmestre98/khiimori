@@ -22,9 +22,10 @@ type provisionParams struct {
 // Postgres; unit tests supply a fake, so the provisioning policy can be tested
 // without a database.
 type userRepo interface {
-	// Save persists the user identified by in.GoogleSub and returns the stored
-	// row. On first sign-in it creates the row (S2); S3 extends it to resolve and
-	// refresh an existing row keyed on google_sub.
+	// Save provisions the user keyed on in.GoogleSub and returns the stored row:
+	// it creates the row on first sign-in and resolves the existing row on a
+	// returning sign-in (an upsert on the unique google_sub), refreshing the
+	// identity fields without ever creating a duplicate.
 	Save(ctx context.Context, in provisionParams) (User, error)
 }
 
@@ -55,18 +56,29 @@ type pgxUserRepo struct {
 // the INSERT and the row scan can't drift apart.
 const saveColumns = `id::text, google_sub, email, name, avatar, home_base, default_currency, prefs, is_admin`
 
-// Save inserts a new user from the identity fields and returns the stored row.
-// default_currency (EUR), prefs ('{}'), and is_admin (false) are left to the
-// column defaults so they are fixed server-side. The single INSERT is its own
-// transaction: the row — which carries the empty profile — is committed
-// atomically or not at all, so a user never exists without a profile (PRD §5.8).
+// Save upserts a user keyed on the unique google_sub: it inserts on first
+// sign-in and, on a returning sign-in, resolves the existing row and refreshes
+// only the identity-sourced fields (email/name/avatar). It never creates a
+// duplicate even under concurrent first sign-ins — the unique constraint forces
+// one INSERT and turns the other into the DO UPDATE.
 //
-// This create-only form errors on a duplicate google_sub; S3 turns it into an
-// upsert so a returning sign-in resolves to the same row.
+// On insert, default_currency (EUR), prefs ('{}'), and is_admin (false) come
+// from the column defaults, so they are fixed server-side. On update they are
+// deliberately left untouched: google_sub is the stable key (email can change,
+// so it is never the key), and the user-editable fields (home_base, prefs) and
+// the admin flag must survive an identity refresh — only Google-sourced
+// identity fields are refreshed (PRD §5.8). The single statement is its own
+// transaction, so the row that carries the empty profile commits atomically and
+// a user never exists without a profile.
 func (r *pgxUserRepo) Save(ctx context.Context, in provisionParams) (User, error) {
 	const query = `
 		INSERT INTO auth.users (google_sub, email, name, avatar)
 		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (google_sub) DO UPDATE
+		SET email = EXCLUDED.email,
+		    name = EXCLUDED.name,
+		    avatar = EXCLUDED.avatar,
+		    updated_at = now()
 		RETURNING ` + saveColumns
 
 	var u User
