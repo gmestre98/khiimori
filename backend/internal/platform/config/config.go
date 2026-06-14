@@ -96,6 +96,15 @@ type Config struct {
 	OAuthClientID     string
 	OAuthClientSecret string
 	OAuthRedirectURI  string
+
+	// AdminEmail is the admin-bootstrap path (M02.2 S4): the verified Google
+	// email designated to be provisioned with is_admin=true, enabling Milestone
+	// 08's backoffice. It is matched case-insensitively against the verified
+	// identity at provisioning and only ever promotes (never demotes) — there is
+	// no public/self-serve route to set is_admin. Optional: empty means no user
+	// is bootstrapped as admin (everyone stays is_admin=false). Set via the
+	// ADMIN_EMAIL env var.
+	AdminEmail string
 }
 
 // Load reads configuration from the environment and returns an error if any
@@ -116,6 +125,7 @@ type Config struct {
 //
 //	CORS_ALLOWED_ORIGINS  comma-separated browser origins allowed cross-origin
 //	GOOGLE_CLOUD_PROJECT  GCP project id, for Cloud Logging trace correlation
+//	ADMIN_EMAIL           verified Google email bootstrapped as admin (S4)
 //
 // Of the two DSNs, only the active one (per DB_POOLED) is required; the unused
 // endpoint stays optional so a pooled service isn't forced to carry the direct
@@ -194,6 +204,11 @@ func Load() (Config, error) {
 	cfg.OAuthClientID = os.Getenv("OAUTH_CLIENT_ID")
 	cfg.OAuthClientSecret = os.Getenv("OAUTH_CLIENT_SECRET")
 	cfg.OAuthRedirectURI = os.Getenv("OAUTH_REDIRECT_URI")
+
+	// Optional: the admin-bootstrap email (S4). Trimmed of surrounding whitespace
+	// so a stray space in the secret/env value doesn't defeat the match; the
+	// comparison itself is case-insensitive at provisioning time.
+	cfg.AdminEmail = strings.TrimSpace(os.Getenv("ADMIN_EMAIL"))
 
 	return cfg, nil
 }

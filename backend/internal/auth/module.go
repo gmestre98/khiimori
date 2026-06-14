@@ -42,7 +42,7 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Module {
 		provider:    NewGoogleProvider(gcfg),
 		stateStore:  newOAuthStateStore(deriveStateKey(gcfg.ClientSecret), cfg.Env == config.EnvProd),
 		configured:  gcfg.ClientID != "" && gcfg.ClientSecret != "" && gcfg.RedirectURI != "",
-		provisioner: &Provisioner{repo: &pgxUserRepo{pool: pool}},
+		provisioner: &Provisioner{repo: &pgxUserRepo{pool: pool}, adminEmail: cfg.AdminEmail},
 	}
 	m.onVerified = m.completeSignIn
 	return m
