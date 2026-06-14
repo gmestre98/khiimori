@@ -187,8 +187,10 @@ func Load() (Config, error) {
 	// drill. Off by default; must be removed after verification.
 	cfg.DebugErrorTrigger, _ = strconv.ParseBool(os.Getenv("DEBUG_ERROR_TRIGGER"))
 
-	// Optional: Google OAuth 2.0 / OIDC sign-in. Empty at startup is fine;
-	// the auth endpoints validate and reject unconfigured providers at call time.
+	// Optional: Google OAuth 2.0 / OIDC sign-in. Empty at startup is fine — the
+	// service boots without them so non-auth work is unaffected; the sign-in
+	// endpoints (wired in S2/S3) validate and reject an unconfigured provider at
+	// call time.
 	cfg.OAuthClientID = os.Getenv("OAUTH_CLIENT_ID")
 	cfg.OAuthClientSecret = os.Getenv("OAUTH_CLIENT_SECRET")
 	cfg.OAuthRedirectURI = os.Getenv("OAUTH_REDIRECT_URI")
