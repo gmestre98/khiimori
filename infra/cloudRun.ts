@@ -93,6 +93,8 @@ export const service = new gcp.cloudrunv2.Service(
             { name: 'GOOGLE_CLOUD_PROJECT', value: project },
             // Cross-origin allowlist — the web app's Hosting origin (S3).
             { name: 'CORS_ALLOWED_ORIGINS', value: corsAllowedOrigins },
+            // TEMPORARY — M01.7 S5 alert drill. Remove after email confirmed.
+            { name: 'DEBUG_ERROR_TRIGGER', value: 'true' },
             secretEnv('DATABASE_URL', databaseUrlSecret),
             secretEnv('GOOGLE_OAUTH_CLIENT_SECRET', oauthClientSecret),
             secretEnv('MAPS_API_KEY', mapsApiKeySecret),
