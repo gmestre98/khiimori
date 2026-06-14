@@ -4,8 +4,11 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
+	"errors"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -63,6 +66,50 @@ func (s *oauthStateStore) issue(w http.ResponseWriter) (state, nonce string, err
 		SameSite: http.SameSiteLaxMode,
 	})
 	return state, nonce, nil
+}
+
+// verify reads the state cookie back on the callback, checks its HMAC, and
+// confirms the cookie's state equals gotState (the `state` Google echoed). It
+// returns the bound nonce on success. All comparisons are constant time. Any
+// failure (missing/malformed cookie, bad signature, state mismatch) returns an
+// error and no nonce, so the caller rejects the sign-in.
+func (s *oauthStateStore) verify(r *http.Request, gotState string) (nonce string, err error) {
+	c, err := r.Cookie(stateCookieName)
+	if err != nil {
+		return "", errors.New("auth: state cookie missing")
+	}
+	parts := strings.Split(c.Value, ".")
+	if len(parts) != 3 {
+		return "", errors.New("auth: state cookie malformed")
+	}
+	state, nonce, gotMAC := parts[0], parts[1], parts[2]
+
+	// Integrity first: the MAC must authenticate the state+nonce payload before
+	// either value is trusted.
+	wantMAC := s.mac(state + "." + nonce)
+	if subtle.ConstantTimeCompare([]byte(gotMAC), []byte(wantMAC)) != 1 {
+		return "", errors.New("auth: state cookie signature invalid")
+	}
+
+	// CSRF: the cookie's state must match the state echoed by Google.
+	if gotState == "" || subtle.ConstantTimeCompare([]byte(gotState), []byte(state)) != 1 {
+		return "", errors.New("auth: state mismatch")
+	}
+	return nonce, nil
+}
+
+// clear expires the state cookie. The cookie is single-use, so the callback
+// clears it whether verification succeeded or failed.
+func (s *oauthStateStore) clear(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     stateCookieName,
+		Value:    "",
+		Path:     stateCookiePath,
+		MaxAge:   -1, // delete now
+		HttpOnly: true,
+		Secure:   s.secure,
+		SameSite: http.SameSiteLaxMode,
+	})
 }
 
 // sign encodes "<state>.<nonce>.<mac>" where mac authenticates the first two
