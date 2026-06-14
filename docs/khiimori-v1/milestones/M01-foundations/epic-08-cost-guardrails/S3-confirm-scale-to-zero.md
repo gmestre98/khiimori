@@ -1,5 +1,7 @@
 # S3 — Confirm scale-to-zero defaults (Cloud Run + Neon)
 
+> **Status:** ✅ Done — `minInstances=0` default confirmed in `tunables.ts` with a drift guard (`pulumi.log.warn` fires if raised above 0); Neon free-tier autosuspend behaviour documented in `tunables.ts` comments; `scaleToZeroActive` output in `index.ts` confirms idle-≈€0 posture at a glance. No always-on resource introduced by this epic.
+
 ## Context
 The project's idle bill should be ≈€0, which depends on **scale-to-zero defaults** holding for both Cloud
 Run and Neon (PRD §8.1, §8.6). M01.4 S9 set Cloud Run `min-instances=0`; this story verifies the whole
