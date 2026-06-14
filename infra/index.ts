@@ -16,6 +16,7 @@ import { serviceUrl } from './cloudRun'
 import { hostingSiteId, hostingUrl } from './hosting'
 import { ciDeployerServiceAccount, wifProvider } from './cicd'
 import { mapsDailyQuota, maxInstances, minInstances, neonTier } from './tunables'
+import { dashboardUrl } from './monitoring'
 
 // Echo the resolved provider config as stack outputs. These are trivial (no
 // resources created) and double as a smoke test that project + region are set.
@@ -53,3 +54,6 @@ export const tunables = {
   neonTier,
   mapsDailyQuota,
 }
+
+// Cloud Monitoring dashboard URL (M01.7 S3) — request rate/latency/5xx.
+export const monitoringDashboardUrl = dashboardUrl
