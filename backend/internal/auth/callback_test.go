@@ -39,18 +39,18 @@ type signInCapture struct {
 // state store (so issue/verify line up), and a capturing onVerified.
 func newCallbackModule(p IdentityProvider) (*Module, *oauthStateStore, *signInCapture) {
 	store := newOAuthStateStore([]byte("test-key"), false)
-	cap := &signInCapture{}
+	seam := &signInCapture{}
 	m := &Module{
 		provider:   p,
 		stateStore: store,
 		configured: true,
 		onVerified: func(w http.ResponseWriter, _ *http.Request, id VerifiedIdentity) {
-			cap.called = true
-			cap.id = id
+			seam.called = true
+			seam.id = id
 			w.WriteHeader(http.StatusOK)
 		},
 	}
-	return m, store, cap
+	return m, store, seam
 }
 
 // issueCookie issues a state cookie from store and returns the bound state and
@@ -83,7 +83,7 @@ func TestHandleCallbackSuccess(t *testing.T) {
 
 	want := VerifiedIdentity{GoogleSub: "sub-1", Email: "a@example.com", Name: "Ann", Avatar: "https://pic"}
 	fp := &fakeProvider{identity: want}
-	m, store, cap := newCallbackModule(fp)
+	m, store, seam := newCallbackModule(fp)
 
 	state, nonce, cookie := issueCookie(t, store)
 	req := httptest.NewRequest(http.MethodGet, CallbackPath+"?state="+state+"&code=auth-code", nil)
@@ -93,11 +93,11 @@ func TestHandleCallbackSuccess(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
-	if !cap.called {
+	if !seam.called {
 		t.Fatal("sign-in seam was not invoked")
 	}
-	if cap.id != want {
-		t.Errorf("identity = %+v, want %+v", cap.id, want)
+	if seam.id != want {
+		t.Errorf("identity = %+v, want %+v", seam.id, want)
 	}
 	if fp.gotCode != "auth-code" {
 		t.Errorf("Exchange code = %q, want auth-code", fp.gotCode)
@@ -114,7 +114,7 @@ func TestHandleCallbackStateMismatch(t *testing.T) {
 	t.Parallel()
 
 	fp := &fakeProvider{identity: VerifiedIdentity{GoogleSub: "x"}}
-	m, store, cap := newCallbackModule(fp)
+	m, store, seam := newCallbackModule(fp)
 
 	// Attach a valid cookie but send a different state in the query.
 	_, _, cookie := issueCookie(t, store)
@@ -128,7 +128,7 @@ func TestHandleCallbackStateMismatch(t *testing.T) {
 	if fp.called {
 		t.Error("Exchange must not run on a state mismatch")
 	}
-	if cap.called {
+	if seam.called {
 		t.Error("sign-in seam must not run on a state mismatch")
 	}
 	assertStateCookieCleared(t, rec)
@@ -139,7 +139,7 @@ func TestHandleCallbackMissingCookie(t *testing.T) {
 	t.Parallel()
 
 	fp := &fakeProvider{}
-	m, _, cap := newCallbackModule(fp)
+	m, _, seam := newCallbackModule(fp)
 
 	req := httptest.NewRequest(http.MethodGet, CallbackPath+"?state=s&code=c", nil)
 	rec := serve(m, req)
@@ -147,7 +147,7 @@ func TestHandleCallbackMissingCookie(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", rec.Code)
 	}
-	if fp.called || cap.called {
+	if fp.called || seam.called {
 		t.Error("a callback without a state cookie must not exchange or sign in")
 	}
 }
@@ -158,7 +158,7 @@ func TestHandleCallbackExchangeFailure(t *testing.T) {
 	t.Parallel()
 
 	fp := &fakeProvider{err: errors.New("id-token verification failed")}
-	m, store, cap := newCallbackModule(fp)
+	m, store, seam := newCallbackModule(fp)
 
 	state, _, cookie := issueCookie(t, store)
 	req := httptest.NewRequest(http.MethodGet, CallbackPath+"?state="+state+"&code=auth-code", nil)
@@ -171,7 +171,7 @@ func TestHandleCallbackExchangeFailure(t *testing.T) {
 	if !fp.called {
 		t.Error("Exchange should have been attempted for a valid state")
 	}
-	if cap.called {
+	if seam.called {
 		t.Error("sign-in seam must not run when Exchange fails")
 	}
 }
@@ -181,7 +181,7 @@ func TestHandleCallbackConsentDenied(t *testing.T) {
 	t.Parallel()
 
 	fp := &fakeProvider{}
-	m, _, cap := newCallbackModule(fp)
+	m, _, seam := newCallbackModule(fp)
 
 	req := httptest.NewRequest(http.MethodGet, CallbackPath+"?error=access_denied", nil)
 	rec := serve(m, req)
@@ -189,7 +189,7 @@ func TestHandleCallbackConsentDenied(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", rec.Code)
 	}
-	if fp.called || cap.called {
+	if fp.called || seam.called {
 		t.Error("a denied consent must not exchange or sign in")
 	}
 }

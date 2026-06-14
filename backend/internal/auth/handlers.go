@@ -1,7 +1,9 @@
 package auth
 
 import (
+	"context"
 	"net/http"
+	"time"
 
 	"github.com/gmestre98/khiimori/backend/internal/platform/httpx"
 	platformlog "github.com/gmestre98/khiimori/backend/internal/platform/log"
@@ -13,6 +15,11 @@ const (
 	LoginPath    = "/auth/login"
 	CallbackPath = "/auth/callback"
 )
+
+// exchangeTimeout bounds the callback's outbound calls to Google (token
+// exchange plus, on first sign-in, OIDC discovery + JWKS) so a slow or hanging
+// endpoint can't tie up the handler — the default HTTP client has no timeout.
+const exchangeTimeout = 15 * time.Second
 
 // handleLogin begins the authorization-code flow: it mints a fresh state +
 // nonce (persisted in the signed cookie), then redirects the browser to
@@ -82,7 +89,9 @@ func (m *Module) handleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	identity, err := m.provider.Exchange(r.Context(), code, nonce)
+	ctx, cancel := context.WithTimeout(r.Context(), exchangeTimeout)
+	defer cancel()
+	identity, err := m.provider.Exchange(ctx, code, nonce)
 	if err != nil {
 		// Do not log the code or token; the provider redacts and we log only the
 		// failure reason text (no sensitive values, per S5).
