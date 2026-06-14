@@ -8,6 +8,8 @@
 
 ---
 
+**Status: ✅ Complete** — all 8 epics done; walking skeleton is live end-to-end; cost guardrails and observability active. Ready for Milestone 02.
+
 ## Milestone goal
 
 Stand up the full vertical slice — React/TS app on Firebase Hosting → Cloud Run Go service → Neon
@@ -16,11 +18,11 @@ guardrails in place. No product features yet, just the rails so Milestones 02–
 
 ## Milestone-level Definition of Done
 
-- A commit to `main` lints, tests, builds, deploys the API to Cloud Run and the web app to Firebase
-  Hosting, and the deployed app round-trips a request through every layer.
-- One Neon Postgres database exists with **schema-per-module** and migrations in CI.
-- Billing budget + alert and Maps API quota caps are live; the idle bill is ≈€0 (PRD §8.5).
-- Structured logs and at least one error alert reach the author while abroad.
+- [x] A commit to `main` lints, tests, builds, deploys the API to Cloud Run and the web app to Firebase
+  Hosting, and the deployed app round-trips a request through every layer. *(verified M01.6)*
+- [x] One Neon Postgres database exists with **schema-per-module** and migrations in CI. *(M01.3)*
+- [x] Billing budget + alert and Maps API quota caps are live; the idle bill is ≈€0 (PRD §8.5). *(M01.8 — activated via CI PR [#155](https://github.com/gmestre98/khiimori/pull/155))*
+- [x] Structured logs and at least one error alert reach the author while abroad. *(M01.7 — alert drill verified 2026-06-14)*
 
 ## Epics in this milestone
 
@@ -33,8 +35,8 @@ guardrails in place. No product features yet, just the rails so Milestones 02–
 | [05](epic-05-cicd-pipeline/README.md) | CI/CD pipeline (GitHub Actions) | 5 | ~3–4 | yes (CI minutes) | ✅ Done |
 | [06](epic-06-frontend-hosting-shell/README.md) | Frontend hosting & app shell | 5 | ~1–2 | — | ✅ Done |
 | [07](epic-07-observability/README.md) | Observability (logs, metrics, alerting) | 5 | ~1–2 | — | ✅ Done |
-| [08](epic-08-cost-guardrails/README.md) | Cost guardrails (billing budget, Maps caps, scale-up levers) | 5 | ~1–2 | yes (the cost epic) | |
-| | **Milestone total** | **40** | **~17–25** (≈ 3.5–5 weeks, one developer) | | |
+| [08](epic-08-cost-guardrails/README.md) | Cost guardrails (billing budget, Maps caps, scale-up levers) | 5 | ~1–2 | yes (the cost epic) | ✅ Done |
+| | **Milestone total** | **40** | **~17–25** (≈ 3.5–5 weeks, one developer) | | ✅ **Complete** |
 
 > **Estimates** assume one developer familiar with the stack; they cover implementation, tests, and
 > review, and exclude the author-provided prerequisites (GCP project, Neon/Firebase accounts,

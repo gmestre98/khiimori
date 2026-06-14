@@ -14,11 +14,11 @@ Assumes the scale config (M01.4 S9), budget (**S1**), and Maps caps (**S2**) exi
 Document each scale-up lever as a single IaC setting with its equivalent dashboard toggle.
 
 ## Acceptance criteria
-- [ ] Each lever — **Neon tier**, Cloud Run **`min-instances`**, **Maps quota** — is documented as a **single config value** + a `pulumi up` (PRD §8.6).
-- [ ] For each, the **dashboard equivalent** (Neon console, Cloud Run console, GCP quotas) is documented for when the author has only a phone.
-- [ ] Each lever notes its **cost delta** (what raising it roughly costs/mo) so the trade-off is explicit (PRD §8.6).
-- [ ] Cross-links the IaC definitions (M01.4 S9) and the budget (S1) so raising a lever and its budget impact are connected.
-- [ ] No lever requires a code change or redeploy of app logic to flip.
+- [x] Each lever (Neon tier, Cloud Run `min-instances` + `max-instances`, Maps quota, billing budget) is a **single config value** + `pulumi up` — documented in `scale-up-levers.md` (PRD §8.6).
+- [x] **Dashboard equivalent** (Neon console, Cloud Run console, GCP Quotas, GCP Billing) documented for phone-only access in `scale-up-levers.md`.
+- [x] Each lever has an explicit **cost delta** estimate (`scale-up-levers.md` Cost delta column) (PRD §8.6).
+- [x] Cross-links IaC definitions (`tunables.ts`, `billing.ts`, `mapsKey.ts`) and budget — "raise a lever → also raise budget alert" noted in `scale-up-levers.md`.
+- [x] No lever requires a code change or app redeploy — all are config-only + `pulumi up`.
 
 ## Constraints
 - Single-setting is the bar — if a lever needs more than one change, fix that, don't just document it (PRD §8.6).

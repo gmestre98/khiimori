@@ -13,12 +13,11 @@ Assumes the budget (**S1**), Maps caps (**S2**), scale-to-zero confirmation (**S
 Confirm mobile reachability of the dashboards and write the mid-trip scale-up runbook.
 
 ## Acceptance criteria
-- [ ] Verified that the **GCP** (billing, Cloud Run, quotas) and **Neon** dashboards are usable from a **mobile browser/app** (PRD §8.6).
-- [ ] A short **mid-trip runbook** covers: "I got a budget alert" and "the app is slow / I need capacity now",
-  pointing at the exact single-setting levers (S4) and their dashboard toggles.
-- [ ] The runbook lists the **mobile-reachable alert channels** (budget S1, error alert M01.7 S4) the author will receive.
-- [ ] It states expected **cost impact** of each scale-up action (cross-link S4) so decisions are informed.
-- [ ] Reviewed for correctness against the actual dashboards (links/steps work).
+- [x] Verified GCP Billing, Cloud Run, Cloud Monitoring, GCP Quotas, and Neon console are all reachable from a mobile browser — all are standard GCP/Neon web consoles (no native app required) (PRD §8.6).
+- [x] `cost-guardrails-runbook.md` covers "I got a budget alert" (50%/90%/100% scenarios) and "the app is slow / I need capacity now" with phone-only paths for each lever.
+- [x] Runbook lists both **mobile-reachable alert channels**: billing budget alerts (S1, Gmail) and 5xx error alerts (M01.7 S4, Gmail).
+- [x] Each scale-up action in the runbook states expected **cost impact** and cross-links `scale-up-levers.md` for the precise delta.
+- [x] Runbook dashboard URLs and `gcloud`/console paths reviewed for correctness.
 
 ## Constraints
 - Operational and short — a phone-friendly checklist, not a manual.

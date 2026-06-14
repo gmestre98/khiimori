@@ -1,6 +1,6 @@
 # S1 — GCP billing budget + alert (IaC)
 
-> **Status:** ✅ Done — `gcp.billing.Budget` (50/90/100% thresholds, EUR, email channel from M01.7 S4) in `infra/billing.ts`; `billingBudgetsApi` enabled in `services.ts`; `khiimori:billingAccount` + `khiimori:billingBudgetEur` config documented. Budget skips gracefully (with a logged warning) until the author sets `billingAccount` ([#PR](https://github.com/gmestre98/khiimori)).
+> **Status:** ✅ Done — `gcp.billing.Budget` (50/90/100% thresholds, EUR, email channel from M01.7 S4) in `infra/billing.ts`; `billingBudgetsApi` enabled in `services.ts`; `khiimori:billingAccount` set in `Pulumi.dev.yaml` and activated via CI ([#150](https://github.com/gmestre98/khiimori/pull/150), [#155](https://github.com/gmestre98/khiimori/pull/155)).
 
 ## Context
 The single step the PRD says prevents nearly all bill surprises is a **billing budget + alert** (PRD §8.5).
@@ -13,11 +13,11 @@ Assumes the IaC stack (M01.4) and a billing-enabled GCP project (author-provided
 Provision a GCP billing budget (~€10/mo) with alert thresholds via Pulumi.
 
 ## Acceptance criteria
-- [ ] A **billing budget** (~€10/mo) is provisioned via IaC against the project's billing account (PRD §8.5).
-- [ ] **Threshold alerts** (e.g. 50/90/100%) notify a channel the author sees on mobile abroad (reuse/align with M01.7 S4 channel).
-- [ ] The amount and thresholds are **config values** (easy to raise when scaling up intentionally).
-- [ ] Defined in the **M01.4 Pulumi stack** — reproducible via `pulumi up`.
-- [ ] No secrets/PII in alert payloads (PRD §8.5).
+- [x] A **billing budget** (~€10/mo) is provisioned via IaC against the project's billing account (PRD §8.5).
+- [x] **Threshold alerts** (50/90/100%) notify a channel the author sees on mobile abroad — reuses the M01.7 S4 email channel.
+- [x] The amount and thresholds are **config values** (`khiimori:billingBudgetEur`, default 10) — easy to raise.
+- [x] Defined in the **M01.4 Pulumi stack** (`infra/billing.ts`) — reproducible via `pulumi up` (automated in CI).
+- [x] No secrets/PII in alert payloads — amount is a plain EUR integer (PRD §8.5).
 
 ## Constraints
 - Reuse the M01.4 stack and (where possible) the M01.7 notification channel — one place, one language (PRD §7.4).
