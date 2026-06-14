@@ -11,7 +11,7 @@ dashboards.
 
 **Estimated effort:** ~1–2 developer-days (one developer).
 
-**Status:** ✅ Done — all 5 stories merged; cost-guardrails-runbook.md written; live `pulumi up` with billingAccount set is the author's confirm step post-deploy.
+**Status:** ✅ Done — all 5 stories merged; billing account set in `Pulumi.dev.yaml` (CI's `pulumi-up` job activates the budget on next push); `restrict-maps-key` CI job idempotently enforces Maps API key restrictions on every merge (PR [#155](https://github.com/gmestre98/khiimori/pull/155)); `cost-guardrails-runbook.md` written. No manual steps required.
 
 ## Acceptance Criteria
 

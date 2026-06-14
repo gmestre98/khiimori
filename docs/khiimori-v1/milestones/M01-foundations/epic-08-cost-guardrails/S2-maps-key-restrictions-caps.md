@@ -13,11 +13,11 @@ Assumes the IaC stack (M01.4) and the Maps key secret (M01.4 S4) exist.
 Restrict the Maps API key and set hard daily quota caps via IaC.
 
 ## Acceptance criteria
-- [ ] The Maps API key is **restricted**: to the specific Maps APIs used, and by application/referrer/IP as appropriate (PRD §8.5).
-- [ ] **Hard daily quota caps** are set on the Maps APIs so usage **cannot exceed** a configured ceiling (PRD §8.4 #2).
-- [ ] Restrictions/caps are **IaC config** in the M01.4 stack (a single value to raise when scaling intentionally).
-- [ ] The key value itself stays in **Secret Manager** (M01.4 S4) — only restrictions/quotas are managed here; key never committed.
-- [ ] Documented: which APIs are enabled, the cap values, and how to raise them.
+- [x] The Maps API key is **restricted**: API targets (Maps JS, Geocoding, Places) enforced via `restrict-maps-key` CI job on every merge; no IP/referrer restriction (Cloud Run uses dynamic IPs — by design).
+- [x] **Hard daily quota caps** set via `gcp.serviceusage.ConsumerQuotaOverride` in `infra/mapsKey.ts` — requests above `mapsDailyQuota` (default 1 000/day) receive HTTP 429, not a bill (PRD §8.4 #2).
+- [x] Quota cap is **IaC config** (`khiimori:mapsDailyQuota` in `tunables.ts`) — single `pulumi config set` + `pulumi up` to raise.
+- [x] Key value stays in **Secret Manager** (`khiimori-maps-api-key`) — only quota override managed in IaC; key never committed.
+- [x] Documented: APIs (Maps JS / Geocoding / Places), cap value (1 000/day default), and how to raise it — in `scale-up-levers.md` and `cost-guardrails-runbook.md`.
 
 ## Constraints
 - Caps are **hard** (deny over-quota), not just alerts — this is the spend-stop for Maps (PRD §8.4 #2).

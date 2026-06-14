@@ -13,11 +13,11 @@ Assumes the IaC stack with scale config (M01.4 S9) and Neon (M01.3) exist.
 Verify and assert that Cloud Run and Neon default to scale-to-zero / idle-≈€0.
 
 ## Acceptance criteria
-- [ ] Confirmed Cloud Run `min-instances` defaults to **0** (from M01.4 S9 config) — service scales to zero when idle.
-- [ ] Confirmed Neon is on the **free tier** and its scale-to-zero/autosuspend behaviour is in effect (M01.3) — documented.
-- [ ] A documented check (or lightweight IaC assertion/test) flags if `min-instances` or the Neon tier drift off the cheap defaults.
-- [ ] The expected **idle cost (≈€0)** and what each non-zero setting would cost are written down (cross-link M01.4 S9).
-- [ ] No always-on resource is introduced by this epic.
+- [x] Confirmed Cloud Run `min-instances` defaults to **0** (`minInstances = cfg.getNumber('minInstances') ?? 0` in `tunables.ts`) — service scales to zero when idle.
+- [x] Confirmed Neon free-tier autosuspend is in effect (suspends after ~5 min idle, wakes on next query ~500 ms) — documented in `tunables.ts` comments.
+- [x] Drift guard: `pulumi.log.warn` fires in `tunables.ts` whenever `minInstances > 0` — visible in every `pulumi up` / `pulumi preview` output.
+- [x] Idle cost (≈€0) and cost-to-raise documented in `tunables.ts` comments and `scale-up-levers.md`; `scaleToZeroActive` stack output confirms posture at a glance.
+- [x] No always-on resource introduced by this epic.
 
 ## Constraints
 - This story **confirms and guards** defaults — it doesn't change the levers (those live in M01.4 S9).
