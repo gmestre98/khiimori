@@ -46,3 +46,6 @@ export const iamCredentialsApi = enableApi('iamcredentials', 'iamcredentials.goo
 
 /** Cloud Monitoring — dashboards and alert policies (M01.7). */
 export const monitoringApi = enableApi('monitoring', 'monitoring.googleapis.com')
+
+/** Cloud Billing Budget API — billing budget + threshold alerts (M01.8 S1). */
+export const billingBudgetsApi = enableApi('billingbudgets', 'billingbudgets.googleapis.com')
