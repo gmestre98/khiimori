@@ -43,3 +43,6 @@ export const stsApi = enableApi('sts', 'sts.googleapis.com')
 
 /** IAM Credentials — short-lived credential minting for SA impersonation (M01.5). */
 export const iamCredentialsApi = enableApi('iamcredentials', 'iamcredentials.googleapis.com')
+
+/** Cloud Monitoring — dashboards and alert policies (M01.7). */
+export const monitoringApi = enableApi('monitoring', 'monitoring.googleapis.com')

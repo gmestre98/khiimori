@@ -90,3 +90,43 @@ raw query string), status, and duration — it logs **no request headers**, so
 
 A unit test (`platform/log`) asserts that logging each sensitive key — flat and
 nested in a group — produces redacted output.
+
+---
+
+## Metrics (S3) — Cloud Monitoring dashboard
+
+Cloud Run exports request metrics automatically to **Cloud Monitoring** — no custom
+exporter or instrumentation needed. The dashboard (`infra/monitoring.ts`) is
+provisioned by Pulumi and shows three panels:
+
+| Panel | Metric | What it tells you |
+|---|---|---|
+| Request rate | `run.googleapis.com/request_count` — rate/s by response class | How much traffic and the healthy/error split |
+| Latency p50 / p95 | `run.googleapis.com/request_latencies` — distribution percentiles | Whether the service is slow (cold start vs regression) |
+| 5xx error rate | `run.googleapis.com/request_count` filtered to `response_code_class="5xx"` — rate/s | How fast errors are happening — the same signal the S4 alert fires on |
+
+### Finding the dashboard
+
+After `pulumi up` runs (CI on merge), the dashboard URL is in the Pulumi stack
+output `monitoringDashboardUrl`:
+
+```
+pulumi stack output monitoringDashboardUrl --stack goncalo-mestre1998-gmail-com/khiimori/dev
+```
+
+Or navigate to **Cloud Console → Monitoring → Dashboards** and look for
+**"Khiimori API — Request Metrics"**.
+
+### The 5xx signal (used by the S4 alert)
+
+The alert policy (S4) fires on the same metric as the dashboard's 5xx panel:
+
+```
+metric.type="run.googleapis.com/request_count"
+resource.type="cloud_run_revision"
+resource.labels.service_name="khiimori-api"
+metric.labels.response_code_class="5xx"
+```
+
+Aggregation: `ALIGN_RATE`, `REDUCE_SUM`, 60 s alignment period. When this
+rate exceeds the threshold for the alert's window (see S4), the policy fires.
