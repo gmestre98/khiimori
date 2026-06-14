@@ -155,6 +155,36 @@ func TestSessionVerifyRejectsExpired(t *testing.T) {
 	}
 }
 
+// TestRefreshIfStaleSlidesAgingSession: a session past its half-life is
+// re-issued (a fresh cookie is written); a young one is left alone.
+func TestRefreshIfStaleSlidesAgingSession(t *testing.T) {
+	t.Parallel()
+
+	sm := newSessionManager([]byte("k"), false, time.Hour)
+
+	// Young session (issued now): no refresh.
+	youngRec := httptest.NewRecorder()
+	sm.refreshIfStale(youngRec, "user-1", time.Now())
+	if readSessionCookie(youngRec) != nil {
+		t.Error("a fresh session should not be slid")
+	}
+
+	// Aging session (issued 40m ago, past the 30m half-life): refreshed.
+	oldRec := httptest.NewRecorder()
+	sm.refreshIfStale(oldRec, "user-1", time.Now().Add(-40*time.Minute))
+	c := readSessionCookie(oldRec)
+	if c == nil {
+		t.Fatal("an aging session should be slid (a new cookie issued)")
+	}
+	// The slid cookie must still authenticate as the same user.
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(c)
+	uid, _, err := sm.verify(req)
+	if err != nil || uid != "user-1" {
+		t.Errorf("slid session: uid=%q err=%v, want user-1 / nil", uid, err)
+	}
+}
+
 // TestSessionIssueUnconfigured: with no signing key, issue errors rather than
 // minting an unsigned credential.
 func TestSessionIssueUnconfigured(t *testing.T) {

@@ -7,7 +7,7 @@
 
 import * as gcp from '@pulumi/gcp'
 import * as pulumi from '@pulumi/pulumi'
-import { databaseUrlSecret, mapsApiKeySecret, oauthClientSecret } from './secrets'
+import { databaseUrlSecret, mapsApiKeySecret, oauthClientSecret, sessionSecret } from './secrets'
 import { mediaBucket } from './storage'
 
 const cfg = new pulumi.Config()
@@ -30,6 +30,7 @@ const secretsByName = {
   'database-url': databaseUrlSecret,
   'oauth-client-secret': oauthClientSecret,
   'maps-api-key': mapsApiKeySecret,
+  'session-secret': sessionSecret,
 }
 for (const [name, secret] of Object.entries(secretsByName)) {
   new gcp.secretmanager.SecretIamMember(`run-access-${name}`, {

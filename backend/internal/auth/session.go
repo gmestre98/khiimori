@@ -97,6 +97,18 @@ func (s *sessionManager) verify(r *http.Request) (userID string, issuedAt time.T
 	return s.parse(c.Value)
 }
 
+// refreshIfStale slides the session forward: once more than half its lifetime
+// has elapsed it re-issues a fresh cookie, so an actively-used session never
+// hits a hard expiry mid-trip (PRD §6) while an idle one still lapses after the
+// full ttl. It is best-effort — on a re-issue error the existing valid session
+// is left untouched — and a no-op while the session is still in its first half.
+func (s *sessionManager) refreshIfStale(w http.ResponseWriter, userID string, issuedAt time.Time) {
+	if time.Since(issuedAt) < s.ttl/2 {
+		return
+	}
+	_ = s.issue(w, userID)
+}
+
 // clear expires the session cookie (sign-out). The attributes must match
 // issue's (name, path, secure, sameSite) so the browser overwrites the right
 // cookie. It needs no signing key and is safe to call when already signed out —

@@ -25,7 +25,7 @@ import (
 // a single route.
 func (m *Module) RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userID, _, err := m.sessions.verify(r)
+		userID, issuedAt, err := m.sessions.verify(r)
 		if err != nil {
 			// Any failure — missing, expired, malformed, or tampered — is a 401 so
 			// the client re-authenticates. The specific reason is deliberately not
@@ -34,6 +34,11 @@ func (m *Module) RequireAuth(next http.Handler) http.Handler {
 				http.StatusUnauthorized, "auth_required", "authentication required"))
 			return
 		}
+		// Slide an aging-but-valid session forward so active use never hits a hard
+		// expiry mid-trip (S4). Best-effort; runs before the handler so the
+		// Set-Cookie lands on the response.
+		m.sessions.refreshIfStale(w, userID, issuedAt)
+
 		ctx := authn.WithPrincipal(r.Context(), authn.Principal{UserID: userID})
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
