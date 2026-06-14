@@ -84,6 +84,18 @@ type Config struct {
 	// DEBUG_ERROR_TRIGGER=true to enable it temporarily for the drill, then
 	// remove the env var once the alert is confirmed.
 	DebugErrorTrigger bool
+
+	// OAuth / Google sign-in (M02.1). All three are optional at startup — the
+	// service boots without them and the auth module validates them when the
+	// sign-in endpoints are called. In production these come from Secret Manager
+	// via Cloud Run env var injection (S5).
+	//
+	//   OAUTH_CLIENT_ID     — Google OAuth 2.0 client ID.
+	//   OAUTH_CLIENT_SECRET — client secret (Secret Manager in prod, S5).
+	//   OAUTH_REDIRECT_URI  — exact redirect URI registered in Google Cloud console.
+	OAuthClientID     string
+	OAuthClientSecret string
+	OAuthRedirectURI  string
 }
 
 // Load reads configuration from the environment and returns an error if any
@@ -174,6 +186,12 @@ func Load() (Config, error) {
 	// Optional: enable the guarded test-only error endpoint for the S5 alert
 	// drill. Off by default; must be removed after verification.
 	cfg.DebugErrorTrigger, _ = strconv.ParseBool(os.Getenv("DEBUG_ERROR_TRIGGER"))
+
+	// Optional: Google OAuth 2.0 / OIDC sign-in. Empty at startup is fine;
+	// the auth endpoints validate and reject unconfigured providers at call time.
+	cfg.OAuthClientID = os.Getenv("OAUTH_CLIENT_ID")
+	cfg.OAuthClientSecret = os.Getenv("OAUTH_CLIENT_SECRET")
+	cfg.OAuthRedirectURI = os.Getenv("OAUTH_REDIRECT_URI")
 
 	return cfg, nil
 }

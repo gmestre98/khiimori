@@ -1,20 +1,26 @@
-# golangci-lint configuration — deliberately minimal (one linter/formatter per
-# language, no premature strictness). Keeps the default linters and adds
-# formatting checks so `golangci-lint run` is the single backend lint command.
+# golangci-lint v2 configuration — deliberately minimal. Keeps the default
+# linters and adds formatting checks so `golangci-lint run` is the single
+# backend lint command.
+version: "2"
+
 run:
   timeout: 5m
 
 linters:
   # Keep golangci-lint's sensible defaults (errcheck, gosimple, govet,
-  # ineffassign, staticcheck, unused) and add formatting linters.
+  # ineffassign, staticcheck, unused).
+  default: standard
+
+formatters:
+  # Enforce gofmt + goimports formatting.
   enable:
     - gofmt
     - goimports
-
-linters-settings:
-  goimports:
-    # Group our own module's imports separately from third-party ones.
-    local-prefixes: github.com/gmestre98/khiimori/backend
+  settings:
+    goimports:
+      # Group our own module's imports separately from third-party ones.
+      local-prefixes:
+        - github.com/gmestre98/khiimori/backend
 
 issues:
   # Show every issue rather than golangci-lint's default per-linter cap.
