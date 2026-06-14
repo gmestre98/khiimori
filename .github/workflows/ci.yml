@@ -206,19 +206,22 @@ jobs:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
 
-      # The integration-tagged migration test applies the full set, asserts the six
-      # module schemas exist, then rolls back — hermetic against a disposable DB. A
-      # failure here gates the change. The DSN is the direct (un-pooled) connection
-      # to the local service DB; it is not a secret, so nothing is masked/printed.
+      # The integration-tagged tests run against a disposable DB, each hermetic
+      # (migrate up → exercise → roll back): the migration suite asserts the six
+      # module schemas, and the auth suite exercises user provisioning end-to-end
+      # (M02.2 S5). A failure here gates the change. The DSN is the direct
+      # (un-pooled) connection to the local service DB; it is not a secret, so
+      # nothing is masked/printed. -p 1 serialises the package binaries so the two
+      # suites don't migrate/reset the shared DB concurrently.
       - name: Integration tests
         env:
           DATABASE_URL_TEST: postgres://postgres:postgres@localhost:5432/khiimori_test?sslmode=disable
-        # The test t.Skip()s (and Go exits 0) when DATABASE_URL_TEST is unset, so
+        # The tests t.Skip() (and Go exits 0) when DATABASE_URL_TEST is unset, so
         # guard against the gate silently passing without a DB; -v makes the run
-        # visibly show the test actually executing.
+        # visibly show the tests actually executing.
         run: |
           test -n "$DATABASE_URL_TEST" || { echo "DATABASE_URL_TEST unset — refusing to pass the integration gate without a DB"; exit 1; }
-          go test -tags=integration -v ./migrations/...
+          go test -tags=integration -p 1 -v ./migrations/... ./internal/auth/...
 
   gcp-auth:
     name: GCP auth (WIF) — verify
