@@ -22,9 +22,15 @@ make migrate-up        # apply pending migrations (loads backend/.env if present
 make migrate-status    # show applied / pending
 ```
 
+## Authentication
+
+Google OAuth 2.0 / OIDC sign-in (the only auth method in v1). For the Google
+Cloud console setup, the `OAUTH_*` configuration, the end-to-end flow, and the
+no-logging guarantees, see **[docs/oauth-signin.md](docs/oauth-signin.md)**.
+
 ## Build, test, lint & format
 
-Prerequisite: Go 1.23+. Lint also needs [`golangci-lint`](https://golangci-lint.run) 1.64+.
+Prerequisite: Go 1.25+. Lint also needs [`golangci-lint`](https://golangci-lint.run) v2+.
 
 ```sh
 cd backend
