@@ -78,6 +78,12 @@ type Config struct {
 	// is simply omitted — logs still carry the request id. Set via the
 	// GOOGLE_CLOUD_PROJECT env var (the IaC wires it on Cloud Run).
 	GCPProject string
+	// DebugErrorTrigger enables the guarded /debug/trigger-error endpoint used
+	// for end-to-end alert verification (M01.7 S5). The endpoint is disabled by
+	// default and must never be left on in normal operation. Set
+	// DEBUG_ERROR_TRIGGER=true to enable it temporarily for the drill, then
+	// remove the env var once the alert is confirmed.
+	DebugErrorTrigger bool
 }
 
 // Load reads configuration from the environment and returns an error if any
@@ -164,6 +170,10 @@ func Load() (Config, error) {
 	// correlation. Unset off Cloud Run (local dev) — logs still carry the
 	// request id.
 	cfg.GCPProject = os.Getenv("GOOGLE_CLOUD_PROJECT")
+
+	// Optional: enable the guarded test-only error endpoint for the S5 alert
+	// drill. Off by default; must be removed after verification.
+	cfg.DebugErrorTrigger, _ = strconv.ParseBool(os.Getenv("DEBUG_ERROR_TRIGGER"))
 
 	return cfg, nil
 }

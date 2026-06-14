@@ -1,5 +1,7 @@
 # S2 — Secret & token redaction in logs
 
+> **Status:** ✅ Done — `slog` ReplaceAttr redacts sensitive keys (authorization, token, password, cookie, dsn, …) before any log write; access log records path only (no headers/query); unit tests + runbook guideline ([#144](https://github.com/gmestre98/khiimori/pull/144)).
+
 ## Context
 Logs must **exclude secrets and tokens** (PRD §6, §8.5) — a leaked credential in Cloud Logging is a real
 breach, and the author can't babysit logs while travelling. This story makes redaction a property of the
@@ -11,12 +13,12 @@ Assumes the structured logger (M01.2 S2) and logs flowing to Cloud Logging (**S1
 Add redaction to the `platform` logger so secrets/tokens never reach the logs.
 
 ## Acceptance criteria
-- [ ] Known sensitive fields (e.g. `authorization`, `token`, `password`, `db_url`, `api_key`, `cookie`) are
+- [x] Known sensitive fields (e.g. `authorization`, `token`, `password`, `db_url`, `api_key`, `cookie`) are
   **redacted/omitted** by the shared logger before output.
-- [ ] Request/response logging (M01.2 S5) never logs auth headers, cookies, or secret query params.
-- [ ] A guideline is documented: secrets are passed as typed values, never interpolated into log messages.
-- [ ] **Unit tests** assert that logging a struct/map containing sensitive keys produces redacted output.
-- [ ] Verified: connection strings / OAuth tokens do not appear in Cloud Logging for a normal request + an error.
+- [x] Request/response logging (M01.2 S5) never logs auth headers, cookies, or secret query params.
+- [x] A guideline is documented: secrets are passed as typed values, never interpolated into log messages.
+- [x] **Unit tests** assert that logging a struct/map containing sensitive keys produces redacted output.
+- [x] Verified: connection strings / OAuth tokens do not appear in Cloud Logging for a normal request + an error.
 
 ## Constraints
 - **Standard library only** for the logger (`log/slog`) — implement redaction with a handler/ReplaceAttr, no new dependency (project rule; ask first if needed).

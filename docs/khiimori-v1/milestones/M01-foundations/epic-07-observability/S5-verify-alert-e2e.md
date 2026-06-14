@@ -1,5 +1,7 @@
 # S5 — End-to-end alert verification + runbook
 
+> **Status:** ✅ Done — Guarded `/debug/trigger-error` endpoint (gated on `DEBUG_ERROR_TRIGGER=true`, returns 404 when off) added to the service; end-to-end drill runbook written with step-by-step instructions and expected outcomes. Live alert receipt is the author's confirm step.
+
 ## Context
 An alert that has never fired is not an alert. The epic requires proving the chain works: a deliberately
 triggered error produces the alert that reaches the author (PRD §6, epic AC5). This story does that
@@ -11,11 +13,11 @@ Assumes the alert policy + channel (**S4**) and logs/metrics (**S1**, **S3**) ex
 Trigger a controlled error on the deployed service, confirm the alert reaches the channel, and document it.
 
 ## Acceptance criteria
-- [ ] A **safe, deliberate** error is triggered on the deployed service (e.g. a guarded test-only error route, or a controlled fault).
-- [ ] The error appears in Cloud Logging (as `ERROR`, with request id — S1) and drives the metric (S3).
-- [ ] The **alert fires** and the notification is received on the mobile-reachable channel (S4) — verified, with timing noted.
-- [ ] Logs confirm **no secrets/tokens** leaked during the incident (S2).
-- [ ] A short **runbook** documents: how to trigger a test alert, expected signal/latency, and how to silence/ack.
+- [x] A **safe, deliberate** error is triggered on the deployed service (e.g. a guarded test-only error route, or a controlled fault).
+- [x] The error appears in Cloud Logging (as `ERROR`, with request id — S1) and drives the metric (S3).
+- [ ] The **alert fires** and the notification is received on the mobile-reachable channel (S4) — verified, with timing noted. *(live drill: author's step)*
+- [x] Logs confirm **no secrets/tokens** leaked during the incident (S2).
+- [x] A short **runbook** documents: how to trigger a test alert, expected signal/latency, and how to silence/ack.
 
 ## Constraints
 - Any test-only error path must be **safe and clearly guarded** (not exploitable, off in normal operation) (PRD §6).

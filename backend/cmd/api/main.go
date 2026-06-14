@@ -89,7 +89,7 @@ func run() error {
 	// above the rest so cross-origin headers land on every response (including a
 	// 500) and a preflight short-circuits before the handlers; Recovery is
 	// innermost so a handler panic becomes a 500 the access log can observe.
-	handler := httpx.Chain(newRouter(database),
+	handler := httpx.Chain(newRouter(database, cfg.DebugErrorTrigger),
 		httpx.RequestIDMiddleware(),
 		httpx.CORS(cfg.CORSAllowedOrigins),
 		httpx.Logging(logger, cfg.GCPProject),
@@ -163,7 +163,10 @@ func run() error {
 // dbPinger is the database handle whose connectivity backs the readiness probe;
 // it is the narrow db.Pinger seam so the router doesn't depend on the concrete
 // pool.
-func newRouter(dbPinger db.Pinger) http.Handler {
+//
+// debugErrorTrigger enables the guarded /debug/trigger-error endpoint for the
+// M01.7 S5 alert-verification drill. It must be false in normal operation.
+func newRouter(dbPinger db.Pinger, debugErrorTrigger bool) http.Handler {
 	mux := http.NewServeMux()
 
 	// Health probes are mounted on the root router so they inherit the shared
@@ -190,5 +193,24 @@ func newRouter(dbPinger db.Pinger) http.Handler {
 		m.RegisterRoutes(mux)
 	}
 
+	// Guarded test-only endpoint for end-to-end alert verification (M01.7 S5).
+	// Disabled by default; enabled only when DEBUG_ERROR_TRIGGER=true is set.
+	// Returns 404 when disabled so the path is not publicly discoverable.
+	// Remove the env var once the alert drill is complete.
+	if debugErrorTrigger {
+		mux.HandleFunc("/debug/trigger-error", debugTriggerError)
+	}
+
 	return mux
+}
+
+// debugTriggerError deliberately returns a 500 so the error-rate metric spikes
+// and the S4 alert can be verified end-to-end. It is only registered when
+// DEBUG_ERROR_TRIGGER=true and must not be left enabled in normal operation.
+func debugTriggerError(w http.ResponseWriter, r *http.Request) {
+	httpx.WriteError(w, r, httpx.NewAPIError(
+		http.StatusInternalServerError,
+		"debug_error_trigger",
+		"deliberate error for alert verification (M01.7 S5)",
+	))
 }
