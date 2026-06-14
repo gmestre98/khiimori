@@ -122,7 +122,7 @@ func TestRedactsSensitiveAttributes(t *testing.T) {
 		"authorization", "Authorization", "password", "passwd", "secret",
 		"client_secret", "token", "access_token", "refresh_token", "api_key",
 		"apikey", "x-api-key", "cookie", "set-cookie", "db_url", "database_url",
-		"credential",
+		"dsn", "credential",
 	}
 	for _, key := range sensitive {
 		t.Run(key, func(t *testing.T) {

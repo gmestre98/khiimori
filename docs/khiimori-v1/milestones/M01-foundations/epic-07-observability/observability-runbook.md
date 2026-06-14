@@ -71,7 +71,7 @@ Keys are matched **case-insensitively by substring**, so variants are caught
 too. Redacted fragments: `authorization`, `password`, `passwd`, `secret`
 (incl. `client_secret`), `token` (incl. `access_token`, `refresh_token`),
 `api_key` / `api-key` / `apikey`, `cookie` (incl. `set-cookie`), `db_url`,
-`database_url`, `credential`.
+`database_url`, `dsn`, `credential`.
 
 The HTTP access log additionally records only method, **URL path** (never the
 raw query string), status, and duration — it logs **no request headers**, so

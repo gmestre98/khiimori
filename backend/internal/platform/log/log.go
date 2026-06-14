@@ -89,6 +89,7 @@ var sensitiveSubstrings = []string{
 	"cookie",
 	"db_url",
 	"database_url",
+	"dsn", // a Postgres DSN embeds the password
 	"credential",
 }
 
