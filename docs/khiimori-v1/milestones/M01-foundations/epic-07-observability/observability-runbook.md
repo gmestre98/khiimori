@@ -169,5 +169,108 @@ In Cloud Monitoring → **Alerting → Incidents**, find the open incident and c
 **Acknowledge**. This silences notifications while you investigate, without
 closing the incident. Click **Close** once the underlying issue is fixed.
 
-To test-fire the alert without waiting for a real error, see S5 (end-to-end
-verification).
+To test-fire the alert without waiting for a real error, see S5 below.
+
+---
+
+## End-to-end alert drill (S5) — how to verify the full chain
+
+The service ships a **guarded test-only error endpoint** (`/debug/trigger-error`)
+controlled by the env var `DEBUG_ERROR_TRIGGER=true`. When disabled (default),
+the path returns 404 and is not discoverable. Enable it temporarily for the
+drill, then remove it.
+
+### Step-by-step drill
+
+**1. Enable the trigger (IaC approach — recommended)**
+
+Add `DEBUG_ERROR_TRIGGER: "true"` to the Cloud Run env via Pulumi:
+
+```
+# infra/cloudRun.ts → envs array, temporarily:
+{ name: 'DEBUG_ERROR_TRIGGER', value: 'true' },
+```
+
+Commit, push to main, wait for CI's `pulumi up` + `deploy` jobs to finish
+(~3–5 min). The new revision is live when CI's "Verify deployed revision" step
+passes.
+
+Alternatively, via gcloud directly (faster for a one-off drill, no IaC change):
+
+```bash
+gcloud run services update khiimori-api \
+  --region europe-west2 \
+  --project intricate-reef-424222-d6 \
+  --update-env-vars DEBUG_ERROR_TRIGGER=true
+```
+
+**2. Trigger repeated errors**
+
+Hit the endpoint several times per minute for ~4 minutes so the 5xx rate is
+sustained above the alert threshold (> 0 for 3 min):
+
+```bash
+SERVICE_URL=https://khiimori-api-qectzihgmq-nw.a.run.app
+for i in $(seq 1 20); do
+  curl -s -o /dev/null -w "%{http_code}\n" "$SERVICE_URL/debug/trigger-error"
+  sleep 10
+done
+```
+
+Each request returns HTTP 500 with `{"error":{"code":"debug_error_trigger",…}}`.
+
+**3. Confirm in Cloud Logging**
+
+Open Logs Explorer → verify `ERROR` entries with `message: "request failed"`,
+`request_id` present, and **no** `authorization`, `token`, `password`, or DSN
+values in any field (redaction check, S2):
+
+```
+resource.type="cloud_run_revision"
+resource.labels.service_name="khiimori-api"
+severity>=ERROR
+jsonPayload.path="/debug/trigger-error"
+```
+
+**4. Confirm the metric spikes (S3)**
+
+Open the **"Khiimori API — Request Metrics"** dashboard → the **5xx error rate**
+panel should show a visible spike during the drill window.
+
+**5. Confirm the alert fires (S4)**
+
+After ~3–4 minutes of sustained errors, Cloud Monitoring fires the
+`Khiimori API — 5xx error rate elevated` policy. You should receive an email at
+`goncalo.mestre1998@gmail.com` with a link to the incident.
+
+Note the timing: from first error → alert email received. Expected latency:
+3 min (alert duration) + ~1 min (evaluation + notification delivery) ≈ **4–5 min**.
+
+**6. Disable the trigger**
+
+Remove `DEBUG_ERROR_TRIGGER` from the Cloud Run env:
+
+```bash
+gcloud run services update khiimori-api \
+  --region europe-west2 \
+  --project intricate-reef-424222-d6 \
+  --remove-env-vars DEBUG_ERROR_TRIGGER
+```
+
+Or revert the IaC change + push to main.
+
+**7. Acknowledge / close the incident**
+
+In Cloud Monitoring → Alerting → Incidents, acknowledge the test incident and
+close it once the error rate returns to zero.
+
+### Expected outcomes
+
+| Check | Expected |
+|---|---|
+| `GET /debug/trigger-error` | HTTP 500, `code: "debug_error_trigger"` |
+| Cloud Logging | `ERROR` entries, `request_id` present, no secrets in any field |
+| 5xx dashboard panel | Visible spike during drill window |
+| Alert email received | ~4–5 min after drill start |
+| Email content | Incident link, no PII or secrets in payload |
+| After disabling trigger | `GET /debug/trigger-error` → HTTP 404 |

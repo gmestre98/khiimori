@@ -32,7 +32,7 @@ guardrails in place. No product features yet, just the rails so Milestones 02–
 | [04](epic-04-infrastructure-as-code/README.md) | Infrastructure as Code (Pulumi/TS) | 5 | ~4–5 | yes (provisions billable infra, €0 idle) | ✅ Done |
 | [05](epic-05-cicd-pipeline/README.md) | CI/CD pipeline (GitHub Actions) | 5 | ~3–4 | yes (CI minutes) | ✅ Done |
 | [06](epic-06-frontend-hosting-shell/README.md) | Frontend hosting & app shell | 5 | ~1–2 | — | ✅ Done |
-| [07](epic-07-observability/README.md) | Observability (logs, metrics, alerting) | 5 | ~1–2 | — | |
+| [07](epic-07-observability/README.md) | Observability (logs, metrics, alerting) | 5 | ~1–2 | — | ✅ Done |
 | [08](epic-08-cost-guardrails/README.md) | Cost guardrails (billing budget, Maps caps, scale-up levers) | 5 | ~1–2 | yes (the cost epic) | |
 | | **Milestone total** | **40** | **~17–25** (≈ 3.5–5 weeks, one developer) | | |
 

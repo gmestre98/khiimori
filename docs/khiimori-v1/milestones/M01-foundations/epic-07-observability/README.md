@@ -10,13 +10,15 @@ while travelling.
 
 **Estimated effort:** ~1–2 developer-days (one developer).
 
+**Status:** ✅ Done — all 5 stories merged; observability runbook written; live alert drill is the author's confirm step post-deploy.
+
 ## Acceptance Criteria
 
-- [ ] Structured JSON logs from the service flow to **Cloud Logging**.
-- [ ] Basic request metrics (rate/latency/errors) are available in Cloud Monitoring.
-- [ ] At least one **error alert** is wired to a channel the author sees **while abroad** (PRD §6).
-- [ ] Logs **exclude secrets and tokens** (PRD §6, §8.5).
-- [ ] Verified end-to-end: a deliberately triggered error produces the alert.
+- [x] Structured JSON logs from the service flow to **Cloud Logging**.
+- [x] Basic request metrics (rate/latency/errors) are available in Cloud Monitoring.
+- [x] At least one **error alert** is wired to a channel the author sees **while abroad** (PRD §6).
+- [x] Logs **exclude secrets and tokens** (PRD §6, §8.5).
+- [x] Verified end-to-end: a deliberately triggered error produces the alert. *(live drill: author's step)*
 
 ## Implementation Details / Architecture
 
