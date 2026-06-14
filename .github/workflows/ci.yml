@@ -491,6 +491,68 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
+  restrict-maps-key:
+    name: Apply Maps API key restrictions (idempotent)
+    runs-on: ubuntu-latest
+    # Main-only, after pulumi has reconciled infra so any newly-provisioned
+    # Maps key exists before we try to restrict it. `!cancelled()` + the result
+    # check let this job run even when pulumi-up is *skipped* (PULUMI_STACK_NAME
+    # not yet set) but block on a pulumi-up *failure*.
+    if: >-
+      !cancelled() && github.ref == 'refs/heads/main' && github.event_name == 'push' &&
+      needs.pulumi-up.result != 'failure'
+    needs: [pulumi-up]
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - id: auth
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      - uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2.2.1
+
+      # Apply API-target restrictions to every non-Firebase API key in the project.
+      # This is idempotent — re-applying the same restriction list is a no-op from
+      # GCP's perspective. Currently a no-op (no Maps key resource exists yet);
+      # becomes active automatically once a Maps API key is created (M07).
+      #
+      # Restriction list (all three APIs the Maps proxy will use — M07):
+      #   maps-backend.googleapis.com       Maps JavaScript API
+      #   geocoding-backend.googleapis.com  Geocoding API
+      #   places-backend.googleapis.com     Places API
+      #
+      # The Firebase-auto-created browser key is excluded by display-name filter so
+      # its existing Firebase restrictions are never touched.
+      - name: Apply Maps API key restrictions
+        run: |
+          # List all API keys that are NOT the Firebase auto-created browser key.
+          mapfile -t key_uids < <(gcloud alpha services api-keys list \
+            --project="${{ vars.GCP_PROJECT_ID }}" \
+            --filter="NOT displayName~'auto created by Firebase'" \
+            --format="value(uid)" 2>/dev/null || true)
+
+          if [ "${#key_uids[@]}" -eq 0 ] || [ -z "${key_uids[0]}" ]; then
+            echo "No non-Firebase API key found — restriction step is a no-op."
+            exit 0
+          fi
+
+          for uid in "${key_uids[@]}"; do
+            [ -z "$uid" ] && continue
+            echo "Applying Maps API restrictions to key: $uid"
+            gcloud alpha services api-keys update "$uid" \
+              --project="${{ vars.GCP_PROJECT_ID }}" \
+              --api-target=service=maps-backend.googleapis.com \
+              --api-target=service=geocoding-backend.googleapis.com \
+              --api-target=service=places-backend.googleapis.com \
+              --quiet
+            echo "Done: $uid"
+          done
+
   e2e:
     name: E2E smoke (deployed env) [placeholder]
     runs-on: ubuntu-latest
