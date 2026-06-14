@@ -21,6 +21,9 @@ type Module struct {
 	// provisioner turns a verified identity into a persisted user (Epic 02). It
 	// is invoked by the callback via onVerified.
 	provisioner *Provisioner
+	// users reads/updates the profile row for the profile endpoints (Epic 04). It
+	// is the same store the provisioner writes through.
+	users profileStore
 	// sessions issues and validates the authenticated session cookie (Epic 03):
 	// completeSignIn mints one, and the auth middleware validates it.
 	sessions *sessionManager
@@ -42,11 +45,13 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Module {
 		RedirectURI:  cfg.OAuthRedirectURI,
 	}
 	secure := cfg.Env == config.EnvProd
+	repo := &pgxUserRepo{pool: pool}
 	m := &Module{
 		provider:    NewGoogleProvider(gcfg),
 		stateStore:  newOAuthStateStore(deriveStateKey(gcfg.ClientSecret), secure),
 		configured:  gcfg.ClientID != "" && gcfg.ClientSecret != "" && gcfg.RedirectURI != "",
-		provisioner: &Provisioner{repo: &pgxUserRepo{pool: pool}, adminEmail: cfg.AdminEmail},
+		provisioner: &Provisioner{repo: repo, adminEmail: cfg.AdminEmail},
+		users:       repo,
 		sessions:    newSessionManager([]byte(cfg.SessionSecret), secure, sessionTTL),
 	}
 	m.onVerified = m.completeSignIn
@@ -63,6 +68,9 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("GET "+SessionPath, m.RequireAuth(http.HandlerFunc(m.handleSession)))
 	// Sign-out is public so it can clear a stale/expired cookie too.
 	mux.HandleFunc("POST "+LogoutPath, m.handleLogout)
+	// Profile read (Epic 04), behind the auth middleware — always the session
+	// user's own row.
+	mux.Handle("GET "+ProfilePath, m.RequireAuth(http.HandlerFunc(m.handleProfileRead)))
 }
 
 // completeSignIn finishes a verified sign-in: it provisions the user (Epic 02) —
