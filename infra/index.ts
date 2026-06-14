@@ -17,6 +17,7 @@ import { hostingSiteId, hostingUrl } from './hosting'
 import { ciDeployerServiceAccount, wifProvider } from './cicd'
 import { mapsDailyQuota, maxInstances, minInstances, neonTier } from './tunables'
 import { dashboardUrl } from './monitoring'
+import { alertPolicy, emailChannel } from './alerting'
 
 // Echo the resolved provider config as stack outputs. These are trivial (no
 // resources created) and double as a smoke test that project + region are set.
@@ -57,3 +58,7 @@ export const tunables = {
 
 // Cloud Monitoring dashboard URL (M01.7 S3) — request rate/latency/5xx.
 export const monitoringDashboardUrl = dashboardUrl
+
+// Error alert policy + email channel (M01.7 S4).
+export const errorAlertPolicyName = alertPolicy.name
+export const errorAlertChannelName = emailChannel.name
