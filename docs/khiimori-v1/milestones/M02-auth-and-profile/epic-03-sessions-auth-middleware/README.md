@@ -1,5 +1,7 @@
 # Epic M02.3 — Sessions & auth middleware
 
+> **Status:** ✅ Done — all 5 stories merged (PRs [#171](https://github.com/gmestre98/khiimori/pull/171)–[#175](https://github.com/gmestre98/khiimori/pull/175)) and all 5 acceptance criteria verified, including **live checks** against the deployed service (`/auth/session` → 401 `auth_required` unauthenticated; `/auth/logout` clears the `HttpOnly; Secure; SameSite=None` cookie; credentialed CORS for the web origin). Mechanism: a stateless HMAC-signed session cookie behind a small interface; see [backend/docs/sessions.md](../../../../../backend/docs/sessions.md).
+>
 > Milestone: [02 — Auth & Profile](../README.md) · PRD refs: §6, §7.0, §7.1.
 
 ## Description
@@ -15,16 +17,16 @@ hidden behind the middleware so it can change without touching callers (PRD §7.
 
 ## Acceptance Criteria
 
-- [ ] On a successful sign-in, an **authenticated session/token** is issued for the provisioned user
+- [x] On a successful sign-in, an **authenticated session/token** is issued for the provisioned user
       (httpOnly secure cookie or short-lived signed token + refresh — chosen mechanism documented)
       (PRD §6).
-- [ ] **Auth middleware** validates the session on every request and exposes the authenticated user
+- [x] **Auth middleware** validates the session on every request and exposes the authenticated user
       to handlers; it is the single hook **every other module** uses (PRD §7.1).
-- [ ] **Missing or expired** credentials yield **`401`**; the client can detect this and re-auth; no
+- [x] **Missing or expired** credentials yield **`401`**; the client can detect this and re-auth; no
       protected handler runs without a valid session (PRD §6).
-- [ ] **Sign-out** invalidates the session client-side (and server-side if the mechanism is
+- [x] **Sign-out** invalidates the session client-side (and server-side if the mechanism is
       stateful), so a signed-out credential no longer authenticates.
-- [ ] Unit + integration tests cover valid/expired/missing sessions, the `401` path, and sign-out
+- [x] Unit + integration tests cover valid/expired/missing sessions, the `401` path, and sign-out
       (PRD §7.6).
 
 ## Implementation Details / Architecture
