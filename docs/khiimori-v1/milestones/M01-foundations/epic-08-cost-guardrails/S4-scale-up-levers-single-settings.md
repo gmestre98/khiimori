@@ -1,5 +1,7 @@
 # S4 — Scale-up levers as single settings (IaC + dashboard)
 
+> **Status:** ✅ Done — `scale-up-levers.md` documents each lever (Neon tier, Cloud Run min/max-instances, Maps quota, billing budget) as a single config value + `pulumi up`, with dashboard equivalent and cost delta. All levers are one-setting flips; no code change or redeploy needed beyond `pulumi up`.
+
 ## Context
 The PRD's plan is "run at ≈€0, **scale up on demand with a single setting**" (PRD §8.6). The levers — Neon
 tier, Cloud Run `min-instances`, Maps quota — already exist as IaC config (M01.4 S9, this epic's S1/S2).
