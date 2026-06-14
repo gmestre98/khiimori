@@ -214,3 +214,54 @@ func TestProfileEditRequiresSession(t *testing.T) {
 		t.Fatalf("status = %d, want 401", rec.Code)
 	}
 }
+
+// TestProfileCurrencyImmutable: a client cannot change default_currency via the
+// edit endpoint — sending it (alone or alongside a valid field) is ignored and
+// the currency stays EUR, while the valid field still applies. This locks the
+// server-side EUR-read-only guarantee (S3) against regressions.
+func TestProfileCurrencyImmutable(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name     string
+		body     string
+		wantName string // expected name after the patch (proves valid fields still apply)
+	}{
+		{"currency only", `{"default_currency":"USD"}`, "Ann"},
+		{"currency alongside a valid edit", `{"name":"Ann B.","default_currency":"USD"}`, "Ann B."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			u := User{ID: "user-1", Name: "Ann", DefaultCurrency: "EUR", Prefs: json.RawMessage(`{}`)}
+			m := profileModule(newFakeProfileStore(u))
+
+			rec := patchProfile(t, m, "user-1", tc.body)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200 (body %q)", rec.Code, rec.Body.String())
+			}
+			var got profileResponse
+			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			if got.DefaultCurrency != "EUR" {
+				t.Errorf("default_currency = %q, want EUR (must be immutable)", got.DefaultCurrency)
+			}
+			if got.Name != tc.wantName {
+				t.Errorf("name = %q, want %q (valid fields still apply)", got.Name, tc.wantName)
+			}
+			// Confirmed on a re-read too.
+			if _, after := readProfile(t, m, "user-1"); after.DefaultCurrency != "EUR" {
+				t.Errorf("read-back currency = %q, want EUR", after.DefaultCurrency)
+			}
+		})
+	}
+}
+
+// TestProfileReadReturnsEUR: the read endpoint always reports EUR.
+func TestProfileReadReturnsEUR(t *testing.T) {
+	t.Parallel()
+
+	m := profileModule(newFakeProfileStore(User{ID: "user-1", Name: "Ann", DefaultCurrency: "EUR", Prefs: json.RawMessage(`{}`)}))
+	if _, body := readProfile(t, m, "user-1"); body.DefaultCurrency != "EUR" {
+		t.Errorf("default_currency = %q, want EUR", body.DefaultCurrency)
+	}
+}

@@ -82,7 +82,15 @@ func (p profilePatch) validate() error {
 
 // profileResponse is the stable wire shape the frontend (Epic 05) consumes. It
 // carries the editable fields (name, avatar, home_base, theme), the read-only
-// Google email, and the fixed default_currency (always EUR, S3).
+// Google email, and default_currency.
+//
+// default_currency is read-only and always EUR in v1, enforced **server-side**,
+// not just hidden in the UI (PRD §5.7): the column defaults to EUR, profilePatch
+// has no currency field, and UpdateProfile never writes the column — so no
+// request, however crafted, can change it. The field is kept in the model and
+// response for forward-compatibility (PRD §11.5) and echoes the row value rather
+// than a hardcoded literal, so it stays correct if currency ever becomes
+// editable.
 type profileResponse struct {
 	Name            string `json:"name"`
 	Email           string `json:"email"`
