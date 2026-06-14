@@ -97,6 +97,15 @@ type Config struct {
 	OAuthClientSecret string
 	OAuthRedirectURI  string
 
+	// SessionSecret is the HMAC signing key for authenticated session cookies
+	// (M02.3). In production it comes from Secret Manager via Cloud Run env
+	// injection (S4); locally it is set in backend/.env. Optional at startup (the
+	// service boots without it), but sign-in cannot issue a session and the auth
+	// middleware cannot validate one until it is set — both surface a clear error
+	// at call time. Rotating it invalidates all existing sessions. Set via the
+	// SESSION_SECRET env var.
+	SessionSecret string
+
 	// AdminEmail is the admin-bootstrap path (M02.2 S4): the verified Google
 	// email designated to be provisioned with is_admin=true, enabling Milestone
 	// 08's backoffice. It is matched case-insensitively against the verified
@@ -125,7 +134,8 @@ type Config struct {
 //
 //	CORS_ALLOWED_ORIGINS  comma-separated browser origins allowed cross-origin
 //	GOOGLE_CLOUD_PROJECT  GCP project id, for Cloud Logging trace correlation
-//	ADMIN_EMAIL           verified Google email bootstrapped as admin (S4)
+//	ADMIN_EMAIL           verified Google email bootstrapped as admin (M02.2 S4)
+//	SESSION_SECRET        HMAC key for session cookies (M02.3; Secret Manager in prod)
 //
 // Of the two DSNs, only the active one (per DB_POOLED) is required; the unused
 // endpoint stays optional so a pooled service isn't forced to carry the direct
@@ -204,6 +214,10 @@ func Load() (Config, error) {
 	cfg.OAuthClientID = os.Getenv("OAUTH_CLIENT_ID")
 	cfg.OAuthClientSecret = os.Getenv("OAUTH_CLIENT_SECRET")
 	cfg.OAuthRedirectURI = os.Getenv("OAUTH_REDIRECT_URI")
+
+	// Optional: the session signing key (S4 sources it from Secret Manager). Empty
+	// at startup is fine — sign-in/auth middleware validate it at call time.
+	cfg.SessionSecret = os.Getenv("SESSION_SECRET")
 
 	// Optional: the admin-bootstrap email (S4). Trimmed of surrounding whitespace
 	// so a stray space in the secret/env value doesn't defeat the match; the

@@ -33,6 +33,10 @@ func TestCORSAllowsConfiguredOrigin(t *testing.T) {
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != allowedOrigin {
 		t.Errorf("Access-Control-Allow-Origin = %q, want %q", got, allowedOrigin)
 	}
+	// Credentialed CORS so the SPA can send the session cookie (M02.3).
+	if got := rec.Header().Get("Access-Control-Allow-Credentials"); got != "true" {
+		t.Errorf("Access-Control-Allow-Credentials = %q, want true", got)
+	}
 	if got := rec.Header().Get("Vary"); got != "Origin" {
 		t.Errorf("Vary = %q, want Origin", got)
 	}
@@ -53,6 +57,9 @@ func TestCORSRejectsDisallowedOrigin(t *testing.T) {
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
 		t.Errorf("Access-Control-Allow-Origin = %q, want empty for a disallowed origin", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Credentials"); got != "" {
+		t.Errorf("Access-Control-Allow-Credentials = %q, want empty for a disallowed origin", got)
 	}
 }
 

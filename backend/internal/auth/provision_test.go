@@ -29,6 +29,7 @@ func newProvisioningModule(repo userRepo) (*Module, *oauthStateStore) {
 		stateStore:  store,
 		configured:  true,
 		provisioner: &Provisioner{repo: repo},
+		sessions:    testSessions(),
 	}
 	m.onVerified = m.completeSignIn
 	return m, store
