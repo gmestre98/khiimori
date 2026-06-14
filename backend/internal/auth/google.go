@@ -59,10 +59,13 @@ func NewGoogleProvider(cfg GoogleConfig) *GoogleProvider {
 	}
 }
 
-// AuthCodeURL returns the Google consent URL carrying state and nonce (S2).
+// AuthCodeURL returns the Google consent URL for the authorization-code flow,
+// carrying the CSRF state and the OIDC nonce. The URL embeds the configured
+// client ID, the exact redirect URI, and the openid/email/profile scopes; the
+// nonce is added as the standard OIDC `nonce` parameter (verified against the
+// ID token's claim in S3).
 func (p *GoogleProvider) AuthCodeURL(state, nonce string) string {
-	// Implemented in S2.
-	return ""
+	return p.oauthCfg.AuthCodeURL(state, oidc.Nonce(nonce))
 }
 
 // Exchange verifies state, exchanges the code, and validates the ID token (S3).
