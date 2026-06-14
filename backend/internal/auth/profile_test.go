@@ -265,3 +265,35 @@ func TestProfileReadReturnsEUR(t *testing.T) {
 		t.Errorf("default_currency = %q, want EUR", body.DefaultCurrency)
 	}
 }
+
+// TestProfileIsolationBetweenUsers: the profile endpoints act strictly on the
+// session user's own row. Two users with two sessions each see/edit only their
+// own profile — there is no client-supplied id, so one user can never target
+// another's row. Driven through the real RequireAuth middleware so the
+// session-derivation is exercised, not bypassed.
+func TestProfileIsolationBetweenUsers(t *testing.T) {
+	t.Parallel()
+
+	a := User{ID: "user-a", Name: "Ann", Email: "a@example.com", DefaultCurrency: "EUR", Prefs: json.RawMessage(`{}`)}
+	b := User{ID: "user-b", Name: "Bob", Email: "b@example.com", DefaultCurrency: "EUR", Prefs: json.RawMessage(`{}`)}
+	m := profileModule(newFakeProfileStore(a, b))
+
+	// Each session reads its own row.
+	if _, pa := readProfile(t, m, "user-a"); pa.Name != "Ann" || pa.Email != "a@example.com" {
+		t.Fatalf("user-a read = %+v, want Ann/a@example.com", pa)
+	}
+	if _, pb := readProfile(t, m, "user-b"); pb.Name != "Bob" || pb.Email != "b@example.com" {
+		t.Fatalf("user-b read = %+v, want Bob/b@example.com", pb)
+	}
+
+	// A edits A; B's row is untouched.
+	if rec := patchProfile(t, m, "user-a", `{"name":"Ann B."}`); rec.Code != http.StatusOK {
+		t.Fatalf("user-a edit status = %d, want 200", rec.Code)
+	}
+	if _, pa := readProfile(t, m, "user-a"); pa.Name != "Ann B." {
+		t.Errorf("user-a after edit = %q, want Ann B.", pa.Name)
+	}
+	if _, pb := readProfile(t, m, "user-b"); pb.Name != "Bob" {
+		t.Errorf("user-b leaked an edit from user-a: name = %q, want Bob", pb.Name)
+	}
+}
