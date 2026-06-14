@@ -23,9 +23,11 @@ const corsPreflightMaxAge = "600"
 // matches, so the browser blocks cross-origin reads. Same-origin and non-browser
 // callers (which send no Origin) are never affected.
 //
-// Credentialed requests are not enabled yet (no Access-Control-Allow-Credentials)
-// because v1 has no cookie-based session; when sessions land (M02) that header is
-// added here alongside the origin echo.
+// Credentialed requests are enabled (Access-Control-Allow-Credentials: true) so
+// the web app can send its httpOnly session cookie (M02.3) on cross-origin
+// fetches to the API. This is only ever paired with the exact echoed origin
+// above — never "*" — which the browser requires for credentialed CORS and which
+// keeps the grant scoped to the configured web origins (PRD §6).
 func CORS(allowedOrigins []string) Middleware {
 	allowed := make(map[string]struct{}, len(allowedOrigins))
 	for _, o := range allowedOrigins {
@@ -44,6 +46,9 @@ func CORS(allowedOrigins []string) Middleware {
 			}
 			if origin != "" && isAllowed {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
+				// Paired only with the exact origin (never "*"), so the browser
+				// will attach and accept the session cookie cross-origin.
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
 			}
 
 			// A CORS preflight is an OPTIONS carrying Access-Control-Request-Method.

@@ -10,7 +10,7 @@ import (
 // following os.Unsetenv then clears it so LookupEnv reports the variable absent.
 func clearEnv(t *testing.T) {
 	t.Helper()
-	for _, k := range []string{"PORT", "ENV", "LOG_LEVEL", "DATABASE_URL", "DATABASE_URL_DIRECT", "DB_POOLED", "CORS_ALLOWED_ORIGINS", "OAUTH_CLIENT_ID", "OAUTH_CLIENT_SECRET", "OAUTH_REDIRECT_URI", "ADMIN_EMAIL"} {
+	for _, k := range []string{"PORT", "ENV", "LOG_LEVEL", "DATABASE_URL", "DATABASE_URL_DIRECT", "DB_POOLED", "CORS_ALLOWED_ORIGINS", "OAUTH_CLIENT_ID", "OAUTH_CLIENT_SECRET", "OAUTH_REDIRECT_URI", "ADMIN_EMAIL", "SESSION_SECRET"} {
 		t.Setenv(k, "")
 		if err := os.Unsetenv(k); err != nil {
 			t.Fatalf("unset %s: %v", k, err)

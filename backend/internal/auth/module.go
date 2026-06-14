@@ -21,6 +21,9 @@ type Module struct {
 	// provisioner turns a verified identity into a persisted user (Epic 02). It
 	// is invoked by the callback via onVerified.
 	provisioner *Provisioner
+	// sessions issues and validates the authenticated session cookie (Epic 03):
+	// completeSignIn mints one, and the auth middleware validates it.
+	sessions *sessionManager
 	// onVerified consumes a verified identity after a successful callback. The
 	// default is completeSignIn (provision the user); session issuance (Epic 03)
 	// extends it. Kept as a field so tests can substitute a capturing stub.
@@ -38,11 +41,13 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Module {
 		ClientSecret: cfg.OAuthClientSecret,
 		RedirectURI:  cfg.OAuthRedirectURI,
 	}
+	secure := cfg.Env == config.EnvProd
 	m := &Module{
 		provider:    NewGoogleProvider(gcfg),
-		stateStore:  newOAuthStateStore(deriveStateKey(gcfg.ClientSecret), cfg.Env == config.EnvProd),
+		stateStore:  newOAuthStateStore(deriveStateKey(gcfg.ClientSecret), secure),
 		configured:  gcfg.ClientID != "" && gcfg.ClientSecret != "" && gcfg.RedirectURI != "",
 		provisioner: &Provisioner{repo: &pgxUserRepo{pool: pool}, adminEmail: cfg.AdminEmail},
+		sessions:    newSessionManager([]byte(cfg.SessionSecret), secure, sessionTTL),
 	}
 	m.onVerified = m.completeSignIn
 	return m
@@ -55,18 +60,28 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET "+CallbackPath, m.handleCallback)
 }
 
-// completeSignIn finishes a verified sign-in by provisioning the user (Epic 02):
+// completeSignIn finishes a verified sign-in: it provisions the user (Epic 02) —
 // first sign-in creates the user + empty profile, a returning sign-in resolves
-// to the same row (S3). It then acknowledges success without exposing the
-// identity (no PII/tokens in the body or logs). Epic 03 replaces the ack with a
-// real session for the provisioned user.
+// to the same row — then issues an authenticated session cookie for that user
+// (Epic 03) and acknowledges. The identity is never exposed in the body or logs.
 func (m *Module) completeSignIn(w http.ResponseWriter, r *http.Request, id VerifiedIdentity) {
-	if _, err := m.provisioner.Provision(r.Context(), id); err != nil {
+	user, err := m.provisioner.Provision(r.Context(), id)
+	if err != nil {
 		// Log a fixed reason only — the error does not carry tokens, the code, or
 		// the client secret (S5 no-logging guarantee).
 		platformlog.FromContext(r.Context()).Error("provisioning user", "err", err.Error())
 		httpx.WriteError(w, r, httpx.NewAPIError(
 			http.StatusInternalServerError, "auth_provision_failed", "could not complete sign-in"))
+		return
+	}
+
+	// Issue the session before writing the body so the Set-Cookie header lands on
+	// the response. A missing signing key is a server misconfiguration, not a
+	// client error.
+	if err := m.sessions.issue(w, user.ID); err != nil {
+		platformlog.FromContext(r.Context()).Error("issuing session", "err", err.Error())
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusInternalServerError, "auth_session_failed", "could not complete sign-in"))
 		return
 	}
 
