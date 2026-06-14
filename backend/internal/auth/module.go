@@ -68,9 +68,10 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("GET "+SessionPath, m.RequireAuth(http.HandlerFunc(m.handleSession)))
 	// Sign-out is public so it can clear a stale/expired cookie too.
 	mux.HandleFunc("POST "+LogoutPath, m.handleLogout)
-	// Profile read (Epic 04), behind the auth middleware — always the session
-	// user's own row.
+	// Profile read + edit (Epic 04), behind the auth middleware — always the
+	// session user's own row.
 	mux.Handle("GET "+ProfilePath, m.RequireAuth(http.HandlerFunc(m.handleProfileRead)))
+	mux.Handle("PATCH "+ProfilePath, m.RequireAuth(http.HandlerFunc(m.handleProfileUpdate)))
 }
 
 // completeSignIn finishes a verified sign-in: it provisions the user (Epic 02) —
