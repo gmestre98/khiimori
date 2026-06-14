@@ -1,6 +1,6 @@
 # S5 — End-to-end alert verification + runbook
 
-> **Status:** ✅ Done — Guarded `/debug/trigger-error` endpoint (gated on `DEBUG_ERROR_TRIGGER=true`, returns 404 when off) added to the service; end-to-end drill runbook written with step-by-step instructions and expected outcomes. Live alert receipt is the author's confirm step.
+> **Status:** ✅ Done — Guarded `/debug/trigger-error` endpoint (gated on `DEBUG_ERROR_TRIGGER=true`, returns 404 when off) added to the service; end-to-end drill runbook written with step-by-step instructions and expected outcomes. Live alert verified 2026-06-14: email received ~4 min after drill start.
 
 ## Context
 An alert that has never fired is not an alert. The epic requires proving the chain works: a deliberately
@@ -15,7 +15,7 @@ Trigger a controlled error on the deployed service, confirm the alert reaches th
 ## Acceptance criteria
 - [x] A **safe, deliberate** error is triggered on the deployed service (e.g. a guarded test-only error route, or a controlled fault).
 - [x] The error appears in Cloud Logging (as `ERROR`, with request id — S1) and drives the metric (S3).
-- [ ] The **alert fires** and the notification is received on the mobile-reachable channel (S4) — verified, with timing noted. *(live drill: author's step)*
+- [x] The **alert fires** and the notification is received on the mobile-reachable channel (S4) — verified 2026-06-14: 25 × HTTP 500 over 4 min 5 s (08:53:57Z–08:58:02Z); alert email received at goncalo.mestre1998@gmail.com ~4 min after drill start.
 - [x] Logs confirm **no secrets/tokens** leaked during the incident (S2).
 - [x] A short **runbook** documents: how to trigger a test alert, expected signal/latency, and how to silence/ack.
 
