@@ -53,7 +53,7 @@ config:
 # GCP billing account the project is linked to (format: XXXXXX-XXXXXX-XXXXXX).
 # Find it: GCP Console → Billing → My billing accounts. Not a secret.
 # If unset, the billing budget is skipped (a warning fires at pulumi up).
-# khiimori:billingAccount: XXXXXX-XXXXXX-XXXXXX
+khiimori:billingAccount: 0174E2-8E297D-D1C256
 # Monthly budget amount in EUR (default: 10). The budget alerts at 50/90/100%;
 # it does not auto-cap spend — raise it when intentionally scaling up.
 # khiimori:billingBudgetEur: "10"
