@@ -1,5 +1,7 @@
 # Epic M02.2 — User provisioning & identity model (`auth.*`)
 
+> **Status:** ✅ Done — all 5 stories merged (PRs [#165](https://github.com/gmestre98/khiimori/pull/165)–[#169](https://github.com/gmestre98/khiimori/pull/169)) and all 5 acceptance criteria verified (unit + integration against PG18; prod migration applied green post-merge). The OAuth callback provisions the user; the admin bootstrap is documented in [backend/docs/admin-bootstrap.md](../../../../../backend/docs/admin-bootstrap.md).
+>
 > Milestone: [02 — Auth & Profile](../README.md) · PRD refs: §5.7, §5.8, §7.7, §9.
 
 ## Description
@@ -14,18 +16,18 @@ Milestone 08's backoffice.
 
 ## Acceptance Criteria
 
-- [ ] A migration creates the **`auth.*`** schema with a `User` row per PRD §9:
+- [x] A migration creates the **`auth.*`** schema with a `User` row per PRD §9:
       `id, google_sub (unique), email, name, avatar, home_base, default_currency, prefs (JSONB),
       is_admin` (PRD §7.7, §9).
-- [ ] **First sign-in provisions** a `User` keyed by `google_sub` with `email/name/avatar` from the
+- [x] **First sign-in provisions** a `User` keyed by `google_sub` with `email/name/avatar` from the
       verified identity, `default_currency = EUR` (fixed), `is_admin = false`, and an empty editable
       profile — created in a **single transaction** (PRD §5.8, §7.7).
-- [ ] Provisioning is **idempotent on `google_sub`** (unique constraint): a returning sign-in
+- [x] Provisioning is **idempotent on `google_sub`** (unique constraint): a returning sign-in
       resolves to the **same user**, and a changed Google email updates the existing row rather than
       creating a duplicate (PRD §5.8).
-- [ ] An **admin bootstrap path** can mark a designated user `is_admin = true` (e.g. config-driven
+- [x] An **admin bootstrap path** can mark a designated user `is_admin = true` (e.g. config-driven
       first-user or a one-off command), with no public self-serve admin route (PRD §5.8 → §5.9).
-- [ ] Unit + integration tests cover first-time provisioning, returning-user resolution, and the
+- [x] Unit + integration tests cover first-time provisioning, returning-user resolution, and the
       email-change-no-duplicate case (PRD §7.6).
 
 ## Implementation Details / Architecture
