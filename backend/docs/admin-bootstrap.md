@@ -16,6 +16,9 @@ the **verified** Google email of the signing-in user matches `ADMIN_EMAIL`
   Cloud Run env in prod, `backend/.env` locally). No HTTP route can set
   `is_admin`; the column defaults to `false` for everyone, and only this match
   flips it.
+- **Verified email required:** the match only counts when Google's
+  `email_verified` claim on the ID token is true, so an unverified email claim
+  can never be used to assume the admin's privileges.
 - **Idempotent:** the match runs on every sign-in. Re-running it on an already-
   admin user is a no-op; it is safe to leave configured.
 - **Promote-only:** the provisioning upsert sets

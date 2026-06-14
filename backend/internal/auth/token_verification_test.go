@@ -92,15 +92,16 @@ func (h *oidcTestServer) provider() *GoogleProvider {
 func (h *oidcTestServer) standardClaims(nonce string) map[string]any {
 	now := time.Now()
 	return map[string]any{
-		"iss":     h.srv.URL,
-		"aud":     testClientID,
-		"sub":     "google-sub-123",
-		"email":   "user@example.com",
-		"name":    "Test User",
-		"picture": "https://pic.example/u",
-		"nonce":   nonce,
-		"iat":     now.Unix(),
-		"exp":     now.Add(time.Hour).Unix(),
+		"iss":            h.srv.URL,
+		"aud":            testClientID,
+		"sub":            "google-sub-123",
+		"email":          "user@example.com",
+		"email_verified": true,
+		"name":           "Test User",
+		"picture":        "https://pic.example/u",
+		"nonce":          nonce,
+		"iat":            now.Unix(),
+		"exp":            now.Add(time.Hour).Unix(),
 	}
 }
 
@@ -145,10 +146,11 @@ func TestExchangeValidToken(t *testing.T) {
 		t.Fatalf("Exchange of a valid token failed: %v", err)
 	}
 	want := VerifiedIdentity{
-		GoogleSub: "google-sub-123",
-		Email:     "user@example.com",
-		Name:      "Test User",
-		Avatar:    "https://pic.example/u",
+		GoogleSub:     "google-sub-123",
+		Email:         "user@example.com",
+		EmailVerified: true,
+		Name:          "Test User",
+		Avatar:        "https://pic.example/u",
 	}
 	if got != want {
 		t.Errorf("identity = %+v, want %+v", got, want)

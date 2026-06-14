@@ -58,15 +58,18 @@ func (p *Provisioner) Provision(ctx context.Context, id VerifiedIdentity) (User,
 		Email:     id.Email,
 		Name:      id.Name,
 		Avatar:    id.Avatar,
-		IsAdmin:   p.isAdminEmail(id.Email),
+		IsAdmin:   p.bootstrapsAdmin(id),
 	})
 }
 
-// isAdminEmail reports whether email is the configured admin-bootstrap email.
-// The match is case-insensitive (Google emails are), and an unset adminEmail
-// matches no one — so by default every user is provisioned non-admin.
-func (p *Provisioner) isAdminEmail(email string) bool {
-	return p.adminEmail != "" && strings.EqualFold(email, p.adminEmail)
+// bootstrapsAdmin reports whether this identity should be provisioned as admin:
+// the bootstrap is configured (adminEmail set) and the identity's email is both
+// Google-verified and a case-insensitive match (Google emails are). Requiring
+// EmailVerified means an unverified email claim can never be used to assume the
+// admin's privileges. An unset adminEmail matches no one, so by default every
+// user is provisioned non-admin.
+func (p *Provisioner) bootstrapsAdmin(id VerifiedIdentity) bool {
+	return p.adminEmail != "" && id.EmailVerified && strings.EqualFold(id.Email, p.adminEmail)
 }
 
 // pgxUserRepo is the Postgres-backed userRepo, writing to auth.users.

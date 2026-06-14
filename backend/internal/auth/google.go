@@ -119,19 +119,21 @@ func (p *GoogleProvider) Exchange(ctx context.Context, code, expectedNonce strin
 	}
 
 	var claims struct {
-		Email   string `json:"email"`
-		Name    string `json:"name"`
-		Picture string `json:"picture"`
+		Email         string `json:"email"`
+		EmailVerified bool   `json:"email_verified"`
+		Name          string `json:"name"`
+		Picture       string `json:"picture"`
 	}
 	if err := idToken.Claims(&claims); err != nil {
 		return VerifiedIdentity{}, fmt.Errorf("auth: parsing id-token claims: %w", err)
 	}
 
 	return VerifiedIdentity{
-		GoogleSub: idToken.Subject,
-		Email:     claims.Email,
-		Name:      claims.Name,
-		Avatar:    claims.Picture,
+		GoogleSub:     idToken.Subject,
+		Email:         claims.Email,
+		EmailVerified: claims.EmailVerified,
+		Name:          claims.Name,
+		Avatar:        claims.Picture,
 	}, nil
 }
 
