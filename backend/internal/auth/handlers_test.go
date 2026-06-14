@@ -17,7 +17,7 @@ func configuredModule() *Module {
 		OAuthClientID:     "test-client-id.apps.googleusercontent.com",
 		OAuthClientSecret: "test-secret",
 		OAuthRedirectURI:  "http://localhost:8080/auth/callback",
-	})
+	}, nil) // login tests don't provision, so no pool is needed
 }
 
 // serve mounts the module's routes and runs one request against them.
@@ -82,7 +82,7 @@ func TestHandleLoginStateCookieMatchesRedirect(t *testing.T) {
 func TestHandleLoginUnconfigured(t *testing.T) {
 	t.Parallel()
 
-	m := New(config.Config{Env: config.EnvDev}) // no OAuth settings
+	m := New(config.Config{Env: config.EnvDev}, nil) // no OAuth settings; unconfigured rejects before provisioning
 	rec := serve(m, httptest.NewRequest(http.MethodGet, LoginPath, nil))
 
 	if rec.Code != http.StatusServiceUnavailable {

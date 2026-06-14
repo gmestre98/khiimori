@@ -213,7 +213,7 @@ func TestHandleCallbackMissingParams(t *testing.T) {
 func TestHandleCallbackUnconfigured(t *testing.T) {
 	t.Parallel()
 
-	m := New(config.Config{Env: config.EnvDev}) // no OAuth settings
+	m := New(config.Config{Env: config.EnvDev}, nil) // no OAuth settings; unconfigured rejects before provisioning
 	rec := serve(m, httptest.NewRequest(http.MethodGet, CallbackPath+"?state=s&code=c", nil))
 
 	if rec.Code != http.StatusServiceUnavailable {

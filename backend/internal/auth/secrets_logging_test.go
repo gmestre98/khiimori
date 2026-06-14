@@ -42,7 +42,7 @@ func TestLoginNeverExposesClientSecret(t *testing.T) {
 		OAuthClientID:     "client.apps.googleusercontent.com",
 		OAuthClientSecret: secret,
 		OAuthRedirectURI:  "http://localhost:8080/auth/callback",
-	})
+	}, nil) // /auth/login does not provision, so no pool is needed
 	h, buf := chainWithLogger(m)
 
 	rec := httptest.NewRecorder()
@@ -70,7 +70,9 @@ func TestCallbackNeverLogsCodeOrTokenError(t *testing.T) {
 		provider:   &fakeProvider{err: errors.New("id-token verification failed")},
 		stateStore: store,
 		configured: true,
-		onVerified: defaultOnVerified,
+		// Exchange fails before the sign-in seam runs, so this is never invoked;
+		// a no-op keeps the module valid without needing a database.
+		onVerified: func(http.ResponseWriter, *http.Request, VerifiedIdentity) {},
 	}
 	h, buf := chainWithLogger(m)
 
