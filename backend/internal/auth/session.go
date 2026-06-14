@@ -97,6 +97,22 @@ func (s *sessionManager) verify(r *http.Request) (userID string, issuedAt time.T
 	return s.parse(c.Value)
 }
 
+// clear expires the session cookie (sign-out). The attributes must match
+// issue's (name, path, secure, sameSite) so the browser overwrites the right
+// cookie. It needs no signing key and is safe to call when already signed out —
+// it just (re-)deletes the cookie, making sign-out idempotent.
+func (s *sessionManager) clear(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    "",
+		Path:     sessionCookiePath,
+		MaxAge:   -1, // delete now
+		HttpOnly: true,
+		Secure:   s.secure,
+		SameSite: s.sameSite(),
+	})
+}
+
 // sameSite picks the cookie's SameSite policy from the Secure flag. In
 // production the web app (Firebase Hosting) and API (Cloud Run) are
 // cross-site, so the session cookie must be SameSite=None to be sent on the

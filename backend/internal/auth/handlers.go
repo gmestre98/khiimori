@@ -20,6 +20,10 @@ const (
 	// RequireAuth; the web app (Epic 05) calls it to learn whether a session is
 	// live and for which user.
 	SessionPath = "/auth/session"
+	// LogoutPath signs the user out by clearing the session cookie. POST (a
+	// state-changing action) and public, so it can clear a stale/expired cookie
+	// too.
+	LogoutPath = "/auth/logout"
 )
 
 // exchangeTimeout bounds the callback's outbound calls to Google (token
@@ -127,4 +131,19 @@ func (m *Module) handleSession(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(map[string]string{"user_id": p.UserID})
+}
+
+// handleLogout signs the user out by clearing the session cookie. The session is
+// stateless (a signed cookie, no server-side store), so sign-out is client-side:
+// expiring the cookie means the browser stops sending it, and the auth
+// middleware then rejects the request as unauthenticated. It is public and
+// idempotent — clearing an already-absent cookie is harmless — so a stale or
+// expired session can always be cleared. (A captured cookie would remain valid
+// until expiry; v1 has no server-side revocation list — see docs/sessions.md.)
+func (m *Module) handleLogout(w http.ResponseWriter, r *http.Request) {
+	m.sessions.clear(w)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"status":"signed_out"}`))
 }
