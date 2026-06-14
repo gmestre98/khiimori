@@ -16,6 +16,15 @@ const cfg = new pulumi.Config()
 // of instances. Flipping this value + `pulumi up` is the *only* action needed.
 export const minInstances = cfg.getNumber('minInstances') ?? 0
 
+// Drift guard (M01.8 S3): warn loudly if the idle-≈€0 default is overridden.
+// A non-zero value starts billing continuously — intentional but worth flagging.
+if (minInstances > 0) {
+  pulumi.log.warn(
+    `minInstances=${minInstances} — Cloud Run will keep ${minInstances} instance(s) warm 24/7 ` +
+      '(~a few €/mo). Set khiimori:minInstances to "0" to restore scale-to-zero (PRD §8.6).',
+  )
+}
+
 // Cloud Run maximum instances. Caps concurrency fan-out and worst-case spend.
 // Default 2 is ample for v1's tiny audience; raise for real concurrency.
 export const maxInstances = cfg.getNumber('maxInstances') ?? 2
@@ -25,11 +34,16 @@ export const maxInstances = cfg.getNumber('maxInstances') ?? 2
 // free → paid (~€10–18/mo) for always-on reliability — a toggle in the Neon
 // console, not a code change (backend/docs/database.md, PRD §8.6). Recorded
 // here as the documented lever; the actual tier is set in the Neon dashboard.
+//
+// Neon free tier autosuspend: the compute suspends after ~5 min of inactivity
+// and wakes on the next query (cold start adds ~500 ms — acceptable for v1).
+// The /readyz startup probe (cloudRun.ts) gives Neon time to wake; a cold
+// Cloud Run start covers the Neon wake-up time. Result: idle cost ≈€0.
 export const neonTier = cfg.get('neonTier') ?? 'free'
 
 // Google Maps daily request quota (reference value). Kept low to stay within
 // the free allowance. Cost to raise: more requests bill per the Maps platform;
-// the **hard cap enforcement** is M01.8 (cost guardrails) — this is the lever,
+// the **hard cap enforcement** is M01.8 S2 (mapsKey.ts) — this is the lever,
 // not the enforcement. Dashboard toggle: Google Cloud console → APIs & Services
 // → (Maps API) → Quotas.
 export const mapsDailyQuota = cfg.getNumber('mapsDailyQuota') ?? 1000

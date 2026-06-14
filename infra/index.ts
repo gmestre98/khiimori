@@ -58,6 +58,11 @@ export const tunables = {
   mapsDailyQuota,
 }
 
+// Scale-to-zero confirmation (M01.8 S3). True = idle cost is ≈€0 for Cloud Run.
+// Neon always autosuspends on the free tier regardless of this flag.
+// A drift guard in tunables.ts warns if minInstances is raised above 0.
+export const scaleToZeroActive = minInstances === 0
+
 // Cloud Monitoring dashboard URL (M01.7 S3) — request rate/latency/5xx.
 export const monitoringDashboardUrl = dashboardUrl
 
