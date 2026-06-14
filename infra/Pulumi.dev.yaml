@@ -57,6 +57,11 @@ khiimori:billingAccount: 0174E2-8E297D-D1C256
 # Monthly budget amount in EUR (default: 10). The budget alerts at 50/90/100%;
 # it does not auto-cap spend — raise it when intentionally scaling up.
 # khiimori:billingBudgetEur: "10"
+# Maps daily hard quota cap (default false). Off because Maps is unused until
+# M07 and the quota override needs a live Maps Backend quota metric, else
+# `pulumi up` fails (404 quota-limit-not-found). Turn on once Maps is
+# integrated and verified against the live project.
+# khiimori:enableMapsQuotaCap: "false"
 
 # --- Scale tunables (S9) — defaults are the cheap, idle-≈€0 ones -----------
 # Cloud Run min instances. 0 = scale-to-zero (default). 1 keeps one warm 24/7

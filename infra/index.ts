@@ -73,5 +73,7 @@ export const errorAlertChannelName = emailChannel.name
 // Billing budget (M01.8 S1). Undefined until khiimori:billingAccount is configured.
 export const billingBudgetName = billingBudget?.name
 
-// Maps daily quota override resource name (M01.8 S2) — confirms hard cap is active.
-export const mapsDailyCapOverride = mapsQuotaOverride.name
+// Maps daily quota override resource name (M01.8 S2) — confirms the hard cap is
+// active. Undefined unless khiimori:enableMapsQuotaCap is true (off by default;
+// the cap is deferred until Maps is used in M07).
+export const mapsDailyCapOverride = mapsQuotaOverride?.name
