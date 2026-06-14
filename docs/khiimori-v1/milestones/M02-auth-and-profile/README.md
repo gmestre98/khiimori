@@ -8,7 +8,7 @@
 
 ---
 
-**Status: 🚧 In progress** — epics **01 (Google OAuth sign-in)** and **02 (user provisioning & identity model)** are ✅ done (PRs [#157](https://github.com/gmestre98/khiimori/pull/157)–[#169](https://github.com/gmestre98/khiimori/pull/169)); the OAuth callback now provisions/resolves the user. Epics 03–05 (sessions & middleware, profile management, frontend auth UX) are pending — the callback still returns a placeholder ack until Epic 03 issues a real session.
+**Status: 🚧 In progress** — epics **01 (Google OAuth sign-in)**, **02 (user provisioning & identity model)**, and **03 (sessions & auth middleware)** are ✅ done (PRs [#157](https://github.com/gmestre98/khiimori/pull/157)–[#175](https://github.com/gmestre98/khiimori/pull/175)). A successful sign-in now provisions/resolves the user **and issues an authenticated session**; shared auth middleware validates it on every request (401 when missing/expired), and `POST /auth/logout` signs out — verified live on the deployed service. Epics 04–05 (profile management, frontend auth UX) are pending.
 
 ## Milestone goal
 
@@ -41,10 +41,10 @@ middleware hook; *trip authorization* (what you may touch) is owned by the Shari
 |------|-------|----|-----------------|---------------|--------|
 | [01](epic-01-google-oauth-signin/README.md) | Google OAuth sign-in (OIDC authorization-code flow) | 5 | ~2–3 | — | ✅ Done |
 | [02](epic-02-user-provisioning-model/README.md) | User provisioning & identity model (`auth.*`) | 5 | ~2 | — | ✅ Done |
-| [03](epic-03-sessions-auth-middleware/README.md) | Sessions & auth middleware | 5 | ~2–3 | — | ⬜ Pending |
+| [03](epic-03-sessions-auth-middleware/README.md) | Sessions & auth middleware | 5 | ~2–3 | — | ✅ Done |
 | [04](epic-04-profile-management/README.md) | Profile management (view/edit, EUR fixed) | 4 | ~1–2 | — | ⬜ Pending |
 | [05](epic-05-frontend-auth-ux/README.md) | Frontend auth experience (context, route gating, profile screen) | 5 | ~2 | — | ⬜ Pending |
-| | **Milestone total** | **24** | **~9–12** (≈ 2–2.5 weeks, one developer) | | **2 / 5 epics** |
+| | **Milestone total** | **24** | **~9–12** (≈ 2–2.5 weeks, one developer) | | **3 / 5 epics** |
 
 > **Estimates** assume one developer familiar with the stack; they cover implementation, tests, and
 > review, and exclude author-provided prerequisites (Google OAuth client ID/secret and authorized
