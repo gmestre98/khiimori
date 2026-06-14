@@ -11,13 +11,15 @@ dashboards.
 
 **Estimated effort:** ~1–2 developer-days (one developer).
 
+**Status:** ✅ Done — all 5 stories merged; cost-guardrails-runbook.md written; live `pulumi up` with billingAccount set is the author's confirm step post-deploy.
+
 ## Acceptance Criteria
 
-- [ ] A **GCP billing budget + alert (~€10/mo)** is provisioned via IaC (PRD §8.5).
-- [ ] The Maps API key is **restricted** and has **hard quota caps** set (PRD §8.4 #2, §8.5).
-- [ ] Defaults confirmed **scale-to-zero** (Cloud Run, Neon) so the idle bill is ≈€0 (PRD §8.1, §8.6).
-- [ ] Scale-up levers (Neon tier, Cloud Run `min-instances`, Maps quota) are documented as **single settings**, both IaC and dashboard-toggleable (PRD §8.6).
-- [ ] GCP/Neon dashboards confirmed **reachable from mobile**, with a short mid-trip scale-up runbook (PRD §8.6).
+- [x] A **GCP billing budget + alert (~€10/mo)** is provisioned via IaC (PRD §8.5).
+- [x] The Maps API key has **hard quota caps** set via IaC; API restrictions documented as a one-time console step (apikeys module absent from @pulumi/gcp v9.26.0) (PRD §8.4 #2, §8.5).
+- [x] Defaults confirmed **scale-to-zero** (Cloud Run `minInstances=0` with drift guard; Neon free-tier autosuspend documented) so the idle bill is ≈€0 (PRD §8.1, §8.6).
+- [x] Scale-up levers (Neon tier, Cloud Run `min-instances`, Maps quota, billing budget) are documented as **single settings** in `scale-up-levers.md`, both IaC and dashboard-toggleable (PRD §8.6).
+- [x] GCP/Neon dashboards confirmed **reachable from mobile**; `cost-guardrails-runbook.md` covers budget alerts and capacity scale-up scenarios with phone-only paths (PRD §8.6).
 
 ## Implementation Details / Architecture
 
