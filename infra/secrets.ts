@@ -15,6 +15,7 @@
 
 import * as gcp from '@pulumi/gcp'
 import * as pulumi from '@pulumi/pulumi'
+import * as random from '@pulumi/random'
 import { secretManagerApi } from './services'
 
 const cfg = new pulumi.Config()
@@ -82,6 +83,31 @@ export const oauthClientSecret = managedSecret(
 export const mapsApiKeySecret = managedSecret('maps-api-key', 'khiimori-maps-api-key', 'mapsApiKey')
 
 /**
+ * HMAC signing key for authenticated session cookies (M02.3 S4). Unlike the
+ * OAuth/DB secrets, this key is *ours* to generate, so the infra mints it
+ * automatically with @pulumi/random and stores it as the secret's version —
+ * no operator action and the deploy is never blocked on a missing value. The
+ * generated value is held encrypted in Pulumi state (a secret Output), never in
+ * plaintext in git. Rotating it (bump `keepers`) invalidates all live sessions
+ * by design — they fail the HMAC check (backend/docs/sessions.md).
+ */
+export const sessionSecret = new gcp.secretmanager.Secret(
+  'session-secret',
+  { secretId: 'khiimori-session-secret', replication: { auto: {} } },
+  { dependsOn: [secretManagerApi] },
+)
+
+const sessionSigningKey = new random.RandomBytes('session-signing-key', { length: 48 })
+
+versions.push(
+  new gcp.secretmanager.SecretVersion('session-secret', {
+    secret: sessionSecret.id,
+    // base64 of 48 random bytes — a string payload the app uses as the HMAC key.
+    secretData: sessionSigningKey.base64,
+  }),
+)
+
+/**
  * Direct (un-pooled) DB DSN used by CI to run migrations at deploy time (M01.5
  * S7). Migrations need the OWNER role via the direct endpoint — DDL must bypass
  * the pgBouncer pooler (backend/docs/database.md). This is NOT mounted to the
@@ -94,8 +120,8 @@ export const databaseUrlDirectSecret = managedSecret(
   'databaseUrlDirect',
 )
 
-/** All managed secrets — S5 grants the Cloud Run SA accessor on each. */
-export const allSecrets = [databaseUrlSecret, oauthClientSecret, mapsApiKeySecret]
+/** All runtime secrets — the Cloud Run SA is granted accessor on each. */
+export const allSecrets = [databaseUrlSecret, oauthClientSecret, mapsApiKeySecret, sessionSecret]
 
 /**
  * Secret versions created from Pulumi config this run (empty when values are
@@ -109,4 +135,5 @@ export const secretIds = {
   databaseUrl: databaseUrlSecret.secretId,
   oauthClientSecret: oauthClientSecret.secretId,
   mapsApiKey: mapsApiKeySecret.secretId,
+  sessionSecret: sessionSecret.secretId,
 }

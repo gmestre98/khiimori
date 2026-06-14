@@ -9,7 +9,13 @@ import * as pulumi from '@pulumi/pulumi'
 import { project, region } from './config'
 import { cloudRunApi } from './services'
 import { serviceAccount } from './serviceAccount'
-import { databaseUrlSecret, mapsApiKeySecret, oauthClientSecret, secretVersions } from './secrets'
+import {
+  databaseUrlSecret,
+  mapsApiKeySecret,
+  oauthClientSecret,
+  secretVersions,
+  sessionSecret,
+} from './secrets'
 import { maxInstances, minInstances } from './tunables'
 import { hostingUrl } from './hosting'
 
@@ -109,6 +115,9 @@ export const service = new gcp.cloudrunv2.Service(
             secretEnv('DATABASE_URL', databaseUrlSecret),
             secretEnv('OAUTH_CLIENT_SECRET', oauthClientSecret),
             secretEnv('MAPS_API_KEY', mapsApiKeySecret),
+            // Session cookie signing key (M02.3 S4), auto-generated and stored in
+            // Secret Manager by the infra; the app reads it from SESSION_SECRET.
+            secretEnv('SESSION_SECRET', sessionSecret),
           ],
           // Liveness: dependency-free /healthz — restart only if the process
           // itself wedges, never because a dependency is down.
