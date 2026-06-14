@@ -39,6 +39,12 @@ config:
   # Allow unauthenticated invocation so the browser SPA can call the API
   # (default true; set false to make the service private).
   # khiimori:allowUnauthenticated: "true"
+  # Google OAuth sign-in (M02.1). Non-secret; the client *secret* is set as a
+  # Pulumi secret (see below). Both must match the OAuth client in the Google
+  # Cloud console; the redirect URI must be <cloudRunUrl>/auth/callback. Unset
+  # → the app reports sign-in unconfigured (503).
+  # khiimori:oauthClientId: <your-client-id>.apps.googleusercontent.com
+  # khiimori:oauthRedirectUri: https://<cloud-run-url>/auth/callback
   # Firebase project id (default: same as gcp:project). Firebase must already be
   # enabled on it — `firebase projects:addfirebase <project>` (one-time).
   # khiimori:firebaseProject: your-firebase-project-id

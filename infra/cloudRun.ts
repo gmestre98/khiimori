@@ -55,6 +55,15 @@ const corsAllowedOriginsOverride = cfg.get('corsAllowedOrigins')
 const corsAllowedOrigins =
   corsAllowedOriginsOverride !== undefined ? pulumi.output(corsAllowedOriginsOverride) : hostingUrl
 
+// Google OAuth sign-in (M02.1 S5). The client *id* and the registered redirect
+// URI are non-secret config (the client *secret* is Secret Manager-backed
+// below). Both are author-provided so they match exactly what is registered in
+// the Google Cloud console — the redirect URI must be <serviceUrl>/auth/callback.
+// Left empty until the OAuth client exists; the app then reports sign-in
+// unconfigured (503) rather than starting a broken flow.
+const oauthClientId = cfg.get('oauthClientId') ?? ''
+const oauthRedirectUri = cfg.get('oauthRedirectUri') ?? ''
+
 /** The Cloud Run (v2) service running the Go API as the least-privilege SA. */
 export const service = new gcp.cloudrunv2.Service(
   'api',
@@ -81,7 +90,7 @@ export const service = new gcp.cloudrunv2.Service(
           // Runtime config. Non-secret values are literals; the DB URL, OAuth
           // client secret, and Maps key are Secret Manager-backed (sourced at
           // runtime, never literals). Env names match the app config layer
-          // (M01.2 S1) — DATABASE_URL today; OAuth/Maps land with M02/M07.
+          // (M01.2 S1) — DATABASE_URL and OAUTH_* today; Maps lands with M07.
           envs: [
             { name: 'ENV', value: cfg.get('serviceEnv') ?? 'prod' },
             { name: 'LOG_LEVEL', value: cfg.get('logLevel') ?? 'error' },
@@ -93,8 +102,12 @@ export const service = new gcp.cloudrunv2.Service(
             { name: 'GOOGLE_CLOUD_PROJECT', value: project },
             // Cross-origin allowlist — the web app's Hosting origin (S3).
             { name: 'CORS_ALLOWED_ORIGINS', value: corsAllowedOrigins },
+            // Google OAuth (M02.1): non-secret id + redirect URI as literals; the
+            // client secret is Secret Manager-backed. Env names match config.go.
+            { name: 'OAUTH_CLIENT_ID', value: oauthClientId },
+            { name: 'OAUTH_REDIRECT_URI', value: oauthRedirectUri },
             secretEnv('DATABASE_URL', databaseUrlSecret),
-            secretEnv('GOOGLE_OAUTH_CLIENT_SECRET', oauthClientSecret),
+            secretEnv('OAUTH_CLIENT_SECRET', oauthClientSecret),
             secretEnv('MAPS_API_KEY', mapsApiKeySecret),
           ],
           // Liveness: dependency-free /healthz — restart only if the process

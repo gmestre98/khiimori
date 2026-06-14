@@ -93,8 +93,9 @@ func (m *Module) handleCallback(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	identity, err := m.provider.Exchange(ctx, code, nonce)
 	if err != nil {
-		// Do not log the code or token; the provider redacts and we log only the
-		// failure reason text (no sensitive values, per S5).
+		// Log only the failure reason, never the code or tokens. Exchange errors
+		// are wrapped oauth2/oidc failures (Google's error responses) that don't
+		// carry the code, tokens, or client secret, so they are safe to log (S5).
 		platformlog.FromContext(r.Context()).Error("oauth callback exchange", "err", err.Error())
 		httpx.WriteError(w, r, httpx.NewAPIError(
 			http.StatusUnauthorized, "auth_exchange_failed", "could not complete sign-in"))

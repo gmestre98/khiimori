@@ -10,7 +10,7 @@ import (
 // following os.Unsetenv then clears it so LookupEnv reports the variable absent.
 func clearEnv(t *testing.T) {
 	t.Helper()
-	for _, k := range []string{"PORT", "ENV", "LOG_LEVEL", "DATABASE_URL", "DATABASE_URL_DIRECT", "DB_POOLED", "CORS_ALLOWED_ORIGINS"} {
+	for _, k := range []string{"PORT", "ENV", "LOG_LEVEL", "DATABASE_URL", "DATABASE_URL_DIRECT", "DB_POOLED", "CORS_ALLOWED_ORIGINS", "OAUTH_CLIENT_ID", "OAUTH_CLIENT_SECRET", "OAUTH_REDIRECT_URI"} {
 		t.Setenv(k, "")
 		if err := os.Unsetenv(k); err != nil {
 			t.Fatalf("unset %s: %v", k, err)
@@ -98,6 +98,47 @@ func TestLoadCORSAllowedOrigins(t *testing.T) {
 		}
 		if len(cfg.CORSAllowedOrigins) != 0 {
 			t.Errorf("CORSAllowedOrigins = %v, want empty", cfg.CORSAllowedOrigins)
+		}
+	})
+}
+
+// TestLoadOAuthFields covers the M02.1 OAuth settings: they are read from the
+// environment when present and stay empty (no error) when unset — optional at
+// startup, since non-auth work runs without them and the sign-in endpoints
+// validate at call time.
+func TestLoadOAuthFields(t *testing.T) {
+	t.Run("read when set", func(t *testing.T) {
+		clearEnv(t)
+		setAllValid(t)
+		t.Setenv("OAUTH_CLIENT_ID", "cid.apps.googleusercontent.com")
+		t.Setenv("OAUTH_CLIENT_SECRET", "the-secret")
+		t.Setenv("OAUTH_REDIRECT_URI", "https://app.example/auth/callback")
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() returned error: %v", err)
+		}
+		if cfg.OAuthClientID != "cid.apps.googleusercontent.com" {
+			t.Errorf("OAuthClientID = %q, unexpected", cfg.OAuthClientID)
+		}
+		if cfg.OAuthClientSecret != "the-secret" {
+			t.Errorf("OAuthClientSecret = %q, unexpected", cfg.OAuthClientSecret)
+		}
+		if cfg.OAuthRedirectURI != "https://app.example/auth/callback" {
+			t.Errorf("OAuthRedirectURI = %q, unexpected", cfg.OAuthRedirectURI)
+		}
+	})
+
+	t.Run("optional when unset", func(t *testing.T) {
+		clearEnv(t)
+		setAllValid(t)
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() returned error: %v", err)
+		}
+		if cfg.OAuthClientID != "" || cfg.OAuthClientSecret != "" || cfg.OAuthRedirectURI != "" {
+			t.Errorf("expected empty OAuth fields when unset, got %+v", cfg)
 		}
 	})
 }
