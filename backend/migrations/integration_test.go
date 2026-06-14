@@ -16,6 +16,7 @@ package migrations_test
 import (
 	"database/sql"
 	"os"
+	"strings"
 	"testing"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -68,6 +69,11 @@ func TestMigrationsCreateModuleSchemas(t *testing.T) {
 		}
 	}
 
+	// The auth.users table (00007) is the identity model the rest of M02 builds
+	// on; assert its provisioning-critical shape applied: the table exists, the
+	// google_sub idempotency key is unique, and the server-set defaults hold.
+	assertAuthUsersTable(t, db)
+
 	// Roll everything back and assert the schemas are gone.
 	if err := goose.Reset(db, migrations.Dir); err != nil {
 		t.Fatalf("migrate reset: %v", err)
@@ -75,6 +81,68 @@ func TestMigrationsCreateModuleSchemas(t *testing.T) {
 	for _, schema := range moduleSchemas {
 		if schemaExists(t, db, schema) {
 			t.Errorf("schema %q still present after rollback", schema)
+		}
+	}
+}
+
+// assertAuthUsersTable checks the auth.users migration (00007) applied with the
+// shape provisioning depends on: a unique constraint on google_sub (the
+// idempotency key) and the server-set EUR / is_admin=false column defaults.
+func assertAuthUsersTable(t *testing.T, db *sql.DB) {
+	t.Helper()
+
+	var tableExists bool
+	if err := db.QueryRow(
+		`SELECT EXISTS (
+			SELECT 1 FROM information_schema.tables
+			WHERE table_schema = 'auth' AND table_name = 'users'
+		)`,
+	).Scan(&tableExists); err != nil {
+		t.Fatalf("query auth.users existence: %v", err)
+	}
+	if !tableExists {
+		t.Fatal("auth.users table missing after migrate up")
+	}
+
+	// A unique (or primary-key) constraint must cover exactly google_sub so two
+	// concurrent first sign-ins can't create duplicate rows.
+	var uniqueOnGoogleSub bool
+	if err := db.QueryRow(
+		`SELECT EXISTS (
+			SELECT 1
+			FROM pg_constraint c
+			WHERE c.conrelid = 'auth.users'::regclass
+			  AND c.contype IN ('u', 'p')
+			  AND c.conkey = ARRAY[(
+				SELECT attnum FROM pg_attribute
+				WHERE attrelid = 'auth.users'::regclass AND attname = 'google_sub'
+			)]
+		)`,
+	).Scan(&uniqueOnGoogleSub); err != nil {
+		t.Fatalf("query google_sub unique constraint: %v", err)
+	}
+	if !uniqueOnGoogleSub {
+		t.Error("auth.users.google_sub lacks a unique/primary-key constraint")
+	}
+
+	for _, tc := range []struct {
+		column string
+		want   string // substring expected in the column default expression
+	}{
+		{"default_currency", "EUR"},
+		{"is_admin", "false"},
+	} {
+		var def string
+		if err := db.QueryRow(
+			`SELECT COALESCE(column_default, '')
+			   FROM information_schema.columns
+			  WHERE table_schema = 'auth' AND table_name = 'users' AND column_name = $1`,
+			tc.column,
+		).Scan(&def); err != nil {
+			t.Fatalf("query default for %s: %v", tc.column, err)
+		}
+		if !strings.Contains(def, tc.want) {
+			t.Errorf("auth.users.%s default = %q, want it to contain %q", tc.column, def, tc.want)
 		}
 	}
 }
