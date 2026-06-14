@@ -34,5 +34,8 @@ func (m *Module) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// This response carries the signed state cookie; keep it out of any cache so
+	// the cookie + redirect can't be replayed from a browser or intermediary.
+	w.Header().Set("Cache-Control", "no-store")
 	http.Redirect(w, r, m.provider.AuthCodeURL(state, nonce), http.StatusFound)
 }

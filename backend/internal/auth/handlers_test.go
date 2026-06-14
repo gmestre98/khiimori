@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/gmestre98/khiimori/backend/internal/platform/config"
@@ -68,10 +69,11 @@ func TestHandleLoginStateCookieMatchesRedirect(t *testing.T) {
 	loc, _ := url.Parse(rec.Header().Get("Location"))
 	urlState := loc.Query().Get("state")
 
+	// The cookie value is "<state>.<nonce>.<mac>"; its first field must be the
+	// exact state echoed in the redirect, so the callback (S3) can compare them.
 	c := readStateCookie(t, rec)
-	cookieState := c.Value[:len(urlState)] // first dot-separated field is the state
-	if cookieState != urlState {
-		t.Errorf("state in cookie (%q) does not match state in redirect (%q)", cookieState, urlState)
+	if !strings.HasPrefix(c.Value, urlState+".") {
+		t.Errorf("cookie value %q does not start with the redirect state %q", c.Value, urlState)
 	}
 }
 
