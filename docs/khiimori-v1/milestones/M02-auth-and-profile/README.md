@@ -8,6 +8,8 @@
 
 ---
 
+**Status: 🚧 In progress** — epics **01 (Google OAuth sign-in)** and **02 (user provisioning & identity model)** are ✅ done (PRs [#157](https://github.com/gmestre98/khiimori/pull/157)–[#169](https://github.com/gmestre98/khiimori/pull/169)); the OAuth callback now provisions/resolves the user. Epics 03–05 (sessions & middleware, profile management, frontend auth UX) are pending — the callback still returns a placeholder ack until Epic 03 issues a real session.
+
 ## Milestone goal
 
 Give the app its identity. Sign-in is **Google SSO / OAuth only** — no passwords in v1. The first
@@ -35,14 +37,14 @@ middleware hook; *trip authorization* (what you may touch) is owned by the Shari
 
 ## Epics in this milestone
 
-| Epic | Title | AC | Est. (dev-days) | Cost-relevant |
-|------|-------|----|-----------------|---------------|
-| [01](epic-01-google-oauth-signin/README.md) | Google OAuth sign-in (OIDC authorization-code flow) | 5 | ~2–3 | — |
-| [02](epic-02-user-provisioning-model/README.md) | User provisioning & identity model (`auth.*`) | 5 | ~2 | — |
-| [03](epic-03-sessions-auth-middleware/README.md) | Sessions & auth middleware | 5 | ~2–3 | — |
-| [04](epic-04-profile-management/README.md) | Profile management (view/edit, EUR fixed) | 4 | ~1–2 | — |
-| [05](epic-05-frontend-auth-ux/README.md) | Frontend auth experience (context, route gating, profile screen) | 5 | ~2 | — |
-| | **Milestone total** | **24** | **~9–12** (≈ 2–2.5 weeks, one developer) | |
+| Epic | Title | AC | Est. (dev-days) | Cost-relevant | Status |
+|------|-------|----|-----------------|---------------|--------|
+| [01](epic-01-google-oauth-signin/README.md) | Google OAuth sign-in (OIDC authorization-code flow) | 5 | ~2–3 | — | ✅ Done |
+| [02](epic-02-user-provisioning-model/README.md) | User provisioning & identity model (`auth.*`) | 5 | ~2 | — | ✅ Done |
+| [03](epic-03-sessions-auth-middleware/README.md) | Sessions & auth middleware | 5 | ~2–3 | — | ⬜ Pending |
+| [04](epic-04-profile-management/README.md) | Profile management (view/edit, EUR fixed) | 4 | ~1–2 | — | ⬜ Pending |
+| [05](epic-05-frontend-auth-ux/README.md) | Frontend auth experience (context, route gating, profile screen) | 5 | ~2 | — | ⬜ Pending |
+| | **Milestone total** | **24** | **~9–12** (≈ 2–2.5 weeks, one developer) | | **2 / 5 epics** |
 
 > **Estimates** assume one developer familiar with the stack; they cover implementation, tests, and
 > review, and exclude author-provided prerequisites (Google OAuth client ID/secret and authorized

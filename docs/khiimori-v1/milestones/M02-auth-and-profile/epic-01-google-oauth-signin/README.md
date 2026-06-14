@@ -1,5 +1,7 @@
 # Epic M02.1 — Google OAuth sign-in (OIDC authorization-code flow)
 
+> **Status:** ✅ Done — all 6 stories merged (PRs [#157](https://github.com/gmestre98/khiimori/pull/157)–[#164](https://github.com/gmestre98/khiimori/pull/164)) and all 5 acceptance criteria verified. The flow is live behind `/auth/login` + `/auth/callback`; see [backend/docs/oauth-signin.md](../../../../../backend/docs/oauth-signin.md).
+>
 > Milestone: [02 — Auth & Profile](../README.md) · PRD refs: §5.8, §6, §7.0, §8.5.
 
 ## Description
@@ -15,16 +17,16 @@ callback, exchanges the code for tokens, and verifies the ID token to obtain a t
 
 ## Acceptance Criteria
 
-- [ ] An **`IdentityProvider` interface** wraps Google OAuth/OIDC; the v1 implementation runs the
+- [x] An **`IdentityProvider` interface** wraps Google OAuth/OIDC; the v1 implementation runs the
       **authorization-code flow** (build consent URL → handle callback → exchange code → verify ID
       token) (PRD §5.8, §7.0).
-- [ ] The verified identity yields `google_sub`, `email`, `name`, `avatar`; ID-token signature,
+- [x] The verified identity yields `google_sub`, `email`, `name`, `avatar`; ID-token signature,
       audience, issuer, and expiry are validated before the identity is trusted (PRD §6).
-- [ ] **CSRF/replay protection** on the flow (state parameter and nonce) and exact-match of the
+- [x] **CSRF/replay protection** on the flow (state parameter and nonce) and exact-match of the
       authorized redirect URI.
-- [ ] OAuth **client ID/secret and any signing material come from config/Secret Manager**, never
+- [x] OAuth **client ID/secret and any signing material come from config/Secret Manager**, never
       hardcoded, and tokens/codes are **never logged** (PRD §6, §8.5).
-- [ ] Unit tests cover token verification (valid, expired, wrong audience/issuer, bad signature)
+- [x] Unit tests cover token verification (valid, expired, wrong audience/issuer, bad signature)
       against the `IdentityProvider` interface with the network boundary mocked (PRD §7.6).
 
 ## Implementation Details / Architecture
