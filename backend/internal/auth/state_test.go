@@ -119,6 +119,107 @@ func TestIssueNotSecureInDev(t *testing.T) {
 	}
 }
 
+// requestWithIssuedCookie issues a cookie from store and returns the bound
+// state and nonce plus a request carrying that cookie (as the callback sees it).
+func requestWithIssuedCookie(t *testing.T, store *oauthStateStore) (state, nonce string, req *http.Request) {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	state, nonce, err := store.issue(rec)
+	if err != nil {
+		t.Fatalf("issue: %v", err)
+	}
+	req = httptest.NewRequest(http.MethodGet, "/auth/callback", nil)
+	req.AddCookie(readStateCookie(t, rec))
+	return state, nonce, req
+}
+
+// TestVerifyRoundTrip confirms a freshly issued cookie verifies against its own
+// state and yields the bound nonce.
+func TestVerifyRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(false)
+	state, nonce, req := requestWithIssuedCookie(t, store)
+
+	got, err := store.verify(req, state)
+	if err != nil {
+		t.Fatalf("verify of a valid cookie failed: %v", err)
+	}
+	if got != nonce {
+		t.Errorf("verify returned nonce %q, want %q", got, nonce)
+	}
+}
+
+// TestVerifyRejectsTamperedMAC ensures a flipped signature is rejected.
+func TestVerifyRejectsTamperedMAC(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(false)
+	rec := httptest.NewRecorder()
+	state, _, err := store.issue(rec)
+	if err != nil {
+		t.Fatalf("issue: %v", err)
+	}
+	c := readStateCookie(t, rec)
+	c.Value += "x" // corrupt the MAC segment
+
+	req := httptest.NewRequest(http.MethodGet, "/auth/callback", nil)
+	req.AddCookie(c)
+	if _, err := store.verify(req, state); err == nil {
+		t.Error("verify accepted a cookie with a tampered MAC")
+	}
+}
+
+// TestVerifyRejectsStateMismatch ensures a state that doesn't match the cookie
+// (the CSRF guard) is rejected.
+func TestVerifyRejectsStateMismatch(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(false)
+	_, _, req := requestWithIssuedCookie(t, store)
+
+	if _, err := store.verify(req, "a-different-state"); err == nil {
+		t.Error("verify accepted a mismatched state")
+	}
+}
+
+// TestVerifyRejectsMissingCookie ensures a callback with no state cookie fails.
+func TestVerifyRejectsMissingCookie(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(false)
+	req := httptest.NewRequest(http.MethodGet, "/auth/callback", nil)
+	if _, err := store.verify(req, "some-state"); err == nil {
+		t.Error("verify accepted a request with no state cookie")
+	}
+}
+
+// TestVerifyRejectsMalformedCookie ensures a cookie without three fields fails.
+func TestVerifyRejectsMalformedCookie(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(false)
+	req := httptest.NewRequest(http.MethodGet, "/auth/callback", nil)
+	req.AddCookie(&http.Cookie{Name: stateCookieName, Value: "only.twoparts"})
+	if _, err := store.verify(req, "only"); err == nil {
+		t.Error("verify accepted a malformed cookie")
+	}
+}
+
+// TestClearExpiresCookie ensures clear emits a deletion cookie.
+func TestClearExpiresCookie(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(true)
+	rec := httptest.NewRecorder()
+	store.clear(rec)
+
+	c := readStateCookie(t, rec)
+	if c.MaxAge >= 0 && c.Value != "" {
+		t.Errorf("clear did not expire the cookie: MaxAge=%d Value=%q", c.MaxAge, c.Value)
+	}
+}
+
 // TestDeriveStateKeyIsDeterministicAndDomainSeparated checks the derived key is
 // stable for a secret but differs from the raw secret and across secrets.
 func TestDeriveStateKeyIsDeterministicAndDomainSeparated(t *testing.T) {

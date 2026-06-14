@@ -24,8 +24,11 @@ type IdentityProvider interface {
 	// them (S3).
 	AuthCodeURL(state, nonce string) string
 
-	// Exchange verifies the returned state, exchanges the authorization code
-	// for tokens, and validates the ID token (signature, audience, issuer,
-	// expiry, nonce) before returning a trusted VerifiedIdentity.
-	Exchange(ctx context.Context, code string) (VerifiedIdentity, error)
+	// Exchange swaps the authorization code for tokens and validates the ID
+	// token (signature, audience, issuer, expiry) before returning a trusted
+	// VerifiedIdentity. expectedNonce is the nonce minted at /auth/login (read
+	// back from the signed state cookie); the ID token's nonce claim must match
+	// it, closing the replay window. State verification (CSRF) happens in the
+	// callback handler before Exchange is called.
+	Exchange(ctx context.Context, code, expectedNonce string) (VerifiedIdentity, error)
 }
