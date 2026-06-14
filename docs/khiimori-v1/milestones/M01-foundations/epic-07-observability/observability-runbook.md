@@ -130,3 +130,44 @@ metric.labels.response_code_class="5xx"
 
 Aggregation: `ALIGN_RATE`, `REDUCE_SUM`, 60 s alignment period. When this
 rate exceeds the threshold for the alert's window (see S4), the policy fires.
+
+---
+
+## Alerting (S4) — error alert to a mobile-reachable channel
+
+**Channel:** email to `goncalo.mestre1998@gmail.com` (Gmail, accessible on mobile
+abroad — PRD §6, §8.6). To change the recipient, set `khiimori:alertEmail` in
+the Pulumi stack config and re-run `pulumi up`.
+
+**Policy:** `Khiimori API — 5xx error rate elevated` (provisioned by Pulumi in
+`infra/alerting.ts`).
+
+**Condition:** 5xx error rate > 0, sustained for **3 minutes**.
+
+| Setting | Value | Rationale |
+|---|---|---|
+| Metric | `run.googleapis.com/request_count` | Built-in Cloud Run metric |
+| Filter | `response_code_class="5xx"` | Only server errors |
+| Aligner | `ALIGN_RATE`, 60 s windows | Errors per second |
+| Reducer | `REDUCE_SUM` | All revisions summed |
+| Comparison | `> 0` | Any 5xx rate |
+| Duration | 180 s (3 min) | Avoids noise from a single transient error |
+| Auto-close | 7 days | Stale incidents don't accumulate |
+
+### When you receive an alert
+
+1. Open the Cloud Monitoring alert email link → view the incident timeline.
+2. Go to **Logs Explorer** and run the error query (S1 section above).
+3. Identify the request id from the first `ERROR` entry.
+4. Filter by request id to trace the failure.
+5. If the error is resolved, **acknowledge** the incident in Cloud Monitoring
+   to silence notifications.
+
+### Silencing / acknowledging
+
+In Cloud Monitoring → **Alerting → Incidents**, find the open incident and click
+**Acknowledge**. This silences notifications while you investigate, without
+closing the incident. Click **Close** once the underlying issue is fixed.
+
+To test-fire the alert without waiting for a real error, see S5 (end-to-end
+verification).
