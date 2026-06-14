@@ -1,5 +1,7 @@
 # Epic M02.4 — Profile management (view/edit, EUR fixed)
 
+> **Status:** ✅ Done — all 4 stories merged (PRs [#177](https://github.com/gmestre98/khiimori/pull/177)–[#180](https://github.com/gmestre98/khiimori/pull/180)) and all 4 acceptance criteria verified (unit + real-DB integration against PG18; live checks on the deployed service — `GET`/`PATCH /me` are auth-gated, 401 for missing/invalid sessions, with credentialed CORS for the web origin). `GET /me` reads and `PATCH /me` edits the **session user's own row** (name/avatar/home_base/theme); `default_currency` is EUR, read-only server-side.
+>
 > Milestone: [02 — Auth & Profile](../README.md) · PRD refs: §5.7, §9, §11.5.
 
 ## Description
@@ -13,13 +15,13 @@ API; the screen that renders it is Epic 05 with Milestone 09's components.
 
 ## Acceptance Criteria
 
-- [ ] **Profile read** returns the authenticated user's `name, avatar, home_base`, theme preference
+- [x] **Profile read** returns the authenticated user's `name, avatar, home_base`, theme preference
       (from `prefs`), and `default_currency` (PRD §5.7, §9).
-- [ ] **Profile edit** updates `name, avatar, home_base`, and theme preference; changes **persist
+- [x] **Profile edit** updates `name, avatar, home_base`, and theme preference; changes **persist
       and are reflected immediately** (PRD §5.7).
-- [ ] `default_currency` is returned as **EUR** and is **rejected/ignored if a client attempts to
+- [x] `default_currency` is returned as **EUR** and is **rejected/ignored if a client attempts to
       change it** — no currency selector in v1 (PRD §5.7, §9, §11.5).
-- [ ] All profile reads/writes require a valid session (Epic 03 middleware) and only ever touch the
+- [x] All profile reads/writes require a valid session (Epic 03 middleware) and only ever touch the
       **authenticated user's own row** (PRD §6).
 
 ## Implementation Details / Architecture
