@@ -7,9 +7,10 @@
 # (M01.4 S7, PRD §8.5); the final image contains only the binary.
 
 # ---- build stage ----------------------------------------------------------
-# Pinned to the repo's Go version (kept in sync with backend/go.mod — bump both
-# together). Building from source keeps the toolchain explicit and reproducible.
-FROM golang:1.23.4-bookworm AS build
+# Pinned to the repo's Go major version (kept in sync with backend/go.mod — bump
+# both together; go.mod went to 1.25 in M02.1 for the go-oidc dependency).
+# Building from source keeps the toolchain explicit and reproducible.
+FROM golang:1.25-bookworm AS build
 WORKDIR /src
 
 # Resolve modules first so this layer is cached unless go.mod/go.sum change.
