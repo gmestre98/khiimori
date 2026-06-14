@@ -8,8 +8,13 @@ import "context"
 type VerifiedIdentity struct {
 	GoogleSub string // "sub" claim — stable Google account identifier
 	Email     string
-	Name      string
-	Avatar    string // picture URL
+	// EmailVerified is Google's "email_verified" claim. Provisioning stores the
+	// email regardless, but security-sensitive decisions that key on the email —
+	// notably the admin bootstrap (S4) — require it to be true so an unverified
+	// email claim can't be used to assume another identity's privileges.
+	EmailVerified bool
+	Name          string
+	Avatar        string // picture URL
 }
 
 // IdentityProvider wraps the Google OAuth 2.0 / OIDC sign-in flow behind a

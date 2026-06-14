@@ -85,9 +85,12 @@ Browser            Backend (auth module)                 Google
    **expiry**, and **nonce** before trusting it. Any failure returns an auth
    error with no session or user created.
 4. **Verified identity** — on success a `VerifiedIdentity` (`google_sub`,
-   `email`, `name`, `avatar`) is handed to user provisioning (Epic 02) and
-   session issuance (Epic 03). Until those land the callback returns a
-   placeholder acknowledgement.
+   `email`, `name`, `avatar`) is handed to user provisioning (Epic 02), which
+   creates or resolves the `auth.users` row keyed on `google_sub`
+   (idempotently). Session issuance (Epic 03) is not wired yet, so the callback
+   still returns a placeholder acknowledgement once provisioning succeeds. See
+   [admin-bootstrap.md](admin-bootstrap.md) for how the designated user becomes
+   an admin during provisioning.
 
 ## Security notes
 

@@ -10,7 +10,7 @@ import (
 // following os.Unsetenv then clears it so LookupEnv reports the variable absent.
 func clearEnv(t *testing.T) {
 	t.Helper()
-	for _, k := range []string{"PORT", "ENV", "LOG_LEVEL", "DATABASE_URL", "DATABASE_URL_DIRECT", "DB_POOLED", "CORS_ALLOWED_ORIGINS", "OAUTH_CLIENT_ID", "OAUTH_CLIENT_SECRET", "OAUTH_REDIRECT_URI"} {
+	for _, k := range []string{"PORT", "ENV", "LOG_LEVEL", "DATABASE_URL", "DATABASE_URL_DIRECT", "DB_POOLED", "CORS_ALLOWED_ORIGINS", "OAUTH_CLIENT_ID", "OAUTH_CLIENT_SECRET", "OAUTH_REDIRECT_URI", "ADMIN_EMAIL"} {
 		t.Setenv(k, "")
 		if err := os.Unsetenv(k); err != nil {
 			t.Fatalf("unset %s: %v", k, err)
@@ -139,6 +139,37 @@ func TestLoadOAuthFields(t *testing.T) {
 		}
 		if cfg.OAuthClientID != "" || cfg.OAuthClientSecret != "" || cfg.OAuthRedirectURI != "" {
 			t.Errorf("expected empty OAuth fields when unset, got %+v", cfg)
+		}
+	})
+}
+
+// TestLoadAdminEmail covers the optional admin-bootstrap email (S4): a set value
+// is read and trimmed; an unset value yields empty (no user bootstrapped).
+func TestLoadAdminEmail(t *testing.T) {
+	t.Run("read and trimmed when set", func(t *testing.T) {
+		clearEnv(t)
+		setAllValid(t)
+		t.Setenv("ADMIN_EMAIL", "  Owner@example.com  ")
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() returned error: %v", err)
+		}
+		if cfg.AdminEmail != "Owner@example.com" {
+			t.Errorf("AdminEmail = %q, want %q (trimmed, case preserved)", cfg.AdminEmail, "Owner@example.com")
+		}
+	})
+
+	t.Run("optional when unset", func(t *testing.T) {
+		clearEnv(t)
+		setAllValid(t)
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() returned error: %v", err)
+		}
+		if cfg.AdminEmail != "" {
+			t.Errorf("AdminEmail = %q, want empty when unset", cfg.AdminEmail)
 		}
 	})
 }

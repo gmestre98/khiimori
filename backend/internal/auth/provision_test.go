@@ -53,10 +53,12 @@ func newFakeUserRepo() *fakeUserRepo {
 func (f *fakeUserRepo) Save(_ context.Context, in provisionParams) (User, error) {
 	f.saves++
 	if existing, ok := f.bySub[in.GoogleSub]; ok {
-		// Returning sign-in: refresh the Google-sourced identity fields only.
+		// Returning sign-in: refresh the Google-sourced identity fields only, and
+		// promote is_admin (never demote), mirroring the ON CONFLICT DO UPDATE.
 		existing.Email = in.Email
 		existing.Name = in.Name
 		existing.Avatar = in.Avatar
+		existing.IsAdmin = existing.IsAdmin || in.IsAdmin
 		f.bySub[in.GoogleSub] = existing
 		return existing, nil
 	}
@@ -70,7 +72,7 @@ func (f *fakeUserRepo) Save(_ context.Context, in provisionParams) (User, error)
 		HomeBase:        "",
 		DefaultCurrency: "EUR",
 		Prefs:           json.RawMessage(`{}`),
-		IsAdmin:         false,
+		IsAdmin:         in.IsAdmin,
 	}
 	f.bySub[in.GoogleSub] = u
 	return u, nil
@@ -269,5 +271,103 @@ func TestProvisionPreservesUserEditableFieldsOnRefresh(t *testing.T) {
 	}
 	if refreshed.Name != "Ann Renamed" || refreshed.Avatar != "https://pic2" {
 		t.Errorf("identity fields not refreshed: %+v", refreshed)
+	}
+}
+
+// TestAdminBootstrapMarksDesignatedUser: the user whose verified email matches
+// the configured admin email is provisioned is_admin=true; everyone else stays
+// non-admin. The match is case-insensitive.
+func TestAdminBootstrapMarksDesignatedUser(t *testing.T) {
+	t.Parallel()
+
+	repo := newFakeUserRepo()
+	p := &Provisioner{repo: repo, adminEmail: "Owner@example.com"}
+
+	admin, err := p.Provision(context.Background(),
+		VerifiedIdentity{GoogleSub: "sub-admin", Email: "owner@example.com", EmailVerified: true, Name: "Owner"})
+	if err != nil {
+		t.Fatalf("provision admin: %v", err)
+	}
+	if !admin.IsAdmin {
+		t.Error("designated user (case-insensitive email match) was not marked admin")
+	}
+
+	other, err := p.Provision(context.Background(),
+		VerifiedIdentity{GoogleSub: "sub-other", Email: "someone@example.com", EmailVerified: true, Name: "Someone"})
+	if err != nil {
+		t.Fatalf("provision other: %v", err)
+	}
+	if other.IsAdmin {
+		t.Error("non-designated user was marked admin")
+	}
+}
+
+// TestAdminBootstrapRequiresVerifiedEmail: an identity whose email matches
+// ADMIN_EMAIL but is not Google-verified must NOT be promoted — an unverified
+// email claim can't be used to assume the admin's privileges.
+func TestAdminBootstrapRequiresVerifiedEmail(t *testing.T) {
+	t.Parallel()
+
+	repo := newFakeUserRepo()
+	p := &Provisioner{repo: repo, adminEmail: "owner@example.com"}
+
+	u, err := p.Provision(context.Background(),
+		VerifiedIdentity{GoogleSub: "sub-x", Email: "owner@example.com", EmailVerified: false, Name: "Imposter"})
+	if err != nil {
+		t.Fatalf("provision: %v", err)
+	}
+	if u.IsAdmin {
+		t.Error("user with an unverified email matching ADMIN_EMAIL was marked admin")
+	}
+}
+
+// TestAdminBootstrapDisabledByDefault: with no admin email configured, no user
+// is provisioned as admin — there is no public path to is_admin.
+func TestAdminBootstrapDisabledByDefault(t *testing.T) {
+	t.Parallel()
+
+	repo := newFakeUserRepo()
+	p := &Provisioner{repo: repo} // adminEmail empty
+
+	u, err := p.Provision(context.Background(),
+		VerifiedIdentity{GoogleSub: "sub-1", Email: "owner@example.com", Name: "Owner", Avatar: ""})
+	if err != nil {
+		t.Fatalf("provision: %v", err)
+	}
+	if u.IsAdmin {
+		t.Error("a user was bootstrapped as admin with no ADMIN_EMAIL configured")
+	}
+}
+
+// TestAdminBootstrapIsIdempotentAndPromoteOnly: re-provisioning the admin keeps
+// the flag (idempotent), and once granted the flag survives a sign-in whose
+// email no longer matches ADMIN_EMAIL (promote-only — never demoted on login).
+func TestAdminBootstrapIsIdempotentAndPromoteOnly(t *testing.T) {
+	t.Parallel()
+
+	repo := newFakeUserRepo()
+	p := &Provisioner{repo: repo, adminEmail: "owner@example.com"}
+	ctx := context.Background()
+
+	if _, err := p.Provision(ctx, VerifiedIdentity{GoogleSub: "sub-1", Email: "owner@example.com", EmailVerified: true, Name: "Owner"}); err != nil {
+		t.Fatalf("first provision: %v", err)
+	}
+	// Re-provision the same admin: still admin, still one row (idempotent).
+	again, err := p.Provision(ctx, VerifiedIdentity{GoogleSub: "sub-1", Email: "owner@example.com", EmailVerified: true, Name: "Owner"})
+	if err != nil {
+		t.Fatalf("re-provision: %v", err)
+	}
+	if !again.IsAdmin || len(repo.bySub) != 1 {
+		t.Errorf("re-provisioning the admin should be idempotent: IsAdmin=%v rows=%d", again.IsAdmin, len(repo.bySub))
+	}
+
+	// The admin's Google email later changes away from ADMIN_EMAIL: the flag must
+	// survive (revocation is a backoffice action, not a login side effect).
+	moved, err := p.Provision(ctx, VerifiedIdentity{GoogleSub: "sub-1", Email: "newaddress@example.com", EmailVerified: true, Name: "Owner"})
+	if err != nil {
+		t.Fatalf("provision after email change: %v", err)
+	}
+	if !moved.IsAdmin {
+		t.Error("admin flag was revoked on a sign-in whose email no longer matches ADMIN_EMAIL (must be promote-only)")
 	}
 }
