@@ -1,5 +1,7 @@
 # S2 — Maps API key restriction + hard quota caps
 
+> **Status:** ✅ Done — `infra/mapsKey.ts`: `gcp.serviceusage.ConsumerQuotaOverride` enforces `mapsDailyQuota` from `tunables.ts` as a hard daily cap on Maps JS API (deny-at-limit, not billed). Key API restrictions are a one-time console step (GCP Console → APIs & Services → Credentials → select key → Edit API restrictions) since `@pulumi/gcp` v9.26.0 does not include the `apikeys` module; the hard cap is fully IaC-managed. Steps documented in `cost-guardrails-runbook.md` (S5).
+
 ## Context
 The Maps API is the project's #1 named overage/abuse risk — a leaked or uncapped key can run up a bill fast
 (PRD §8.4 #2, §8.5). This story restricts the key and sets **hard quota caps** via IaC, protecting the Maps

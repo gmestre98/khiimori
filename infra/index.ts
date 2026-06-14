@@ -19,6 +19,7 @@ import { mapsDailyQuota, maxInstances, minInstances, neonTier } from './tunables
 import { dashboardUrl } from './monitoring'
 import { alertPolicy, emailChannel } from './alerting'
 import { billingBudget } from './billing'
+import { mapsQuotaOverride } from './mapsKey'
 
 // Echo the resolved provider config as stack outputs. These are trivial (no
 // resources created) and double as a smoke test that project + region are set.
@@ -66,3 +67,6 @@ export const errorAlertChannelName = emailChannel.name
 
 // Billing budget (M01.8 S1). Undefined until khiimori:billingAccount is configured.
 export const billingBudgetName = billingBudget?.name
+
+// Maps daily quota override resource name (M01.8 S2) — confirms hard cap is active.
+export const mapsDailyCapOverride = mapsQuotaOverride.name
