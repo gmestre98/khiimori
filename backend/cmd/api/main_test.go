@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/gmestre98/khiimori/backend/internal/platform/config"
 )
 
 // fakePinger is a db.Pinger whose Ping result is fixed, so the readiness wiring
@@ -29,7 +31,7 @@ type readyzBody struct {
 }
 
 func TestReadyzReportsDBHealthy(t *testing.T) {
-	rec := get(t, newRouter(fakePinger{nil}, false), "/readyz")
+	rec := get(t, newRouter(fakePinger{nil}, config.Config{}), "/readyz")
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("status = %d, want 200", rec.Code)
@@ -45,7 +47,7 @@ func TestReadyzReportsDBHealthy(t *testing.T) {
 
 func TestReadyzReportsDBUnreachable(t *testing.T) {
 	secret := "connection refused to 10.0.0.5:5432 with password hunter2"
-	rec := get(t, newRouter(fakePinger{errors.New(secret)}, false), "/readyz")
+	rec := get(t, newRouter(fakePinger{errors.New(secret)}, config.Config{}), "/readyz")
 
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Errorf("status = %d, want 503", rec.Code)
@@ -66,7 +68,7 @@ func TestReadyzReportsDBUnreachable(t *testing.T) {
 // TestHealthzIgnoresDB asserts liveness does no DB I/O: it is 200 even when the
 // database is unreachable (only readiness should flip).
 func TestHealthzIgnoresDB(t *testing.T) {
-	h := newRouter(fakePinger{errors.New("db down")}, false)
+	h := newRouter(fakePinger{errors.New("db down")}, config.Config{})
 
 	rec := get(t, h, "/healthz")
 	if rec.Code != http.StatusOK {
@@ -75,7 +77,7 @@ func TestHealthzIgnoresDB(t *testing.T) {
 }
 
 func TestDebugTriggerErrorWhenEnabled(t *testing.T) {
-	h := newRouter(fakePinger{nil}, true)
+	h := newRouter(fakePinger{nil}, config.Config{DebugErrorTrigger: true})
 
 	rec := get(t, h, "/debug/trigger-error")
 
@@ -92,7 +94,7 @@ func TestDebugTriggerErrorWhenEnabled(t *testing.T) {
 }
 
 func TestDebugTriggerErrorWhenDisabled(t *testing.T) {
-	h := newRouter(fakePinger{nil}, false)
+	h := newRouter(fakePinger{nil}, config.Config{})
 
 	// When the trigger is disabled the path must return 404 so it is not
 	// discoverable in normal operation.

@@ -89,7 +89,7 @@ func run() error {
 	// above the rest so cross-origin headers land on every response (including a
 	// 500) and a preflight short-circuits before the handlers; Recovery is
 	// innermost so a handler panic becomes a 500 the access log can observe.
-	handler := httpx.Chain(newRouter(database, cfg.DebugErrorTrigger),
+	handler := httpx.Chain(newRouter(database, cfg),
 		httpx.RequestIDMiddleware(),
 		httpx.CORS(cfg.CORSAllowedOrigins),
 		httpx.Logging(logger, cfg.GCPProject),
@@ -157,16 +157,12 @@ func run() error {
 // newRouter builds the service's root HTTP router: the health probes plus every
 // domain module mounted through the shared httpx.RouteRegistrar contract.
 // Adding or removing a module is a single edit to this list — the composition
-// root — and no module reaches into another's internals. The modules expose no
-// endpoints yet.
+// root — and no module reaches into another's internals.
 //
 // dbPinger is the database handle whose connectivity backs the readiness probe;
 // it is the narrow db.Pinger seam so the router doesn't depend on the concrete
 // pool.
-//
-// debugErrorTrigger enables the guarded /debug/trigger-error endpoint for the
-// M01.7 S5 alert-verification drill. It must be false in normal operation.
-func newRouter(dbPinger db.Pinger, debugErrorTrigger bool) http.Handler {
+func newRouter(dbPinger db.Pinger, cfg config.Config) http.Handler {
 	mux := http.NewServeMux()
 
 	// Health probes are mounted on the root router so they inherit the shared
@@ -182,7 +178,7 @@ func newRouter(dbPinger db.Pinger, debugErrorTrigger bool) http.Handler {
 	mux.HandleFunc(health.ReadinessPath, readiness.Handler)
 
 	modules := []httpx.RouteRegistrar{
-		auth.New(),
+		auth.New(cfg),
 		trip.New(),
 		budget.New(),
 		journal.New(),
@@ -197,7 +193,7 @@ func newRouter(dbPinger db.Pinger, debugErrorTrigger bool) http.Handler {
 	// Disabled by default; enabled only when DEBUG_ERROR_TRIGGER=true is set.
 	// Returns 404 when disabled so the path is not publicly discoverable.
 	// Remove the env var once the alert drill is complete.
-	if debugErrorTrigger {
+	if cfg.DebugErrorTrigger {
 		mux.HandleFunc("/debug/trigger-error", debugTriggerError)
 	}
 
