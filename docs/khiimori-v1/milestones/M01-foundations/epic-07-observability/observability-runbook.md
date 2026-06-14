@@ -57,3 +57,36 @@ gcloud logging read \
   'resource.type="cloud_run_revision" AND resource.labels.service_name="khiimori-api" AND severity>=ERROR' \
   --project intricate-reef-424222-d6 --limit 20 --freshness 1h
 ```
+
+---
+
+## Secret redaction (S2) — secrets never reach the logs
+
+Logs must exclude secrets and tokens (PRD §6, §8.5). Redaction is a property of
+the **shared logger** (`platform/log`), not a discipline each caller must
+remember: the handler replaces the value of any attribute whose key names a
+secret with `[REDACTED]` before the line is written, at every nesting level.
+
+Keys are matched **case-insensitively by substring**, so variants are caught
+too. Redacted fragments: `authorization`, `password`, `passwd`, `secret`
+(incl. `client_secret`), `token` (incl. `access_token`, `refresh_token`),
+`api_key` / `api-key` / `apikey`, `cookie` (incl. `set-cookie`), `db_url`,
+`database_url`, `dsn`, `credential`.
+
+The HTTP access log additionally records only method, **URL path** (never the
+raw query string), status, and duration — it logs **no request headers**, so
+`Authorization` / `Cookie` and any secret query param can't leak there.
+
+### Logging guideline (for every module)
+
+- **Pass secrets as structured attribute values under a descriptive key** —
+  `logger.Error("auth failed", "client_secret", s)` — so redaction can see and
+  strip them. Never interpolate a secret into the message string
+  (`logger.Error("token=" + t)`), which the handler can't inspect.
+- Don't log whole pre-marshalled blobs (a JSON string, a struct serialized by
+  hand) that might embed a secret — redaction works on attribute keys, not on
+  opaque text already turned into a value.
+- When in doubt, omit. A missing log line is cheaper than a leaked credential.
+
+A unit test (`platform/log`) asserts that logging each sensitive key — flat and
+nested in a group — produces redacted output.
