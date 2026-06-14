@@ -61,6 +61,15 @@ config:
   # abroad (PRD §6). Default: the author's Gmail address. Not a secret.
   # khiimori:alertEmail: your@email.com
 
+  # --- Cost guardrails (M01.8) -----------------------------------------------
+  # GCP billing account the project is linked to (format: XXXXXX-XXXXXX-XXXXXX).
+  # Find it: GCP Console → Billing → My billing accounts. Not a secret.
+  # If unset, the billing budget is skipped (a warning fires at pulumi up).
+  # khiimori:billingAccount: XXXXXX-XXXXXX-XXXXXX
+  # Monthly budget amount in EUR (default: 10). The budget alerts at 50/90/100%;
+  # it does not auto-cap spend — raise it when intentionally scaling up.
+  # khiimori:billingBudgetEur: "10"
+
   # --- Scale tunables (S9) — defaults are the cheap, idle-≈€0 ones -----------
   # Cloud Run min instances. 0 = scale-to-zero (default). 1 keeps one warm 24/7
   # (no cold starts) and bills continuously — the single "scale up" toggle.

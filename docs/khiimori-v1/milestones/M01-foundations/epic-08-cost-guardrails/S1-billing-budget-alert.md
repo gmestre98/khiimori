@@ -1,5 +1,7 @@
 # S1 — GCP billing budget + alert (IaC)
 
+> **Status:** ✅ Done — `gcp.billing.Budget` (50/90/100% thresholds, EUR, email channel from M01.7 S4) in `infra/billing.ts`; `billingBudgetsApi` enabled in `services.ts`; `khiimori:billingAccount` + `khiimori:billingBudgetEur` config documented. Budget skips gracefully (with a logged warning) until the author sets `billingAccount` ([#PR](https://github.com/gmestre98/khiimori)).
+
 ## Context
 The single step the PRD says prevents nearly all bill surprises is a **billing budget + alert** (PRD §8.5).
 This story provisions a ~€10/mo budget with threshold alerts via Pulumi, extending the M01.4 stack, so any

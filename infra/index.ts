@@ -18,6 +18,7 @@ import { ciDeployerServiceAccount, wifProvider } from './cicd'
 import { mapsDailyQuota, maxInstances, minInstances, neonTier } from './tunables'
 import { dashboardUrl } from './monitoring'
 import { alertPolicy, emailChannel } from './alerting'
+import { billingBudget } from './billing'
 
 // Echo the resolved provider config as stack outputs. These are trivial (no
 // resources created) and double as a smoke test that project + region are set.
@@ -62,3 +63,6 @@ export const monitoringDashboardUrl = dashboardUrl
 // Error alert policy + email channel (M01.7 S4).
 export const errorAlertPolicyName = alertPolicy.name
 export const errorAlertChannelName = emailChannel.name
+
+// Billing budget (M01.8 S1). Undefined until khiimori:billingAccount is configured.
+export const billingBudgetName = billingBudget?.name
