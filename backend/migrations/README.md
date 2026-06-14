@@ -124,3 +124,13 @@ cd backend && DATABASE_URL_TEST="…" go test -tags=integration ./migrations/...
 ```
 
 M01.5 runs this in CI against an ephemeral Neon branch.
+
+Other packages carry their own `integration`-tagged suites against the same
+disposable DB — e.g. `internal/auth` exercises user provisioning end-to-end
+(M02.2 S5). CI runs them together, serialised so they don't share the database
+concurrently:
+
+```sh
+cd backend && DATABASE_URL_TEST="…" \
+    go test -tags=integration -p 1 ./migrations/... ./internal/auth/...
+```
