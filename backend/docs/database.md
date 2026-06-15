@@ -117,13 +117,29 @@ credential as the secret value:
 ```sql
 CREATE ROLE app_rw LOGIN PASSWORD '<generated>';
 GRANT USAGE ON SCHEMA auth, trip, budget, journal, sharing, geo TO app_rw;
-GRANT ALL ON ALL TABLES    IN SCHEMA auth, trip, budget, journal, sharing, geo TO app_rw;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA auth, trip, budget, journal, sharing, geo TO app_rw;
 ```
+
+The per-table privileges and — importantly — the **default privileges for future
+tables** are applied by a **migration** (`00008_grant_app_rw.sql`), not by hand,
+so they stay reproducible and are re-applied on every deploy:
+
+```sql
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES    IN SCHEMA … TO app_rw;
+GRANT USAGE, SELECT             ON ALL SEQUENCES IN SCHEMA … TO app_rw;
+ALTER DEFAULT PRIVILEGES IN SCHEMA … GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES    TO app_rw;
+ALTER DEFAULT PRIVILEGES IN SCHEMA … GRANT USAGE, SELECT             ON SEQUENCES TO app_rw;
+```
+
+The `ALTER DEFAULT PRIVILEGES` is the key bit: a bare `GRANT … ON ALL TABLES` is
+point-in-time, so a table created by a *later* migration would otherwise be
+inaccessible to `app_rw` (this is exactly what caused the M02 sign-in
+`permission denied for table users`). The migration is guarded on the role
+existing, so it is a no-op for local/test databases that connect as the owner.
 
 `app_rw` is intentionally **not** an owner: it can read/write data in the module
 schemas but cannot create/drop schemas or alter privileges. Schema changes
-(migrations) keep using the owner via `DATABASE_URL_DIRECT`.
+(migrations) keep using the owner via `DATABASE_URL_DIRECT`, which is also the
+role that runs `00008` and thus owns the default-privilege defaults.
 
 ## Regenerating the password
 
