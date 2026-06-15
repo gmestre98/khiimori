@@ -76,8 +76,7 @@ func (m *Module) handleCallback(w http.ResponseWriter, r *http.Request) {
 
 	// Google reports a declined/!errored consent via the `error` parameter.
 	if e := q.Get("error"); e != "" {
-		httpx.WriteError(w, r, httpx.NewAPIError(
-			http.StatusUnauthorized, "auth_denied", "sign-in was not completed"))
+		m.failSignIn(w, r, http.StatusUnauthorized, "auth_denied", "sign-in was not completed")
 		return
 	}
 
@@ -94,8 +93,7 @@ func (m *Module) handleCallback(w http.ResponseWriter, r *http.Request) {
 	m.stateStore.clear(w)
 	if err != nil {
 		// A state failure is a CSRF/replay signal — reject without exchanging.
-		httpx.WriteError(w, r, httpx.NewAPIError(
-			http.StatusUnauthorized, "auth_state_invalid", "invalid sign-in state"))
+		m.failSignIn(w, r, http.StatusUnauthorized, "auth_state_invalid", "invalid sign-in state")
 		return
 	}
 
@@ -107,8 +105,7 @@ func (m *Module) handleCallback(w http.ResponseWriter, r *http.Request) {
 		// are wrapped oauth2/oidc failures (Google's error responses) that don't
 		// carry the code, tokens, or client secret, so they are safe to log (S5).
 		platformlog.FromContext(r.Context()).Error("oauth callback exchange", "err", err.Error())
-		httpx.WriteError(w, r, httpx.NewAPIError(
-			http.StatusUnauthorized, "auth_exchange_failed", "could not complete sign-in"))
+		m.failSignIn(w, r, http.StatusUnauthorized, "auth_exchange_failed", "could not complete sign-in")
 		return
 	}
 

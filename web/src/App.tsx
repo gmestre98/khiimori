@@ -1,15 +1,35 @@
 import './App.css'
 import { HealthCheck } from './HealthCheck'
+import { useAuth } from './auth/AuthContext'
+import { SignIn } from './auth/SignIn'
 
-// Minimal app shell for Milestone 01. Real screens, navigation, and theming
-// arrive in Milestone 09 — this is just the layout placeholder that proves the
-// app builds and serves. The health-check view (S2) reports API connectivity.
+// App is the milestone-02 shell. It reflects auth state from the context: a
+// loading placeholder while the session is checked, the sign-in surface when
+// anonymous, and the signed-in shell (with sign-out) when authenticated. Full
+// routing + route gating arrive in S3; the profile screen in S5.
 function App() {
+  const { status, user, signOut } = useAuth()
+
   return (
     <main className="app-shell">
       <h1>Khiimori</h1>
       <p className="tagline">Travel manager — app shell</p>
-      <HealthCheck />
+
+      {status === 'loading' && <p role="status">Loading…</p>}
+
+      {status === 'anonymous' && <SignIn />}
+
+      {status === 'authenticated' && (
+        <section className="signed-in">
+          <p>
+            Signed in as <strong>{user?.name || user?.email}</strong>
+          </p>
+          <button type="button" className="btn-secondary" onClick={() => void signOut()}>
+            Sign out
+          </button>
+          <HealthCheck />
+        </section>
+      )}
     </main>
   )
 }

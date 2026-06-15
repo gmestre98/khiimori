@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -27,6 +28,10 @@ type Module struct {
 	// sessions issues and validates the authenticated session cookie (Epic 03):
 	// completeSignIn mints one, and the auth middleware validates it.
 	sessions *sessionManager
+	// webAppURL, when set, is where the OAuth callback redirects the browser back
+	// to after sign-in (Epic 05): success → the app, failure → ?auth_error=. Empty
+	// falls back to a JSON acknowledgement (a backend running without the web app).
+	webAppURL string
 	// onVerified consumes a verified identity after a successful callback. The
 	// default is completeSignIn (provision the user); session issuance (Epic 03)
 	// extends it. Kept as a field so tests can substitute a capturing stub.
@@ -53,6 +58,7 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Module {
 		provisioner: &Provisioner{repo: repo, adminEmail: cfg.AdminEmail},
 		users:       repo,
 		sessions:    newSessionManager([]byte(cfg.SessionSecret), secure, sessionTTL),
+		webAppURL:   cfg.WebAppURL,
 	}
 	m.onVerified = m.completeSignIn
 	return m
@@ -99,9 +105,28 @@ func (m *Module) completeSignIn(w http.ResponseWriter, r *http.Request, id Verif
 		return
 	}
 
+	// With a web app configured, the browser-driven OAuth flow lands back on the
+	// app (the session cookie is already set). Without one, ack as JSON so a
+	// frontend-less backend still works (and existing API callers/tests do too).
+	if m.webAppURL != "" {
+		http.Redirect(w, r, m.webAppURL+"/", http.StatusFound)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"status":"signed_in"}`))
+}
+
+// failSignIn ends a failed sign-in. In the browser flow (web app configured) it
+// redirects back to the app's sign-in with an ?auth_error= marker so the user
+// lands on a real page rather than a JSON error; otherwise it renders the JSON
+// API error. Either way no session is created.
+func (m *Module) failSignIn(w http.ResponseWriter, r *http.Request, status int, code, message string) {
+	if m.webAppURL != "" {
+		http.Redirect(w, r, m.webAppURL+"/?auth_error="+url.QueryEscape(code), http.StatusFound)
+		return
+	}
+	httpx.WriteError(w, r, httpx.NewAPIError(status, code, message))
 }
 
 // Compile-time check that *Module implements the route-mounting contract.
