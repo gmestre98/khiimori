@@ -15,7 +15,9 @@ config:
   khiimori:databaseUrl:
     secure: AAABALFjeYE+Q8q/od/KAPZQ8c8IPSSgTadHzgPWQadRXPy4Kf0OaoTaqBXIgWI13OhRKQ1bxqCYLA8mdN6YTmDsUc+qrAcTvhZLSaf6wty25y78xftVMy9MdvLlSxnm8RqLzb323rav6QWXNntXkBu4fVWkTH7rU2PIgi9aqLYQSY6Fz3bWsSFpXFeQrm6Fsmzg7LeQlQ==
   khiimori:oauthClientSecret:
-    secure: AAABABMoJwjkZLoitvSNJUi9H6cz3LyNfT0fEFrnbAb6UQfQ4s993FT2AUagxsyjSZkiFwP1
+    secure: AAABAKgz22QQnLJbwWbFW9TMAXCfAuW5UIXjHdzdyxiTsc/FYZmUCi7R5Hiju9tXarGBjLarzYK9L4E45oEhiRobWA==
+  khiimori:oauthClientId: 717279394743-jiqhjvvthsq0t80haclvr0mh7l80n5b6.apps.googleusercontent.com
+  khiimori:oauthRedirectUri: https://khiimori-api-qectzihgmq-nw.a.run.app/auth/callback
   khiimori:mapsApiKey:
     secure: AAABADlJ76UE/hOw5Dpd4CSWeLM4iOvv7EQg+s1HFr3lIIJgJ56TT61L2bcYT59N0FYOmf3W
   khiimori:databaseUrlDirect:
