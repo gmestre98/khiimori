@@ -15,7 +15,7 @@ config:
   # Attach the project as the quota/billing project on API calls. Required by the
   # Cloud Billing Budget API (billingbudgets.googleapis.com), which refuses calls
   # with no user project; harmless for the other (same-project) resources.
-  gcp:userProjectOverride: "true"
+  gcp:userProjectOverride: 'true'
   gcp:billingProject: intricate-reef-424222-d6
   khiimori:databaseUrl:
     secure: AAABALFjeYE+Q8q/od/KAPZQ8c8IPSSgTadHzgPWQadRXPy4Kf0OaoTaqBXIgWI13OhRKQ1bxqCYLA8mdN6YTmDsUc+qrAcTvhZLSaf6wty25y78xftVMy9MdvLlSxnm8RqLzb323rav6QWXNntXkBu4fVWkTH7rU2PIgi9aqLYQSY6Fz3bWsSFpXFeQrm6Fsmzg7LeQlQ==
