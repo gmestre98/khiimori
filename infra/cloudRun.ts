@@ -70,6 +70,12 @@ const corsAllowedOrigins =
 const oauthClientId = cfg.get('oauthClientId') ?? ''
 const oauthRedirectUri = cfg.get('oauthRedirectUri') ?? ''
 
+// Web app URL the OAuth callback redirects the browser back to after sign-in
+// (M02.5). Defaults to the Firebase Hosting origin (where the web app is
+// served); override `webAppUrl` for a custom domain.
+const webAppUrlOverride = cfg.get('webAppUrl')
+const webAppUrl = webAppUrlOverride !== undefined ? pulumi.output(webAppUrlOverride) : hostingUrl
+
 /** The Cloud Run (v2) service running the Go API as the least-privilege SA. */
 export const service = new gcp.cloudrunv2.Service(
   'api',
@@ -112,6 +118,9 @@ export const service = new gcp.cloudrunv2.Service(
             // client secret is Secret Manager-backed. Env names match config.go.
             { name: 'OAUTH_CLIENT_ID', value: oauthClientId },
             { name: 'OAUTH_REDIRECT_URI', value: oauthRedirectUri },
+            // Post-sign-in redirect target (M02.5): the web app the callback
+            // sends the browser back to. Non-secret literal.
+            { name: 'WEB_APP_URL', value: webAppUrl },
             secretEnv('DATABASE_URL', databaseUrlSecret),
             secretEnv('OAUTH_CLIENT_SECRET', oauthClientSecret),
             secretEnv('MAPS_API_KEY', mapsApiKeySecret),

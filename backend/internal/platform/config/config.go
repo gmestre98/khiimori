@@ -106,6 +106,14 @@ type Config struct {
 	// SESSION_SECRET env var.
 	SessionSecret string
 
+	// WebAppURL is the web app's origin/URL the OAuth callback redirects the
+	// browser back to after a sign-in completes (M02.5): success lands on the
+	// app, a failed sign-in lands with an ?auth_error= marker. Optional — when
+	// empty the callback falls back to a JSON acknowledgement (e.g. a backend
+	// running without the web app). In production it is the Firebase Hosting URL,
+	// injected as an env var (non-secret). Set via WEB_APP_URL.
+	WebAppURL string
+
 	// AdminEmail is the admin-bootstrap path (M02.2 S4): the verified Google
 	// email designated to be provisioned with is_admin=true, enabling Milestone
 	// 08's backoffice. It is matched case-insensitively against the verified
@@ -136,6 +144,7 @@ type Config struct {
 //	GOOGLE_CLOUD_PROJECT  GCP project id, for Cloud Logging trace correlation
 //	ADMIN_EMAIL           verified Google email bootstrapped as admin (M02.2 S4)
 //	SESSION_SECRET        HMAC key for session cookies (M02.3; Secret Manager in prod)
+//	WEB_APP_URL           web app URL the OAuth callback redirects back to (M02.5)
 //
 // Of the two DSNs, only the active one (per DB_POOLED) is required; the unused
 // endpoint stays optional so a pooled service isn't forced to carry the direct
@@ -218,6 +227,10 @@ func Load() (Config, error) {
 	// Optional: the session signing key (S4 sources it from Secret Manager). Empty
 	// at startup is fine — sign-in/auth middleware validate it at call time.
 	cfg.SessionSecret = os.Getenv("SESSION_SECRET")
+
+	// Optional: the web app URL the OAuth callback redirects back to (M02.5).
+	// Trimmed of a trailing slash so the callback can append query/paths cleanly.
+	cfg.WebAppURL = strings.TrimRight(strings.TrimSpace(os.Getenv("WEB_APP_URL")), "/")
 
 	// Optional: the admin-bootstrap email (S4). Trimmed of surrounding whitespace
 	// so a stray space in the secret/env value doesn't defeat the match; the
