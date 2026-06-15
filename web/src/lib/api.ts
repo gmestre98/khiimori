@@ -123,6 +123,47 @@ export async function fetchProfile(signal?: AbortSignal): Promise<Profile> {
   return (await res.json()) as Profile
 }
 
+// ProfilePatch is the editable subset of the profile (PATCH /me). Omitted fields
+// are left unchanged; default_currency is intentionally absent — it is read-only
+// (always EUR) and the API ignores any attempt to change it.
+export interface ProfilePatch {
+  name?: string
+  avatar?: string
+  home_base?: string
+  theme?: string
+}
+
+// ProfileValidationError carries the API's 400 message (e.g. an invalid theme or
+// an over-long field) so the profile screen can show it to the user.
+export class ProfileValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ProfileValidationError'
+  }
+}
+
+// updateProfile saves the editable profile fields (PATCH /me) and returns the
+// updated profile. A 401 throws UnauthorizedError (the central handler drives
+// re-auth); a 400 throws ProfileValidationError with the API's message.
+export async function updateProfile(patch: ProfilePatch): Promise<Profile> {
+  const res = await apiFetch('/me', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  })
+  if (res.status === 401) {
+    throw new UnauthorizedError()
+  }
+  if (res.status === 400) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new ProfileValidationError(body?.error?.message ?? 'Invalid profile')
+  }
+  if (!res.ok) {
+    throw new Error(`API returned HTTP ${res.status}`)
+  }
+  return (await res.json()) as Profile
+}
+
 // signOut ends the session server-side (clears the cookie, Epic 03). It resolves
 // regardless of the response so the UI can always drop local auth state.
 export async function signOut(): Promise<void> {

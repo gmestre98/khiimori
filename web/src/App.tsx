@@ -1,6 +1,7 @@
 import './App.css'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Home } from './pages/Home'
+import { Profile } from './pages/Profile'
 import { SignIn } from './auth/SignIn'
 import { PostLoginRedirect, RequireAuth } from './auth/RequireAuth'
 
@@ -20,6 +21,7 @@ function App() {
           <Route path="/signin" element={<SignIn />} />
           <Route element={<RequireAuth />}>
             <Route path="/" element={<Home />} />
+            <Route path="/profile" element={<Profile />} />
           </Route>
           {/* Unknown paths fall back to home, which gates to sign-in if anonymous. */}
           <Route path="*" element={<Navigate to="/" replace />} />
