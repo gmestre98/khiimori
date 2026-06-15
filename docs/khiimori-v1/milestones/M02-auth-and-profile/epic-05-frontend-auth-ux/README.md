@@ -1,5 +1,7 @@
 # Epic M02.5 — Frontend auth experience (context, route gating, profile screen)
 
+> **Status:** ✅ Done — all 5 stories merged (PRs [#182](https://github.com/gmestre98/khiimori/pull/182)–[#186](https://github.com/gmestre98/khiimori/pull/186)) and all 5 acceptance criteria met (23 vitest component/unit tests; deployed web app live and wired to the API). React auth context + `useAuth`; react-router gating with return-to-intended; central 401 → re-auth; sign-in/out (the OAuth callback now redirects back to the SPA); and the gated `/profile` screen (view/edit, EUR read-only). The live Google sign-in click-through depends on the author provisioning the Google OAuth client in prod (a documented M02.1 prerequisite — `/auth/login` returns 503 `auth_unconfigured` until then); the code paths are covered by tests.
+>
 > Milestone: [02 — Auth & Profile](../README.md) · PRD refs: §5.7, §5.8, §6, §7.2.
 
 ## Description
@@ -14,15 +16,15 @@ triggers a smooth re-auth rather than a broken page. Works on web and mobile (PR
 
 ## Acceptance Criteria
 
-- [ ] A **sign-in affordance** starts the Google flow (Epic 01) and a **sign-out** affordance ends
+- [x] A **sign-in affordance** starts the Google flow (Epic 01) and a **sign-out** affordance ends
       the session (Epic 03); both work on web and mobile (PRD §5.8).
-- [ ] An **auth context** exposes the current user and auth state to the app; **protected routes are
+- [x] An **auth context** exposes the current user and auth state to the app; **protected routes are
       gated** and redirect unauthenticated users to sign-in (PRD §6).
-- [ ] The context **detects `401`** responses and triggers re-auth (or redirect to sign-in) without
+- [x] The context **detects `401`** responses and triggers re-auth (or redirect to sign-in) without
       losing the user's place where reasonable (PRD §6, Epic 03).
-- [ ] A **Profile screen** views and edits name, avatar, home base, and theme preference via Epic 04,
+- [x] A **Profile screen** views and edits name, avatar, home base, and theme preference via Epic 04,
       and **displays EUR** as a non-editable field (PRD §5.7, §11.5).
-- [ ] Changes made on the Profile screen **persist and reflect immediately** in the UI (PRD §5.7).
+- [x] Changes made on the Profile screen **persist and reflect immediately** in the UI (PRD §5.7).
 
 ## Implementation Details / Architecture
 

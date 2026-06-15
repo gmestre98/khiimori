@@ -8,7 +8,9 @@
 
 ---
 
-**Status: 🚧 In progress** — epics **01 (Google OAuth sign-in)**, **02 (user provisioning & identity model)**, **03 (sessions & auth middleware)**, and **04 (profile management)** are ✅ done (PRs [#157](https://github.com/gmestre98/khiimori/pull/157)–[#180](https://github.com/gmestre98/khiimori/pull/180)). A successful sign-in provisions/resolves the user **and issues an authenticated session**; shared auth middleware validates it on every request (401 when missing/expired), `POST /auth/logout` signs out, and `GET`/`PATCH /me` read/edit the session user's own profile (EUR read-only) — all verified live on the deployed service. Only **epic 05 (frontend auth UX)** remains — the backend identity layer is complete; the browser-facing sign-in/route-gating/profile screen is next.
+**Status: ✅ Complete** — all 5 epics done (PRs [#157](https://github.com/gmestre98/khiimori/pull/157)–[#186](https://github.com/gmestre98/khiimori/pull/186)); every acceptance criterion implemented and covered by unit + integration + component tests, with the live deployed API/web verified end to end at the HTTP level. Google SSO sign-in → user provisioning (idempotent on `google_sub`) → an authenticated session (stateless signed cookie) validated by shared auth middleware (401 on missing/expired) → sign-out → a React app with auth context, route gating, central 401 re-auth, and a profile screen (view/edit; EUR read-only). The OAuth client secret and session signing key live only in Secret Manager.
+
+> **One author prerequisite for the live click-through:** the Google OAuth client must be provisioned in prod (`OAUTH_CLIENT_ID` / `OAUTH_REDIRECT_URI` Pulumi config + the real `oauth-client-secret` Secret Manager value). Until then `/auth/login` returns `503 auth_unconfigured`, so the end-to-end Google sign-in can't be exercised against the deployed app — the code paths are fully test-covered. This has been an outstanding author task since M02.1 (the OAuth client is created in the Google Cloud console).
 
 ## Milestone goal
 
@@ -43,8 +45,8 @@ middleware hook; *trip authorization* (what you may touch) is owned by the Shari
 | [02](epic-02-user-provisioning-model/README.md) | User provisioning & identity model (`auth.*`) | 5 | ~2 | — | ✅ Done |
 | [03](epic-03-sessions-auth-middleware/README.md) | Sessions & auth middleware | 5 | ~2–3 | — | ✅ Done |
 | [04](epic-04-profile-management/README.md) | Profile management (view/edit, EUR fixed) | 4 | ~1–2 | — | ✅ Done |
-| [05](epic-05-frontend-auth-ux/README.md) | Frontend auth experience (context, route gating, profile screen) | 5 | ~2 | — | ⬜ Pending |
-| | **Milestone total** | **24** | **~9–12** (≈ 2–2.5 weeks, one developer) | | **4 / 5 epics** |
+| [05](epic-05-frontend-auth-ux/README.md) | Frontend auth experience (context, route gating, profile screen) | 5 | ~2 | — | ✅ Done |
+| | **Milestone total** | **24** | **~9–12** (≈ 2–2.5 weeks, one developer) | | ✅ **5 / 5 epics** |
 
 > **Estimates** assume one developer familiar with the stack; they cover implementation, tests, and
 > review, and exclude author-provided prerequisites (Google OAuth client ID/secret and authorized
