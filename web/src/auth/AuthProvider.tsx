@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import {
   fetchProfile,
   loginUrl,
+  setUnauthorizedHandler,
   signOut as apiSignOut,
   UnauthorizedError,
   type Profile,
@@ -30,6 +31,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
     setStatus('anonymous')
   }, [])
+
+  // Centralised 401 handling (S4): any authenticated API call that comes back
+  // 401 (expired/absent session) flips the app to anonymous; the route gating
+  // then redirects to sign-in, preserving the user's place via returnTo. One
+  // handler for the whole app — no per-call 401 checks.
+  useEffect(() => {
+    setUnauthorizedHandler(() => applyAnonymous())
+    return () => setUnauthorizedHandler(null)
+  }, [applyAnonymous])
 
   // On mount, ask the backend whether there is a valid session. Inlined as a
   // promise chain (setState only in the deferred callbacks) and cancelled on

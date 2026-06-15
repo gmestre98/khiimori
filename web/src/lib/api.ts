@@ -72,12 +72,31 @@ export class UnauthorizedError extends Error {
   }
 }
 
+// onUnauthorized is the single app-wide reaction to an expired/absent session.
+let onUnauthorized: (() => void) | null = null
+
+// setUnauthorizedHandler registers the one callback invoked whenever any
+// authenticated API call returns 401 — i.e. the session expired or is missing.
+// The auth provider registers a handler that flips the app to anonymous; the
+// route gating (S3) then sends the user to sign-in, preserving their place via
+// returnTo. Centralising it here means every call benefits without per-call 401
+// checks. Pass null to clear (on unmount).
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  onUnauthorized = fn
+}
+
 // apiFetch is the single choke point for authenticated API calls. It always
 // sends credentials so the httpOnly session cookie travels cross-origin to the
-// API (and Set-Cookie is honoured). Centralising it here is what lets S4 add
-// one 401 interceptor for the whole app.
+// API (and Set-Cookie is honoured), and it routes every 401 through the central
+// unauthorized handler so an expired session triggers re-auth app-wide. The
+// response is still returned so callers can handle it (e.g. fetchProfile throws
+// UnauthorizedError); non-401 responses are untouched.
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
-  return fetch(apiUrl(path), { ...init, credentials: 'include' })
+  const res = await fetch(apiUrl(path), { ...init, credentials: 'include' })
+  if (res.status === 401) {
+    onUnauthorized?.()
+  }
+  return res
 }
 
 // Profile is the wire shape of GET /me (Epic 04). default_currency is read-only
