@@ -12,6 +12,11 @@ config:
   # GCP region. europe-west2 (London) pairs with the Neon DB in eu-west-2
   # (AWS London) for low cross-service latency — see backend/docs/database.md.
   gcp:region: europe-west2
+  # Attach the project as the quota/billing project on API calls. Required by the
+  # Cloud Billing Budget API (billingbudgets.googleapis.com), which refuses calls
+  # with no user project; harmless for the other (same-project) resources.
+  gcp:userProjectOverride: "true"
+  gcp:billingProject: intricate-reef-424222-d6
   khiimori:databaseUrl:
     secure: AAABALFjeYE+Q8q/od/KAPZQ8c8IPSSgTadHzgPWQadRXPy4Kf0OaoTaqBXIgWI13OhRKQ1bxqCYLA8mdN6YTmDsUc+qrAcTvhZLSaf6wty25y78xftVMy9MdvLlSxnm8RqLzb323rav6QWXNntXkBu4fVWkTH7rU2PIgi9aqLYQSY6Fz3bWsSFpXFeQrm6Fsmzg7LeQlQ==
   khiimori:oauthClientSecret:
@@ -22,6 +27,10 @@ config:
     secure: AAABADlJ76UE/hOw5Dpd4CSWeLM4iOvv7EQg+s1HFr3lIIJgJ56TT61L2bcYT59N0FYOmf3W
   khiimori:databaseUrlDirect:
     secure: AAABALiqsu2azllaF/xKEjh5QYHaZq6OAWMfmfKBKE/w3oc5fVHeN+DdL0M1TkjW36wIoRITXki7l/b3idODKxXCRvts/R/unQkqN1G0oV4DuxZrfBKyZGYq1xnMqTodYtikrG7eeU9b+5wzf/AVYyE6xNiN61eWEvYkYP6mZrgrHe3C2Tp9lsnfpt6EbKiP9A==
+  # GCP billing account for the cost-guardrails budget (M01.8) — not a secret.
+  # MUST live under config: — a bare top-level key here is ignored by Pulumi, so
+  # the budget was silently never provisioned until this was moved in.
+  khiimori:billingAccount: 0174E2-8E297D-D1C256
 
 # --- Optional: resource names (sensible defaults if omitted) ---------------
 # Artifact Registry Docker repository id (last segment of the image prefix).
@@ -61,7 +70,8 @@ config:
 # GCP billing account the project is linked to (format: XXXXXX-XXXXXX-XXXXXX).
 # Find it: GCP Console → Billing → My billing accounts. Not a secret.
 # If unset, the billing budget is skipped (a warning fires at pulumi up).
-khiimori:billingAccount: 0174E2-8E297D-D1C256
+# (Set above, under config: — not here at the top level, which Pulumi ignores.)
+# khiimori:billingAccount: XXXXXX-XXXXXX-XXXXXX
 # Monthly budget amount in EUR (default: 10). The budget alerts at 50/90/100%;
 # it does not auto-cap spend — raise it when intentionally scaling up.
 # khiimori:billingBudgetEur: "10"
