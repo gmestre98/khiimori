@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './auth/AuthProvider'
 
@@ -12,13 +13,16 @@ const profile = {
   default_currency: 'EUR',
 }
 
-// renderApp mounts the app inside a real AuthProvider so the session check and
-// sign-in/out wiring are exercised end to end against a mocked API.
-function renderApp() {
+// renderApp mounts the app inside the router + a real AuthProvider so routing,
+// gating, the session check, and sign-in/out are exercised end to end against a
+// mocked API. initialPath sets the starting route.
+function renderApp(initialPath = '/') {
   render(
-    <AuthProvider>
-      <App />
-    </AuthProvider>,
+    <MemoryRouter initialEntries={[initialPath]}>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </MemoryRouter>,
   )
 }
 
@@ -52,5 +56,22 @@ describe('App auth shell', () => {
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /sign in with google/i })).toBeInTheDocument(),
     )
+  })
+
+  it('shows a loading placeholder before the session is known (no protected content)', async () => {
+    // A fetch that never resolves keeps the session check in flight.
+    vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise<Response>(() => {}))
+    renderApp('/')
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/loading/i)
+    expect(screen.queryByRole('button', { name: /sign out/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /sign in with google/i })).not.toBeInTheDocument()
+  })
+
+  it('redirects an anonymous deep link to the sign-in surface (gating)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 401 }))
+    renderApp('/profile') // undefined route → catch-all → "/" → gated → /signin
+
+    expect(await screen.findByRole('button', { name: /sign in with google/i })).toBeInTheDocument()
   })
 })
