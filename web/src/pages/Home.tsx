@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { HealthCheck } from '../HealthCheck'
 import { useAuth } from '../auth/AuthContext'
 
@@ -12,6 +13,9 @@ export function Home() {
       <p>
         Signed in as <strong>{user?.name || user?.email}</strong>
       </p>
+      <nav className="home-nav">
+        <Link to="/profile">Profile</Link>
+      </nav>
       <button type="button" className="btn-secondary" onClick={() => void signOut()}>
         Sign out
       </button>

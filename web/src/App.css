@@ -65,3 +65,48 @@
 .auth-error {
   color: #cf222e;
 }
+
+/* Profile form — basic layout; Milestone 09 restyles. */
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 420px;
+  margin: 16px auto 0;
+  text-align: left;
+}
+
+.profile-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-form input,
+.profile-form select {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.profile-readonly {
+  color: var(--text);
+}
+
+.profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.profile-saved {
+  color: #1a7f37;
+}
+
+.home-nav {
+  display: flex;
+  gap: 16px;
+}
