@@ -9,10 +9,10 @@ S2–S3.
 Add a migration for the `Day` table in the `trip.*` schema.
 
 ## Acceptance criteria
-- [ ] A migration creates `Day(id, trip_id, date, index, notes)` with a FK to `trip.Trip` and an index
+- [x] A migration creates `Day(id, trip_id, date, index, notes)` with a FK to `trip.Trip` and an index
   on `trip_id` (and a uniqueness guard on `(trip_id, date)`).
-- [ ] `date` is a real calendar date; `index` gives a stable within-trip order.
-- [ ] The migration applies cleanly via the M01.3 runner and is covered by the migration test setup.
+- [x] `date` is a real calendar date; `index` gives a stable within-trip order.
+- [x] The migration applies cleanly via the M01.3 runner and is covered by the migration test setup.
 
 ## Constraints
 - Follow M01.3 migration conventions.
