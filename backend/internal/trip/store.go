@@ -37,14 +37,6 @@ type dayRegenerator interface {
 	RegenerateDays(ctx context.Context, tx pgx.Tx, tripID string, start, end time.Time) error
 }
 
-// noopDayRegenerator is the Epic 01 default: day generation is Epic 02's, so the
-// seam is present but does nothing yet.
-type noopDayRegenerator struct{}
-
-func (noopDayRegenerator) RegenerateDays(context.Context, pgx.Tx, string, time.Time, time.Time) error {
-	return nil
-}
-
 // tripColumns is the trip.trips column list returned by every read/write, in
 // scan order. Centralised so the SQL and scanTrip can't drift apart.
 const tripColumns = `id::text, owner_id::text, name, destinations, start_date, end_date, ` +

@@ -30,7 +30,7 @@ func New(pool *pgxpool.Pool, requireAuth httpx.Middleware, memberships OwnerMemb
 		store: &pgxTripStore{
 			pool:        pool,
 			memberships: memberships,
-			days:        noopDayRegenerator{},
+			days:        pgxDayRegenerator{},
 		},
 		requireAuth: requireAuth,
 	}
