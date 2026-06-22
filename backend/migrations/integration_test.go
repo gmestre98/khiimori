@@ -74,6 +74,10 @@ func TestMigrationsCreateModuleSchemas(t *testing.T) {
 	// google_sub idempotency key is unique, and the server-set defaults hold.
 	assertAuthUsersTable(t, db)
 
+	// The trip.days table (00011) is the Day entity all later milestones key off;
+	// assert its idempotency guard and cascade FK applied.
+	assertTripDaysTable(t, db)
+
 	// Roll everything back and assert the schemas are gone.
 	if err := goose.Reset(db, migrations.Dir); err != nil {
 		t.Fatalf("migrate reset: %v", err)
@@ -144,6 +148,66 @@ func assertAuthUsersTable(t *testing.T, db *sql.DB) {
 		if !strings.Contains(def, tc.want) {
 			t.Errorf("auth.users.%s default = %q, want it to contain %q", tc.column, def, tc.want)
 		}
+	}
+}
+
+// assertTripDaysTable checks the trip.days migration (00011) applied with the
+// shape S2–S4 depend on: the table exists, the (trip_id, date) uniqueness guard
+// is in place, and the cascading FK from trip_id to trip.trips is present.
+func assertTripDaysTable(t *testing.T, db *sql.DB) {
+	t.Helper()
+
+	var tableExists bool
+	if err := db.QueryRow(
+		`SELECT EXISTS (
+			SELECT 1 FROM information_schema.tables
+			WHERE table_schema = 'trip' AND table_name = 'days'
+		)`,
+	).Scan(&tableExists); err != nil {
+		t.Fatalf("query trip.days existence: %v", err)
+	}
+	if !tableExists {
+		t.Fatal("trip.days table missing after migrate up")
+	}
+
+	// The (trip_id, date) UNIQUE constraint is the idempotency key for day
+	// generation; its absence would allow duplicate days for the same date.
+	var uniqueOnTripDate bool
+	if err := db.QueryRow(
+		`SELECT EXISTS (
+			SELECT 1
+			FROM pg_constraint c
+			WHERE c.conrelid = 'trip.days'::regclass
+			  AND c.contype = 'u'
+			  AND c.conkey = ARRAY[
+				(SELECT attnum FROM pg_attribute WHERE attrelid = 'trip.days'::regclass AND attname = 'trip_id'),
+				(SELECT attnum FROM pg_attribute WHERE attrelid = 'trip.days'::regclass AND attname = 'date')
+			  ]
+		)`,
+	).Scan(&uniqueOnTripDate); err != nil {
+		t.Fatalf("query trip.days unique constraint: %v", err)
+	}
+	if !uniqueOnTripDate {
+		t.Error("trip.days lacks a UNIQUE constraint on (trip_id, date)")
+	}
+
+	// The cascade FK ensures days are removed when their trip is deleted, so no
+	// orphan cleanup is needed at the application layer.
+	var cascadeFK bool
+	if err := db.QueryRow(
+		`SELECT EXISTS (
+			SELECT 1
+			FROM pg_constraint c
+			WHERE c.conrelid  = 'trip.days'::regclass
+			  AND c.contype   = 'f'
+			  AND c.confrelid = 'trip.trips'::regclass
+			  AND c.confdeltype = 'c'
+		)`,
+	).Scan(&cascadeFK); err != nil {
+		t.Fatalf("query trip.days cascade FK: %v", err)
+	}
+	if !cascadeFK {
+		t.Error("trip.days.trip_id lacks a CASCADE DELETE foreign key to trip.trips")
 	}
 }
 

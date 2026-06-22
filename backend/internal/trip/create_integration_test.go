@@ -112,7 +112,7 @@ func freshStore(t *testing.T, m OwnerMemberships, days dayRegenerator) *pgxTripS
 		t.Skip("DATABASE_URL_TEST not set; skipping trip integration test")
 	}
 	_, err := testPool.Exec(context.Background(),
-		`TRUNCATE trip.trips, sharing.trip_memberships RESTART IDENTITY`)
+		`TRUNCATE trip.days, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
 	if err != nil {
 		t.Fatalf("truncating tables: %v", err)
 	}
