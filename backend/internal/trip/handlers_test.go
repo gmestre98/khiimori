@@ -23,6 +23,18 @@ type fakeTripStore struct {
 	gotUpdateOwner string
 	gotUpdate      EditTrip
 	updateErr      error
+
+	gotArchiveID    string
+	gotArchiveOwner string
+	archiveErr      error
+
+	gotUnarchiveID    string
+	gotUnarchiveOwner string
+	unarchiveErr      error
+
+	gotDeleteID    string
+	gotDeleteOwner string
+	deleteErr      error
 }
 
 func (f *fakeTripStore) Update(_ context.Context, id, ownerID string, e EditTrip) (Trip, error) {
@@ -70,6 +82,40 @@ func (f *fakeTripStore) Create(_ context.Context, nt NewTrip) (Trip, error) {
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}, nil
+}
+
+func (f *fakeTripStore) Archive(_ context.Context, id, ownerID string) (Trip, error) {
+	f.gotArchiveID = id
+	f.gotArchiveOwner = ownerID
+	if f.archiveErr != nil {
+		return Trip{}, f.archiveErr
+	}
+	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
+	return Trip{
+		ID: id, OwnerID: ownerID, Name: "trip", Destinations: []string{},
+		StartDate: now, EndDate: now, BaseCurrency: baseCurrencyEUR,
+		Status: "archived", CreatedAt: now, UpdatedAt: now,
+	}, nil
+}
+
+func (f *fakeTripStore) Unarchive(_ context.Context, id, ownerID string) (Trip, error) {
+	f.gotUnarchiveID = id
+	f.gotUnarchiveOwner = ownerID
+	if f.unarchiveErr != nil {
+		return Trip{}, f.unarchiveErr
+	}
+	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
+	return Trip{
+		ID: id, OwnerID: ownerID, Name: "trip", Destinations: []string{},
+		StartDate: now, EndDate: now, BaseCurrency: baseCurrencyEUR,
+		Status: statusActive, CreatedAt: now, UpdatedAt: now,
+	}, nil
+}
+
+func (f *fakeTripStore) Delete(_ context.Context, id, ownerID string) error {
+	f.gotDeleteID = id
+	f.gotDeleteOwner = ownerID
+	return f.deleteErr
 }
 
 // withPrincipal returns r carrying an authenticated principal, simulating a
@@ -238,6 +284,192 @@ func TestHandleUpdateUnauthenticated(t *testing.T) {
 		t.Fatalf("status = %d, want 401", rec.Code)
 	}
 	if store.gotUpdateID != "" {
+		t.Error("store should not be called for an unauthenticated request")
+	}
+}
+
+// archiveReq builds a POST request for /{id}/archive with an authenticated
+// principal and the path value set (as the router would).
+func archiveReq(id, userID string) *http.Request {
+	req := httptest.NewRequest(http.MethodPost, TripsPath+"/"+id+"/archive", http.NoBody)
+	req.SetPathValue("id", id)
+	return withPrincipal(req, userID)
+}
+
+// unarchiveReq builds a POST request for /{id}/unarchive.
+func unarchiveReq(id, userID string) *http.Request {
+	req := httptest.NewRequest(http.MethodPost, TripsPath+"/"+id+"/unarchive", http.NoBody)
+	req.SetPathValue("id", id)
+	return withPrincipal(req, userID)
+}
+
+// deleteReq builds a DELETE request for /{id}.
+func deleteReq(id, userID string) *http.Request {
+	req := httptest.NewRequest(http.MethodDelete, TripsPath+"/"+id, http.NoBody)
+	req.SetPathValue("id", id)
+	return withPrincipal(req, userID)
+}
+
+// TestHandleArchiveSuccess asserts a valid archive request returns 200 with
+// status=archived, owner from session, and the id from the path.
+func TestHandleArchiveSuccess(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{}
+	m := newCreateModule(store)
+
+	rec := httptest.NewRecorder()
+	m.handleArchive(rec, archiveReq("trip-7", "owner-1"))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	if store.gotArchiveID != "trip-7" {
+		t.Errorf("store id = %q, want trip-7 (from path)", store.gotArchiveID)
+	}
+	if store.gotArchiveOwner != "owner-1" {
+		t.Errorf("store owner = %q, want owner-1 (from session)", store.gotArchiveOwner)
+	}
+	var resp tripResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decoding response: %v", err)
+	}
+	if resp.Status != "archived" {
+		t.Errorf("status = %q, want archived", resp.Status)
+	}
+}
+
+// TestHandleArchiveNotFound asserts the store's not-found maps to 404.
+func TestHandleArchiveNotFound(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{archiveErr: errTripNotFound}
+	m := newCreateModule(store)
+
+	rec := httptest.NewRecorder()
+	m.handleArchive(rec, archiveReq("missing", "owner-1"))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
+
+// TestHandleArchiveUnauthenticated asserts a request with no principal is 401.
+func TestHandleArchiveUnauthenticated(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{}
+	m := newCreateModule(store)
+
+	req := httptest.NewRequest(http.MethodPost, TripsPath+"/trip-7/archive", http.NoBody)
+	req.SetPathValue("id", "trip-7")
+	rec := httptest.NewRecorder()
+	m.handleArchive(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+	if store.gotArchiveID != "" {
+		t.Error("store should not be called for an unauthenticated request")
+	}
+}
+
+// TestHandleUnarchiveSuccess asserts a valid unarchive request returns 200 with
+// status=active.
+func TestHandleUnarchiveSuccess(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{}
+	m := newCreateModule(store)
+
+	rec := httptest.NewRecorder()
+	m.handleUnarchive(rec, unarchiveReq("trip-7", "owner-1"))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	if store.gotUnarchiveOwner != "owner-1" {
+		t.Errorf("store owner = %q, want owner-1 (from session)", store.gotUnarchiveOwner)
+	}
+	var resp tripResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decoding response: %v", err)
+	}
+	if resp.Status != statusActive {
+		t.Errorf("status = %q, want active", resp.Status)
+	}
+}
+
+// TestHandleUnarchiveNotFound asserts not-found maps to 404.
+func TestHandleUnarchiveNotFound(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{unarchiveErr: errTripNotFound}
+	m := newCreateModule(store)
+
+	rec := httptest.NewRecorder()
+	m.handleUnarchive(rec, unarchiveReq("missing", "owner-1"))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
+
+// TestHandleDeleteSuccess asserts a valid delete returns 204 with no body.
+func TestHandleDeleteSuccess(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{}
+	m := newCreateModule(store)
+
+	rec := httptest.NewRecorder()
+	m.handleDelete(rec, deleteReq("trip-7", "owner-1"))
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204; body=%s", rec.Code, rec.Body.String())
+	}
+	if store.gotDeleteID != "trip-7" {
+		t.Errorf("store id = %q, want trip-7 (from path)", store.gotDeleteID)
+	}
+	if store.gotDeleteOwner != "owner-1" {
+		t.Errorf("store owner = %q, want owner-1 (from session)", store.gotDeleteOwner)
+	}
+	if rec.Body.Len() != 0 {
+		t.Errorf("expected empty body on 204, got: %s", rec.Body.String())
+	}
+}
+
+// TestHandleDeleteNotFound asserts the store's not-found maps to 404.
+func TestHandleDeleteNotFound(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{deleteErr: errTripNotFound}
+	m := newCreateModule(store)
+
+	rec := httptest.NewRecorder()
+	m.handleDelete(rec, deleteReq("missing", "owner-1"))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
+
+// TestHandleDeleteUnauthenticated asserts a request with no principal is 401.
+func TestHandleDeleteUnauthenticated(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{}
+	m := newCreateModule(store)
+
+	req := httptest.NewRequest(http.MethodDelete, TripsPath+"/trip-7", http.NoBody)
+	req.SetPathValue("id", "trip-7")
+	rec := httptest.NewRecorder()
+	m.handleDelete(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+	if store.gotDeleteID != "" {
 		t.Error("store should not be called for an unauthenticated request")
 	}
 }
