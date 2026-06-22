@@ -36,7 +36,7 @@ func (pgxDayRegenerator) RegenerateDays(ctx context.Context, tx pgx.Tx, tripID s
 	}
 
 	results := tx.SendBatch(ctx, batch)
-	defer results.Close()
+	defer func() { _ = results.Close() }()
 
 	for _, d := range dates {
 		if _, err := results.Exec(); err != nil {
