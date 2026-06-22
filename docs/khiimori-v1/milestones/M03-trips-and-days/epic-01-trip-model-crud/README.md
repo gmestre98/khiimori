@@ -1,5 +1,7 @@
 # Epic M03.1 — Trip data model & CRUD (`trip.*`, owner membership)
 
+> **Status:** ✅ Done — all 5 stories merged (PRs [#192](https://github.com/gmestre98/khiimori/pull/192)–[#196](https://github.com/gmestre98/khiimori/pull/196)) and all 5 acceptance criteria verified. Trip CRUD (create/edit/archive/unarchive/delete) is live; owner `TripMembership` is written transactionally on create; delete cascades memberships explicitly across schemas; day-regeneration seam is wired for Epic 02.
+>
 > Milestone: [03 — Trips & Days](../README.md) · PRD refs: §5.1, §7.7, §9.
 
 ## Description
@@ -14,15 +16,15 @@ for a trip: name, destinations, start/end date, cover image, `base_currency = EU
 
 ## Acceptance Criteria
 
-- [ ] A migration creates the **`trip.*`** schema with `Trip(id, owner_id, name, destinations,
+- [x] A migration creates the **`trip.*`** schema with `Trip(id, owner_id, name, destinations,
       start_date, end_date, base_currency, cover, status)` per PRD §9 (PRD §7.7).
-- [ ] **Create / edit / archive / delete** a trip is implemented; `base_currency` is fixed to **EUR**
+- [x] **Create / edit / archive / delete** a trip is implemented; `base_currency` is fixed to **EUR**
       and `status` carries the active/archived state (PRD §5.1).
-- [ ] **Delete cascades** the trip's days and owned entities **transactionally**; **archive** hides
+- [x] **Delete cascades** the trip's days and owned entities **transactionally**; **archive** hides
       the trip from active lists without deleting (PRD §5.1, §7.7).
-- [ ] On trip creation, an **owner `TripMembership(role = Owner)`** row is created in the same
+- [x] On trip creation, an **owner `TripMembership(role = Owner)`** row is created in the same
       transaction (full lifecycle in Milestone 08) (PRD §9).
-- [ ] Unit + integration tests cover create/edit/archive/delete and the owner-membership creation
+- [x] Unit + integration tests cover create/edit/archive/delete and the owner-membership creation
       (PRD §7.6).
 
 ## Implementation Details / Architecture

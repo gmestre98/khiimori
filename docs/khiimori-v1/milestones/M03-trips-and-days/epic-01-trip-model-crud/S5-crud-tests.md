@@ -9,11 +9,11 @@ covered against a real schema.
 Add integration tests for trip CRUD and owner-membership behaviour against a migrated schema.
 
 ## Acceptance criteria
-- [ ] Integration tests run the migrations (S1, S2) against the M01.3 ephemeral/test DB.
-- [ ] Tests cover: create (with Owner membership written), edit (with validation), archive (hidden,
+- [x] Integration tests run the migrations (S1, S2) against the M01.3 ephemeral/test DB.
+- [x] Tests cover: create (with Owner membership written), edit (with validation), archive (hidden,
   retained), and delete (cascade, no orphans).
-- [ ] A test asserts the owner-membership row exists with role Owner after create.
-- [ ] A test asserts delete cascades days/memberships transactionally (counts go to zero).
+- [x] A test asserts the owner-membership row exists with role Owner after create.
+- [x] A test asserts delete cascades days/memberships transactionally (counts go to zero).
 
 ## Constraints
 - Reuse the M01.3 integration harness; hermetic per-test schema state.

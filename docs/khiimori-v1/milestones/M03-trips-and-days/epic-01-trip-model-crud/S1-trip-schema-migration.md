@@ -9,13 +9,13 @@ maps. Assumes the migration runner/schema-per-module layout from M01.3.
 Add a migration that creates the `trip` schema and the `Trip` table.
 
 ## Acceptance criteria
-- [ ] A migration creates the **`trip`** schema and a `Trip` table with: `id`, `owner_id` (FK to
+- [x] A migration creates the **`trip`** schema and a `Trip` table with: `id`, `owner_id` (FK to
   `auth.User`), `name`, `destinations`, `start_date`, `end_date`, `base_currency`, `cover`, `status`.
-- [ ] `base_currency` defaults to **`EUR`**; `status` carries active/archived state with a sensible
+- [x] `base_currency` defaults to **`EUR`**; `status` carries active/archived state with a sensible
   default (active).
-- [ ] `destinations` is modelled to support multiple destinations (e.g. JSONB or a text array — chosen
-  approach documented).
-- [ ] The migration applies cleanly via the M01.3 runner and is covered by the migration test setup.
+- [x] `destinations` is modelled to support multiple destinations (e.g. JSONB or a text array — chosen
+  approach documented). **Implemented as `text[]`.**
+- [x] The migration applies cleanly via the M01.3 runner and is covered by the migration test setup.
 
 ## Constraints
 - Follow the existing migration tool/conventions (M01.3); no new tool.
