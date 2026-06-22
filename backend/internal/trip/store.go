@@ -2,19 +2,12 @@ package trip
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-// errTripNotFound means no trip matched the id for the requesting owner — either
-// it does not exist or it belongs to another user. The two are deliberately
-// indistinguishable to the caller (owner-scoped reads, Epic 04) so a 404 never
-// leaks the existence of someone else's trip.
-var errTripNotFound = errors.New("trip: not found")
 
 // OwnerMemberships is the slice of the sharing module's membership writer the
 // trip store needs. The trip module declares it (consumer-side interface) and
@@ -95,7 +88,7 @@ func (s *pgxTripStore) Create(ctx context.Context, nt NewTrip) (Trip, error) {
 	}
 
 	if err := s.memberships.CreateOwner(ctx, tx, t.ID, t.OwnerID); err != nil {
-		return Trip{}, err
+		return Trip{}, fmt.Errorf("trip: create owner membership: %w", err)
 	}
 
 	if err := s.days.RegenerateDays(ctx, tx, t.ID, t.StartDate, t.EndDate); err != nil {

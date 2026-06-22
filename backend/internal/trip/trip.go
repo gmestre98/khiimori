@@ -20,12 +20,9 @@ const (
 	maxCoverLen       = 2048
 )
 
-// statusActive and statusArchived are the trip lifecycle states (mirrors the
-// DB CHECK). A new trip is active; archive (S4) flips it to archived.
-const (
-	statusActive   = "active"
-	statusArchived = "archived"
-)
+// statusActive is the trip lifecycle state a new trip starts in (mirrors the DB
+// CHECK and column default). S4 adds the archived state with the archive path.
+const statusActive = "active"
 
 // baseCurrencyEUR is the fixed base currency for v1 (PRD §5.1). It is set
 // server-side and pinned by a DB CHECK — never taken from client input.
