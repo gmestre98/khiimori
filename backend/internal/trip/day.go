@@ -16,19 +16,34 @@ type pgxDayRegenerator struct{}
 // the supplied transaction. ON CONFLICT DO NOTHING makes repeated calls safe
 // (idempotency key: the (trip_id, date) UNIQUE constraint on trip.days). The
 // 0-based index mirrors date order within the trip.
+//
+// All inserts are pipelined in a single pgx Batch so the round-trip cost is
+// O(1) regardless of trip length.
 func (pgxDayRegenerator) RegenerateDays(ctx context.Context, tx pgx.Tx, tripID string, start, end time.Time) error {
 	dates := datesInRange(start, end)
+	if len(dates) == 0 {
+		return nil
+	}
+
+	const q = `
+		INSERT INTO trip.days (trip_id, date, index)
+		VALUES ($1::uuid, $2::date, $3)
+		ON CONFLICT (trip_id, date) DO NOTHING`
+
+	batch := &pgx.Batch{}
 	for i, d := range dates {
-		_, err := tx.Exec(ctx, `
-			INSERT INTO trip.days (trip_id, date, index)
-			VALUES ($1::uuid, $2::date, $3)
-			ON CONFLICT (trip_id, date) DO NOTHING`,
-			tripID, d, i)
-		if err != nil {
+		batch.Queue(q, tripID, d, i)
+	}
+
+	results := tx.SendBatch(ctx, batch)
+	defer results.Close()
+
+	for _, d := range dates {
+		if _, err := results.Exec(); err != nil {
 			return fmt.Errorf("trip: insert day %s: %w", d.Format("2006-01-02"), err)
 		}
 	}
-	return nil
+	return results.Close()
 }
 
 // datesInRange returns one time.Time per calendar date in [start, end], in

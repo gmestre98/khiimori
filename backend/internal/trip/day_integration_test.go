@@ -105,18 +105,7 @@ func TestCreateGeneratesDaysSingleDay(t *testing.T) {
 // TestCreateDayGenerationIdempotent asserts that calling RegenerateDays twice
 // for the same trip + range does not duplicate rows (ON CONFLICT DO NOTHING).
 func TestCreateDayGenerationIdempotent(t *testing.T) {
-	if testPool == nil {
-		t.Skip("DATABASE_URL_TEST not set; skipping trip integration test")
-	}
-	ctx := context.Background()
-
-	_, err := testPool.Exec(ctx,
-		`TRUNCATE trip.days, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
-	if err != nil {
-		t.Fatalf("truncating tables: %v", err)
-	}
-
-	store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{}}
+	store := freshStore(t, sqlOwnerMemberships{}, pgxDayRegenerator{})
 	nt := newTestTrip(t)
 	got, err := store.Create(ctx, nt)
 	if err != nil {
