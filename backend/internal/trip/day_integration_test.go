@@ -107,6 +107,7 @@ func TestCreateGeneratesDaysSingleDay(t *testing.T) {
 func TestCreateDayGenerationIdempotent(t *testing.T) {
 	store := freshStore(t, sqlOwnerMemberships{}, pgxDayRegenerator{})
 	nt := newTestTrip(t)
+	ctx := context.Background()
 	got, err := store.Create(ctx, nt)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
