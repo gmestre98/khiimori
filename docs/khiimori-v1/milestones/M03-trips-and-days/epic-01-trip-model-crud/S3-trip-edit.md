@@ -9,13 +9,13 @@ Epic 02 hooks.
 Implement a trip edit endpoint updating the editable fields.
 
 ## Acceptance criteria
-- [ ] An edit endpoint updates `name`, `destinations`, `start_date`, `end_date`, and `cover` for an
+- [x] An edit endpoint updates `name`, `destinations`, `start_date`, `end_date`, and `cover` for an
   existing trip.
-- [ ] `base_currency` stays **EUR** (not editable) and `owner_id` is immutable via this endpoint.
-- [ ] A **date-range change** is surfaced so Epic 02's day generation can react (e.g. via a service call /
+- [x] `base_currency` stays **EUR** (not editable) and `owner_id` is immutable via this endpoint.
+- [x] A **date-range change** is surfaced so Epic 02's day generation can react (e.g. via a service call /
   domain event) — the wiring point is defined even if Epic 02 implements the regeneration.
-- [ ] Input is validated (end ≥ start, reasonable lengths); invalid edits are rejected clearly.
-- [ ] A unit test covers a successful edit and a rejected invalid edit (e.g. end before start).
+- [x] Input is validated (end ≥ start, reasonable lengths); invalid edits are rejected clearly.
+- [x] A unit test covers a successful edit and a rejected invalid edit (e.g. end before start).
 
 ## Constraints
 - Authorization is applied via Epic 04's `Authorizer` (owner-only shim in v1) — do not inline access

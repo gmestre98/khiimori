@@ -10,12 +10,12 @@ created here**. To avoid a later data redesign (PRD §7.0), the membership table
 Implement trip creation that persists the `Trip` and an Owner `TripMembership` transactionally.
 
 ## Acceptance criteria
-- [ ] A create endpoint persists a `Trip` (name, destinations, start/end date, cover, `base_currency =
+- [x] A create endpoint persists a `Trip` (name, destinations, start/end date, cover, `base_currency =
   EUR`, status = active) with `owner_id` from the authenticated user (Milestone 02 middleware).
-- [ ] A migration introduces a `TripMembership(id, trip_id, user_id, role)` table (in the `sharing`
+- [x] A migration introduces a `TripMembership(id, trip_id, user_id, role)` table (in the `sharing`
   schema, FK to trip/user) and an **Owner** row is created for the creator.
-- [ ] Trip + owner membership are created in **one transaction**; failure rolls back both.
-- [ ] A unit test covers create with the owner-membership row written.
+- [x] Trip + owner membership are created in **one transaction**; failure rolls back both.
+- [x] A unit test covers create with the owner-membership row written.
 
 ## Constraints
 - Place `TripMembership` in the `sharing.*` schema so Milestone 08 owns its full lifecycle without a data

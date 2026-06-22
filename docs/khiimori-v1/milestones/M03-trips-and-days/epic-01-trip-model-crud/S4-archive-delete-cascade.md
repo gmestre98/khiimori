@@ -9,12 +9,12 @@ data effects.
 Implement archive (status change) and delete (cascading, transactional) for a trip.
 
 ## Acceptance criteria
-- [ ] **Archive** sets the trip `status` to archived so it is excluded from active lists (Epic 03) but
+- [x] **Archive** sets the trip `status` to archived so it is excluded from active lists (Epic 03) but
   retained in storage.
-- [ ] **Delete** removes the trip and **cascades** its days and owned entities (and the trip's
+- [x] **Delete** removes the trip and **cascades** its days and owned entities (and the trip's
   memberships) in **one transaction**; a failure rolls back.
-- [ ] Archive is reversible (un-archive) or at least clearly defined; delete is final.
-- [ ] Unit tests cover archive (hidden, retained) and delete (cascade removes dependents
+- [x] Archive is reversible (un-archive) or at least clearly defined; delete is final.
+- [x] Unit tests cover archive (hidden, retained) and delete (cascade removes dependents
   transactionally).
 
 ## Constraints
