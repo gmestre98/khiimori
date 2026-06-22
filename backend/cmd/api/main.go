@@ -181,9 +181,15 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config) http.H
 	readiness.Register("db", dbPinger.Ping)
 	mux.HandleFunc(health.ReadinessPath, readiness.Handler)
 
+	// The auth module owns the session-validation material, so its RequireAuth is
+	// the single authentication hook; other modules receive it here (as an
+	// httpx.Middleware) rather than importing auth, preserving the module
+	// boundary. The sharing membership writer is handed to trip the same way, so
+	// trip writes the Owner membership transactionally without importing sharing.
+	authModule := auth.New(cfg, pool)
 	modules := []httpx.RouteRegistrar{
-		auth.New(cfg, pool),
-		trip.New(),
+		authModule,
+		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships()),
 		budget.New(),
 		journal.New(),
 		sharing.New(),

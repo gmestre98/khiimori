@@ -208,10 +208,11 @@ jobs:
 
       # The integration-tagged tests run against a disposable DB, each hermetic
       # (migrate up → exercise → roll back): the migration suite asserts the six
-      # module schemas, and the auth suite exercises user provisioning end-to-end
-      # (M02.2 S5). A failure here gates the change. The DSN is the direct
-      # (un-pooled) connection to the local service DB; it is not a secret, so
-      # nothing is masked/printed. -p 1 serialises the package binaries so the two
+      # module schemas, the auth suite exercises user provisioning end-to-end
+      # (M02.2 S5), and the trip suite exercises trip create + Owner membership
+      # transactionally (M03.1 S2). A failure here gates the change. The DSN is the
+      # direct (un-pooled) connection to the local service DB; it is not a secret,
+      # so nothing is masked/printed. -p 1 serialises the package binaries so the
       # suites don't migrate/reset the shared DB concurrently.
       - name: Integration tests
         env:
@@ -221,7 +222,7 @@ jobs:
         # visibly show the tests actually executing.
         run: |
           test -n "$DATABASE_URL_TEST" || { echo "DATABASE_URL_TEST unset — refusing to pass the integration gate without a DB"; exit 1; }
-          go test -tags=integration -p 1 -v ./migrations/... ./internal/auth/...
+          go test -tags=integration -p 1 -v ./migrations/... ./internal/auth/... ./internal/trip/...
 
   gcp-auth:
     name: GCP auth (WIF) — verify
