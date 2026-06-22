@@ -12,12 +12,40 @@ import (
 	"github.com/gmestre98/khiimori/backend/internal/platform/authn"
 )
 
-// fakeTripStore records the NewTrip it was handed and returns a canned result,
-// so the handler policy (owner from session, server-set EUR/status, validation)
-// can be tested without a database.
+// fakeTripStore records what it was handed and returns a canned result, so the
+// handler policy (owner from session, server-set EUR/status, validation,
+// owner-scoping) can be tested without a database.
 type fakeTripStore struct {
 	gotCreate NewTrip
 	createErr error
+
+	gotUpdateID    string
+	gotUpdateOwner string
+	gotUpdate      EditTrip
+	updateErr      error
+}
+
+func (f *fakeTripStore) Update(_ context.Context, id, ownerID string, e EditTrip) (Trip, error) {
+	f.gotUpdateID = id
+	f.gotUpdateOwner = ownerID
+	f.gotUpdate = e
+	if f.updateErr != nil {
+		return Trip{}, f.updateErr
+	}
+	now := time.Date(2026, 6, 16, 12, 0, 0, 0, time.UTC)
+	return Trip{
+		ID:           id,
+		OwnerID:      ownerID,
+		Name:         e.Name,
+		Destinations: e.Destinations,
+		StartDate:    e.StartDate,
+		EndDate:      e.EndDate,
+		BaseCurrency: baseCurrencyEUR,
+		Cover:        e.Cover,
+		Status:       statusActive,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}, nil
 }
 
 func (f *fakeTripStore) Create(_ context.Context, nt NewTrip) (Trip, error) {
@@ -112,6 +140,104 @@ func TestHandleCreateUnauthenticated(t *testing.T) {
 		t.Fatalf("status = %d, want 401", rec.Code)
 	}
 	if store.gotCreate.OwnerID != "" {
+		t.Error("store should not be called for an unauthenticated request")
+	}
+}
+
+// updateReq builds a PATCH request for trip id carrying the body and an
+// authenticated principal, with the path value set (as the router would).
+func updateReq(id, userID, body string) *http.Request {
+	req := httptest.NewRequest(http.MethodPatch, TripsPath+"/"+id, strings.NewReader(body))
+	req.SetPathValue("id", id)
+	return withPrincipal(req, userID)
+}
+
+// TestHandleUpdateSuccess asserts a valid edit returns 200 with the id from the
+// path and the owner from the session, and that EUR/owner are unchanged.
+func TestHandleUpdateSuccess(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{}
+	m := newCreateModule(store)
+
+	body := `{"name":"Lisbon 2","destinations":["Sintra"],"start_date":"2026-08-01","end_date":"2026-08-05","cover":"","base_currency":"USD","owner_id":"attacker"}`
+	rec := httptest.NewRecorder()
+	m.handleUpdate(rec, updateReq("trip-9", "owner-123", body))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	if store.gotUpdateID != "trip-9" {
+		t.Errorf("store id = %q, want trip-9 (from path)", store.gotUpdateID)
+	}
+	if store.gotUpdateOwner != "owner-123" {
+		t.Errorf("store owner = %q, want owner-123 (from session)", store.gotUpdateOwner)
+	}
+	var resp tripResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decoding response: %v", err)
+	}
+	if resp.BaseCurrency != "EUR" {
+		t.Errorf("base_currency = %q, want EUR (immutable)", resp.BaseCurrency)
+	}
+	if resp.Name != "Lisbon 2" || resp.StartDate != "2026-08-01" {
+		t.Errorf("edit not applied: name=%q start=%q", resp.Name, resp.StartDate)
+	}
+}
+
+// TestHandleUpdateNotFound asserts the store's not-found maps to a 404.
+func TestHandleUpdateNotFound(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{updateErr: errTripNotFound}
+	m := newCreateModule(store)
+
+	rec := httptest.NewRecorder()
+	body := `{"name":"X","start_date":"2026-08-01","end_date":"2026-08-05"}`
+	m.handleUpdate(rec, updateReq("missing", "owner-123", body))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
+
+// TestHandleUpdateRejectsInvalid asserts an invalid edit (end before start) is a
+// 400 and never reaches the store.
+func TestHandleUpdateRejectsInvalid(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{}
+	m := newCreateModule(store)
+
+	rec := httptest.NewRecorder()
+	body := `{"name":"X","start_date":"2026-08-10","end_date":"2026-08-01"}`
+	m.handleUpdate(rec, updateReq("trip-9", "owner-123", body))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	if store.gotUpdateID != "" {
+		t.Error("store should not be called for an invalid edit")
+	}
+}
+
+// TestHandleUpdateUnauthenticated asserts a request with no principal is 401 and
+// never reaches the store.
+func TestHandleUpdateUnauthenticated(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{}
+	m := newCreateModule(store)
+
+	req := httptest.NewRequest(http.MethodPatch, TripsPath+"/trip-9", strings.NewReader(`{"name":"X","start_date":"2026-08-01","end_date":"2026-08-05"}`))
+	req.SetPathValue("id", "trip-9")
+	rec := httptest.NewRecorder()
+	m.handleUpdate(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+	if store.gotUpdateID != "" {
 		t.Error("store should not be called for an unauthenticated request")
 	}
 }

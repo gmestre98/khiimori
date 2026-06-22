@@ -38,10 +38,10 @@ func New(pool *pgxpool.Pool, requireAuth httpx.Middleware, memberships OwnerMemb
 
 // RegisterRoutes mounts the trip module's HTTP routes onto mux, each behind the
 // auth middleware so the caller is always an authenticated user (the trip's
-// owner). Create is the only route in S2; read/edit/archive/delete arrive in
-// later stories.
+// owner). Create (S2) and edit (S3) are mounted; archive/delete arrive in S4.
 func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("POST "+TripsPath, m.requireAuth(http.HandlerFunc(m.handleCreate)))
+	mux.Handle("PATCH "+TripsPath+"/{id}", m.requireAuth(http.HandlerFunc(m.handleUpdate)))
 }
 
 // Compile-time check that *Module implements the route-mounting contract.

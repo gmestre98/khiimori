@@ -105,8 +105,8 @@ func (failingOwnerMemberships) CreateOwner(context.Context, pgx.Tx, string, stri
 
 // freshStore skips when no test DB is configured, truncates the trip and sharing
 // tables so each test starts clean, and returns a real store bound to the pool
-// with the supplied membership writer.
-func freshStore(t *testing.T, m OwnerMemberships) *pgxTripStore {
+// with the supplied membership writer and day regenerator.
+func freshStore(t *testing.T, m OwnerMemberships, days dayRegenerator) *pgxTripStore {
 	t.Helper()
 	if testPool == nil {
 		t.Skip("DATABASE_URL_TEST not set; skipping trip integration test")
@@ -116,7 +116,7 @@ func freshStore(t *testing.T, m OwnerMemberships) *pgxTripStore {
 	if err != nil {
 		t.Fatalf("truncating tables: %v", err)
 	}
-	return &pgxTripStore{pool: testPool, memberships: m, days: noopDayRegenerator{}}
+	return &pgxTripStore{pool: testPool, memberships: m, days: days}
 }
 
 // newTestTrip is a valid NewTrip owned by a fresh random user id.
@@ -140,7 +140,7 @@ func newTestTrip(t *testing.T) NewTrip {
 // EUR/active server-side defaults and writes exactly one Owner membership row for
 // the creator, in one transaction.
 func TestCreateWritesTripAndOwnerMembership(t *testing.T) {
-	store := freshStore(t, sqlOwnerMemberships{})
+	store := freshStore(t, sqlOwnerMemberships{}, noopDayRegenerator{})
 	nt := newTestTrip(t)
 	ctx := context.Background()
 
@@ -185,7 +185,7 @@ func TestCreateWritesTripAndOwnerMembership(t *testing.T) {
 // TestCreateRollsBackOnMembershipFailure asserts that when the owner-membership
 // write fails, the trip insert is rolled back too — no orphan trip is left.
 func TestCreateRollsBackOnMembershipFailure(t *testing.T) {
-	store := freshStore(t, failingOwnerMemberships{})
+	store := freshStore(t, failingOwnerMemberships{}, noopDayRegenerator{})
 	nt := newTestTrip(t)
 	ctx := context.Background()
 
