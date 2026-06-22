@@ -1,5 +1,7 @@
 # Epic M03.1 — Trip data model & CRUD (`trip.*`, owner membership)
 
+> **Status:** ✅ Done — all 5 stories merged (PRs [#192](https://github.com/gmestre98/khiimori/pull/192)–[#196](https://github.com/gmestre98/khiimori/pull/196)) and all 5 acceptance criteria verified. Trip CRUD (create/edit/archive/unarchive/delete) is live; owner `TripMembership` is written transactionally on create; delete cascades memberships explicitly across schemas; day-regeneration seam is wired for Epic 02.
+>
 > Milestone: [03 — Trips & Days](../README.md) · PRD refs: §5.1, §7.7, §9.
 
 ## Description
