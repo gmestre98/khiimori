@@ -41,10 +41,10 @@ func authShim(userID string) httpx.Middleware {
 	}
 }
 
-// newModule wires a real Module with the shared testPool and the SQL membership
-// writer, then returns both the module and a fresh httptest.Server. The server
-// is registered for cleanup on t.
-func newModule(t *testing.T) (*Module, *httptest.Server) {
+// newModuleWithOwner wires a real Module authenticated as ownerID, truncates
+// the trip tables so each test starts clean, and returns a ready httptest.Server
+// registered for cleanup on t.
+func newModuleWithOwner(t *testing.T, ownerID string) *httptest.Server {
 	t.Helper()
 	if testPool == nil {
 		t.Skip("DATABASE_URL_TEST not set; skipping trip HTTP integration test")
@@ -54,16 +54,19 @@ func newModule(t *testing.T) (*Module, *httptest.Server) {
 	if err != nil {
 		t.Fatalf("truncating tables: %v", err)
 	}
-
 	store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: noopDayRegenerator{}}
-	ownerID := freshOwnerID(t)
 	mod := &Module{store: store, requireAuth: authShim(ownerID)}
-
 	mux := http.NewServeMux()
 	mod.RegisterRoutes(mux)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
-	return mod, srv
+	return srv
+}
+
+// newModule is a convenience wrapper for tests that only need one owner.
+func newModule(t *testing.T) *httptest.Server {
+	t.Helper()
+	return newModuleWithOwner(t, freshOwnerID(t))
 }
 
 // freshOwnerID returns a new random UUID to use as the owner across a test.
@@ -148,9 +151,7 @@ func countRows(t *testing.T, query string, arg any) int {
 // endpoint: asserts 201, the trip fields, EUR/active server-side defaults, and
 // that exactly one Owner membership row was written for the creator.
 func TestHTTPCreateWritesTripAndOwnerMembership(t *testing.T) {
-	_, srv := newModule(t)
-	// Retrieve the injected ownerID from the authShim by reading it from the
-	// first trip we create — the response includes owner_id.
+	srv := newModule(t)
 	body := map[string]any{
 		"name":         "Lisbon",
 		"destinations": []string{"Lisbon", "Porto"},
@@ -196,7 +197,7 @@ func TestHTTPCreateWritesTripAndOwnerMembership(t *testing.T) {
 // TestHTTPCreateValidationRejects400 asserts the endpoint returns 400 when the
 // request body fails validation (blank name, end before start).
 func TestHTTPCreateValidationRejects400(t *testing.T) {
-	_, srv := newModule(t)
+	srv := newModule(t)
 
 	cases := []struct {
 		label string
@@ -225,7 +226,7 @@ func TestHTTPCreateValidationRejects400(t *testing.T) {
 // asserts 200 and that the updated fields are reflected, while base_currency
 // and owner_id remain immutable.
 func TestHTTPEditUpdatesFieldsViaEndpoint(t *testing.T) {
-	_, srv := newModule(t)
+	srv := newModule(t)
 
 	// Seed a trip via the create endpoint.
 	createBody := map[string]any{
@@ -235,7 +236,12 @@ func TestHTTPEditUpdatesFieldsViaEndpoint(t *testing.T) {
 		"end_date":     "2026-07-10",
 		"cover":        "",
 	}
-	created := decodeTrip(t, postJSON(t, srv, TripsPath, createBody))
+	seedResp := postJSON(t, srv, TripsPath, createBody)
+	if seedResp.StatusCode != http.StatusCreated {
+		seedResp.Body.Close()
+		t.Fatalf("seed POST /trips status = %d, want 201", seedResp.StatusCode)
+	}
+	created := decodeTrip(t, seedResp)
 
 	editBody := map[string]any{
 		"name":         "Lisbon (revised)",
@@ -267,13 +273,18 @@ func TestHTTPEditUpdatesFieldsViaEndpoint(t *testing.T) {
 // TestHTTPArchiveHidesTripAndUnarchiveRestores drives archive/unarchive through
 // the HTTP endpoints: archive → status "archived", unarchive → status "active".
 func TestHTTPArchiveHidesTripAndUnarchiveRestores(t *testing.T) {
-	_, srv := newModule(t)
+	srv := newModule(t)
 
-	created := decodeTrip(t, postJSON(t, srv, TripsPath, map[string]any{
+	seedResp := postJSON(t, srv, TripsPath, map[string]any{
 		"name": "Porto", "destinations": []string{}, "start_date": "2026-08-01", "end_date": "2026-08-05", "cover": "",
-	}))
+	})
+	if seedResp.StatusCode != http.StatusCreated {
+		seedResp.Body.Close()
+		t.Fatalf("seed POST /trips status = %d, want 201", seedResp.StatusCode)
+	}
+	created := decodeTrip(t, seedResp)
 
-	archResp := postJSON(t, srv, fmt.Sprintf("%s/%s/archive", TripsPath, created.ID), nil)
+	archResp := postJSON(t, srv, fmt.Sprintf("%s/%s/archive", TripsPath, created.ID), map[string]any{})
 	if archResp.StatusCode != http.StatusOK {
 		t.Fatalf("POST archive status = %d, want 200", archResp.StatusCode)
 	}
@@ -287,7 +298,7 @@ func TestHTTPArchiveHidesTripAndUnarchiveRestores(t *testing.T) {
 		t.Errorf("trip rows after archive = %d, want 1 (retained)", n)
 	}
 
-	unarchResp := postJSON(t, srv, fmt.Sprintf("%s/%s/unarchive", TripsPath, created.ID), nil)
+	unarchResp := postJSON(t, srv, fmt.Sprintf("%s/%s/unarchive", TripsPath, created.ID), map[string]any{})
 	if unarchResp.StatusCode != http.StatusOK {
 		t.Fatalf("POST unarchive status = %d, want 200", unarchResp.StatusCode)
 	}
@@ -301,11 +312,16 @@ func TestHTTPArchiveHidesTripAndUnarchiveRestores(t *testing.T) {
 // HTTP endpoint: asserts 204, and then that both the trip row and its
 // membership rows are gone (counts go to zero — no orphans).
 func TestHTTPDeleteCascadesMembershipsTransactionally(t *testing.T) {
-	_, srv := newModule(t)
+	srv := newModule(t)
 
-	created := decodeTrip(t, postJSON(t, srv, TripsPath, map[string]any{
+	seedResp := postJSON(t, srv, TripsPath, map[string]any{
 		"name": "Berlin", "destinations": []string{}, "start_date": "2026-09-01", "end_date": "2026-09-07", "cover": "",
-	}))
+	})
+	if seedResp.StatusCode != http.StatusCreated {
+		seedResp.Body.Close()
+		t.Fatalf("seed POST /trips status = %d, want 201", seedResp.StatusCode)
+	}
+	created := decodeTrip(t, seedResp)
 
 	resp := deleteReq(t, srv, fmt.Sprintf("%s/%s", TripsPath, created.ID))
 	resp.Body.Close()
@@ -325,36 +341,40 @@ func TestHTTPDeleteCascadesMembershipsTransactionally(t *testing.T) {
 // someone else returns 404 and leaves the trip and its memberships intact.
 func TestHTTPDeleteReturns404ForOtherOwner(t *testing.T) {
 	if testPool == nil {
-		t.Skip("DATABASE_URL_TEST not set")
+		t.Skip("DATABASE_URL_TEST not set; skipping trip HTTP integration test")
 	}
+	// Truncate once up-front; build two servers sharing the same pool, each
+	// authenticated as a different owner. newModuleWithOwner is not used for
+	// srvB to avoid a second truncate that would wipe srvA's data.
 	_, err := testPool.Exec(context.Background(),
 		`TRUNCATE trip.trips, sharing.trip_memberships RESTART IDENTITY`)
 	if err != nil {
 		t.Fatalf("truncating tables: %v", err)
 	}
-
-	// Two separate modules / auth shims — one per owner.
 	ownerA := freshOwnerID(t)
 	ownerB := freshOwnerID(t)
 
-	storeA := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: noopDayRegenerator{}}
-	modA := &Module{store: storeA, requireAuth: authShim(ownerA)}
-	muxA := http.NewServeMux()
-	modA.RegisterRoutes(muxA)
-	srvA := httptest.NewServer(muxA)
-	t.Cleanup(srvA.Close)
-
-	storeB := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: noopDayRegenerator{}}
-	modB := &Module{store: storeB, requireAuth: authShim(ownerB)}
-	muxB := http.NewServeMux()
-	modB.RegisterRoutes(muxB)
-	srvB := httptest.NewServer(muxB)
-	t.Cleanup(srvB.Close)
+	makeServer := func(ownerID string) *httptest.Server {
+		store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: noopDayRegenerator{}}
+		mod := &Module{store: store, requireAuth: authShim(ownerID)}
+		mux := http.NewServeMux()
+		mod.RegisterRoutes(mux)
+		srv := httptest.NewServer(mux)
+		t.Cleanup(srv.Close)
+		return srv
+	}
+	srvA := makeServer(ownerA)
+	srvB := makeServer(ownerB)
 
 	// Owner A creates a trip.
-	created := decodeTrip(t, postJSON(t, srvA, TripsPath, map[string]any{
+	seedResp := postJSON(t, srvA, TripsPath, map[string]any{
 		"name": "Rome", "destinations": []string{}, "start_date": "2026-10-01", "end_date": "2026-10-05", "cover": "",
-	}))
+	})
+	if seedResp.StatusCode != http.StatusCreated {
+		seedResp.Body.Close()
+		t.Fatalf("seed POST /trips status = %d, want 201", seedResp.StatusCode)
+	}
+	created := decodeTrip(t, seedResp)
 
 	// Owner B tries to delete A's trip — must get 404.
 	resp := deleteReq(t, srvB, fmt.Sprintf("%s/%s", TripsPath, created.ID))
