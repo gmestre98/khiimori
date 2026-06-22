@@ -112,8 +112,8 @@ func patchJSON(t *testing.T, srv *httptest.Server, path string, body any) *http.
 	return resp
 }
 
-// deleteReq fires a DELETE and returns the response.
-func deleteReq(t *testing.T, srv *httptest.Server, path string) *http.Response {
+// httpDelete fires a DELETE against the httptest server and returns the response.
+func httpDelete(t *testing.T, srv *httptest.Server, path string) *http.Response {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodDelete, srv.URL+path, nil)
 	if err != nil {
@@ -323,7 +323,7 @@ func TestHTTPDeleteCascadesMembershipsTransactionally(t *testing.T) {
 	}
 	created := decodeTrip(t, seedResp)
 
-	resp := deleteReq(t, srv, fmt.Sprintf("%s/%s", TripsPath, created.ID))
+	resp := httpDelete(t, srv, fmt.Sprintf("%s/%s", TripsPath, created.ID))
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("DELETE /trips/%s status = %d, want 204", created.ID, resp.StatusCode)
@@ -377,7 +377,7 @@ func TestHTTPDeleteReturns404ForOtherOwner(t *testing.T) {
 	created := decodeTrip(t, seedResp)
 
 	// Owner B tries to delete A's trip — must get 404.
-	resp := deleteReq(t, srvB, fmt.Sprintf("%s/%s", TripsPath, created.ID))
+	resp := httpDelete(t, srvB, fmt.Sprintf("%s/%s", TripsPath, created.ID))
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("DELETE by non-owner status = %d, want 404", resp.StatusCode)
