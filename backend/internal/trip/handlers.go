@@ -20,10 +20,13 @@ const TripsPath = "/trips"
 // tripStore is the persistence surface the handlers use. The concrete
 // pgxTripStore implements it; unit tests supply a fake, so the handler policy
 // (owner from session, EUR/status server-set, validation) is tested without a
-// database. Later stories widen this interface (archive/delete).
+// database.
 type tripStore interface {
 	Create(ctx context.Context, nt NewTrip) (Trip, error)
 	Update(ctx context.Context, id, ownerID string, e EditTrip) (Trip, error)
+	Archive(ctx context.Context, id, ownerID string) (Trip, error)
+	Unarchive(ctx context.Context, id, ownerID string) (Trip, error)
+	Delete(ctx context.Context, id, ownerID string) error
 }
 
 // parseTripInput parses and validates the client-supplied trip fields shared by
@@ -232,4 +235,71 @@ func (m *Module) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(newTripResponse(t))
+}
+
+// handleSetStatus is the shared handler body for archive and unarchive. fn is
+// either store.Archive or store.Unarchive.
+func (m *Module) handleSetStatus(
+	w http.ResponseWriter, r *http.Request,
+	fn func(ctx context.Context, id, ownerID string) (Trip, error),
+	logAction string,
+) {
+	p, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusUnauthorized, "auth_required", "authentication required"))
+		return
+	}
+	id := r.PathValue("id")
+	t, err := fn(r.Context(), id, p.UserID)
+	if err != nil {
+		if errors.Is(err, errTripNotFound) {
+			httpx.WriteError(w, r, httpx.NewAPIError(
+				http.StatusNotFound, "trip_not_found", "trip not found"))
+			return
+		}
+		platformlog.FromContext(r.Context()).Error(logAction, "err", err.Error())
+		httpx.WriteError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(newTripResponse(t))
+}
+
+// handleArchive sets a trip's status to archived. The trip is retained but
+// excluded from active listings (Epic 03). Reversible via handleUnarchive.
+func (m *Module) handleArchive(w http.ResponseWriter, r *http.Request) {
+	m.handleSetStatus(w, r, m.store.Archive, "archiving trip")
+}
+
+// handleUnarchive restores an archived trip to active status.
+func (m *Module) handleUnarchive(w http.ResponseWriter, r *http.Request) {
+	m.handleSetStatus(w, r, m.store.Unarchive, "unarchiving trip")
+}
+
+// handleDelete removes a trip and its memberships in one transaction. Only the
+// owner may delete (owner-scoped store). A missing or other-owner trip is an
+// indistinguishable 404.
+func (m *Module) handleDelete(w http.ResponseWriter, r *http.Request) {
+	p, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusUnauthorized, "auth_required", "authentication required"))
+		return
+	}
+	id := r.PathValue("id")
+	if err := m.store.Delete(r.Context(), id, p.UserID); err != nil {
+		if errors.Is(err, errTripNotFound) {
+			httpx.WriteError(w, r, httpx.NewAPIError(
+				http.StatusNotFound, "trip_not_found", "trip not found"))
+			return
+		}
+		platformlog.FromContext(r.Context()).Error("deleting trip", "err", err.Error())
+		httpx.WriteError(w, r, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusNoContent)
 }

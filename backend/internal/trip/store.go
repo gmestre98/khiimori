@@ -164,3 +164,69 @@ func (s *pgxTripStore) Update(ctx context.Context, id, ownerID string, e EditTri
 	}
 	return updated, nil
 }
+
+// setStatus sets a trip's status to the given value (owner-scoped, atomic).
+// It is the shared primitive behind Archive and Unarchive.
+func (s *pgxTripStore) setStatus(ctx context.Context, id, ownerID, status string) (Trip, error) {
+	const q = `
+		UPDATE trip.trips
+		SET status = $3, updated_at = now()
+		WHERE id = $1::uuid AND owner_id = $2::uuid
+		RETURNING ` + tripColumns
+	var t Trip
+	if err := scanTrip(s.pool.QueryRow(ctx, q, id, ownerID, status), &t); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Trip{}, errTripNotFound
+		}
+		return Trip{}, fmt.Errorf("trip: set status: %w", err)
+	}
+	return t, nil
+}
+
+// Archive sets a trip's status to "archived" (owner-scoped). The trip is
+// retained in storage but excluded from active listings (Epic 03). Reversible
+// via Unarchive.
+func (s *pgxTripStore) Archive(ctx context.Context, id, ownerID string) (Trip, error) {
+	return s.setStatus(ctx, id, ownerID, "archived")
+}
+
+// Unarchive reverses an archive, setting the trip's status back to "active".
+func (s *pgxTripStore) Unarchive(ctx context.Context, id, ownerID string) (Trip, error) {
+	return s.setStatus(ctx, id, ownerID, "active")
+}
+
+// Delete removes a trip and cascades its sharing memberships transactionally.
+// Both the trip row and all sharing.trip_memberships rows for the trip are
+// deleted within one transaction; a failure rolls back so no orphan rows are
+// left (PRD §7.7). There is no DB-level cascade across schemas (migrations
+// README), so the cascade is explicit here. Only the owner may delete (the
+// WHERE clause pins owner_id).
+func (s *pgxTripStore) Delete(ctx context.Context, id, ownerID string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("trip: begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Delete memberships first (foreign-key order: dependents before parent).
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM sharing.trip_memberships WHERE trip_id = $1::uuid`, id); err != nil {
+		return fmt.Errorf("trip: delete memberships: %w", err)
+	}
+
+	// Delete the trip, owner-scoped so a missing/other-owner trip yields
+	// errTripNotFound (same indistinguishable 404 as other owner-scoped ops).
+	tag, err := tx.Exec(ctx,
+		`DELETE FROM trip.trips WHERE id = $1::uuid AND owner_id = $2::uuid`, id, ownerID)
+	if err != nil {
+		return fmt.Errorf("trip: delete trip: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return errTripNotFound
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("trip: commit: %w", err)
+	}
+	return nil
+}
