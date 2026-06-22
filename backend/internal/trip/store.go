@@ -2,12 +2,19 @@ package trip
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// errTripNotFound means no trip matched the id for the requesting owner — either
+// it does not exist or it belongs to another user. The two are deliberately
+// indistinguishable to the caller (owner-scoped access) so a 404 never leaks the
+// existence of someone else's trip.
+var errTripNotFound = errors.New("trip: not found")
 
 // OwnerMemberships is the slice of the sharing module's membership writer the
 // trip store needs. The trip module declares it (consumer-side interface) and
@@ -99,4 +106,61 @@ func (s *pgxTripStore) Create(ctx context.Context, nt NewTrip) (Trip, error) {
 		return Trip{}, fmt.Errorf("trip: commit: %w", err)
 	}
 	return t, nil
+}
+
+// Update applies an edit to the owner's trip and returns the updated row, all in
+// one transaction. It is owner-scoped: the WHERE clause pins both id and
+// owner_id, so editing a trip that does not exist or belongs to another user
+// yields errTripNotFound (an indistinguishable 404). base_currency and owner_id
+// are never in the SET list, so EUR and ownership are immutable here (S3).
+//
+// When the edit changes the date range, the day-generation seam is invoked
+// inside the same transaction so Epic 02 can regenerate days atomically with the
+// edit. The current row is locked (FOR UPDATE) and its dates compared to the new
+// ones, so days are regenerated only on a real range change — not on every edit —
+// and a concurrent edit can't race the regeneration.
+func (s *pgxTripStore) Update(ctx context.Context, id, ownerID string, e EditTrip) (Trip, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Trip{}, fmt.Errorf("trip: begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Lock and load the current row (owner-scoped) so the date-range comparison
+	// below is race-free and a missing/other-owner trip is a clean 404.
+	const selectForUpdate = `SELECT ` + tripColumns +
+		` FROM trip.trips WHERE id = $1::uuid AND owner_id = $2::uuid FOR UPDATE`
+	var current Trip
+	if err := scanTrip(tx.QueryRow(ctx, selectForUpdate, id, ownerID), &current); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Trip{}, errTripNotFound
+		}
+		return Trip{}, fmt.Errorf("trip: load for update: %w", err)
+	}
+
+	const update = `
+		UPDATE trip.trips
+		SET name = $3, destinations = $4, start_date = $5, end_date = $6, cover = $7,
+		    updated_at = now()
+		WHERE id = $1::uuid AND owner_id = $2::uuid
+		RETURNING ` + tripColumns
+	var updated Trip
+	if err := scanTrip(tx.QueryRow(ctx, update,
+		id, ownerID, e.Name, e.Destinations, e.StartDate, e.EndDate, e.Cover), &updated); err != nil {
+		return Trip{}, fmt.Errorf("trip: update: %w", err)
+	}
+
+	// Surface a date-range change so Epic 02 regenerates the trip's days. The seam
+	// is a no-op in Epic 01; running it only when the range actually changed keeps
+	// the contract precise and avoids needless work.
+	if !updated.StartDate.Equal(current.StartDate) || !updated.EndDate.Equal(current.EndDate) {
+		if err := s.days.RegenerateDays(ctx, tx, id, updated.StartDate, updated.EndDate); err != nil {
+			return Trip{}, fmt.Errorf("trip: regenerate days: %w", err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return Trip{}, fmt.Errorf("trip: commit: %w", err)
+	}
+	return updated, nil
 }

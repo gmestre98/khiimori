@@ -58,6 +58,19 @@ type NewTrip struct {
 	Cover        string
 }
 
+// EditTrip is the validated input to edit a trip. It carries only the
+// client-editable fields (PRD §5.1) — name, destinations, dates, cover. The full
+// set is replaced, mirroring the edit form. base_currency (EUR) and owner_id are
+// deliberately absent: they are immutable through an edit, enforced by the store
+// (never in the UPDATE SET list), not just by their omission here.
+type EditTrip struct {
+	Name         string
+	Destinations []string
+	StartDate    time.Time
+	EndDate      time.Time
+	Cover        string
+}
+
 // validateTripFields checks the shared, client-supplied trip fields (name,
 // destinations, dates, cover) used by both create (S2) and edit (S3). It returns
 // a client-safe error describing the first problem, or nil when valid.
