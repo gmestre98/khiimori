@@ -52,12 +52,11 @@ type NewPlanItem struct {
 	Link          *string
 }
 
-// EditPlanItem is the validated input to edit a plan item. All fields are
-// optional pointers: a nil pointer leaves the column unchanged; a non-nil
-// pointer (even pointing to nil for nullable fields) replaces the value. This
-// lets any subset of fields be updated independently in one PATCH call.
-// Setting StartTime to nil makes the item untimed; clearing Duration when
-// StartTime is nil is also enforced here.
+// EditPlanItem is the validated input to edit a plan item. The update is a
+// full replacement: every editable column is overwritten. Nil pointer fields
+// map to SQL NULL (clearing the value). Setting StartTime to nil makes the
+// item untimed; Duration must also be nil when StartTime is nil (enforced by
+// validatePlanItemFields).
 type EditPlanItem struct {
 	Title         string
 	Type          *string
