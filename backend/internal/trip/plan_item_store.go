@@ -2,15 +2,11 @@ package trip
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-// errPlanItemNotFound means no plan item matched the id within the given trip.
-var errPlanItemNotFound = errors.New("trip: plan item not found")
 
 // planItemStore is the persistence surface the plan-item handlers use.
 type planItemStore interface {

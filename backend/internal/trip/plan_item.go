@@ -93,12 +93,13 @@ func parseTimeHHMM(s string) (hour, minute int, err error) {
 	if len(s) != 5 || s[2] != ':' {
 		return 0, 0, errors.New("not HH:MM")
 	}
+	for _, i := range []int{0, 1, 3, 4} {
+		if s[i] < '0' || s[i] > '9' {
+			return 0, 0, errors.New("not HH:MM")
+		}
+	}
 	h := int(s[0]-'0')*10 + int(s[1]-'0')
 	m := int(s[3]-'0')*10 + int(s[4]-'0')
-	if s[0] < '0' || s[0] > '9' || s[1] < '0' || s[1] > '9' ||
-		s[3] < '0' || s[3] > '9' || s[4] < '0' || s[4] > '9' {
-		return 0, 0, errors.New("not HH:MM")
-	}
 	if h > 23 || m > 59 {
 		return 0, 0, fmt.Errorf("time %s out of range", s)
 	}
