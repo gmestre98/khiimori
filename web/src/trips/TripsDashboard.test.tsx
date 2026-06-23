@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { TripsDashboard } from './TripsDashboard'
 import type { TripsResponse } from '../lib/api'
 
@@ -45,7 +46,11 @@ describe('TripsDashboard', () => {
   it('renders bucket headings even when all buckets are empty', async () => {
     mockFetchTrips(emptyResponse)
 
-    render(<TripsDashboard />)
+    render(
+      <MemoryRouter>
+        <TripsDashboard />
+      </MemoryRouter>,
+    )
 
     await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument())
 
@@ -57,7 +62,11 @@ describe('TripsDashboard', () => {
   it('shows empty-state messages when buckets are empty', async () => {
     mockFetchTrips(emptyResponse)
 
-    render(<TripsDashboard />)
+    render(
+      <MemoryRouter>
+        <TripsDashboard />
+      </MemoryRouter>,
+    )
 
     await waitFor(() => screen.getByText(/no current trip/i))
     expect(screen.getByText(/no upcoming trips/i)).toBeInTheDocument()
@@ -67,7 +76,11 @@ describe('TripsDashboard', () => {
   it('renders trip cards with name, destinations, and dates', async () => {
     mockFetchTrips({ current: [tripA], upcoming: [tripB], past: [] })
 
-    render(<TripsDashboard />)
+    render(
+      <MemoryRouter>
+        <TripsDashboard />
+      </MemoryRouter>,
+    )
 
     await waitFor(() => screen.getByText('Japan 2024'))
 
@@ -83,7 +96,11 @@ describe('TripsDashboard', () => {
     const tripWithCover = { ...tripA, cover: 'https://example.com/cover.jpg' }
     mockFetchTrips({ current: [tripWithCover], upcoming: [], past: [] })
 
-    render(<TripsDashboard />)
+    render(
+      <MemoryRouter>
+        <TripsDashboard />
+      </MemoryRouter>,
+    )
 
     await waitFor(() => screen.getByText('Japan 2024'))
 
@@ -94,7 +111,11 @@ describe('TripsDashboard', () => {
   it('shows an error message on fetch failure', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network error'))
 
-    render(<TripsDashboard />)
+    render(
+      <MemoryRouter>
+        <TripsDashboard />
+      </MemoryRouter>,
+    )
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/could not load trips/i),
@@ -104,7 +125,11 @@ describe('TripsDashboard', () => {
   it('shows loading state initially', () => {
     vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(() => {}))
 
-    render(<TripsDashboard />)
+    render(
+      <MemoryRouter>
+        <TripsDashboard />
+      </MemoryRouter>,
+    )
 
     expect(screen.getByText(/loading trips/i)).toBeInTheDocument()
   })

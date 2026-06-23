@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { UnauthorizedError, fetchTrips, type Trip, type TripsResponse } from '../lib/api'
 import { CurrentTripCard } from './CurrentTripCard'
 
-// TripCard renders a single trip's summary: name, destinations, dates, and
-// cover image if present. Authorization is server-side scoped — only trips the
-// user owns or is a member of appear (PRD §5.9).
+// TripCard renders a single trip's summary with an Edit link. Authorization is
+// server-side scoped — only trips the user owns or is a member of appear (PRD §5.9).
 function TripCard({ trip }: { trip: Trip }) {
   const dateRange = `${trip.start_date} – ${trip.end_date}`
   const destinations = trip.destinations.join(', ')
@@ -16,6 +16,14 @@ function TripCard({ trip }: { trip: Trip }) {
         <h3 className="trip-card-name">{trip.name}</h3>
         {destinations && <p className="trip-card-destinations">{destinations}</p>}
         <p className="trip-card-dates">{dateRange}</p>
+        <Link
+          to={`/trips/${trip.id}/edit`}
+          state={{ trip }}
+          className="trip-card-edit-link"
+          aria-label={`Edit ${trip.name}`}
+        >
+          Edit
+        </Link>
       </div>
     </article>
   )
@@ -101,6 +109,11 @@ export function TripsDashboard() {
 
   return (
     <div className="trips-dashboard">
+      <div className="trips-dashboard-header">
+        <Link to="/trips/new" className="btn-primary trips-new-btn">
+          + New trip
+        </Link>
+      </div>
       {currentTrip ? (
         <CurrentTripCard trip={currentTrip} />
       ) : (

@@ -269,3 +269,109 @@
     font-size: 1.5rem;
   }
 }
+
+/* Trip create/edit form — M03.5 S3; Milestone 09 restyles. */
+.trips-dashboard-header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.trips-new-btn {
+  text-decoration: none;
+  display: inline-block;
+}
+
+.trip-card-edit-link {
+  font-size: 0.8rem;
+  margin-top: 4px;
+  align-self: flex-start;
+}
+
+.trip-form-page {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.trip-form-page-title {
+  margin-bottom: 16px;
+}
+
+.trip-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.trip-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+
+.trip-form-field input {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.trip-form-hint {
+  font-size: 0.78rem;
+  color: var(--text);
+}
+
+.trip-form-readonly {
+  color: var(--text);
+  cursor: default;
+}
+
+.trip-form-range-info {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #1a7f37;
+}
+
+.trip-form-range-warn {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #9a6700;
+}
+
+.trip-form-error {
+  margin: 0;
+  color: #cf222e;
+  font-size: 0.875rem;
+}
+
+.trip-form-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.trip-form-shrink-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.trip-form-shrink-warning {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 600px) {
+  .trip-form-page {
+    padding: 0 8px;
+  }
+}
