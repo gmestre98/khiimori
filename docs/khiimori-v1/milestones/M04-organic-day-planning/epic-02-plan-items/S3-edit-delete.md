@@ -8,12 +8,12 @@ and reorder/move are Epic 04; this story covers field edits and deletion.
 Implement edit and delete for plan items.
 
 ## Acceptance criteria
-- [ ] An edit endpoint updates any subset of fields (title, type, time/duration, location, booking status,
+- [x] An edit endpoint updates any subset of fields (title, type, time/duration, location, booking status,
   link, cost) independently.
-- [ ] Setting/clearing `start_time` toggles timed/untimed correctly.
-- [ ] A delete endpoint removes a plan item (and is safe/idempotent for offline replay).
-- [ ] Edit/delete are **authorized** via the M03 `Authorizer`.
-- [ ] A unit test covers partial edits, timed↔untimed toggling, and delete.
+- [x] Setting/clearing `start_time` toggles timed/untimed correctly.
+- [x] A delete endpoint removes a plan item (and is safe/idempotent for offline replay).
+- [x] Edit/delete are **authorized** via the M03 `Authorizer`.
+- [x] A unit test covers partial edits, timed↔untimed toggling, and delete.
 
 ## Constraints
 - Keep mutations idempotent/queueable (Epic 06).
