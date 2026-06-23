@@ -108,5 +108,92 @@
 
 .home-nav {
   display: flex;
+  align-items: center;
   gap: 16px;
+}
+
+/* Trips dashboard — basic layout; Milestone 09 restyles. */
+.trips-dashboard {
+  width: 100%;
+  max-width: 720px;
+  margin: 24px auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  text-align: left;
+}
+
+.trips-bucket-title {
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.trips-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.trip-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.trip-card-cover {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.trip-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trip-card-name {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.trip-card-destinations,
+.trip-card-dates {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text);
+}
+
+.trips-empty {
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.trips-loading {
+  color: var(--text);
+}
+
+.trips-error {
+  color: #cf222e;
+}
+
+@media (max-width: 600px) {
+  .trips-dashboard {
+    padding: 0 8px;
+  }
+
+  .trip-card-cover {
+    width: 48px;
+    height: 48px;
+  }
 }

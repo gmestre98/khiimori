@@ -164,6 +164,45 @@ export async function updateProfile(patch: ProfilePatch): Promise<Profile> {
   return (await res.json()) as Profile
 }
 
+// --- Trips (M03.5 S1) -------------------------------------------------------
+
+// Trip is the wire shape of a single trip returned by GET /trips.
+export interface Trip {
+  id: string
+  owner_id: string
+  name: string
+  destinations: string[]
+  start_date: string
+  end_date: string
+  base_currency: string
+  cover: string
+  status: string
+  created_at: string
+  updated_at: string
+  is_current: boolean
+}
+
+// TripsResponse is the bucketed shape of GET /trips — trips grouped by the
+// server into Current / Upcoming / Past (archived trips are excluded).
+export interface TripsResponse {
+  current: Trip[]
+  upcoming: Trip[]
+  past: Trip[]
+}
+
+// fetchTrips loads the signed-in user's trips from GET /trips. It throws
+// UnauthorizedError on 401 and a generic Error on other failures.
+export async function fetchTrips(signal?: AbortSignal): Promise<TripsResponse> {
+  const res = await apiFetch('/trips', { signal })
+  if (res.status === 401) {
+    throw new UnauthorizedError()
+  }
+  if (!res.ok) {
+    throw new Error(`API returned HTTP ${res.status}`)
+  }
+  return (await res.json()) as TripsResponse
+}
+
 // signOut ends the session server-side (clears the cookie, Epic 03). It resolves
 // regardless of the response so the UI can always drop local auth state.
 export async function signOut(): Promise<void> {

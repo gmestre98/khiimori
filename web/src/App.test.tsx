@@ -40,9 +40,10 @@ describe('App auth shell', () => {
   })
 
   it('shows the signed-in shell and signs out', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
-      // POST is the logout call; everything else is the GET /me session check.
+    const emptyTrips = { current: [], upcoming: [], past: [] }
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       if (init?.method === 'POST') return new Response('', { status: 200 })
+      if (String(input).includes('/trips')) return new Response(JSON.stringify(emptyTrips), { status: 200 })
       return new Response(JSON.stringify(profile), { status: 200 })
     })
     renderApp()
