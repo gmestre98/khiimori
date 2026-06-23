@@ -37,11 +37,11 @@ the auth hook from Milestone 02 (an owner-only shim until Milestone 08's full Sh
 | Epic | Title | AC | Est. (dev-days) | Cost-relevant | Status |
 |------|-------|----|-----------------|---------------|--------|
 | [01](epic-01-trip-model-crud/README.md) | Trip data model & CRUD (`trip.*`, owner membership) | 5 | ~2–3 | — | ✅ Done |
-| [02](epic-02-day-generation/README.md) | Automatic day generation on range edits | 4 | ~2 | — | |
-| [03](epic-03-bucketing-listing/README.md) | Trip bucketing & listing (Current/Upcoming/Past) | 4 | ~1–2 | — | |
+| [02](epic-02-day-generation/README.md) | Automatic day generation on range edits | 4 | ~2 | — | ✅ Done |
+| [03](epic-03-bucketing-listing/README.md) | Trip bucketing & listing (Current/Upcoming/Past) | 4 | ~1–2 | — | ✅ Done |
 | [04](epic-04-authorization-integration/README.md) | Server-side authorization integration | 4 | ~1–2 | — | |
 | [05](epic-05-dashboard-trip-shell/README.md) | Trips dashboard & trip shell (frontend) | 5 | ~2–3 | — | |
-| | **Milestone total** | **22** | **~8–12** (≈ 2–2.5 weeks, one developer) | | **1 / 5 epics** |
+| | **Milestone total** | **22** | **~8–12** (≈ 2–2.5 weeks, one developer) | | **3 / 5 epics** |
 
 > **Estimates** assume one developer familiar with the stack; they cover implementation, tests, and
 > review. Epics 02–04 can largely proceed in parallel once the trip model (Epic 01) lands.

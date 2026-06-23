@@ -10,13 +10,13 @@ Implement a pure function that classifies a trip into Current/Upcoming/Past and 
 given a reference "today".
 
 ## Acceptance criteria
-- [ ] A pure function maps a trip (`start_date`, `end_date`) and a server-supplied `today` to one of
+- [x] A pure function maps a trip (`start_date`, `end_date`) and a server-supplied `today` to one of
   **Current / Upcoming / Past**.
-- [ ] **Current** = today within `[start_date, end_date]`; **Upcoming** = starts after today; **Past** =
+- [x] **Current** = today within `[start_date, end_date]`; **Upcoming** = starts after today; **Past** =
   ends before today.
-- [ ] The function identifies the **current trip** (range spanning today) distinctly so the UI can surface
+- [x] The function identifies the **current trip** (range spanning today) distinctly so the UI can surface
   it.
-- [ ] Boundary handling is explicit (a trip starting/ending exactly today is Current).
+- [x] Boundary handling is explicit (a trip starting/ending exactly today is Current).
 
 ## Constraints
 - Pure and timezone-consistent: `today` is supplied by the server, not derived per client (PRD §5.1).
