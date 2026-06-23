@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { TripsDashboard } from './TripsDashboard'
 import type { TripsResponse } from '../lib/api'
@@ -120,6 +120,125 @@ describe('TripsDashboard', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/could not load trips/i),
     )
+  })
+
+  it('renders Archive and Delete buttons on each trip card', async () => {
+    mockFetchTrips({ current: [], upcoming: [tripA], past: [] })
+
+    render(
+      <MemoryRouter>
+        <TripsDashboard />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => screen.getByText('Japan 2024'))
+
+    expect(screen.getByRole('button', { name: /archive japan 2024/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /delete japan 2024/i })).toBeInTheDocument()
+  })
+
+  it('opens archive confirmation modal and dismisses on cancel', async () => {
+    mockFetchTrips({ current: [], upcoming: [tripA], past: [] })
+
+    render(
+      <MemoryRouter>
+        <TripsDashboard />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => screen.getByText('Japan 2024'))
+    fireEvent.click(screen.getByRole('button', { name: /archive japan 2024/i }))
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByText(/archive "japan 2024"/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByText('Japan 2024')).toBeInTheDocument()
+  })
+
+  it('opens delete confirmation modal with cascade warning', async () => {
+    mockFetchTrips({ current: [], upcoming: [tripA], past: [] })
+
+    render(
+      <MemoryRouter>
+        <TripsDashboard />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => screen.getByText('Japan 2024'))
+    fireEvent.click(screen.getByRole('button', { name: /delete japan 2024/i }))
+
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toBeInTheDocument()
+    expect(screen.getByText(/cannot be undone/i)).toBeInTheDocument()
+    expect(screen.getByText(/all days and associated data/i)).toBeInTheDocument()
+  })
+
+  it('archives a trip: removes from active buckets and shows Past/archived section', async () => {
+    mockFetchTrips({ current: [], upcoming: [tripA], past: [] })
+
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ current: [], upcoming: [tripA], past: [] }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...tripA, status: 'archived' }), { status: 200 }),
+      )
+
+    render(
+      <MemoryRouter>
+        <TripsDashboard />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => screen.getByText('Japan 2024'))
+    fireEvent.click(screen.getByRole('button', { name: /archive japan 2024/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^archive$/i }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('region', { name: /past\/archived/i })).toBeInTheDocument(),
+    )
+    expect(screen.getByRole('region', { name: /upcoming/i })).not.toHaveTextContent('Japan 2024')
+  })
+
+  it('deletes a trip: removes from dashboard after confirmation', async () => {
+    mockFetchTrips({ current: [], upcoming: [tripA], past: [] })
+
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ current: [], upcoming: [tripA], past: [] }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+
+    render(
+      <MemoryRouter>
+        <TripsDashboard />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => screen.getByText('Japan 2024'))
+    fireEvent.click(screen.getByRole('button', { name: /delete japan 2024/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete$/i }))
+
+    await waitFor(() => expect(screen.queryByText('Japan 2024')).not.toBeInTheDocument())
+  })
+
+  it('closes modal on Escape key press', async () => {
+    mockFetchTrips({ current: [], upcoming: [tripA], past: [] })
+
+    render(
+      <MemoryRouter>
+        <TripsDashboard />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => screen.getByText('Japan 2024'))
+    fireEvent.click(screen.getByRole('button', { name: /delete japan 2024/i }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('shows loading state initially', () => {
