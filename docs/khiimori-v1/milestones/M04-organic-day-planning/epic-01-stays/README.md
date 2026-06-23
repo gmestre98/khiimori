@@ -1,5 +1,7 @@
 # Epic M04.1 — Stays (accommodation, multi-night spanning)
 
+> **Status:** ✅ Done — PRs [#233](https://github.com/gmestre98/khiimori/pull/233) (S1 schema), [#235](https://github.com/gmestre98/khiimori/pull/235) (S2 CRUD), [#237](https://github.com/gmestre98/khiimori/pull/237) (S3 spanning & tests). All 4 ACs done.
+
 > Milestone: [04 — Organic Day Planning](../README.md) · PRD refs: §5.2, §7.7, §9.
 
 ## Description
@@ -17,9 +19,9 @@ field is owned here and becomes a source for Milestone 05's budget roll-ups.
       `trip.*` schema per PRD §9 (PRD §7.7).
 - [x] **Add / edit / remove** a stay is implemented with all fields above; only what's needed is
       required (a stay is useful with just name + dates) (PRD §5.2).
-- [ ] A **multi-night stay spans multiple days without re-entry** — entered once, surfaced across
+- [x] A **multi-night stay spans multiple days without re-entry** — entered once, surfaced across
       every night in its `[check_in, check_out)` range (PRD §5.2).
-- [ ] Unit + integration tests cover multi-day spanning (a stay shown on each covered day) and
+- [x] Unit + integration tests cover multi-day spanning (a stay shown on each covered day) and
       add/edit/remove (PRD §7.6).
 
 ## Implementation Details / Architecture
