@@ -13,7 +13,7 @@ field is owned here and becomes a source for Milestone 05's budget roll-ups.
 
 ## Acceptance Criteria
 
-- [ ] A migration adds `Stay(id, trip_id, name, location, check_in, check_out, cost, link)` to the
+- [x] A migration adds `Stay(id, trip_id, name, location, check_in, check_out, cost, link)` to the
       `trip.*` schema per PRD §9 (PRD §7.7).
 - [ ] **Add / edit / remove** a stay is implemented with all fields above; only what's needed is
       required (a stay is useful with just name + dates) (PRD §5.2).
