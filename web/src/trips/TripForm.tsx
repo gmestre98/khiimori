@@ -100,18 +100,20 @@ export function TripForm({ trip, onSuccess, onCancel }: TripFormProps) {
         : await createTrip(input)
       onSuccess(result)
     } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        // Central handler navigates away; skip remaining state updates.
+        setSubmitting(false)
+        return
+      }
       if (err instanceof TripShrinkConflictError) {
         setShrinkConflict({ count: err.count })
       } else if (err instanceof TripValidationError) {
         setError(err.message)
-      } else if (err instanceof UnauthorizedError) {
-        return // central handler navigates away; component will unmount
       } else {
         setError('Something went wrong. Please try again.')
       }
-    } finally {
-      setSubmitting(false)
     }
+    setSubmitting(false)
   }
 
   function handleSubmit(e: FormEvent) {
