@@ -52,7 +52,7 @@ func newModuleWithOwnerAt(t *testing.T, ownerID string, now func() time.Time) *h
 		t.Skip("DATABASE_URL_TEST not set; skipping trip HTTP integration test")
 	}
 	_, err := testPool.Exec(context.Background(),
-		`TRUNCATE trip.stays, trip.days, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
+		`TRUNCATE trip.plan_items, trip.stays, trip.days, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
 	if err != nil {
 		t.Fatalf("truncating tables: %v", err)
 	}
@@ -357,7 +357,7 @@ func TestHTTPDeleteReturns404ForOtherOwner(t *testing.T) {
 	// authenticated as a different owner. newModuleWithOwner is not used for
 	// srvB to avoid a second truncate that would wipe srvA's data.
 	_, err := testPool.Exec(context.Background(),
-		`TRUNCATE trip.stays, trip.days, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
+		`TRUNCATE trip.plan_items, trip.stays, trip.days, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
 	if err != nil {
 		t.Fatalf("truncating tables: %v", err)
 	}
@@ -542,7 +542,7 @@ func TestHTTPListBucketsAndScope(t *testing.T) {
 		t.Skip("DATABASE_URL_TEST not set; skipping")
 	}
 	_, err := testPool.Exec(context.Background(),
-		`TRUNCATE trip.stays, trip.days, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
+		`TRUNCATE trip.plan_items, trip.stays, trip.days, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
 	if err != nil {
 		t.Fatalf("truncate: %v", err)
 	}

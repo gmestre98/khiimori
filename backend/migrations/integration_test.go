@@ -78,6 +78,10 @@ func TestMigrationsCreateModuleSchemas(t *testing.T) {
 	// assert its idempotency guard and cascade FK applied.
 	assertTripDaysTable(t, db)
 
+	// The trip.plan_items table (00013) is the PlanItem entity Epic M04.2 builds
+	// on; assert its status constraint, FK cascade, and day_id SET NULL applied.
+	assertTripPlanItemsTable(t, db)
+
 	// Roll everything back and assert the schemas are gone.
 	if err := goose.Reset(db, migrations.Dir); err != nil {
 		t.Fatalf("migrate reset: %v", err)
@@ -208,6 +212,82 @@ func assertTripDaysTable(t *testing.T, db *sql.DB) {
 	}
 	if !cascadeFK {
 		t.Error("trip.days.trip_id lacks a CASCADE DELETE foreign key to trip.trips")
+	}
+}
+
+// assertTripPlanItemsTable checks the trip.plan_items migration (00013) applied
+// with the shape M04.2 depends on: the table exists, the status CHECK constraint
+// is in place, trip_id cascades on Trip delete, and day_id is SET NULL on Day
+// delete (so items fall back to the backlog rather than being deleted).
+func assertTripPlanItemsTable(t *testing.T, db *sql.DB) {
+	t.Helper()
+
+	var tableExists bool
+	if err := db.QueryRow(
+		`SELECT EXISTS (
+			SELECT 1 FROM information_schema.tables
+			WHERE table_schema = 'trip' AND table_name = 'plan_items'
+		)`,
+	).Scan(&tableExists); err != nil {
+		t.Fatalf("query trip.plan_items existence: %v", err)
+	}
+	if !tableExists {
+		t.Fatal("trip.plan_items table missing after migrate up")
+	}
+
+	// The CASCADE FK on trip_id ensures plan items are removed when their trip is
+	// deleted, so no orphan cleanup is needed at the application layer.
+	var cascadeFK bool
+	if err := db.QueryRow(
+		`SELECT EXISTS (
+			SELECT 1
+			FROM pg_constraint c
+			WHERE c.conrelid  = 'trip.plan_items'::regclass
+			  AND c.contype   = 'f'
+			  AND c.confrelid = 'trip.trips'::regclass
+			  AND c.confdeltype = 'c'
+		)`,
+	).Scan(&cascadeFK); err != nil {
+		t.Fatalf("query trip.plan_items cascade FK: %v", err)
+	}
+	if !cascadeFK {
+		t.Error("trip.plan_items.trip_id lacks a CASCADE DELETE foreign key to trip.trips")
+	}
+
+	// The SET NULL FK on day_id ensures plan items fall back to the backlog (day_id
+	// = NULL) when their day is removed, preserving them rather than cascading.
+	var setNullFK bool
+	if err := db.QueryRow(
+		`SELECT EXISTS (
+			SELECT 1
+			FROM pg_constraint c
+			WHERE c.conrelid  = 'trip.plan_items'::regclass
+			  AND c.contype   = 'f'
+			  AND c.confrelid = 'trip.days'::regclass
+			  AND c.confdeltype = 'n'
+		)`,
+	).Scan(&setNullFK); err != nil {
+		t.Fatalf("query trip.plan_items day SET NULL FK: %v", err)
+	}
+	if !setNullFK {
+		t.Error("trip.plan_items.day_id lacks a SET NULL foreign key to trip.days")
+	}
+
+	// The CHECK constraint on status guards the five valid lifecycle values.
+	var statusCheck bool
+	if err := db.QueryRow(
+		`SELECT EXISTS (
+			SELECT 1
+			FROM pg_constraint c
+			WHERE c.conrelid = 'trip.plan_items'::regclass
+			  AND c.contype  = 'c'
+			  AND c.conname  LIKE '%status%'
+		)`,
+	).Scan(&statusCheck); err != nil {
+		t.Fatalf("query trip.plan_items status check: %v", err)
+	}
+	if !statusCheck {
+		t.Error("trip.plan_items lacks a CHECK constraint on status")
 	}
 }
 
