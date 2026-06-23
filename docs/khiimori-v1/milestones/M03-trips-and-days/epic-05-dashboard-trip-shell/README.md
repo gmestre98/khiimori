@@ -17,9 +17,9 @@ milestones. This is the UI every feature milestone renders inside.
       **current trip surfaced prominently** showing **today's day number** and a **budget-glance
       slot** (figures provided later by Milestone 05; this epic renders the slot) (PRD §5.1).
       _(Done: S1 #221, S2 #223)_
-- [ ] A **trip create/edit form** drives Epic 01's CRUD (name, destinations, start/end date, cover,
+- [x] A **trip create/edit form** drives Epic 01's CRUD (name, destinations, start/end date, cover,
       EUR shown as fixed) with archive/delete affordances (PRD §5.1).
-      _(Create/edit form done: S3 #226 — archive/delete affordances pending S4)_
+      _(S3 #226, S4 #229)_
 - [ ] A **trip shell** hosts a per-day view that is **deep-linkable** (trip → day) and provides the
       mounting points the Planning/Budget/Journal/Maps milestones fill in (PRD §5.1).
 - [x] The UI only shows trips the user is **authorized** to see (driven by Epic 03/04 server-side
