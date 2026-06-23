@@ -9,11 +9,11 @@ navigation spine feature milestones render inside.
 Build the Trips dashboard that fetches and renders the bucketed trips.
 
 ## Acceptance criteria
-- [ ] The dashboard calls `GET /trips` (Epic 03) and renders **Current / Upcoming / Past** sections.
-- [ ] Trip cards show name, destinations, dates, and cover; only **authorized** trips appear (server-scoped
+- [x] The dashboard calls `GET /trips` (Epic 03) and renders **Current / Upcoming / Past** sections.
+- [x] Trip cards show name, destinations, dates, and cover; only **authorized** trips appear (server-scoped
   — the client does not filter).
-- [ ] Empty states are handled (e.g. no upcoming trips).
-- [ ] The dashboard is responsive (web + mobile) with basic styling now; Milestone 09 components later.
+- [x] Empty states are handled (e.g. no upcoming trips).
+- [x] The dashboard is responsive (web + mobile) with basic styling now; Milestone 09 components later.
 
 ## Constraints
 - Render server-decided buckets/scoping; do not bucket or authorize client-side (PRD §5.1, §5.9).
