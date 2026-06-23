@@ -64,21 +64,7 @@ type planItemResponse struct {
 }
 
 func newPlanItemResponse(p PlanItem) planItemResponse {
-	return planItemResponse{
-		ID:            p.ID,
-		TripID:        p.TripID,
-		DayID:         p.DayID,
-		Title:         p.Title,
-		Type:          p.Type,
-		StartTime:     p.StartTime,
-		Duration:      p.Duration,
-		Location:      p.Location,
-		BookingStatus: p.BookingStatus,
-		Cost:          p.Cost,
-		Link:          p.Link,
-		SortOrder:     p.SortOrder,
-		Status:        p.Status,
-	}
+	return planItemResponse(p)
 }
 
 // handleCreatePlanItem creates a plan item for the given trip
