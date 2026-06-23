@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { UnauthorizedError, fetchTrips, type Trip, type TripsResponse } from '../lib/api'
+import { CurrentTripCard } from './CurrentTripCard'
 
 // TripCard renders a single trip's summary: name, destinations, dates, and
 // cover image if present. Authorization is server-side scoped — only trips the
@@ -96,9 +97,13 @@ export function TripsDashboard() {
 
   if (!data) return null
 
+  const currentTrip = data.current.find((t) => t.is_current) ?? null
+  const currentBucketRest = data.current.filter((t) => !t.is_current)
+
   return (
     <div className="trips-dashboard">
-      <BucketSection title="Current" trips={data.current} emptyLabel="No current trip." />
+      {currentTrip && <CurrentTripCard trip={currentTrip} />}
+      <BucketSection title="Current" trips={currentBucketRest} emptyLabel="No current trip." />
       <BucketSection title="Upcoming" trips={data.upcoming} emptyLabel="No upcoming trips." />
       <BucketSection title="Past" trips={data.past} emptyLabel="No past trips." />
     </div>
