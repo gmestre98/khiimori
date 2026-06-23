@@ -16,13 +16,14 @@ type PendingAction = { type: 'archive' | 'delete'; trip: Trip }
 // TripCard renders a single trip's summary with Edit, Archive, and Delete controls.
 // Authorization is server-side scoped — only trips the user owns or is a member
 // of appear (PRD §5.9); the server enforces the owner-only constraint on mutation.
+// onArchive is omitted for already-archived trips to avoid a no-op button.
 function TripCard({
   trip,
   onArchive,
   onDelete,
 }: {
   trip: Trip
-  onArchive: (trip: Trip) => void
+  onArchive?: (trip: Trip) => void
   onDelete: (trip: Trip) => void
 }) {
   const dateRange = `${trip.start_date} – ${trip.end_date}`
@@ -44,13 +45,15 @@ function TripCard({
           >
             Edit
           </Link>
-          <button
-            className="btn-ghost"
-            onClick={() => onArchive(trip)}
-            aria-label={`Archive ${trip.name}`}
-          >
-            Archive
-          </button>
+          {onArchive && (
+            <button
+              className="btn-ghost"
+              onClick={() => onArchive(trip)}
+              aria-label={`Archive ${trip.name}`}
+            >
+              Archive
+            </button>
+          )}
           <button
             className="btn-ghost-danger"
             onClick={() => onDelete(trip)}
@@ -76,7 +79,7 @@ function BucketSection({
   title: string
   trips: Trip[]
   emptyLabel: string
-  onArchive: (trip: Trip) => void
+  onArchive?: (trip: Trip) => void
   onDelete: (trip: Trip) => void
 }) {
   return (
@@ -248,7 +251,6 @@ export function TripsDashboard() {
           title="Past/archived"
           trips={archived}
           emptyLabel=""
-          onArchive={() => {}}
           onDelete={(t) => setPending({ type: 'delete', trip: t })}
         />
       )}
