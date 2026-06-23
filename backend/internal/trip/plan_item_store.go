@@ -14,6 +14,7 @@ var errPlanItemNotFound = errors.New("trip: plan item not found")
 
 // planItemStore is the persistence surface the plan-item handlers use.
 type planItemStore interface {
+	ListBacklog(ctx context.Context, tripID string) ([]PlanItem, error)
 	CreatePlanItem(ctx context.Context, n NewPlanItem) (PlanItem, error)
 	UpdatePlanItem(ctx context.Context, tripID, itemID string, e EditPlanItem) (PlanItem, error)
 	DeletePlanItem(ctx context.Context, tripID, itemID string) error
@@ -131,6 +132,36 @@ func (s *pgxPlanItemStore) UpdatePlanItem(ctx context.Context, tripID, itemID st
 		return PlanItem{}, fmt.Errorf("trip: update plan item: %w", err)
 	}
 	return p, nil
+}
+
+// ListBacklog returns the backlog (day_id = null) plan items for a trip, ordered
+// by sort_order ascending. Returns an empty slice (not an error) when the trip
+// has no backlog items.
+func (s *pgxPlanItemStore) ListBacklog(ctx context.Context, tripID string) ([]PlanItem, error) {
+	const q = `
+		SELECT ` + planItemColumns + `
+		FROM trip.plan_items
+		WHERE trip_id = $1::uuid AND day_id IS NULL
+		ORDER BY sort_order`
+
+	rows, err := s.pool.Query(ctx, q, tripID)
+	if err != nil {
+		return nil, fmt.Errorf("trip: list backlog: %w", err)
+	}
+	defer rows.Close()
+
+	var items []PlanItem
+	for rows.Next() {
+		var p PlanItem
+		if err := scanPlanItem(rows, &p); err != nil {
+			return nil, fmt.Errorf("trip: scan backlog item: %w", err)
+		}
+		items = append(items, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("trip: list backlog rows: %w", err)
+	}
+	return items, nil
 }
 
 // DeletePlanItem removes a plan item scoped to a trip. Replaying a delete of a

@@ -13,6 +13,10 @@ import (
 // fakePlanItemStore records calls and returns canned results so plan-item
 // handler policy can be tested without a database.
 type fakePlanItemStore struct {
+	gotListBacklogTripID string
+	listBacklogResult    []PlanItem
+	listBacklogErr       error
+
 	gotCreate    NewPlanItem
 	createResult PlanItem
 	createErr    error
@@ -26,6 +30,14 @@ type fakePlanItemStore struct {
 	gotDeleteTripID string
 	gotDeleteItemID string
 	deleteErr       error
+}
+
+func (f *fakePlanItemStore) ListBacklog(_ context.Context, tripID string) ([]PlanItem, error) {
+	f.gotListBacklogTripID = tripID
+	if f.listBacklogErr != nil {
+		return nil, f.listBacklogErr
+	}
+	return f.listBacklogResult, nil
 }
 
 func (f *fakePlanItemStore) CreatePlanItem(_ context.Context, n NewPlanItem) (PlanItem, error) {
@@ -583,6 +595,123 @@ func TestHandleDeletePlanItemUnauthenticated(t *testing.T) {
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+}
+
+// listBacklogReq builds a GET /trips/{id}/plan-items/backlog request.
+func listBacklogReq(tripID, userID string) *http.Request {
+	req := httptest.NewRequest(http.MethodGet, TripsPath+"/"+tripID+"/plan-items/backlog", nil)
+	req.SetPathValue("id", tripID)
+	return withPrincipal(req, userID)
+}
+
+// TestHandleListBacklogEmpty asserts an empty backlog returns 200 with an empty items array.
+func TestHandleListBacklogEmpty(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{listBacklogResult: nil}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleListBacklog(rec, listBacklogReq("trip-1", "owner-1"))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotListBacklogTripID != "trip-1" {
+		t.Errorf("store trip_id = %q, want trip-1", pi.gotListBacklogTripID)
+	}
+	var resp backlogResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(resp.Items) != 0 {
+		t.Errorf("items len = %d, want 0", len(resp.Items))
+	}
+}
+
+// TestHandleListBacklogReturnsItems asserts the backlog items are returned in order.
+func TestHandleListBacklogReturnsItems(t *testing.T) {
+	t.Parallel()
+
+	title1, title2 := "Museum visit", "Cooking class"
+	pi := &fakePlanItemStore{
+		listBacklogResult: []PlanItem{
+			{ID: "item-1", TripID: "trip-1", Title: title1, SortOrder: 0, Status: "idea"},
+			{ID: "item-2", TripID: "trip-1", Title: title2, SortOrder: 1, Status: "idea"},
+		},
+	}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleListBacklog(rec, listBacklogReq("trip-1", "owner-1"))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var resp backlogResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(resp.Items) != 2 {
+		t.Fatalf("items len = %d, want 2", len(resp.Items))
+	}
+	if resp.Items[0].Title != title1 {
+		t.Errorf("items[0].title = %q, want %q", resp.Items[0].Title, title1)
+	}
+	if resp.Items[1].Title != title2 {
+		t.Errorf("items[1].title = %q, want %q", resp.Items[1].Title, title2)
+	}
+	if resp.Items[0].DayID != nil {
+		t.Errorf("items[0].day_id = %v, want nil (backlog item)", resp.Items[0].DayID)
+	}
+	if resp.Items[0].Status != "idea" {
+		t.Errorf("items[0].status = %q, want idea", resp.Items[0].Status)
+	}
+}
+
+// TestHandleListBacklogUnauthenticated asserts a missing session is 401.
+func TestHandleListBacklogUnauthenticated(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	req := httptest.NewRequest(http.MethodGet, TripsPath+"/trip-1/plan-items/backlog", nil)
+	req.SetPathValue("id", "trip-1")
+	rec := httptest.NewRecorder()
+	m.handleListBacklog(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+	if pi.gotListBacklogTripID != "" {
+		t.Error("store should not be called for an unauthenticated request")
+	}
+}
+
+// TestHandleListBacklogUnauthorized asserts a denied Authorizer results in 404.
+func TestHandleListBacklogUnauthorized(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := &Module{
+		store:       &fakeTripStore{},
+		stays:       &fakeStayStore{},
+		planItems:   pi,
+		requireAuth: func(h http.Handler) http.Handler { return h },
+		authz:       denyAllAuthorizer{},
+		now:         func() time.Time { return fixedNow },
+	}
+
+	rec := httptest.NewRecorder()
+	m.handleListBacklog(rec, listBacklogReq("trip-1", "other-user"))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 (presence oracle protection)", rec.Code)
+	}
+	if pi.gotListBacklogTripID != "" {
+		t.Error("store should not be called for an unauthorized request")
 	}
 }
 
