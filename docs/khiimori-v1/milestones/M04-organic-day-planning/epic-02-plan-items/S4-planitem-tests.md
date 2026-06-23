@@ -8,10 +8,10 @@ Plan items are the core planning unit, so the contract is covered against a real
 Add unit + integration tests for plan-item CRUD and timed/untimed behaviour.
 
 ## Acceptance criteria
-- [ ] Tests cover **create with only a title** (other fields null/defaulted).
-- [ ] Tests cover **timed vs untimed** (null vs set `start_time`) including toggling via edit.
-- [ ] Tests cover edit (partial), delete, and authorization (unauthorized denied).
-- [ ] Integration tests run against the migrated `trip.PlanItem` schema (M01.3 harness).
+- [x] Tests cover **create with only a title** (other fields null/defaulted).
+- [x] Tests cover **timed vs untimed** (null vs set `start_time`) including toggling via edit.
+- [x] Tests cover edit (partial), delete, and authorization (unauthorized denied).
+- [x] Integration tests run against the migrated `trip.PlanItem` schema (M01.3 harness).
 
 ## Constraints
 - Reuse the M01.3 integration harness; hermetic per-test state.

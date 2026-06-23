@@ -2,6 +2,8 @@
 
 > Milestone: [04 — Organic Day Planning](../README.md) · PRD refs: §5.2, §7.7, §9.
 
+> **Status:** ✅ Done — all 5 ACs complete across PRs #239 (S1 schema), #241 (S2 create), #243 (S3 edit/delete), #244 (S3 integration tests), and S4 (CRUD & timed/untimed tests). Unit tests cover all handler paths; integration tests cover create-title-only, timed, untimed toggling, edit, delete, and authorization denial.
+
 ## Description
 
 Model the **plan item** — the flexible unit of a day's itinerary (activity, tour, idea, transport).
@@ -22,7 +24,7 @@ set, and CRUD; the day-view rendering is Epic 05 and re-planning operations are 
       duration) is set — both are first-class, never forcing a time where there isn't one (PRD §5.2).
 - [x] `status` is one of `idea | planned | done | skipped | cancelled`, defaulting sensibly on
       create; `cost` is owned here for Milestone 05's roll-ups (PRD §9).
-- [ ] Unit + integration tests cover create-with-title-only, timed/untimed toggling, and full CRUD
+- [x] Unit + integration tests cover create-with-title-only, timed/untimed toggling, and full CRUD
       (PRD §7.6).
 
 ## Implementation Details / Architecture
