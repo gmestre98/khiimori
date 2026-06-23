@@ -42,7 +42,7 @@ describe('CurrentTripCard', () => {
     expect(screen.getByRole('region', { name: /current trip/i })).toBeInTheDocument()
   })
 
-  it('shows today\'s day number based on start_date (Day 5 = 4 days ago + 1)', () => {
+  it("shows today's day number based on start_date (Day 5 = 4 days ago + 1)", () => {
     render(<CurrentTripCard trip={baseTrip} />)
     expect(screen.getByText((t) => t.trim() === 'Day 5')).toBeInTheDocument()
   })
