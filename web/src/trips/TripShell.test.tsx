@@ -38,7 +38,11 @@ vi.mock('../lib/api', async (importOriginal) => {
 
 function renderShellAtDay(date: string, trip?: Trip) {
   return render(
-    <MemoryRouter initialEntries={[{ pathname: `/trips/trip-1/days/${date}`, state: { trip: trip ?? mockTrip } }]}>
+    <MemoryRouter
+      initialEntries={[
+        { pathname: `/trips/trip-1/days/${date}`, state: { trip: trip ?? mockTrip } },
+      ]}
+    >
       <Routes>
         <Route path="/trips/:tripId" element={<TripShellRoute />}>
           <Route path="days/:date" element={<DayView />} />

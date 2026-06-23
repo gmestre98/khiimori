@@ -83,10 +83,12 @@ export function DayView() {
   return (
     <article className="day-view" aria-label={date ? `Day ${dayNumber ?? ''} — ${date}` : 'Day'}>
       <header className="day-view-header">
-        <h2 className="day-view-title">
-          {dayNumber !== null ? `Day ${dayNumber}` : 'Day'}
-        </h2>
-        {date && <time className="day-view-date" dateTime={date}>{date}</time>}
+        <h2 className="day-view-title">{dayNumber !== null ? `Day ${dayNumber}` : 'Day'}</h2>
+        {date && (
+          <time className="day-view-date" dateTime={date}>
+            {date}
+          </time>
+        )}
       </header>
 
       {loading && (
@@ -99,9 +101,7 @@ export function DayView() {
           {error}
         </p>
       )}
-      {day?.notes && (
-        <p className="day-view-notes">{day.notes}</p>
-      )}
+      {day?.notes && <p className="day-view-notes">{day.notes}</p>}
 
       {/* Stable mount points for Milestones 04–07. Order matches the day plan
           layout in assets/02-day-plan-map.svg (PRD §4.2). */}

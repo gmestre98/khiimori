@@ -123,15 +123,7 @@ function TripShell() {
 
 // DayNav renders a horizontal strip with prev/next buttons and a day selector
 // that lets the user jump to any day in the trip.
-function DayNav({
-  tripId,
-  dates,
-  trip,
-}: {
-  tripId: string
-  dates: string[]
-  trip: Trip
-}) {
+function DayNav({ tripId, dates, trip }: { tripId: string; dates: string[]; trip: Trip }) {
   const { date } = useParams<{ date: string }>()
   const navigate = useNavigate()
   const currentIndex = date ? dates.indexOf(date) : -1
