@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gmestre98/khiimori/backend/internal/platform/authn"
 	"github.com/gmestre98/khiimori/backend/internal/platform/httpx"
@@ -55,7 +56,7 @@ func newModuleWithOwner(t *testing.T, ownerID string) *httptest.Server {
 		t.Fatalf("truncating tables: %v", err)
 	}
 	store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{guard: noDayData{}}}
-	mod := &Module{store: store, requireAuth: authShim(ownerID)}
+	mod := &Module{store: store, requireAuth: authShim(ownerID), now: time.Now}
 	mux := http.NewServeMux()
 	mod.RegisterRoutes(mux)
 	srv := httptest.NewServer(mux)
