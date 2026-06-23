@@ -13,6 +13,7 @@ import (
 // so cmd/api can mount the module's routes without reaching into its internals.
 type Module struct {
 	store tripStore
+	stays stayStore
 	// requireAuth is the auth middleware handed in by the composition root (the
 	// auth module's RequireAuth). The trip module receives it as an
 	// httpx.Middleware so it never imports the auth module — every trip route is
@@ -42,6 +43,7 @@ func New(pool *pgxpool.Pool, requireAuth httpx.Middleware, memberships OwnerMemb
 			memberships: memberships,
 			days:        pgxDayRegenerator{guard: noDayData{}},
 		},
+		stays:       &pgxStayStore{pool: pool},
 		requireAuth: requireAuth,
 		authz:       authz,
 		now:         time.Now,
@@ -59,6 +61,9 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("POST "+TripsPath+"/{id}/unarchive", m.requireAuth(http.HandlerFunc(m.handleUnarchive)))
 	mux.Handle("DELETE "+TripsPath+"/{id}", m.requireAuth(http.HandlerFunc(m.handleDelete)))
 	mux.Handle("GET "+TripsPath+"/{id}/days/{date}", m.requireAuth(http.HandlerFunc(m.handleGetDay)))
+	mux.Handle("POST "+TripsPath+"/{id}/stays", m.requireAuth(http.HandlerFunc(m.handleCreateStay)))
+	mux.Handle("PATCH "+TripsPath+"/{id}/stays/{stayID}", m.requireAuth(http.HandlerFunc(m.handleUpdateStay)))
+	mux.Handle("DELETE "+TripsPath+"/{id}/stays/{stayID}", m.requireAuth(http.HandlerFunc(m.handleDeleteStay)))
 }
 
 // Compile-time check that *Module implements the route-mounting contract.
