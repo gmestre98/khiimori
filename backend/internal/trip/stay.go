@@ -24,11 +24,11 @@ type Stay struct {
 	ID       string
 	TripID   string
 	Name     string
-	Location string     // optional
+	Location *string    // optional; NULL when absent
 	CheckIn  *time.Time // optional; date only
 	CheckOut *time.Time // optional; date only
 	Cost     *float64   // optional
-	Link     string     // optional; URL
+	Link     *string    // optional; URL; NULL when absent
 }
 
 // NewStay is the validated input to create a stay. ClientID, if non-empty, is a
@@ -39,41 +39,41 @@ type NewStay struct {
 	ClientID string  // optional client-generated UUID for upsert idempotency
 	TripID   string
 	Name     string
-	Location string
+	Location *string // nil when absent
 	CheckIn  *time.Time
 	CheckOut *time.Time
 	Cost     *float64
-	Link     string
+	Link     *string // nil when absent
 }
 
 // EditStay is the validated input to edit a stay. All fields replace the
 // existing values; callers supply all editable fields.
 type EditStay struct {
 	Name     string
-	Location string
+	Location *string // nil when absent
 	CheckIn  *time.Time
 	CheckOut *time.Time
 	Cost     *float64
-	Link     string
+	Link     *string // nil when absent
 }
 
 // validateStayFields checks the client-supplied stay fields used by both create
 // and edit. It returns a client-safe error describing the first problem.
-func validateStayFields(name, location string, checkIn, checkOut *time.Time, link string) error {
+func validateStayFields(name string, location *string, checkIn, checkOut *time.Time, link *string) error {
 	if strings.TrimSpace(name) == "" {
 		return errors.New("name is required")
 	}
 	if len(name) > maxStayNameLen {
 		return fmt.Errorf("name must be at most %d characters", maxStayNameLen)
 	}
-	if len(location) > maxStayLocationLen {
+	if location != nil && len(*location) > maxStayLocationLen {
 		return fmt.Errorf("location must be at most %d characters", maxStayLocationLen)
 	}
-	if len(link) > maxStayLinkLen {
-		return fmt.Errorf("link must be at most %d characters", maxStayLinkLen)
-	}
-	if link != "" {
-		if _, err := url.ParseRequestURI(link); err != nil {
+	if link != nil {
+		if len(*link) > maxStayLinkLen {
+			return fmt.Errorf("link must be at most %d characters", maxStayLinkLen)
+		}
+		if _, err := url.ParseRequestURI(*link); err != nil {
 			return errors.New("link must be a valid URL")
 		}
 	}

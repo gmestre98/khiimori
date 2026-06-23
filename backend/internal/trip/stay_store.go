@@ -54,6 +54,7 @@ func (s *pgxStayStore) CreateStay(ctx context.Context, ns NewStay) (Stay, error)
 				    check_out = EXCLUDED.check_out,
 				    cost = EXCLUDED.cost,
 				    link = EXCLUDED.link
+			WHERE trip.stays.trip_id = EXCLUDED.trip_id
 			RETURNING ` + stayColumns
 		args = []any{ns.ClientID, ns.TripID, ns.Name, ns.Location, ns.CheckIn, ns.CheckOut, ns.Cost, ns.Link}
 	} else {

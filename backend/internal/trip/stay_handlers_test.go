@@ -166,8 +166,8 @@ func TestHandleCreateStayWithAllFields(t *testing.T) {
 		t.Fatalf("status = %d, want 201; body=%s", rec.Code, rec.Body.String())
 	}
 	ns := stays.gotCreate
-	if ns.Location != "Porto" {
-		t.Errorf("location = %q, want Porto", ns.Location)
+	if ns.Location == nil || *ns.Location != "Porto" {
+		t.Errorf("location = %v, want Porto", ns.Location)
 	}
 	if ns.CheckIn == nil || ns.CheckIn.Format(dateLayout) != "2026-07-01" {
 		t.Errorf("check_in = %v, want 2026-07-01", ns.CheckIn)
@@ -178,8 +178,8 @@ func TestHandleCreateStayWithAllFields(t *testing.T) {
 	if ns.Cost == nil || *ns.Cost != cost {
 		t.Errorf("cost = %v, want %v", ns.Cost, cost)
 	}
-	if ns.Link != "https://airbnb.com/rooms/1" {
-		t.Errorf("link = %q, want https://airbnb.com/rooms/1", ns.Link)
+	if ns.Link == nil || *ns.Link != "https://airbnb.com/rooms/1" {
+		t.Errorf("link = %v, want https://airbnb.com/rooms/1", ns.Link)
 	}
 }
 

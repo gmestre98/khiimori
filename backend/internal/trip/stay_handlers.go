@@ -26,14 +26,16 @@ func parseOptionalDate(field, value string) (*time.Time, error) {
 
 // createStayRequest is the create-stay wire shape. The optional "id" field
 // carries a client-generated UUID for upsert idempotency (Epic 06 replay).
+// location and link use *string so an absent field maps to nil (DB NULL) rather
+// than an empty string, matching the nullable columns.
 type createStayRequest struct {
 	ClientID string   `json:"id"`
 	Name     string   `json:"name"`
-	Location string   `json:"location"`
+	Location *string  `json:"location"`
 	CheckIn  string   `json:"check_in"`
 	CheckOut string   `json:"check_out"`
 	Cost     *float64 `json:"cost"`
-	Link     string   `json:"link"`
+	Link     *string  `json:"link"`
 }
 
 func (req createStayRequest) toNewStay(tripID string) (NewStay, error) {
@@ -63,11 +65,11 @@ func (req createStayRequest) toNewStay(tripID string) (NewStay, error) {
 // editStayRequest is the edit-stay wire shape.
 type editStayRequest struct {
 	Name     string   `json:"name"`
-	Location string   `json:"location"`
+	Location *string  `json:"location"`
 	CheckIn  string   `json:"check_in"`
 	CheckOut string   `json:"check_out"`
 	Cost     *float64 `json:"cost"`
-	Link     string   `json:"link"`
+	Link     *string  `json:"link"`
 }
 
 func (req editStayRequest) toEditStay() (EditStay, error) {
@@ -97,11 +99,11 @@ type stayResponse struct {
 	ID       string   `json:"id"`
 	TripID   string   `json:"trip_id"`
 	Name     string   `json:"name"`
-	Location string   `json:"location,omitempty"`
+	Location *string  `json:"location,omitempty"`
 	CheckIn  string   `json:"check_in,omitempty"`
 	CheckOut string   `json:"check_out,omitempty"`
 	Cost     *float64 `json:"cost,omitempty"`
-	Link     string   `json:"link,omitempty"`
+	Link     *string  `json:"link,omitempty"`
 }
 
 func newStayResponse(s Stay) stayResponse {
