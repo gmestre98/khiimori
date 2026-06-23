@@ -65,7 +65,10 @@ export function TripsDashboard() {
         setLoading(false)
       })
       .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === 'AbortError') return
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          setLoading(false)
+          return
+        }
         if (err instanceof UnauthorizedError) return // central handler drives re-auth
         setError('Could not load trips. Please try again.')
         setLoading(false)
