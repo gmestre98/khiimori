@@ -57,7 +57,7 @@ func newModuleWithOwnerAt(t *testing.T, ownerID string, now func() time.Time) *h
 		t.Fatalf("truncating tables: %v", err)
 	}
 	store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{guard: noDayData{}}}
-	mod := &Module{store: store, requireAuth: authShim(ownerID), authz: NewOwnerOnlyAuthorizer(testPool), now: now}
+	mod := &Module{store: store, stays: &pgxStayStore{pool: testPool}, requireAuth: authShim(ownerID), authz: NewOwnerOnlyAuthorizer(testPool), now: now}
 	mux := http.NewServeMux()
 	mod.RegisterRoutes(mux)
 	srv := httptest.NewServer(mux)
