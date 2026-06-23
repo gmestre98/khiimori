@@ -229,9 +229,11 @@ export class TripValidationError extends Error {
 // data (409 days_have_data). count is how many days would be removed. Retry with
 // forceShrink: true after user confirmation to proceed.
 export class TripShrinkConflictError extends Error {
-  constructor(public count: number) {
+  count: number
+  constructor(count: number) {
     super(`${count} day(s) hold data`)
     this.name = 'TripShrinkConflictError'
+    this.count = count
   }
 }
 
