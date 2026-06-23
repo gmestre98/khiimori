@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -83,12 +84,19 @@ func (req createRequest) toNewTrip(ownerID string) (NewTrip, error) {
 // editRequest is the edit wire shape. It mirrors createRequest's editable fields;
 // owner_id, base_currency, and status are absent because they are immutable
 // through an edit (enforced server-side, S3).
+//
+// ForceShrink bypasses the shrink guard: the client must set it to true after
+// showing the user a confirmation dialog (the 409 days_have_data response tells
+// them how many days hold data). Sending true without confirmation is an API
+// misuse, not a security issue — the user's own data is destroyed, never
+// another user's.
 type editRequest struct {
 	Name         string   `json:"name"`
 	Destinations []string `json:"destinations"`
 	StartDate    string   `json:"start_date"`
 	EndDate      string   `json:"end_date"`
 	Cover        string   `json:"cover"`
+	ForceShrink  bool     `json:"force_shrink"`
 }
 
 // toEditTrip parses and validates the request into an EditTrip. It returns a
@@ -99,11 +107,12 @@ func (req editRequest) toEditTrip() (EditTrip, error) {
 		return EditTrip{}, err
 	}
 	return EditTrip{
-		Name:         req.Name,
-		Destinations: dests,
-		StartDate:    start,
-		EndDate:      end,
-		Cover:        req.Cover,
+		Name:            req.Name,
+		Destinations:    dests,
+		StartDate:       start,
+		EndDate:         end,
+		Cover:           req.Cover,
+		ForceRemoveDays: req.ForceShrink,
 	}, nil
 }
 
@@ -224,6 +233,13 @@ func (m *Module) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, errTripNotFound) {
 			httpx.WriteError(w, r, httpx.NewAPIError(
 				http.StatusNotFound, "trip_not_found", "trip not found"))
+			return
+		}
+		var daysErr *ErrDaysHaveData
+		if errors.As(err, &daysErr) {
+			httpx.WriteError(w, r, httpx.NewAPIError(
+				http.StatusConflict, "days_have_data",
+				fmt.Sprintf("%d day(s) hold data; set force_shrink: true to confirm", daysErr.Count)))
 			return
 		}
 		platformlog.FromContext(r.Context()).Error("updating trip", "err", err.Error())

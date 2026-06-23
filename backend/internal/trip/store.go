@@ -27,14 +27,12 @@ type OwnerMemberships interface {
 	CreateOwner(ctx context.Context, tx pgx.Tx, tripID, userID string) error
 }
 
-// dayRegenerator regenerates a trip's days when its date range is established or
-// changes (PRD §5.1). Epic 02 implements the real generator; Epic 01 wires the
-// no-op default so the create/edit transactions already call the seam at the
-// right point (inside the trip's transaction, so days commit atomically with the
-// trip). Keeping it an interface lets Epic 02 drop in its generator without
-// touching the create/edit flow.
+// dayRegenerator reconciles trip.days with a trip's date range. Epic 02 S2
+// implemented the insert-only path; S3 extends it with deletion and the shrink
+// guard. force bypasses the guard when the caller has obtained explicit user
+// confirmation (force_shrink on the edit request).
 type dayRegenerator interface {
-	RegenerateDays(ctx context.Context, tx pgx.Tx, tripID string, start, end time.Time) error
+	RegenerateDays(ctx context.Context, tx pgx.Tx, tripID string, start, end time.Time, force bool) error
 }
 
 // tripColumns is the trip.trips column list returned by every read/write, in
@@ -90,7 +88,7 @@ func (s *pgxTripStore) Create(ctx context.Context, nt NewTrip) (Trip, error) {
 		return Trip{}, fmt.Errorf("trip: create owner membership: %w", err)
 	}
 
-	if err := s.days.RegenerateDays(ctx, tx, t.ID, t.StartDate, t.EndDate); err != nil {
+	if err := s.days.RegenerateDays(ctx, tx, t.ID, t.StartDate, t.EndDate, false); err != nil {
 		return Trip{}, fmt.Errorf("trip: generate days: %w", err)
 	}
 
@@ -146,7 +144,7 @@ func (s *pgxTripStore) Update(ctx context.Context, id, ownerID string, e EditTri
 	// is a no-op in Epic 01; running it only when the range actually changed keeps
 	// the contract precise and avoids needless work.
 	if !updated.StartDate.Equal(current.StartDate) || !updated.EndDate.Equal(current.EndDate) {
-		if err := s.days.RegenerateDays(ctx, tx, id, updated.StartDate, updated.EndDate); err != nil {
+		if err := s.days.RegenerateDays(ctx, tx, id, updated.StartDate, updated.EndDate, e.ForceRemoveDays); err != nil {
 			return Trip{}, fmt.Errorf("trip: regenerate days: %w", err)
 		}
 	}

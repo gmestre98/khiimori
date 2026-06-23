@@ -21,7 +21,7 @@ import (
 // TestArchiveSetsStatusAndRetainsRow asserts Archive sets the trip's status to
 // "archived" and keeps the row in storage.
 func TestArchiveSetsStatusAndRetainsRow(t *testing.T) {
-	store := freshStore(t, sqlOwnerMemberships{}, pgxDayRegenerator{})
+	store := freshStore(t, sqlOwnerMemberships{}, pgxDayRegenerator{guard: noDayData{}})
 	created := seedTrip(t, store, newTestTrip(t))
 	ctx := context.Background()
 
@@ -49,7 +49,7 @@ func TestArchiveSetsStatusAndRetainsRow(t *testing.T) {
 // TestUnarchiveRestoresActiveStatus asserts Unarchive reverses an archive and
 // sets status back to "active".
 func TestUnarchiveRestoresActiveStatus(t *testing.T) {
-	store := freshStore(t, sqlOwnerMemberships{}, pgxDayRegenerator{})
+	store := freshStore(t, sqlOwnerMemberships{}, pgxDayRegenerator{guard: noDayData{}})
 	created := seedTrip(t, store, newTestTrip(t))
 	ctx := context.Background()
 
@@ -68,7 +68,7 @@ func TestUnarchiveRestoresActiveStatus(t *testing.T) {
 // TestArchiveIsOwnerScoped asserts Archive on another user's trip returns
 // errTripNotFound and leaves the row untouched.
 func TestArchiveIsOwnerScoped(t *testing.T) {
-	store := freshStore(t, sqlOwnerMemberships{}, pgxDayRegenerator{})
+	store := freshStore(t, sqlOwnerMemberships{}, pgxDayRegenerator{guard: noDayData{}})
 	created := seedTrip(t, store, newTestTrip(t))
 	ctx := context.Background()
 
@@ -93,7 +93,7 @@ func TestArchiveIsOwnerScoped(t *testing.T) {
 // TestDeleteRemovesTripAndMembershipsTransactionally asserts Delete removes the
 // trip row and all its sharing memberships in one shot, leaving no orphans.
 func TestDeleteRemovesTripAndMembershipsTransactionally(t *testing.T) {
-	store := freshStore(t, sqlOwnerMemberships{}, pgxDayRegenerator{})
+	store := freshStore(t, sqlOwnerMemberships{}, pgxDayRegenerator{guard: noDayData{}})
 	created := seedTrip(t, store, newTestTrip(t))
 	ctx := context.Background()
 
@@ -121,7 +121,7 @@ func TestDeleteRemovesTripAndMembershipsTransactionally(t *testing.T) {
 // TestDeleteIsOwnerScoped asserts Delete on another user's trip returns
 // errTripNotFound and leaves the row and its memberships intact.
 func TestDeleteIsOwnerScoped(t *testing.T) {
-	store := freshStore(t, sqlOwnerMemberships{}, pgxDayRegenerator{})
+	store := freshStore(t, sqlOwnerMemberships{}, pgxDayRegenerator{guard: noDayData{}})
 	created := seedTrip(t, store, newTestTrip(t))
 	ctx := context.Background()
 

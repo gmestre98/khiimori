@@ -63,12 +63,18 @@ type NewTrip struct {
 // set is replaced, mirroring the edit form. base_currency (EUR) and owner_id are
 // deliberately absent: they are immutable through an edit, enforced by the store
 // (never in the UPDATE SET list), not just by their omission here.
+//
+// ForceRemoveDays bypasses the shrink guard (PRD §5.1): when true, out-of-range
+// days are deleted even if they hold attached data. The client must obtain
+// explicit user confirmation before sending true (the guard exists to prevent
+// silent data loss, not to block informed deletions).
 type EditTrip struct {
-	Name         string
-	Destinations []string
-	StartDate    time.Time
-	EndDate      time.Time
-	Cover        string
+	Name           string
+	Destinations   []string
+	StartDate      time.Time
+	EndDate        time.Time
+	Cover          string
+	ForceRemoveDays bool
 }
 
 // validateTripFields checks the shared, client-supplied trip fields (name,

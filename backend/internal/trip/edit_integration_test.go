@@ -25,7 +25,7 @@ type recordingDayRegenerator struct {
 	end   time.Time
 }
 
-func (r *recordingDayRegenerator) RegenerateDays(_ context.Context, _ pgx.Tx, _ string, start, end time.Time) error {
+func (r *recordingDayRegenerator) RegenerateDays(_ context.Context, _ pgx.Tx, _ string, start, end time.Time, _ bool) error {
 	r.calls++
 	r.start, r.end = start, end
 	return nil

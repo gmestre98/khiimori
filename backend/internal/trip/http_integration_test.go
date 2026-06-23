@@ -54,7 +54,7 @@ func newModuleWithOwner(t *testing.T, ownerID string) *httptest.Server {
 	if err != nil {
 		t.Fatalf("truncating tables: %v", err)
 	}
-	store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{}}
+	store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{guard: noDayData{}}}
 	mod := &Module{store: store, requireAuth: authShim(ownerID)}
 	mux := http.NewServeMux()
 	mod.RegisterRoutes(mux)
@@ -355,7 +355,7 @@ func TestHTTPDeleteReturns404ForOtherOwner(t *testing.T) {
 	ownerB := freshOwnerID(t)
 
 	makeServer := func(ownerID string) *httptest.Server {
-		store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{}}
+		store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{guard: noDayData{}}}
 		mod := &Module{store: store, requireAuth: authShim(ownerID)}
 		mux := http.NewServeMux()
 		mod.RegisterRoutes(mux)
