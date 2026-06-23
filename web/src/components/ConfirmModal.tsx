@@ -1,13 +1,5 @@
 import { useEffect, useRef } from 'react'
 
-// useStableRef keeps a mutable ref in sync with a value so it can be used in
-// effects without listing the value as a dep (avoids spurious effect re-runs).
-function useStableRef<T>(value: T) {
-  const ref = useRef(value)
-  ref.current = value
-  return ref
-}
-
 interface ConfirmModalProps {
   title: string
   message: string
@@ -28,19 +20,16 @@ export function ConfirmModal({
   danger = false,
 }: ConfirmModalProps) {
   const cancelRef = useRef<HTMLButtonElement>(null)
-  const onCancelRef = useStableRef(onCancel)
 
   useEffect(() => {
     cancelRef.current?.focus()
 
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onCancelRef.current()
+      if (e.key === 'Escape') onCancel()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-    // onCancelRef is a stable ref object — intentionally omitted from deps
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [onCancel])
 
   return (
     <div className="modal-backdrop" role="presentation" onClick={onCancel}>

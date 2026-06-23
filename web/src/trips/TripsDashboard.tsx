@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   UnauthorizedError,
@@ -141,6 +141,8 @@ export function TripsDashboard() {
     return () => controller.abort()
   }, [])
 
+  const handleCancel = useCallback(() => setPending(null), [])
+
   async function handleConfirm() {
     if (!pending || !data) return
     const { type, trip } = pending
@@ -194,7 +196,7 @@ export function TripsDashboard() {
           message={`Archive "${pending.trip.name}"? It will move to your archive and no longer appear in active lists.`}
           confirmLabel="Archive"
           onConfirm={handleConfirm}
-          onCancel={() => setPending(null)}
+          onCancel={handleCancel}
         />
       )}
       {pending?.type === 'delete' && (
@@ -203,7 +205,7 @@ export function TripsDashboard() {
           message={`Permanently delete "${pending.trip.name}"? This removes all days and associated data and cannot be undone.`}
           confirmLabel="Delete"
           onConfirm={handleConfirm}
-          onCancel={() => setPending(null)}
+          onCancel={handleCancel}
           danger
         />
       )}
