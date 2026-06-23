@@ -48,7 +48,7 @@ func setupTwoOwners(t *testing.T) (ownerA, ownerB string, srvA, srvB *httptest.S
 		t.Skip("DATABASE_URL_TEST not set; skipping integration test")
 	}
 	if _, err := testPool.Exec(context.Background(),
-		`TRUNCATE trip.stays, trip.days, trip.trips, sharing.trip_memberships RESTART IDENTITY`); err != nil {
+		`TRUNCATE trip.plan_items, trip.stays, trip.days, trip.trips, sharing.trip_memberships RESTART IDENTITY`); err != nil {
 		t.Fatalf("truncating tables: %v", err)
 	}
 	ownerA = freshOwnerID(t)
