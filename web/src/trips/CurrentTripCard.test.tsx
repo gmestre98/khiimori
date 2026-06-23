@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { CurrentTripCard } from './CurrentTripCard'
 import type { Trip } from '../lib/api'
 
@@ -33,62 +34,116 @@ const baseTrip: Trip = {
 
 describe('CurrentTripCard', () => {
   it('renders the trip name prominently as a heading', () => {
-    render(<CurrentTripCard trip={baseTrip} />)
+    render(
+      <MemoryRouter>
+        <CurrentTripCard trip={baseTrip} />
+      </MemoryRouter>,
+    )
     expect(screen.getByRole('heading', { name: /japan 2026/i })).toBeInTheDocument()
   })
 
   it('renders the card section with accessible label', () => {
-    render(<CurrentTripCard trip={baseTrip} />)
+    render(
+      <MemoryRouter>
+        <CurrentTripCard trip={baseTrip} />
+      </MemoryRouter>,
+    )
     expect(screen.getByRole('region', { name: /current trip/i })).toBeInTheDocument()
   })
 
   it("shows today's day number based on start_date (Day 5 = 4 days ago + 1)", () => {
-    render(<CurrentTripCard trip={baseTrip} />)
+    render(
+      <MemoryRouter>
+        <CurrentTripCard trip={baseTrip} />
+      </MemoryRouter>,
+    )
     expect(screen.getByText((t) => t.trim() === 'Day 5')).toBeInTheDocument()
   })
 
   it('shows Day 1 when trip started today', () => {
     const trip = { ...baseTrip, start_date: dateStr(0), end_date: dateStr(7) }
-    render(<CurrentTripCard trip={trip} />)
+    render(
+      <MemoryRouter>
+        <CurrentTripCard trip={trip} />
+      </MemoryRouter>,
+    )
     expect(screen.getByText((t) => t.trim() === 'Day 1')).toBeInTheDocument()
   })
 
   it('renders the destinations', () => {
-    render(<CurrentTripCard trip={baseTrip} />)
+    render(
+      <MemoryRouter>
+        <CurrentTripCard trip={baseTrip} />
+      </MemoryRouter>,
+    )
     expect(screen.getByText('Tokyo, Kyoto')).toBeInTheDocument()
   })
 
   it('renders the budget-glance slot region', () => {
-    render(<CurrentTripCard trip={baseTrip} />)
+    render(
+      <MemoryRouter>
+        <CurrentTripCard trip={baseTrip} />
+      </MemoryRouter>,
+    )
     expect(screen.getByRole('region', { name: /budget glance/i })).toBeInTheDocument()
   })
 
   it('renders the placeholder text when no budgetGlance prop is given', () => {
-    render(<CurrentTripCard trip={baseTrip} />)
+    render(
+      <MemoryRouter>
+        <CurrentTripCard trip={baseTrip} />
+      </MemoryRouter>,
+    )
     expect(screen.getByText(/budget overview coming soon/i)).toBeInTheDocument()
   })
 
   it('renders custom budgetGlance content when provided', () => {
-    render(<CurrentTripCard trip={baseTrip} budgetGlance={<span>€1,234 spent</span>} />)
+    render(
+      <MemoryRouter>
+        <CurrentTripCard trip={baseTrip} budgetGlance={<span>€1,234 spent</span>} />
+      </MemoryRouter>,
+    )
     expect(screen.getByText('€1,234 spent')).toBeInTheDocument()
     expect(screen.queryByText(/coming soon/i)).not.toBeInTheDocument()
   })
 
   it('renders a cover image when cover is set', () => {
     const trip = { ...baseTrip, cover: 'https://example.com/cover.jpg' }
-    render(<CurrentTripCard trip={trip} />)
+    render(
+      <MemoryRouter>
+        <CurrentTripCard trip={trip} />
+      </MemoryRouter>,
+    )
     const img = document.querySelector('.current-trip-cover') as HTMLImageElement
     expect(img).toHaveAttribute('src', 'https://example.com/cover.jpg')
   })
 
   it('omits the cover image when cover is empty', () => {
-    render(<CurrentTripCard trip={baseTrip} />)
+    render(
+      <MemoryRouter>
+        <CurrentTripCard trip={baseTrip} />
+      </MemoryRouter>,
+    )
     expect(document.querySelector('.current-trip-cover')).toBeNull()
   })
 
   it('omits day number when trip has not started yet', () => {
     const trip = { ...baseTrip, start_date: dateStr(1), end_date: dateStr(10) }
-    render(<CurrentTripCard trip={trip} />)
+    render(
+      <MemoryRouter>
+        <CurrentTripCard trip={trip} />
+      </MemoryRouter>,
+    )
     expect(screen.queryByText(/^Day \d/)).not.toBeInTheDocument()
+  })
+
+  it('renders an Edit link pointing to the trip edit route', () => {
+    render(
+      <MemoryRouter>
+        <CurrentTripCard trip={baseTrip} />
+      </MemoryRouter>,
+    )
+    const link = screen.getByRole('link', { name: /edit/i })
+    expect(link).toHaveAttribute('href', '/trips/trip-1/edit')
   })
 })
