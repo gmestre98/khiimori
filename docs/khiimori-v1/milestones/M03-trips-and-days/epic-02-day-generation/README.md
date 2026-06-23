@@ -14,11 +14,11 @@ Planning, Journal, and Maps can address a specific day.
 
 ## Acceptance Criteria
 
-- [ ] A migration creates `Day(id, trip_id, date, index, notes)` per PRD §9 (PRD §7.7).
-- [ ] On create or date-range change, exactly **one `Day` per date** in `[start_date, end_date]`
+- [x] A migration creates `Day(id, trip_id, date, index, notes)` per PRD §9 (PRD §7.7).
+- [x] On create or date-range change, exactly **one `Day` per date** in `[start_date, end_date]`
       exists, each with a stable `index` and real `date`; the operation is **transactional**
       (PRD §5.1, §7.7).
-- [ ] **Shrinking** the range removes out-of-range days **with a guard/confirm if they hold data**;
+- [x] **Shrinking** the range removes out-of-range days **with a guard/confirm if they hold data**;
       **extending** adds new days without disturbing existing ones (PRD §5.1).
 - [x] Each `Day` is **addressable for deep-linking** (e.g. trip → day) to support Planning/Journal/
       Maps; unit + integration tests cover generation on range edits including single-day and
