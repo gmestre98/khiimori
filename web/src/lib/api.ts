@@ -277,6 +277,23 @@ export async function updateTrip(id: string, input: TripInput, forceShrink = fal
   return (await res.json()) as Trip
 }
 
+// archiveTrip calls POST /trips/:id/archive. The trip stays in the database but
+// is excluded from active buckets. Only the owner may archive (server enforced).
+export async function archiveTrip(id: string): Promise<Trip> {
+  const res = await apiFetch(`/trips/${id}/archive`, { method: 'POST' })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as Trip
+}
+
+// deleteTrip calls DELETE /trips/:id, which cascades to days and owned data.
+// Only the owner may delete (server enforced).
+export async function deleteTrip(id: string): Promise<void> {
+  const res = await apiFetch(`/trips/${id}`, { method: 'DELETE' })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+}
+
 // signOut ends the session server-side (clears the cookie, Epic 03). It resolves
 // regardless of the response so the UI can always drop local auth state.
 export async function signOut(): Promise<void> {

@@ -30,7 +30,18 @@ function BudgetGlanceSlot({ children }: { children?: ReactNode }) {
 // CurrentTripCard renders the current trip prominently: trip name, destinations,
 // today's day number, and a budget-glance slot. Pass budgetGlance to fill the
 // slot with real figures (Milestone 05); omit it for the placeholder.
-export function CurrentTripCard({ trip, budgetGlance }: { trip: Trip; budgetGlance?: ReactNode }) {
+// onArchive / onDelete open the confirmation flow in the parent dashboard.
+export function CurrentTripCard({
+  trip,
+  budgetGlance,
+  onArchive,
+  onDelete,
+}: {
+  trip: Trip
+  budgetGlance?: ReactNode
+  onArchive?: () => void
+  onDelete?: () => void
+}) {
   const dayNumber = todayDayNumber(trip.start_date)
   const destinations = trip.destinations.join(', ')
 
@@ -45,14 +56,30 @@ export function CurrentTripCard({ trip, budgetGlance }: { trip: Trip; budgetGlan
         {destinations && <p className="current-trip-destinations">{destinations}</p>}
         {dayNumber !== null && <p className="current-trip-day-number">Day {dayNumber}</p>}
         <BudgetGlanceSlot>{budgetGlance}</BudgetGlanceSlot>
-        <Link
-          to={`/trips/${trip.id}/edit`}
-          state={{ trip }}
-          className="trip-card-edit-link"
-          aria-label={`Edit ${trip.name}`}
-        >
-          Edit
-        </Link>
+        <div className="trip-card-actions">
+          <Link
+            to={`/trips/${trip.id}/edit`}
+            state={{ trip }}
+            className="trip-card-edit-link"
+            aria-label={`Edit ${trip.name}`}
+          >
+            Edit
+          </Link>
+          {onArchive && (
+            <button className="btn-ghost" onClick={onArchive} aria-label={`Archive ${trip.name}`}>
+              Archive
+            </button>
+          )}
+          {onDelete && (
+            <button
+              className="btn-ghost-danger"
+              onClick={onDelete}
+              aria-label={`Delete ${trip.name}`}
+            >
+              Delete
+            </button>
+          )}
+        </div>
       </div>
     </section>
   )

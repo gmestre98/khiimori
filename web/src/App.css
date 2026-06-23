@@ -375,3 +375,91 @@
     padding: 0 8px;
   }
 }
+
+/* Archive / delete affordances — M03.5 S4; Milestone 09 restyles. */
+.trip-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btn-ghost {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.btn-ghost:hover {
+  background: var(--bg-alt, #f6f8fa);
+}
+
+.btn-danger {
+  font: inherit;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #fff;
+  background: #cf222e;
+  border: 1px solid #a40e26;
+}
+
+.btn-ghost-danger {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid #cf222e;
+  color: #cf222e;
+}
+
+.btn-ghost-danger:hover {
+  background: #fff0f0;
+}
+
+/* Confirm modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.modal-message {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
