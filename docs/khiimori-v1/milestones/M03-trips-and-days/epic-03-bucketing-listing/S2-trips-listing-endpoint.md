@@ -9,11 +9,11 @@ only sees trips they own or are a member of — via Epic 04's authz layer (PRD �
 Implement a `GET /trips` endpoint that returns the authenticated user's trips, bucketed and scoped.
 
 ## Acceptance criteria
-- [ ] The endpoint returns the user's trips grouped into **Current / Upcoming / Past** using S1's function
+- [x] The endpoint returns the user's trips grouped into **Current / Upcoming / Past** using S1's function
   with a server-supplied `today`.
-- [ ] **Archived** trips are excluded from the active buckets.
-- [ ] The response marks the **current trip** so Epic 05 can surface it prominently.
-- [ ] The listing is **scoped to trips the user may see** (owner or member) by calling Epic 04's authz
+- [x] **Archived** trips are excluded from the active buckets.
+- [x] The response marks the **current trip** so Epic 05 can surface it prominently.
+- [x] The listing is **scoped to trips the user may see** (owner or member) by calling Epic 04's authz
   layer — not by client-side filtering (PRD §5.9).
 
 ## Constraints
