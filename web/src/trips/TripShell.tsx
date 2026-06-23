@@ -16,11 +16,22 @@ function clampDate(date: string, start: string, end: string): string {
   return date
 }
 
+// TripShellRoute wraps TripShell with a key derived from the tripId param so
+// React remounts TripShell whenever the user navigates to a different trip.
+// This keeps TripShell's useState initializers correct without needing
+// synchronous setState calls inside effects when the param changes.
+export function TripShellRoute() {
+  const { tripId } = useParams<{ tripId: string }>()
+  return <TripShell key={tripId} />
+}
+
 // TripShell is the authenticated wrapper for a single trip. It resolves the trip
 // (from router state if available, falling back to the trips listing), then
 // redirects to today's day (or the nearest valid day). Child routes render via
 // <Outlet> and receive the trip through the outlet context.
-export function TripShell() {
+// TripShell is always mounted with a stable tripId (TripShellRoute provides the
+// key), so useState initializers run once per trip.
+function TripShell() {
   const { tripId, date: dateParam } = useParams<{ tripId: string; date?: string }>()
   const location = useLocation()
   // Trip may be passed via Link state (from the dashboard) to avoid a refetch.
@@ -31,16 +42,8 @@ export function TripShell() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Use nav-state trip only when it matches the current tripId; a tripId
-    // change (e.g. navigating between trips) must re-resolve from the API.
-    if (stateTrip && stateTrip.id === tripId) {
-      setTrip(stateTrip)
-      setLoading(false)
-      return
-    }
-    setTrip(null)
-    setLoading(true)
-    setError(null)
+    // stateTrip was already used to initialize state above — skip the fetch.
+    if (stateTrip) return
     const controller = new AbortController()
     fetchTrips(controller.signal)
       .then((data) => {
@@ -60,7 +63,9 @@ export function TripShell() {
         setLoading(false)
       })
     return () => controller.abort()
-  }, [tripId, stateTrip])
+    // tripId is stable per mount (TripShellRoute's key remounts on tripId change).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (loading) {
     return (

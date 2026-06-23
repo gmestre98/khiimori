@@ -1,17 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useOutletContext, useParams } from 'react-router-dom'
-import { UnauthorizedError, fetchDay, type Day, type Trip } from '../lib/api'
-
-// DayViewContext is the shape passed from TripShell via Outlet context.
-interface DayViewContext {
-  trip: Trip
-}
-
-// useTripShell is a typed wrapper around useOutletContext for DayView consumers
-// (and Milestones 04–07 that render inside the shell).
-export function useTripShell(): DayViewContext {
-  return useOutletContext<DayViewContext>()
-}
+import { useParams } from 'react-router-dom'
+import { UnauthorizedError, fetchDay, type Day } from '../lib/api'
 
 // PlanningSlot is the stable mount point Milestone 04 fills with the day's plan
 // items. The `data-slot` attribute gives later milestones a stable selector.
@@ -62,26 +51,27 @@ export function DayView() {
   const { tripId, date } = useParams<{ tripId: string; date: string }>()
 
   const [day, setDay] = useState<Day | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  // fetchError is scoped to a date so stale errors from a previous date are
+  // not shown when the user navigates to a new day (avoids synchronous resets).
+  const [fetchError, setFetchError] = useState<{ date: string; msg: string } | null>(null)
+
+  // Derive loading: we are loading when neither a day result nor an error for
+  // the current date param is available yet — no synchronous setState needed.
+  const loading = day?.date !== date && fetchError?.date !== date
+  const error = fetchError !== null && fetchError.date === date ? fetchError.msg : null
 
   useEffect(() => {
     if (!tripId || !date) return
     const controller = new AbortController()
-    setLoading(true)
-    setError(null)
-    setDay(null)
 
     fetchDay(tripId, date, controller.signal)
       .then((d) => {
         setDay(d)
-        setLoading(false)
       })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === 'AbortError') return
         if (err instanceof UnauthorizedError) return
-        setError('Could not load day.')
-        setLoading(false)
+        setFetchError({ date, msg: 'Could not load day.' })
       })
 
     return () => controller.abort()

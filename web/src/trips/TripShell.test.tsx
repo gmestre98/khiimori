@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { TripShell } from './TripShell'
+import { TripShellRoute } from './TripShell'
 import { DayView } from './DayView'
 import * as api from '../lib/api'
 import type { Trip } from '../lib/api'
@@ -40,7 +40,7 @@ function renderShellAtDay(date: string, trip?: Trip) {
   return render(
     <MemoryRouter initialEntries={[{ pathname: `/trips/trip-1/days/${date}`, state: { trip: trip ?? mockTrip } }]}>
       <Routes>
-        <Route path="/trips/:tripId" element={<TripShell />}>
+        <Route path="/trips/:tripId" element={<TripShellRoute />}>
           <Route path="days/:date" element={<DayView />} />
         </Route>
       </Routes>

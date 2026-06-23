@@ -5,7 +5,7 @@ import { Profile } from './pages/Profile'
 import { SignIn } from './auth/SignIn'
 import { PostLoginRedirect, RequireAuth } from './auth/RequireAuth'
 import { TripFormPage } from './trips/TripFormPage'
-import { TripShell } from './trips/TripShell'
+import { TripShellRoute } from './trips/TripShell'
 import { DayView } from './trips/DayView'
 
 // App is the milestone-02 shell and route table. Public route: /signin. Gated
@@ -27,7 +27,7 @@ function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/trips/new" element={<TripFormPage />} />
             <Route path="/trips/:id/edit" element={<TripFormPage />} />
-            <Route path="/trips/:tripId" element={<TripShell />}>
+            <Route path="/trips/:tripId" element={<TripShellRoute />}>
               <Route path="days/:date" element={<DayView />} />
             </Route>
           </Route>
