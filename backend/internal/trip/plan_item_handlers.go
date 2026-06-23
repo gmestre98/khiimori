@@ -2,6 +2,7 @@ package trip
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/gmestre98/khiimori/backend/internal/platform/authn"
@@ -67,6 +68,37 @@ func newPlanItemResponse(p PlanItem) planItemResponse {
 	return planItemResponse(p)
 }
 
+// editPlanItemRequest is the edit-plan-item wire shape. Title is required;
+// all other fields are optional and can be set to null to clear them.
+// Setting start_time to null makes the item untimed; duration is also cleared
+// automatically when start_time is absent (enforced by validation).
+type editPlanItemRequest struct {
+	Title         string   `json:"title"`
+	Type          *string  `json:"type"`
+	StartTime     *string  `json:"start_time"`
+	Duration      *string  `json:"duration"`
+	Location      *string  `json:"location"`
+	BookingStatus *string  `json:"booking_status"`
+	Cost          *float64 `json:"cost"`
+	Link          *string  `json:"link"`
+}
+
+func (req editPlanItemRequest) toEditPlanItem() (EditPlanItem, error) {
+	if err := validatePlanItemFields(req.Title, req.Type, req.StartTime, req.Duration, req.Location, req.Link); err != nil {
+		return EditPlanItem{}, err
+	}
+	return EditPlanItem{
+		Title:         req.Title,
+		Type:          req.Type,
+		StartTime:     req.StartTime,
+		Duration:      req.Duration,
+		Location:      req.Location,
+		BookingStatus: req.BookingStatus,
+		Cost:          req.Cost,
+		Link:          req.Link,
+	}, nil
+}
+
 // handleCreatePlanItem creates a plan item for the given trip
 // (POST /trips/{id}/plan-items). Only title is required. When start_time is
 // absent the item is untimed; when present it is timed (optional duration).
@@ -111,4 +143,81 @@ func (m *Module) handleCreatePlanItem(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(newPlanItemResponse(item))
+}
+
+// handleUpdatePlanItem edits a plan item (PATCH /trips/{id}/plan-items/{itemID}).
+// The request body replaces all editable fields; send null to clear an optional
+// field (e.g. null start_time makes the item untimed).
+func (m *Module) handleUpdatePlanItem(w http.ResponseWriter, r *http.Request) {
+	p, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusUnauthorized, "auth_required", "authentication required"))
+		return
+	}
+	tripID := r.PathValue("id")
+	itemID := r.PathValue("itemID")
+
+	if err := m.checkAccess(r.Context(), p.UserID, ActionWrite, tripID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	var req editPlanItemRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusBadRequest, "invalid_json", "request body is not valid JSON"))
+		return
+	}
+
+	ep, err := req.toEditPlanItem()
+	if err != nil {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusBadRequest, "invalid_plan_item", err.Error()))
+		return
+	}
+
+	item, err := m.planItems.UpdatePlanItem(r.Context(), tripID, itemID, ep)
+	if err != nil {
+		if errors.Is(err, errPlanItemNotFound) {
+			httpx.WriteError(w, r, httpx.NewAPIError(
+				http.StatusNotFound, "plan_item_not_found", "plan item not found"))
+			return
+		}
+		platformlog.FromContext(r.Context()).Error("updating plan item", "err", err.Error())
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(newPlanItemResponse(item))
+}
+
+// handleDeletePlanItem removes a plan item (DELETE /trips/{id}/plan-items/{itemID}).
+// Replaying a delete of a non-existent item returns 204 — idempotent for
+// Epic 06's offline replay.
+func (m *Module) handleDeletePlanItem(w http.ResponseWriter, r *http.Request) {
+	p, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusUnauthorized, "auth_required", "authentication required"))
+		return
+	}
+	tripID := r.PathValue("id")
+	itemID := r.PathValue("itemID")
+
+	if err := m.checkAccess(r.Context(), p.UserID, ActionWrite, tripID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	if err := m.planItems.DeletePlanItem(r.Context(), tripID, itemID); err != nil {
+		platformlog.FromContext(r.Context()).Error("deleting plan item", "err", err.Error())
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusNoContent)
 }

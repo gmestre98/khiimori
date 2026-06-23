@@ -64,6 +64,8 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("DELETE "+TripsPath+"/{id}", m.requireAuth(http.HandlerFunc(m.handleDelete)))
 	mux.Handle("GET "+TripsPath+"/{id}/days/{date}", m.requireAuth(http.HandlerFunc(m.handleGetDay)))
 	mux.Handle("POST "+TripsPath+"/{id}/plan-items", m.requireAuth(http.HandlerFunc(m.handleCreatePlanItem)))
+	mux.Handle("PATCH "+TripsPath+"/{id}/plan-items/{itemID}", m.requireAuth(http.HandlerFunc(m.handleUpdatePlanItem)))
+	mux.Handle("DELETE "+TripsPath+"/{id}/plan-items/{itemID}", m.requireAuth(http.HandlerFunc(m.handleDeletePlanItem)))
 	mux.Handle("POST "+TripsPath+"/{id}/stays", m.requireAuth(http.HandlerFunc(m.handleCreateStay)))
 	mux.Handle("PATCH "+TripsPath+"/{id}/stays/{stayID}", m.requireAuth(http.HandlerFunc(m.handleUpdateStay)))
 	mux.Handle("DELETE "+TripsPath+"/{id}/stays/{stayID}", m.requireAuth(http.HandlerFunc(m.handleDeleteStay)))

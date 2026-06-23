@@ -52,6 +52,23 @@ type NewPlanItem struct {
 	Link          *string
 }
 
+// EditPlanItem is the validated input to edit a plan item. All fields are
+// optional pointers: a nil pointer leaves the column unchanged; a non-nil
+// pointer (even pointing to nil for nullable fields) replaces the value. This
+// lets any subset of fields be updated independently in one PATCH call.
+// Setting StartTime to nil makes the item untimed; clearing Duration when
+// StartTime is nil is also enforced here.
+type EditPlanItem struct {
+	Title         string
+	Type          *string
+	StartTime     *string
+	Duration      *string
+	Location      *string
+	BookingStatus *string
+	Cost          *float64
+	Link          *string
+}
+
 // validatePlanItemFields checks the client-supplied plan-item fields. It
 // returns a client-safe error describing the first problem found.
 func validatePlanItemFields(title string, itemType, startTime, duration, location, link *string) error {
