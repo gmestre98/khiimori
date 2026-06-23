@@ -303,3 +303,40 @@ export async function signOut(): Promise<void> {
     // Network failure on logout still clears client state — best effort.
   }
 }
+
+// --- Days (M03.5 S5) ---------------------------------------------------------
+
+// Day is the wire shape of GET /trips/:id/days/:date.
+export interface Day {
+  id: string
+  trip_id: string
+  date: string
+  index: number
+  notes: string
+}
+
+// fetchDay loads a single day by trip ID and YYYY-MM-DD date. Throws
+// UnauthorizedError on 401 and a generic Error on other failures.
+export async function fetchDay(tripId: string, date: string, signal?: AbortSignal): Promise<Day> {
+  const res = await apiFetch(`/trips/${tripId}/days/${date}`, { signal })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 404) throw new Error('day_not_found')
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as Day
+}
+
+// datesInRange returns YYYY-MM-DD strings for every calendar date in [start, end],
+// derived client-side from the trip's start_date and end_date strings. Matches the
+// server's day generation so the shell can navigate without an extra API call.
+// Dates are parsed as UTC noon to avoid DST/timezone boundary drift.
+export function datesInRange(startDate: string, endDate: string): string[] {
+  const dates: string[] = []
+  // Parse as UTC noon so toISOString().slice(0,10) always returns the input date
+  // regardless of the client's local timezone offset.
+  const toMs = (s: string) => new Date(s + 'T12:00:00Z').getTime()
+  const endMs = toMs(endDate)
+  for (let ms = toMs(startDate); ms <= endMs; ms += 86_400_000) {
+    dates.push(new Date(ms).toISOString().slice(0, 10))
+  }
+  return dates
+}
