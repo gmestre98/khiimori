@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import type { Trip } from '../lib/api'
 
 // todayDayNumber returns the 1-based day number for today within the trip, or
@@ -44,6 +45,14 @@ export function CurrentTripCard({ trip, budgetGlance }: { trip: Trip; budgetGlan
         {destinations && <p className="current-trip-destinations">{destinations}</p>}
         {dayNumber !== null && <p className="current-trip-day-number">Day {dayNumber}</p>}
         <BudgetGlanceSlot>{budgetGlance}</BudgetGlanceSlot>
+        <Link
+          to={`/trips/${trip.id}/edit`}
+          state={{ trip }}
+          className="trip-card-edit-link"
+          aria-label={`Edit ${trip.name}`}
+        >
+          Edit
+        </Link>
       </div>
     </section>
   )
