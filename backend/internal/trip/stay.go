@@ -36,7 +36,7 @@ type Stay struct {
 // generates a stable id before going offline and replays the same id on
 // reconnect. When empty the DB generates the id.
 type NewStay struct {
-	ClientID string  // optional client-generated UUID for upsert idempotency
+	ClientID string // optional client-generated UUID for upsert idempotency
 	TripID   string
 	Name     string
 	Location *string // nil when absent

@@ -13,9 +13,9 @@ import (
 // fakeStayStore records calls and returns canned results so stay handler policy
 // can be tested without a database.
 type fakeStayStore struct {
-	gotCreate NewStay
+	gotCreate    NewStay
 	createResult Stay
-	createErr error
+	createErr    error
 
 	gotUpdateTripID string
 	gotUpdateStayID string
