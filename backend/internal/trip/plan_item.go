@@ -22,7 +22,7 @@ const (
 type PlanItem struct {
 	ID            string
 	TripID        string
-	DayID         *string  // nil → backlog
+	DayID         *string // nil → backlog
 	Title         string
 	Type          *string  // optional; activity type label
 	StartTime     *string  // optional; "HH:MM" — nil means untimed
@@ -32,14 +32,14 @@ type PlanItem struct {
 	Cost          *float64 // optional; owned here for M05 roll-ups
 	Link          *string  // optional; URL
 	SortOrder     int
-	Status        string   // "idea"|"planned"|"done"|"skipped"|"cancelled"
+	Status        string // "idea"|"planned"|"done"|"skipped"|"cancelled"
 }
 
 // NewPlanItem is the validated input to create a plan item. ClientID, when
 // non-empty, is a caller-supplied UUID used for upsert/idempotency so
 // Epic 06's offline queue can replay the same creation without duplicating.
 type NewPlanItem struct {
-	ClientID      string   // optional client-generated UUID
+	ClientID      string // optional client-generated UUID
 	TripID        string
 	DayID         *string
 	Title         string
