@@ -391,3 +391,127 @@ func TestHTTPDeleteReturns404ForOtherOwner(t *testing.T) {
 		t.Errorf("membership rows = %d, want 1 (non-owner delete must not remove memberships)", n)
 	}
 }
+
+// httpGet issues an authenticated GET request to srv at path and returns the
+// response. The auth cookie is injected via the authShim middleware registered
+// on the server.
+func httpGet(t *testing.T, srv *httptest.Server, path string) *http.Response {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, srv.URL+path, nil)
+	if err != nil {
+		t.Fatalf("building GET request: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET %s: %v", path, err)
+	}
+	return resp
+}
+
+// TestHTTPGetDayAddressability asserts that a created trip's individual days are
+// addressable via GET /trips/{id}/days/{date}: the response carries the correct
+// id, trip_id, date, and 0-based index; and that a non-existent date is a 404.
+// This exercises the deep-linking surface required by Milestones 04–07 (AC4).
+func TestHTTPGetDayAddressability(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DATABASE_URL_TEST not set; skipping")
+	}
+	srv := newModule(t)
+
+	// Create a 3-day trip: 2026-09-01 → 2026-09-03.
+	body := map[string]any{
+		"name":       "Addressability test",
+		"start_date": "2026-09-01",
+		"end_date":   "2026-09-03",
+	}
+	createResp := postJSON(t, srv, TripsPath, body)
+	if createResp.StatusCode != http.StatusCreated {
+		createResp.Body.Close()
+		t.Fatalf("create trip status = %d, want 201", createResp.StatusCode)
+	}
+	trip := decodeTrip(t, createResp)
+
+	// Each of the 3 dates must be reachable and carry the correct index.
+	dates := []struct {
+		date  string
+		index int
+	}{
+		{"2026-09-01", 0},
+		{"2026-09-02", 1},
+		{"2026-09-03", 2},
+	}
+	for _, tc := range dates {
+		path := fmt.Sprintf("%s/%s/days/%s", TripsPath, trip.ID, tc.date)
+		resp := httpGet(t, srv, path)
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			t.Fatalf("GET %s status = %d, want 200", path, resp.StatusCode)
+		}
+		var day dayResponse
+		if err := json.NewDecoder(resp.Body).Decode(&day); err != nil {
+			resp.Body.Close()
+			t.Fatalf("decoding day %s: %v", tc.date, err)
+		}
+		resp.Body.Close()
+		if day.TripID != trip.ID {
+			t.Errorf("day %s: trip_id = %q, want %q", tc.date, day.TripID, trip.ID)
+		}
+		if day.Date != tc.date {
+			t.Errorf("day %s: date = %q, want %q", tc.date, day.Date, tc.date)
+		}
+		if day.Index != tc.index {
+			t.Errorf("day %s: index = %d, want %d", tc.date, day.Index, tc.index)
+		}
+		if day.ID == "" {
+			t.Errorf("day %s: id is empty", tc.date)
+		}
+	}
+
+	// A date outside the trip range must be 404.
+	path := fmt.Sprintf("%s/%s/days/2026-08-31", TripsPath, trip.ID)
+	resp := httpGet(t, srv, path)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("GET out-of-range day status = %d, want 404", resp.StatusCode)
+	}
+}
+
+// TestHTTPGetDayOtherOwnerIs404 asserts that a day belonging to another user's
+// trip is a 404 (owner-scoped; never leaks existence).
+func TestHTTPGetDayOtherOwnerIs404(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DATABASE_URL_TEST not set; skipping")
+	}
+	ownerA := freshOwnerID(t)
+	ownerB := freshOwnerID(t)
+
+	// Use separate servers so each carries its own auth principal.
+	makeServer := func(ownerID string) *httptest.Server {
+		store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{guard: noDayData{}}}
+		mod := &Module{store: store, requireAuth: authShim(ownerID)}
+		mux := http.NewServeMux()
+		mod.RegisterRoutes(mux)
+		srv := httptest.NewServer(mux)
+		t.Cleanup(srv.Close)
+		return srv
+	}
+	srvA := makeServer(ownerA)
+	srvB := makeServer(ownerB)
+
+	// Owner A creates a trip.
+	body := map[string]any{"name": "A's trip", "start_date": "2026-09-10", "end_date": "2026-09-10"}
+	createResp := postJSON(t, srvA, TripsPath, body)
+	if createResp.StatusCode != http.StatusCreated {
+		createResp.Body.Close()
+		t.Fatalf("create trip status = %d, want 201", createResp.StatusCode)
+	}
+	trip := decodeTrip(t, createResp)
+
+	// Owner B must get 404 when addressing A's day.
+	path := fmt.Sprintf("%s/%s/days/2026-09-10", TripsPath, trip.ID)
+	resp := httpGet(t, srvB, path)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("GET other-owner day status = %d, want 404", resp.StatusCode)
+	}
+}

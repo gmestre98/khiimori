@@ -20,7 +20,7 @@ Planning, Journal, and Maps can address a specific day.
       (PRD §5.1, §7.7).
 - [ ] **Shrinking** the range removes out-of-range days **with a guard/confirm if they hold data**;
       **extending** adds new days without disturbing existing ones (PRD §5.1).
-- [ ] Each `Day` is **addressable for deep-linking** (e.g. trip → day) to support Planning/Journal/
+- [x] Each `Day` is **addressable for deep-linking** (e.g. trip → day) to support Planning/Journal/
       Maps; unit + integration tests cover generation on range edits including single-day and
       shrink-with-data cases (PRD §7.6).
 

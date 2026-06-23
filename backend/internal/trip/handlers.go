@@ -13,9 +13,8 @@ import (
 	platformlog "github.com/gmestre98/khiimori/backend/internal/platform/log"
 )
 
-// TripsPath is the trips collection endpoint: POST creates a trip for the
-// authenticated user. Item operations (read/edit/archive/delete) hang off
-// TripsPath + "/{id}" in later stories.
+// TripsPath is the trips collection endpoint. Item operations hang off
+// TripsPath+"/{id}"; day addressing hangs off TripsPath+"/{id}/days/{date}".
 const TripsPath = "/trips"
 
 // tripStore is the persistence surface the handlers use. The concrete
@@ -28,6 +27,10 @@ type tripStore interface {
 	Archive(ctx context.Context, id, ownerID string) (Trip, error)
 	Unarchive(ctx context.Context, id, ownerID string) (Trip, error)
 	Delete(ctx context.Context, id, ownerID string) error
+	// GetDay fetches a single day by trip ownership + date for deep-linking.
+	// ownerID scopes the lookup so a day in another user's trip is an
+	// indistinguishable errDayNotFound.
+	GetDay(ctx context.Context, tripID, ownerID, date string) (Day, error)
 }
 
 // parseTripInput parses and validates the client-supplied trip fields shared by
@@ -293,6 +296,51 @@ func (m *Module) handleArchive(w http.ResponseWriter, r *http.Request) {
 // handleUnarchive restores an archived trip to active status.
 func (m *Module) handleUnarchive(w http.ResponseWriter, r *http.Request) {
 	m.handleSetStatus(w, r, m.store.Unarchive, "unarchiving trip")
+}
+
+// dayResponse is the wire shape returned for a single day.
+type dayResponse struct {
+	ID     string `json:"id"`
+	TripID string `json:"trip_id"`
+	Date   string `json:"date"`
+	Index  int    `json:"index"`
+	Notes  string `json:"notes"`
+}
+
+// handleGetDay returns a single day by trip + date. The route is
+// GET /trips/{id}/days/{date} — trip id and date come from the path; ownerID
+// from the session, so a day in another user's trip is a 404.
+func (m *Module) handleGetDay(w http.ResponseWriter, r *http.Request) {
+	p, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusUnauthorized, "auth_required", "authentication required"))
+		return
+	}
+	tripID := r.PathValue("id")
+	date := r.PathValue("date")
+
+	day, err := m.store.GetDay(r.Context(), tripID, p.UserID, date)
+	if err != nil {
+		if errors.Is(err, errDayNotFound) {
+			httpx.WriteError(w, r, httpx.NewAPIError(
+				http.StatusNotFound, "day_not_found", "day not found"))
+			return
+		}
+		platformlog.FromContext(r.Context()).Error("getting day", "err", err.Error())
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(dayResponse{
+		ID:     day.ID,
+		TripID: day.TripID,
+		Date:   day.Date.Format(dateLayout),
+		Index:  day.Index,
+		Notes:  day.Notes,
+	})
 }
 
 // handleDelete removes a trip and its memberships in one transaction. Only the

@@ -16,6 +16,9 @@ import (
 // existence of someone else's trip.
 var errTripNotFound = errors.New("trip: not found")
 
+// errDayNotFound means no day row matched the requested trip + date.
+var errDayNotFound = errors.New("trip: day not found")
+
 // OwnerMemberships is the slice of the sharing module's membership writer the
 // trip store needs. The trip module declares it (consumer-side interface) and
 // the composition root hands it the concrete *sharing.Memberships, so the trip
@@ -219,4 +222,28 @@ func (s *pgxTripStore) Delete(ctx context.Context, id, ownerID string) error {
 		return fmt.Errorf("trip: commit: %w", err)
 	}
 	return nil
+}
+
+// GetDay fetches a single day from trip.days, scoped to the requesting owner so
+// a day in another user's trip is an indistinguishable errDayNotFound. The JOIN
+// on trip.trips pins owner_id without a separate trip lookup round-trip.
+func (s *pgxTripStore) GetDay(ctx context.Context, tripID, ownerID, date string) (Day, error) {
+	const q = `
+		SELECT d.id::text, d.trip_id::text, d.date, d.index, d.notes
+		FROM trip.days d
+		JOIN trip.trips t ON t.id = d.trip_id
+		WHERE d.trip_id = $1::uuid
+		  AND t.owner_id = $2::uuid
+		  AND d.date = $3::date`
+	var day Day
+	err := s.pool.QueryRow(ctx, q, tripID, ownerID, date).Scan(
+		&day.ID, &day.TripID, &day.Date, &day.Index, &day.Notes,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Day{}, errDayNotFound
+		}
+		return Day{}, fmt.Errorf("trip: get day: %w", err)
+	}
+	return day, nil
 }
