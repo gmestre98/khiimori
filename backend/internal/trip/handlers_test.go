@@ -35,6 +35,12 @@ type fakeTripStore struct {
 	gotDeleteID    string
 	gotDeleteOwner string
 	deleteErr      error
+
+	gotGetDayTripID  string
+	gotGetDayOwnerID string
+	gotGetDayDate    string
+	getDayResult     Day
+	getDayErr        error
 }
 
 func (f *fakeTripStore) Update(_ context.Context, id, ownerID string, e EditTrip) (Trip, error) {
@@ -116,6 +122,13 @@ func (f *fakeTripStore) Delete(_ context.Context, id, ownerID string) error {
 	f.gotDeleteID = id
 	f.gotDeleteOwner = ownerID
 	return f.deleteErr
+}
+
+func (f *fakeTripStore) GetDay(_ context.Context, tripID, ownerID, date string) (Day, error) {
+	f.gotGetDayTripID = tripID
+	f.gotGetDayOwnerID = ownerID
+	f.gotGetDayDate = date
+	return f.getDayResult, f.getDayErr
 }
 
 // withPrincipal returns r carrying an authenticated principal, simulating a
@@ -470,6 +483,118 @@ func TestHandleDeleteUnauthenticated(t *testing.T) {
 		t.Fatalf("status = %d, want 401", rec.Code)
 	}
 	if store.gotDeleteID != "" {
+		t.Error("store should not be called for an unauthenticated request")
+	}
+}
+
+// getDayReq builds a GET request for /trips/{id}/days/{date} with an
+// authenticated principal and path values set (as the router would).
+func getDayReq(tripID, date, userID string) *http.Request {
+	req := httptest.NewRequest(http.MethodGet, TripsPath+"/"+tripID+"/days/"+date, http.NoBody)
+	req.SetPathValue("id", tripID)
+	req.SetPathValue("date", date)
+	return withPrincipal(req, userID)
+}
+
+// TestHandleGetDaySuccess asserts that a found day returns 200 with the correct
+// JSON fields, and that the store is called with the correct tripID, ownerID,
+// and date (from the path and session respectively).
+func TestHandleGetDaySuccess(t *testing.T) {
+	t.Parallel()
+
+	d := mustDate(t, "2026-07-03")
+	store := &fakeTripStore{getDayResult: Day{
+		ID:     "day-uuid",
+		TripID: "trip-uuid",
+		Date:   d,
+		Index:  2,
+		Notes:  "",
+	}}
+	m := newCreateModule(store)
+
+	rec := httptest.NewRecorder()
+	m.handleGetDay(rec, getDayReq("trip-uuid", "2026-07-03", "owner-1"))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	if store.gotGetDayTripID != "trip-uuid" {
+		t.Errorf("store trip_id = %q, want trip-uuid", store.gotGetDayTripID)
+	}
+	if store.gotGetDayOwnerID != "owner-1" {
+		t.Errorf("store owner_id = %q, want owner-1 (from session)", store.gotGetDayOwnerID)
+	}
+	if store.gotGetDayDate != "2026-07-03" {
+		t.Errorf("store date = %q, want 2026-07-03", store.gotGetDayDate)
+	}
+
+	var resp dayResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decoding response: %v", err)
+	}
+	if resp.ID != "day-uuid" {
+		t.Errorf("id = %q, want day-uuid", resp.ID)
+	}
+	if resp.Date != "2026-07-03" {
+		t.Errorf("date = %q, want 2026-07-03", resp.Date)
+	}
+	if resp.Index != 2 {
+		t.Errorf("index = %d, want 2", resp.Index)
+	}
+}
+
+// TestHandleGetDayNotFound asserts that errDayNotFound maps to 404.
+func TestHandleGetDayNotFound(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{getDayErr: errDayNotFound}
+	m := newCreateModule(store)
+
+	rec := httptest.NewRecorder()
+	m.handleGetDay(rec, getDayReq("trip-uuid", "2026-07-03", "owner-1"))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
+
+// TestHandleGetDayMalformedDate asserts that a malformed date in the path is a
+// 404 (semantically "no such day") and never reaches the store.
+func TestHandleGetDayMalformedDate(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{}
+	m := newCreateModule(store)
+
+	rec := httptest.NewRecorder()
+	m.handleGetDay(rec, getDayReq("trip-uuid", "not-a-date", "owner-1"))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 for malformed date", rec.Code)
+	}
+	if store.gotGetDayTripID != "" {
+		t.Error("store should not be called for a malformed date")
+	}
+}
+
+// TestHandleGetDayUnauthenticated asserts that a request without a principal is
+// 401 and never reaches the store.
+func TestHandleGetDayUnauthenticated(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{}
+	m := newCreateModule(store)
+
+	req := httptest.NewRequest(http.MethodGet, TripsPath+"/trip-uuid/days/2026-07-03", http.NoBody)
+	req.SetPathValue("id", "trip-uuid")
+	req.SetPathValue("date", "2026-07-03")
+	rec := httptest.NewRecorder()
+	m.handleGetDay(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+	if store.gotGetDayTripID != "" {
 		t.Error("store should not be called for an unauthenticated request")
 	}
 }

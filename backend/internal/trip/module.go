@@ -45,6 +45,7 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("POST "+TripsPath+"/{id}/archive", m.requireAuth(http.HandlerFunc(m.handleArchive)))
 	mux.Handle("POST "+TripsPath+"/{id}/unarchive", m.requireAuth(http.HandlerFunc(m.handleUnarchive)))
 	mux.Handle("DELETE "+TripsPath+"/{id}", m.requireAuth(http.HandlerFunc(m.handleDelete)))
+	mux.Handle("GET "+TripsPath+"/{id}/days/{date}", m.requireAuth(http.HandlerFunc(m.handleGetDay)))
 }
 
 // Compile-time check that *Module implements the route-mounting contract.

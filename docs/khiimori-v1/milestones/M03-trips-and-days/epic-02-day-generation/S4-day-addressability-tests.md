@@ -9,11 +9,11 @@ requires tests for generation on range edits including single-day and shrink-wit
 Expose day addressing (read a day by trip + date/index or by id) and add integration tests for generation.
 
 ## Acceptance criteria
-- [ ] A day is addressable via a stable identifier (its `id`, and/or `trip_id` + `date`/`index`) and
+- [x] A day is addressable via a stable identifier (its `id`, and/or `trip_id` + `date`/`index`) and
   readable through an endpoint the later day surfaces can deep-link to.
-- [ ] Integration tests (M01.3 harness) cover: create generates one-per-date, extend adds, shrink-empty
+- [x] Integration tests (M01.3 harness) cover: create generates one-per-date, extend adds, shrink-empty
   removes, shrink-with-data is guarded, and single-day trips.
-- [ ] Tests assert `index` stability and real-date mapping across edits.
+- [x] Tests assert `index` stability and real-date mapping across edits.
 
 ## Constraints
 - Reuse the M01.3 integration harness; hermetic per-test state.

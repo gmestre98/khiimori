@@ -107,6 +107,17 @@ func validateTripFields(name string, destinations []string, start, end time.Time
 	return nil
 }
 
+// Day is a single calendar day within a trip (trip.days, PRD §9, §5.1).
+// index gives a stable within-trip ordinal (0-based). notes holds day-level
+// text; later milestones layer plan items and journal entries on top.
+type Day struct {
+	ID     string
+	TripID string
+	Date   time.Time
+	Index  int
+	Notes  string
+}
+
 // parseDate parses a wire date (YYYY-MM-DD), returning a client-safe error
 // naming the field when it is missing or malformed.
 func parseDate(field, value string) (time.Time, error) {
