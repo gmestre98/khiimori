@@ -18,6 +18,10 @@ type stayStore interface {
 	CreateStay(ctx context.Context, ns NewStay) (Stay, error)
 	UpdateStay(ctx context.Context, tripID, stayID string, e EditStay) (Stay, error)
 	DeleteStay(ctx context.Context, tripID, stayID string) error
+	// StaysForDay returns every stay in tripID whose [check_in, check_out) range
+	// covers date (half-open: check_in <= date < check_out). A stay with no
+	// check_in or no check_out is excluded — it has no defined coverage interval.
+	StaysForDay(ctx context.Context, tripID, date string) ([]Stay, error)
 }
 
 // pgxStayStore is the Postgres-backed stay store.
@@ -91,6 +95,40 @@ func (s *pgxStayStore) UpdateStay(ctx context.Context, tripID, stayID string, e 
 		return Stay{}, fmt.Errorf("trip: update stay: %w", err)
 	}
 	return st, nil
+}
+
+// StaysForDay returns all stays in tripID whose [check_in, check_out) half-open
+// range covers date. Stays without both dates set are excluded — they have no
+// defined coverage interval.
+func (s *pgxStayStore) StaysForDay(ctx context.Context, tripID, date string) ([]Stay, error) {
+	const q = `
+		SELECT ` + stayColumns + `
+		FROM trip.stays
+		WHERE trip_id = $1::uuid
+		  AND check_in  IS NOT NULL
+		  AND check_out IS NOT NULL
+		  AND check_in  <= $2::date
+		  AND check_out >  $2::date
+		ORDER BY check_in, id`
+
+	rows, err := s.pool.Query(ctx, q, tripID, date)
+	if err != nil {
+		return nil, fmt.Errorf("trip: query stays for day: %w", err)
+	}
+	defer rows.Close()
+
+	var stays []Stay
+	for rows.Next() {
+		var st Stay
+		if err := scanStay(rows, &st); err != nil {
+			return nil, fmt.Errorf("trip: scan stay for day: %w", err)
+		}
+		stays = append(stays, st)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("trip: iterate stays for day: %w", err)
+	}
+	return stays, nil
 }
 
 // DeleteStay removes a stay scoped to a trip. Replaying a delete of a

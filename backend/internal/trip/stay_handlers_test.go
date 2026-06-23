@@ -72,6 +72,10 @@ func (f *fakeStayStore) DeleteStay(_ context.Context, tripID, stayID string) err
 	return f.deleteErr
 }
 
+func (f *fakeStayStore) StaysForDay(_ context.Context, _ string, _ string) ([]Stay, error) {
+	return nil, nil
+}
+
 // newStayModule constructs a Module wired to both a trip store and stay store
 // for stay handler tests.
 func newStayModule(tripSt tripStore, staySt stayStore) *Module {
