@@ -140,7 +140,7 @@ func newTestTrip(t *testing.T) NewTrip {
 // EUR/active server-side defaults and writes exactly one Owner membership row for
 // the creator, in one transaction.
 func TestCreateWritesTripAndOwnerMembership(t *testing.T) {
-	store := freshStore(t, sqlOwnerMemberships{}, pgxDayRegenerator{})
+	store := freshStore(t, sqlOwnerMemberships{}, pgxDayRegenerator{guard: noDayData{}})
 	nt := newTestTrip(t)
 	ctx := context.Background()
 
@@ -185,7 +185,7 @@ func TestCreateWritesTripAndOwnerMembership(t *testing.T) {
 // TestCreateRollsBackOnMembershipFailure asserts that when the owner-membership
 // write fails, the trip insert is rolled back too — no orphan trip is left.
 func TestCreateRollsBackOnMembershipFailure(t *testing.T) {
-	store := freshStore(t, failingOwnerMemberships{}, pgxDayRegenerator{})
+	store := freshStore(t, failingOwnerMemberships{}, pgxDayRegenerator{guard: noDayData{}})
 	nt := newTestTrip(t)
 	ctx := context.Background()
 
