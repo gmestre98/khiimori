@@ -9,12 +9,12 @@ date-range change emitted by Epic 01 S3.
 Implement day reconciliation on a trip date-range change.
 
 ## Acceptance criteria
-- [ ] Extending the range **adds** the new dates' days; existing days (and their attached data) are
+- [x] Extending the range **adds** the new dates' days; existing days (and their attached data) are
   untouched, with `index` kept consistent.
-- [ ] Shrinking the range **removes** out-of-range days, but if a removed day **holds data** (plan items,
+- [x] Shrinking the range **removes** out-of-range days, but if a removed day **holds data** (plan items,
   journal, etc.), the operation requires a **guard/confirm** signal rather than silently destroying data.
-- [ ] Reconciliation runs **transactionally** and is idempotent.
-- [ ] Unit tests cover extend (adds), shrink-empty (removes), and shrink-with-data (guarded).
+- [x] Reconciliation runs **transactionally** and is idempotent.
+- [x] Unit tests cover extend (adds), shrink-empty (removes), and shrink-with-data (guarded).
 
 ## Constraints
 - The "holds data" check spans later milestones' tables — define it via a seam/interface so it works as
