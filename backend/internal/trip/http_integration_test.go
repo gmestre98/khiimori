@@ -57,7 +57,7 @@ func newModuleWithOwnerAt(t *testing.T, ownerID string, now func() time.Time) *h
 		t.Fatalf("truncating tables: %v", err)
 	}
 	store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{guard: noDayData{}}}
-	mod := &Module{store: store, requireAuth: authShim(ownerID), now: now}
+	mod := &Module{store: store, requireAuth: authShim(ownerID), authz: NewOwnerOnlyAuthorizer(testPool), now: now}
 	mux := http.NewServeMux()
 	mod.RegisterRoutes(mux)
 	srv := httptest.NewServer(mux)
@@ -366,7 +366,7 @@ func TestHTTPDeleteReturns404ForOtherOwner(t *testing.T) {
 
 	makeServer := func(ownerID string) *httptest.Server {
 		store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{guard: noDayData{}}}
-		mod := &Module{store: store, requireAuth: authShim(ownerID), now: time.Now}
+		mod := &Module{store: store, requireAuth: authShim(ownerID), authz: NewOwnerOnlyAuthorizer(testPool), now: time.Now}
 		mux := http.NewServeMux()
 		mod.RegisterRoutes(mux)
 		srv := httptest.NewServer(mux)
@@ -498,7 +498,7 @@ func TestHTTPGetDayOtherOwnerIs404(t *testing.T) {
 	// Use separate servers so each carries its own auth principal.
 	makeServer := func(ownerID string) *httptest.Server {
 		store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{guard: noDayData{}}}
-		mod := &Module{store: store, requireAuth: authShim(ownerID), now: time.Now}
+		mod := &Module{store: store, requireAuth: authShim(ownerID), authz: NewOwnerOnlyAuthorizer(testPool), now: time.Now}
 		mux := http.NewServeMux()
 		mod.RegisterRoutes(mux)
 		srv := httptest.NewServer(mux)
@@ -553,7 +553,7 @@ func TestHTTPListBucketsAndScope(t *testing.T) {
 	fixedClock := func() time.Time { return listRef }
 	makeServer := func(ownerID string) *httptest.Server {
 		store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{guard: noDayData{}}}
-		mod := &Module{store: store, requireAuth: authShim(ownerID), now: fixedClock}
+		mod := &Module{store: store, requireAuth: authShim(ownerID), authz: NewOwnerOnlyAuthorizer(testPool), now: fixedClock}
 		mux := http.NewServeMux()
 		mod.RegisterRoutes(mux)
 		srv := httptest.NewServer(mux)

@@ -189,7 +189,7 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config) http.H
 	authModule := auth.New(cfg, pool)
 	modules := []httpx.RouteRegistrar{
 		authModule,
-		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships()),
+		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships(), trip.NewOwnerOnlyAuthorizer(pool)),
 		budget.New(),
 		journal.New(),
 		sharing.New(),
