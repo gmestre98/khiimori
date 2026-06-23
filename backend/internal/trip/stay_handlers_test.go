@@ -20,7 +20,6 @@ type fakeStayStore struct {
 	gotUpdateTripID string
 	gotUpdateStayID string
 	gotUpdate       EditStay
-	updateResult    Stay
 	updateErr       error
 
 	gotDeleteTripID string
