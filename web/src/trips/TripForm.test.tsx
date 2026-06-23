@@ -25,9 +25,7 @@ const baseTrip: Trip = {
 }
 
 function mockFetch(status: number, body: unknown) {
-  vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-    new Response(JSON.stringify(body), { status }),
-  )
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(body), { status }))
 }
 
 function renderForm(props?: Partial<React.ComponentProps<typeof TripForm>>) {
@@ -147,7 +145,9 @@ describe('TripForm — edit mode', () => {
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
         new Response(
-          JSON.stringify({ error: { message: '3 day(s) hold data; set force_shrink: true to confirm' } }),
+          JSON.stringify({
+            error: { message: '3 day(s) hold data; set force_shrink: true to confirm' },
+          }),
           { status: 409 },
         ),
       )

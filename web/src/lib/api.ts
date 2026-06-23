@@ -254,11 +254,7 @@ export async function createTrip(input: TripInput): Promise<Trip> {
 
 // updateTrip calls PATCH /trips/:id. Set forceShrink to true after user
 // confirmation when TripShrinkConflictError is thrown.
-export async function updateTrip(
-  id: string,
-  input: TripInput,
-  forceShrink = false,
-): Promise<Trip> {
+export async function updateTrip(id: string, input: TripInput, forceShrink = false): Promise<Trip> {
   const res = await apiFetch(`/trips/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
