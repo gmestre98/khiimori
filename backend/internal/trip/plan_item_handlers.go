@@ -1,0 +1,128 @@
+package trip
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/gmestre98/khiimori/backend/internal/platform/authn"
+	"github.com/gmestre98/khiimori/backend/internal/platform/httpx"
+	platformlog "github.com/gmestre98/khiimori/backend/internal/platform/log"
+)
+
+// createPlanItemRequest is the create-plan-item wire shape. Only title is
+// required; all other fields are optional. The optional "id" field carries a
+// client-generated UUID for upsert idempotency (Epic 06 replay). start_time,
+// when present, makes the item timed; when absent the item is untimed. duration
+// is only accepted when start_time is also set.
+type createPlanItemRequest struct {
+	ClientID      string   `json:"id"`
+	DayID         *string  `json:"day_id"`
+	Title         string   `json:"title"`
+	Type          *string  `json:"type"`
+	StartTime     *string  `json:"start_time"`
+	Duration      *string  `json:"duration"`
+	Location      *string  `json:"location"`
+	BookingStatus *string  `json:"booking_status"`
+	Cost          *float64 `json:"cost"`
+	Link          *string  `json:"link"`
+}
+
+func (req createPlanItemRequest) toNewPlanItem(tripID string) (NewPlanItem, error) {
+	if err := validatePlanItemFields(req.Title, req.Type, req.StartTime, req.Duration, req.Location, req.Link); err != nil {
+		return NewPlanItem{}, err
+	}
+	return NewPlanItem{
+		ClientID:      req.ClientID,
+		TripID:        tripID,
+		DayID:         req.DayID,
+		Title:         req.Title,
+		Type:          req.Type,
+		StartTime:     req.StartTime,
+		Duration:      req.Duration,
+		Location:      req.Location,
+		BookingStatus: req.BookingStatus,
+		Cost:          req.Cost,
+		Link:          req.Link,
+	}, nil
+}
+
+// planItemResponse is the stable wire shape returned for a single plan item.
+type planItemResponse struct {
+	ID            string   `json:"id"`
+	TripID        string   `json:"trip_id"`
+	DayID         *string  `json:"day_id,omitempty"`
+	Title         string   `json:"title"`
+	Type          *string  `json:"type,omitempty"`
+	StartTime     *string  `json:"start_time,omitempty"`
+	Duration      *string  `json:"duration,omitempty"`
+	Location      *string  `json:"location,omitempty"`
+	BookingStatus *string  `json:"booking_status,omitempty"`
+	Cost          *float64 `json:"cost,omitempty"`
+	Link          *string  `json:"link,omitempty"`
+	SortOrder     int      `json:"sort_order"`
+	Status        string   `json:"status"`
+}
+
+func newPlanItemResponse(p PlanItem) planItemResponse {
+	return planItemResponse{
+		ID:            p.ID,
+		TripID:        p.TripID,
+		DayID:         p.DayID,
+		Title:         p.Title,
+		Type:          p.Type,
+		StartTime:     p.StartTime,
+		Duration:      p.Duration,
+		Location:      p.Location,
+		BookingStatus: p.BookingStatus,
+		Cost:          p.Cost,
+		Link:          p.Link,
+		SortOrder:     p.SortOrder,
+		Status:        p.Status,
+	}
+}
+
+// handleCreatePlanItem creates a plan item for the given trip
+// (POST /trips/{id}/plan-items). Only title is required. When start_time is
+// absent the item is untimed; when present it is timed (optional duration).
+// day_id may be null (backlog) or a specific day id. The caller may supply an
+// "id" for upsert idempotency (Epic 06).
+func (m *Module) handleCreatePlanItem(w http.ResponseWriter, r *http.Request) {
+	p, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusUnauthorized, "auth_required", "authentication required"))
+		return
+	}
+	tripID := r.PathValue("id")
+
+	if err := m.checkAccess(r.Context(), p.UserID, ActionWrite, tripID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	var req createPlanItemRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusBadRequest, "invalid_json", "request body is not valid JSON"))
+		return
+	}
+
+	ni, err := req.toNewPlanItem(tripID)
+	if err != nil {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusBadRequest, "invalid_plan_item", err.Error()))
+		return
+	}
+
+	item, err := m.planItems.CreatePlanItem(r.Context(), ni)
+	if err != nil {
+		platformlog.FromContext(r.Context()).Error("creating plan item", "err", err.Error())
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(newPlanItemResponse(item))
+}
