@@ -87,16 +87,7 @@ func (req editPlanItemRequest) toEditPlanItem() (EditPlanItem, error) {
 	if err := validatePlanItemFields(req.Title, req.Type, req.StartTime, req.Duration, req.Location, req.Link); err != nil {
 		return EditPlanItem{}, err
 	}
-	return EditPlanItem{
-		Title:         req.Title,
-		Type:          req.Type,
-		StartTime:     req.StartTime,
-		Duration:      req.Duration,
-		Location:      req.Location,
-		BookingStatus: req.BookingStatus,
-		Cost:          req.Cost,
-		Link:          req.Link,
-	}, nil
+	return EditPlanItem(req), nil
 }
 
 // handleCreatePlanItem creates a plan item for the given trip
