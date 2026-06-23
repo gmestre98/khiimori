@@ -515,3 +515,112 @@ func TestHTTPGetDayOtherOwnerIs404(t *testing.T) {
 		t.Errorf("GET other-owner day status = %d, want 404", resp.StatusCode)
 	}
 }
+
+// TestHTTPListBucketsAndScope verifies GET /trips end-to-end: creates trips in
+// different time ranges and one archived trip, calls GET /trips, and asserts
+// correct bucketing, is_current flag, and exclusion of the archived trip. Also
+// asserts owner-scoping: a second owner's trips must not appear in owner A's list.
+func TestHTTPListBucketsAndScope(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DATABASE_URL_TEST not set; skipping")
+	}
+	_, err := testPool.Exec(context.Background(),
+		`TRUNCATE trip.days, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
+	if err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
+
+	ownerA := freshOwnerID(t)
+	ownerB := freshOwnerID(t)
+
+	makeServer := func(ownerID string) *httptest.Server {
+		store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{guard: noDayData{}}}
+		mod := &Module{store: store, requireAuth: authShim(ownerID)}
+		mux := http.NewServeMux()
+		mod.RegisterRoutes(mux)
+		srv := httptest.NewServer(mux)
+		t.Cleanup(srv.Close)
+		return srv
+	}
+	srvA := makeServer(ownerA)
+	srvB := makeServer(ownerB)
+
+	create := func(srv *httptest.Server, name, start, end string) tripResponse {
+		t.Helper()
+		resp := postJSON(t, srv, TripsPath, map[string]any{"name": name, "start_date": start, "end_date": end})
+		if resp.StatusCode != http.StatusCreated {
+			resp.Body.Close()
+			t.Fatalf("create %q: status %d", name, resp.StatusCode)
+		}
+		return decodeTrip(t, resp)
+	}
+
+	// Create trips for owner A spanning different time buckets relative to today (2026-06-23).
+	past := create(srvA, "Past", "2026-05-01", "2026-05-10")
+	current := create(srvA, "Current", "2026-06-20", "2026-06-30")
+	upcoming := create(srvA, "Upcoming", "2026-07-01", "2026-07-10")
+	archived := create(srvA, "Archived", "2026-04-01", "2026-04-05")
+
+	// Archive the "archived" trip.
+	archiveResp, err := http.Post(srvA.URL+TripsPath+"/"+archived.ID+"/archive", "application/json", nil)
+	if err != nil {
+		t.Fatalf("archive: %v", err)
+	}
+	archiveResp.Body.Close()
+	if archiveResp.StatusCode != http.StatusOK {
+		t.Fatalf("archive status = %d, want 200", archiveResp.StatusCode)
+	}
+
+	// Owner B creates a trip — must not appear in A's list.
+	create(srvB, "B Trip", "2026-06-20", "2026-06-25")
+
+	// Call GET /trips as owner A.
+	listResp := httpGet(t, srvA, TripsPath)
+	if listResp.StatusCode != http.StatusOK {
+		listResp.Body.Close()
+		t.Fatalf("GET /trips status = %d, want 200", listResp.StatusCode)
+	}
+	defer listResp.Body.Close()
+
+	var body listResponse
+	if err := json.NewDecoder(listResp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode list response: %v", err)
+	}
+
+	// Past bucket: exactly the past trip.
+	if len(body.Past) != 1 || body.Past[0].ID != past.ID {
+		t.Errorf("past = %v, want [%s]", body.Past, past.ID)
+	}
+	if body.Past[0].IsCurrent {
+		t.Error("past trip should have is_current=false")
+	}
+
+	// Current bucket: exactly the current trip, flagged.
+	if len(body.Current) != 1 || body.Current[0].ID != current.ID {
+		t.Errorf("current = %v, want [%s]", body.Current, current.ID)
+	}
+	if !body.Current[0].IsCurrent {
+		t.Error("current trip should have is_current=true")
+	}
+
+	// Upcoming bucket: exactly the upcoming trip.
+	if len(body.Upcoming) != 1 || body.Upcoming[0].ID != upcoming.ID {
+		t.Errorf("upcoming = %v, want [%s]", body.Upcoming, upcoming.ID)
+	}
+
+	// Archived trip must not appear anywhere.
+	allIDs := make(map[string]bool)
+	for _, lt := range append(append(body.Current, body.Upcoming...), body.Past...) {
+		allIDs[lt.ID] = true
+	}
+	if allIDs[archived.ID] {
+		t.Errorf("archived trip %s must not appear in the listing", archived.ID)
+	}
+
+	// Owner B's trip must not appear.
+	for _, lt := range append(append(body.Current, body.Upcoming...), body.Past...) {
+		if lt.OwnerID == ownerB {
+			t.Errorf("owner B's trip %s appeared in owner A's list", lt.ID)
+		}
+	}
+}

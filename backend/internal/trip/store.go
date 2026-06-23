@@ -231,7 +231,8 @@ func (s *pgxTripStore) Delete(ctx context.Context, id, ownerID string) error {
 // requires no changes here — the JOIN already covers both owner and future roles.
 func (s *pgxTripStore) List(ctx context.Context, userID string) ([]Trip, error) {
 	const q = `
-		SELECT ` + tripColumns + `
+		SELECT t.id::text, t.owner_id::text, t.name, t.destinations, t.start_date, t.end_date,
+		       t.base_currency, t.cover, t.status, t.created_at, t.updated_at
 		FROM trip.trips t
 		JOIN sharing.trip_memberships m ON m.trip_id = t.id
 		WHERE m.user_id = $1::uuid
