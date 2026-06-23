@@ -357,7 +357,7 @@ func TestHTTPDeleteReturns404ForOtherOwner(t *testing.T) {
 
 	makeServer := func(ownerID string) *httptest.Server {
 		store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{guard: noDayData{}}}
-		mod := &Module{store: store, requireAuth: authShim(ownerID)}
+		mod := &Module{store: store, requireAuth: authShim(ownerID), now: time.Now}
 		mux := http.NewServeMux()
 		mod.RegisterRoutes(mux)
 		srv := httptest.NewServer(mux)
@@ -489,7 +489,7 @@ func TestHTTPGetDayOtherOwnerIs404(t *testing.T) {
 	// Use separate servers so each carries its own auth principal.
 	makeServer := func(ownerID string) *httptest.Server {
 		store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{guard: noDayData{}}}
-		mod := &Module{store: store, requireAuth: authShim(ownerID)}
+		mod := &Module{store: store, requireAuth: authShim(ownerID), now: time.Now}
 		mux := http.NewServeMux()
 		mod.RegisterRoutes(mux)
 		srv := httptest.NewServer(mux)
@@ -536,7 +536,7 @@ func TestHTTPListBucketsAndScope(t *testing.T) {
 
 	makeServer := func(ownerID string) *httptest.Server {
 		store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{guard: noDayData{}}}
-		mod := &Module{store: store, requireAuth: authShim(ownerID)}
+		mod := &Module{store: store, requireAuth: authShim(ownerID), now: time.Now}
 		mux := http.NewServeMux()
 		mod.RegisterRoutes(mux)
 		srv := httptest.NewServer(mux)
