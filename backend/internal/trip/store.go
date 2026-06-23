@@ -224,6 +224,40 @@ func (s *pgxTripStore) Delete(ctx context.Context, id, ownerID string) error {
 	return nil
 }
 
+// List returns all non-archived trips the user may see, ordered by start_date
+// ascending. Visibility is governed by the sharing.trip_memberships JOIN: until
+// Milestone 08 every user has exactly one Owner membership per trip, so this is
+// functionally owner-only. Swapping in the full membership-based authz (M08)
+// requires no changes here — the JOIN already covers both owner and future roles.
+func (s *pgxTripStore) List(ctx context.Context, userID string) ([]Trip, error) {
+	const q = `
+		SELECT ` + tripColumns + `
+		FROM trip.trips t
+		JOIN sharing.trip_memberships m ON m.trip_id = t.id
+		WHERE m.user_id = $1::uuid
+		  AND t.status != 'archived'
+		ORDER BY t.start_date ASC`
+
+	rows, err := s.pool.Query(ctx, q, userID)
+	if err != nil {
+		return nil, fmt.Errorf("trip: list: %w", err)
+	}
+	defer rows.Close()
+
+	var trips []Trip
+	for rows.Next() {
+		var t Trip
+		if err := scanTrip(rows, &t); err != nil {
+			return nil, fmt.Errorf("trip: list scan: %w", err)
+		}
+		trips = append(trips, t)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("trip: list rows: %w", err)
+	}
+	return trips, nil
+}
+
 // GetDay fetches a single day from trip.days, scoped to the requesting owner so
 // a day in another user's trip is an indistinguishable errDayNotFound. The JOIN
 // on trip.trips pins owner_id without a separate trip lookup round-trip.
