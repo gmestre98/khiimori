@@ -90,6 +90,44 @@ func (req editPlanItemRequest) toEditPlanItem() (EditPlanItem, error) {
 	return EditPlanItem(req), nil
 }
 
+// backlogResponse is the wire shape for the backlog list endpoint.
+type backlogResponse struct {
+	Items []planItemResponse `json:"items"`
+}
+
+// handleListBacklog returns all plan items with day_id = null for a trip
+// (GET /trips/{id}/plan-items/backlog), ordered by sort_order.
+func (m *Module) handleListBacklog(w http.ResponseWriter, r *http.Request) {
+	p, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusUnauthorized, "auth_required", "authentication required"))
+		return
+	}
+	tripID := r.PathValue("id")
+
+	if err := m.checkAccess(r.Context(), p.UserID, ActionRead, tripID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	items, err := m.planItems.ListBacklog(r.Context(), tripID)
+	if err != nil {
+		platformlog.FromContext(r.Context()).Error("listing backlog", "err", err.Error())
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	resp := backlogResponse{Items: make([]planItemResponse, len(items))}
+	for i, item := range items {
+		resp.Items[i] = newPlanItemResponse(item)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
 // handleCreatePlanItem creates a plan item for the given trip
 // (POST /trips/{id}/plan-items). Only title is required. When start_time is
 // absent the item is untimed; when present it is timed (optional duration).
