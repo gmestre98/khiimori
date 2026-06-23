@@ -2,9 +2,7 @@ package trip
 
 import "context"
 
-// Action is the set of operations the Authorizer reasons about. Using a named
-// string type keeps the action set open for doc tooling while remaining
-// comparable with ==.
+// Action names the operations the Authorizer reasons about for a trip.
 type Action string
 
 const (
