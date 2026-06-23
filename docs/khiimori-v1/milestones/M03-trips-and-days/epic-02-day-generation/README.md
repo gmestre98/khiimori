@@ -1,5 +1,7 @@
 # Epic M03.2 — Automatic day generation on range edits
 
+> **Status:** ✅ Done — all 4 stories merged (PRs [#198](https://github.com/gmestre98/khiimori/pull/198), [#200](https://github.com/gmestre98/khiimori/pull/200), [#202](https://github.com/gmestre98/khiimori/pull/202), [#204](https://github.com/gmestre98/khiimori/pull/204)) and all 4 acceptance criteria verified. Days are auto-generated transactionally on trip create; range edits add/remove days with a shrink guard; each day is deep-linkable via `GET /trips/{id}/days/{date}`.
+>
 > Milestone: [03 — Trips & Days](../README.md) · PRD refs: §5.1, §7.7, §9.
 
 ## Description
