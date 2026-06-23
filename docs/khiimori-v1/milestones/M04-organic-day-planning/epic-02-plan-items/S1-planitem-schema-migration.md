@@ -9,12 +9,12 @@ the table; behaviour is S2–S4.
 Add a migration for the `PlanItem` table in the `trip.*` schema.
 
 ## Acceptance criteria
-- [ ] A migration creates `PlanItem(id, trip_id, day_id?, title, type, start_time?, duration?, location?,
+- [x] A migration creates `PlanItem(id, trip_id, day_id?, title, type, start_time?, duration?, location?,
   booking_status?, cost?, link?, order, status)` with FKs to `trip.Trip` and (nullable) `trip.Day`.
-- [ ] `title` is **required**; all other fields are nullable/optional; `day_id` nullable (backlog).
-- [ ] `status` is constrained to `idea | planned | done | skipped | cancelled` with a sensible default.
-- [ ] Indexes support common reads (by `trip_id`, by `day_id`, ordering by `order`).
-- [ ] The migration applies cleanly via the M01.3 runner.
+- [x] `title` is **required**; all other fields are nullable/optional; `day_id` nullable (backlog).
+- [x] `status` is constrained to `idea | planned | done | skipped | cancelled` with a sensible default.
+- [x] Indexes support common reads (by `trip_id`, by `day_id`, ordering by `order`).
+- [x] The migration applies cleanly via the M01.3 runner.
 
 ## Constraints
 - Follow M01.3 migration conventions.
