@@ -558,6 +558,25 @@ func TestHandleGetDayNotFound(t *testing.T) {
 	}
 }
 
+// TestHandleGetDayMalformedDate asserts that a malformed date in the path is a
+// 404 (semantically "no such day") and never reaches the store.
+func TestHandleGetDayMalformedDate(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{}
+	m := newCreateModule(store)
+
+	rec := httptest.NewRecorder()
+	m.handleGetDay(rec, getDayReq("trip-uuid", "not-a-date", "owner-1"))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 for malformed date", rec.Code)
+	}
+	if store.gotGetDayTripID != "" {
+		t.Error("store should not be called for a malformed date")
+	}
+}
+
 // TestHandleGetDayUnauthenticated asserts that a request without a principal is
 // 401 and never reaches the store.
 func TestHandleGetDayUnauthenticated(t *testing.T) {

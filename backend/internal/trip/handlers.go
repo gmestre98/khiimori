@@ -320,6 +320,14 @@ func (m *Module) handleGetDay(w http.ResponseWriter, r *http.Request) {
 	tripID := r.PathValue("id")
 	date := r.PathValue("date")
 
+	// Reject malformed dates before hitting the DB: a cast error would surface
+	// as a 500, and an unrecognisable date is semantically "no such day".
+	if _, err := parseDate("date", date); err != nil {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusNotFound, "day_not_found", "day not found"))
+		return
+	}
+
 	day, err := m.store.GetDay(r.Context(), tripID, p.UserID, date)
 	if err != nil {
 		if errors.Is(err, errDayNotFound) {

@@ -393,7 +393,7 @@ func TestHTTPDeleteReturns404ForOtherOwner(t *testing.T) {
 }
 
 // httpGet issues an authenticated GET request to srv at path and returns the
-// response. The auth cookie is injected via the authShim middleware registered
+// response. The auth principal is injected via the authShim middleware registered
 // on the server.
 func httpGet(t *testing.T, srv *httptest.Server, path string) *http.Response {
 	t.Helper()
