@@ -21,7 +21,7 @@ implements that interface; swapping in the real membership check later requires 
 - [x] A v1 **owner-only shim** implements the interface (owner may do everything; non-owners are
       denied), structured so Milestone 08's membership-based `Authorizer` is a drop-in replacement
       (PRD §7.0).
-- [ ] **Unauthorized** trip access yields `403`/`404` (not data); no trip endpoint relies on
+- [x] **Unauthorized** trip access yields `403`/`404` (not data); no trip endpoint relies on
       client-side checks (PRD §5.9, §6).
 - [ ] Unit + integration tests cover owner-allowed and non-owner-denied paths across create/read/
       update/delete and the listing (PRD §7.6).

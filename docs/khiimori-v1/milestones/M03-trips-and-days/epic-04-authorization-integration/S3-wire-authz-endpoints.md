@@ -9,13 +9,13 @@ shim (S2) into the Trip module's endpoints (Epics 01/03) and the listing scoping
 Apply the `Authorizer` check to all trip-scoped endpoints and the listing scope.
 
 ## Acceptance criteria
-- [ ] Every trip create/read/update/delete path calls the `Authorizer` with the right action before
+- [x] Every trip create/read/update/delete path calls the `Authorizer` with the right action before
   touching data.
-- [ ] **Unauthorized** access returns **`403`/`404`** (not data); no trip endpoint relies on client-side
+- [x] **Unauthorized** access returns **`403`/`404`** (not data); no trip endpoint relies on client-side
   checks.
-- [ ] The listing endpoint (Epic 03 S2) is scoped via the same authz layer (a user sees only permitted
+- [x] The listing endpoint (Epic 03 S2) is scoped via the same authz layer (a user sees only permitted
   trips).
-- [ ] The check uses the authenticated user from the Milestone 02 middleware (session-derived).
+- [x] The check uses the authenticated user from the Milestone 02 middleware (session-derived).
 
 ## Constraints
 - Centralise the check (helper/middleware) so endpoints don't each reimplement it.
