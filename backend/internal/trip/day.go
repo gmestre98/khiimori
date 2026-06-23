@@ -150,15 +150,21 @@ func (r pgxDayRegenerator) RegenerateDays(ctx context.Context, tx pgx.Tx, tripID
 			batch.Queue(q, tripID, d)
 		}
 		results := tx.SendBatch(ctx, batch)
-		defer func() { _ = results.Close() }()
 		for _, d := range toAdd {
 			if _, err := results.Exec(); err != nil {
+				_ = results.Close()
 				return fmt.Errorf("trip: insert day %s: %w", d.Format("2006-01-02"), err)
 			}
 		}
 		if err := results.Close(); err != nil {
 			return fmt.Errorf("trip: insert days batch close: %w", err)
 		}
+	}
+
+	// Reindex only when the set of days actually changed — skips a no-op UPDATE
+	// on idempotent calls with the same range.
+	if len(toAdd) == 0 && len(toRemoveIDs) == 0 {
+		return nil
 	}
 
 	// Reindex all remaining days for this trip in ascending date order (0-based)
