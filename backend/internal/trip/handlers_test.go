@@ -161,6 +161,7 @@ func (allowAllAuthorizer) Can(_ context.Context, _ string, _ Action, _ string) (
 func newCreateModule(store tripStore) *Module {
 	return &Module{
 		store:       store,
+		stays:       &fakeStayStore{},
 		requireAuth: func(h http.Handler) http.Handler { return h },
 		authz:       allowAllAuthorizer{},
 		now:         func() time.Time { return fixedNow },

@@ -314,13 +314,17 @@ func (m *Module) handleUnarchive(w http.ResponseWriter, r *http.Request) {
 	m.handleSetStatus(w, r, m.store.Unarchive, "unarchiving trip")
 }
 
-// dayResponse is the wire shape returned for a single day.
+// dayResponse is the wire shape returned for a single day. Stays contains every
+// accommodation whose [check_in, check_out) range covers this date (derived at
+// read time — a single stay row may appear on multiple day responses without
+// duplication in the DB).
 type dayResponse struct {
-	ID     string `json:"id"`
-	TripID string `json:"trip_id"`
-	Date   string `json:"date"`
-	Index  int    `json:"index"`
-	Notes  string `json:"notes"`
+	ID     string         `json:"id"`
+	TripID string         `json:"trip_id"`
+	Date   string         `json:"date"`
+	Index  int            `json:"index"`
+	Notes  string         `json:"notes"`
+	Stays  []stayResponse `json:"stays"`
 }
 
 // handleGetDay returns a single day by trip + date. The route is
@@ -361,6 +365,18 @@ func (m *Module) handleGetDay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	stays, err := m.stays.StaysForDay(r.Context(), tripID, date)
+	if err != nil {
+		platformlog.FromContext(r.Context()).Error("getting stays for day", "err", err.Error())
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	stayResps := make([]stayResponse, len(stays))
+	for i, s := range stays {
+		stayResps[i] = newStayResponse(s)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(dayResponse{
@@ -369,6 +385,7 @@ func (m *Module) handleGetDay(w http.ResponseWriter, r *http.Request) {
 		Date:   day.Date.Format(dateLayout),
 		Index:  day.Index,
 		Notes:  day.Notes,
+		Stays:  stayResps,
 	})
 }
 
