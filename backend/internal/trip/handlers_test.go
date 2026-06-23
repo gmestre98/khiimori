@@ -146,8 +146,16 @@ func withPrincipal(r *http.Request, userID string) *http.Request {
 	return r.WithContext(authn.WithPrincipal(r.Context(), authn.Principal{UserID: userID}))
 }
 
+// fixedNow is the reference date used by all list handler tests so that
+// bucketing assertions are stable regardless of when the tests run.
+var fixedNow = time.Date(2026, 6, 23, 12, 0, 0, 0, time.UTC)
+
 func newCreateModule(store tripStore) *Module {
-	return &Module{store: store, requireAuth: func(h http.Handler) http.Handler { return h }}
+	return &Module{
+		store:       store,
+		requireAuth: func(h http.Handler) http.Handler { return h },
+		now:         func() time.Time { return fixedNow },
+	}
 }
 
 // TestHandleCreateSuccess asserts a valid create returns 201, the owner is taken

@@ -392,7 +392,7 @@ func (m *Module) handleList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	today := time.Now().UTC().Truncate(24 * time.Hour)
+	today := m.now().UTC().Truncate(24 * time.Hour)
 	resp := listResponse{
 		Current:  []listedTripResponse{},
 		Upcoming: []listedTripResponse{},

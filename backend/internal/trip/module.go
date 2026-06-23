@@ -2,6 +2,7 @@ package trip
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -17,6 +18,9 @@ type Module struct {
 	// httpx.Middleware so it never imports the auth module — every trip route is
 	// authenticated, with the owner taken from the session principal.
 	requireAuth httpx.Middleware
+	// now returns the current time. Defaults to time.Now; tests inject a fixed
+	// clock so bucketing assertions are not date-dependent.
+	now func() time.Time
 }
 
 // New constructs the trip module wired to the database pool, the auth middleware,
@@ -33,6 +37,7 @@ func New(pool *pgxpool.Pool, requireAuth httpx.Middleware, memberships OwnerMemb
 			days:        pgxDayRegenerator{guard: noDayData{}},
 		},
 		requireAuth: requireAuth,
+		now:         time.Now,
 	}
 }
 
