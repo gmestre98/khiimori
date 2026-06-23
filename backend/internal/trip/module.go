@@ -40,6 +40,7 @@ func New(pool *pgxpool.Pool, requireAuth httpx.Middleware, memberships OwnerMemb
 // auth middleware so the caller is always an authenticated user (the trip's
 // owner).
 func (m *Module) RegisterRoutes(mux *http.ServeMux) {
+	mux.Handle("GET "+TripsPath, m.requireAuth(http.HandlerFunc(m.handleList)))
 	mux.Handle("POST "+TripsPath, m.requireAuth(http.HandlerFunc(m.handleCreate)))
 	mux.Handle("PATCH "+TripsPath+"/{id}", m.requireAuth(http.HandlerFunc(m.handleUpdate)))
 	mux.Handle("POST "+TripsPath+"/{id}/archive", m.requireAuth(http.HandlerFunc(m.handleArchive)))

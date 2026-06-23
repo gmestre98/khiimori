@@ -41,6 +41,10 @@ type fakeTripStore struct {
 	gotGetDayDate    string
 	getDayResult     Day
 	getDayErr        error
+
+	gotListUserID string
+	listResult    []Trip
+	listErr       error
 }
 
 func (f *fakeTripStore) Update(_ context.Context, id, ownerID string, e EditTrip) (Trip, error) {
@@ -129,6 +133,11 @@ func (f *fakeTripStore) GetDay(_ context.Context, tripID, ownerID, date string) 
 	f.gotGetDayOwnerID = ownerID
 	f.gotGetDayDate = date
 	return f.getDayResult, f.getDayErr
+}
+
+func (f *fakeTripStore) List(_ context.Context, userID string) ([]Trip, error) {
+	f.gotListUserID = userID
+	return f.listResult, f.listErr
 }
 
 // withPrincipal returns r carrying an authenticated principal, simulating a
@@ -629,5 +638,141 @@ func TestHandleCreateRejectsInvalid(t *testing.T) {
 				t.Error("store should not be called when the request is invalid")
 			}
 		})
+	}
+}
+
+// listReq builds a GET /trips request optionally with a principal.
+func listReq(userID string) *http.Request {
+	req := httptest.NewRequest(http.MethodGet, TripsPath, http.NoBody)
+	if userID != "" {
+		req = withPrincipal(req, userID)
+	}
+	return req
+}
+
+// makeTrip builds a Trip for list handler tests. today is used as a reference
+// point to construct trips in different buckets.
+func makeTrip(id string, start, end time.Time) Trip {
+	now := time.Date(2026, 6, 23, 12, 0, 0, 0, time.UTC)
+	return Trip{
+		ID:           id,
+		OwnerID:      "owner-1",
+		Name:         "Trip " + id,
+		Destinations: []string{},
+		StartDate:    start,
+		EndDate:      end,
+		BaseCurrency: baseCurrencyEUR,
+		Status:       statusActive,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+}
+
+// TestHandleListUnauthenticated asserts that a missing session is a 401.
+func TestHandleListUnauthenticated(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{}
+	m := newCreateModule(store)
+
+	rec := httptest.NewRecorder()
+	m.handleList(rec, listReq(""))
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+	if store.gotListUserID != "" {
+		t.Error("store should not be called for an unauthenticated request")
+	}
+}
+
+// TestHandleListPassesUserIDToStore asserts the handler passes the session
+// principal's user ID to the store.
+func TestHandleListPassesUserIDToStore(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{listResult: []Trip{}}
+	m := newCreateModule(store)
+
+	rec := httptest.NewRecorder()
+	m.handleList(rec, listReq("user-42"))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if store.gotListUserID != "user-42" {
+		t.Errorf("store called with user_id %q, want user-42", store.gotListUserID)
+	}
+}
+
+// TestHandleListBuckets asserts trips are distributed into the correct buckets
+// and the current trip is flagged. Uses a fixed reference date (2026-06-23) via
+// trips whose dates straddle that day.
+func TestHandleListBuckets(t *testing.T) {
+	t.Parallel()
+
+	ref := time.Date(2026, 6, 23, 0, 0, 0, 0, time.UTC)
+	current := makeTrip("current-1", ref.AddDate(0, 0, -1), ref.AddDate(0, 0, 1))
+	upcoming := makeTrip("upcoming-1", ref.AddDate(0, 0, 2), ref.AddDate(0, 0, 5))
+	past := makeTrip("past-1", ref.AddDate(0, 0, -10), ref.AddDate(0, 0, -2))
+
+	store := &fakeTripStore{listResult: []Trip{current, upcoming, past}}
+	m := newCreateModule(store)
+
+	rec := httptest.NewRecorder()
+	m.handleList(rec, listReq("owner-1"))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+
+	var resp listResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if len(resp.Current) != 1 || resp.Current[0].ID != "current-1" {
+		t.Errorf("current bucket = %v, want [current-1]", resp.Current)
+	}
+	if !resp.Current[0].IsCurrent {
+		t.Error("current trip should have is_current=true")
+	}
+	if len(resp.Upcoming) != 1 || resp.Upcoming[0].ID != "upcoming-1" {
+		t.Errorf("upcoming bucket = %v, want [upcoming-1]", resp.Upcoming)
+	}
+	if resp.Upcoming[0].IsCurrent {
+		t.Error("upcoming trip should have is_current=false")
+	}
+	if len(resp.Past) != 1 || resp.Past[0].ID != "past-1" {
+		t.Errorf("past bucket = %v, want [past-1]", resp.Past)
+	}
+	if resp.Past[0].IsCurrent {
+		t.Error("past trip should have is_current=false")
+	}
+}
+
+// TestHandleListEmptyBuckets asserts that empty buckets are returned as empty
+// arrays (not null) for a stable client contract.
+func TestHandleListEmptyBuckets(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeTripStore{listResult: []Trip{}}
+	m := newCreateModule(store)
+
+	rec := httptest.NewRecorder()
+	m.handleList(rec, listReq("owner-1"))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.NewDecoder(rec.Body).Decode(&raw); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	for _, key := range []string{"current", "upcoming", "past"} {
+		if string(raw[key]) != "[]" {
+			t.Errorf("%s bucket = %s, want []", key, raw[key])
+		}
 	}
 }

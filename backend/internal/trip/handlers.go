@@ -31,6 +31,11 @@ type tripStore interface {
 	// ownerID scopes the lookup so a day in another user's trip is an
 	// indistinguishable errDayNotFound.
 	GetDay(ctx context.Context, tripID, ownerID, date string) (Day, error)
+	// List returns all non-archived trips visible to userID (owner or member),
+	// ordered by start_date ascending. It is the authz-scoping seam: the
+	// owner-only shim used until Milestone 08 is expressed by the JOIN on
+	// sharing.trip_memberships that was written at trip creation time.
+	List(ctx context.Context, userID string) ([]Trip, error)
 }
 
 // parseTripInput parses and validates the client-supplied trip fields shared by
@@ -349,6 +354,69 @@ func (m *Module) handleGetDay(w http.ResponseWriter, r *http.Request) {
 		Index:  day.Index,
 		Notes:  day.Notes,
 	})
+}
+
+// listedTripResponse extends tripResponse with a current-trip flag for the
+// listing endpoint. IsCurrent is true only for the single trip that spans today;
+// it lets Epic 05 surface the active trip prominently without re-bucketing.
+type listedTripResponse struct {
+	tripResponse
+	IsCurrent bool `json:"is_current"`
+}
+
+// listResponse is the bucketed wire shape for GET /trips. Archived trips are
+// excluded; every active trip appears in exactly one bucket.
+type listResponse struct {
+	Current  []listedTripResponse `json:"current"`
+	Upcoming []listedTripResponse `json:"upcoming"`
+	Past     []listedTripResponse `json:"past"`
+}
+
+// handleList returns the authenticated user's non-archived trips bucketed into
+// Current / Upcoming / Past using the server's today. The listing is scoped via
+// the sharing membership JOIN in the store (Epic 04's authz seam) so only trips
+// the user owns or is a member of are returned. The current trip is flagged with
+// is_current so Epic 05 can surface it prominently without re-bucketing.
+func (m *Module) handleList(w http.ResponseWriter, r *http.Request) {
+	p, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusUnauthorized, "auth_required", "authentication required"))
+		return
+	}
+
+	trips, err := m.store.List(r.Context(), p.UserID)
+	if err != nil {
+		platformlog.FromContext(r.Context()).Error("listing trips", "err", err.Error())
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	resp := listResponse{
+		Current:  []listedTripResponse{},
+		Upcoming: []listedTripResponse{},
+		Past:     []listedTripResponse{},
+	}
+	for _, t := range trips {
+		bucket, isCurrent := bucketTrip(t.StartDate, t.EndDate, today)
+		lt := listedTripResponse{
+			tripResponse: newTripResponse(t),
+			IsCurrent:    isCurrent,
+		}
+		switch bucket {
+		case BucketCurrent:
+			resp.Current = append(resp.Current, lt)
+		case BucketUpcoming:
+			resp.Upcoming = append(resp.Upcoming, lt)
+		default:
+			resp.Past = append(resp.Past, lt)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // handleDelete removes a trip and its memberships in one transaction. Only the
