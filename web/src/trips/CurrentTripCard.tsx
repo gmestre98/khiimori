@@ -8,14 +8,11 @@ function todayDayNumber(startDate: string): number | null {
   const start = new Date(startDate + 'T00:00:00')
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const diff = Math.round((today.getTime() - start.getTime()) / 86_400_000)
+  const diff = Math.floor((today.getTime() - start.getTime() + 12 * 3_600_000) / 86_400_000)
   if (diff < 0) return null
   return diff + 1
 }
 
-// BudgetGlanceSlot is the stable placeholder boundary that Milestone 05 fills
-// with real budget figures. The slot prop defaults to a neutral placeholder so
-// the card renders without any budget data.
 // BudgetGlanceSlot is the stable placeholder boundary that Milestone 05 fills
 // with real budget figures. Uses <section> so it gets role=region and can be
 // found by aria-label in tests and assistive technology.
