@@ -88,27 +88,24 @@ func TestAuthzOwnerCanPerformAllOperations(t *testing.T) {
 	patchResp := patchJSON(t, srv, fmt.Sprintf("%s/%s", TripsPath, created.ID), map[string]any{
 		"name": "Owner ops test (updated)", "start_date": "2026-07-01", "end_date": "2026-07-05",
 	})
+	patchResp.Body.Close()
 	if patchResp.StatusCode != http.StatusOK {
-		patchResp.Body.Close()
 		t.Errorf("PATCH by owner: status %d, want 200", patchResp.StatusCode)
 	}
-	patchResp.Body.Close()
 
 	// Archive.
 	archResp := postJSON(t, srv, fmt.Sprintf("%s/%s/archive", TripsPath, created.ID), map[string]any{})
+	archResp.Body.Close()
 	if archResp.StatusCode != http.StatusOK {
-		archResp.Body.Close()
 		t.Errorf("POST /archive by owner: status %d, want 200", archResp.StatusCode)
 	}
-	archResp.Body.Close()
 
 	// Unarchive.
 	unarchResp := postJSON(t, srv, fmt.Sprintf("%s/%s/unarchive", TripsPath, created.ID), map[string]any{})
+	unarchResp.Body.Close()
 	if unarchResp.StatusCode != http.StatusOK {
-		unarchResp.Body.Close()
 		t.Errorf("POST /unarchive by owner: status %d, want 200", unarchResp.StatusCode)
 	}
-	unarchResp.Body.Close()
 
 	// Delete.
 	delResp := httpDelete(t, srv, fmt.Sprintf("%s/%s", TripsPath, created.ID))
@@ -123,8 +120,7 @@ func TestAuthzOwnerCanPerformAllOperations(t *testing.T) {
 // deliberate: it prevents callers from distinguishing "trip does not exist"
 // from "trip exists but you're not authorized" (presence oracle attack).
 func TestAuthzNonOwnerUpdateDenied(t *testing.T) {
-	ownerA, _, srvA, srvB := setupTwoOwners(t)
-	_ = ownerA
+	_, _, srvA, srvB := setupTwoOwners(t)
 
 	trip := createTripFor(t, srvA, "Owner A trip")
 
@@ -264,7 +260,6 @@ func assertAbsentTrip(t *testing.T, label, tripID, ownerID string, body listResp
 	for _, lt := range all {
 		if lt.ID == tripID || lt.OwnerID == ownerID {
 			t.Errorf("%s: trip %s (owner %s) must not appear", label, tripID, ownerID)
-			return
 		}
 	}
 }
