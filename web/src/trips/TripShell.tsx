@@ -21,7 +21,7 @@ function clampDate(date: string, start: string, end: string): string {
 // redirects to today's day (or the nearest valid day). Child routes render via
 // <Outlet> and receive the trip through the outlet context.
 export function TripShell() {
-  const { tripId } = useParams<{ tripId: string }>()
+  const { tripId, date: dateParam } = useParams<{ tripId: string; date?: string }>()
   const location = useLocation()
   // Trip may be passed via Link state (from the dashboard) to avoid a refetch.
   const stateTrip = (location.state as { trip?: Trip } | null)?.trip ?? null
@@ -31,7 +31,16 @@ export function TripShell() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (stateTrip) return // already have the trip from nav state
+    // Use nav-state trip only when it matches the current tripId; a tripId
+    // change (e.g. navigating between trips) must re-resolve from the API.
+    if (stateTrip && stateTrip.id === tripId) {
+      setTrip(stateTrip)
+      setLoading(false)
+      return
+    }
+    setTrip(null)
+    setLoading(true)
+    setError(null)
     const controller = new AbortController()
     fetchTrips(controller.signal)
       .then((data) => {
@@ -51,8 +60,7 @@ export function TripShell() {
         setLoading(false)
       })
     return () => controller.abort()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tripId])
+  }, [tripId, stateTrip])
 
   if (loading) {
     return (
@@ -69,9 +77,8 @@ export function TripShell() {
     )
   }
 
-  // If the URL ends at /trips/:tripId (no day segment), redirect to today's day
-  // or the nearest valid day within the trip's range.
-  const isAtRoot = !location.pathname.includes('/days/')
+  // If no day segment is matched, redirect to today's day (or nearest boundary).
+  const isAtRoot = !dateParam
   if (isAtRoot) {
     const today = todayStr()
     const target = clampDate(today, trip.start_date, trip.end_date)

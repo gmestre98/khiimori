@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useOutletContext, useParams } from 'react-router-dom'
-import { UnauthorizedError, datesInRange, fetchDay, type Day, type Trip } from '../lib/api'
+import { UnauthorizedError, fetchDay, type Day, type Trip } from '../lib/api'
 
 // DayViewContext is the shape passed from TripShell via Outlet context.
 interface DayViewContext {
@@ -60,7 +60,6 @@ function MapSlot() {
 // mount-point slots (planning, budget, journal, map) that later milestones fill.
 export function DayView() {
   const { tripId, date } = useParams<{ tripId: string; date: string }>()
-  const { trip } = useTripShell()
 
   const [day, setDay] = useState<Day | null>(null)
   const [loading, setLoading] = useState(true)
@@ -88,14 +87,14 @@ export function DayView() {
     return () => controller.abort()
   }, [tripId, date])
 
-  const dates = datesInRange(trip.start_date, trip.end_date)
-  const dayNumber = date ? dates.indexOf(date) + 1 : null
+  // day.index is 0-based (server-provided); +1 gives the 1-based display number.
+  const dayNumber = day ? day.index + 1 : null
 
   return (
     <article className="day-view" aria-label={date ? `Day ${dayNumber ?? ''} — ${date}` : 'Day'}>
       <header className="day-view-header">
         <h2 className="day-view-title">
-          {dayNumber !== null && dayNumber > 0 ? `Day ${dayNumber}` : 'Day'}
+          {dayNumber !== null ? `Day ${dayNumber}` : 'Day'}
         </h2>
         {date && <time className="day-view-date" dateTime={date}>{date}</time>}
       </header>

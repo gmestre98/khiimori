@@ -21,13 +21,11 @@ const mockTrip: Trip = {
   is_current: false,
 }
 
-const mockDay: api.Day = {
-  id: 'day-1',
-  trip_id: 'trip-1',
-  date: '2026-06-01',
-  index: 0,
-  notes: '',
+function makeMockDay(date: string, index: number): api.Day {
+  return { id: `day-${index}`, trip_id: 'trip-1', date, index, notes: '' }
 }
+
+const mockDay = makeMockDay('2026-06-01', 0)
 
 vi.mock('../lib/api', async (importOriginal) => {
   const orig = await importOriginal<typeof api>()
@@ -132,6 +130,7 @@ describe('DayNav', () => {
 
 describe('DayView', () => {
   it('shows the day number and date', async () => {
+    vi.mocked(api.fetchDay).mockResolvedValue(makeMockDay('2026-06-03', 2))
     renderShellAtDay('2026-06-03')
     await waitFor(() => {
       expect(screen.getByText('Day 3')).toBeInTheDocument()
