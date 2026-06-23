@@ -1,4 +1,4 @@
-import { useNavigate, useLocation, useParams } from 'react-router-dom'
+import { useNavigate, useLocation, useParams, Navigate } from 'react-router-dom'
 import { TripForm } from './TripForm'
 import type { Trip } from '../lib/api'
 
@@ -18,8 +18,7 @@ export function TripFormPage() {
   // If we're in edit mode but have no trip data (e.g. direct URL navigation),
   // redirect back to the dashboard.
   if (isEdit && !existingTrip) {
-    navigate('/', { replace: true })
-    return null
+    return <Navigate to="/" replace />
   }
 
   function handleSuccess() {

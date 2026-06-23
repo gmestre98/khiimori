@@ -105,7 +105,7 @@ export function TripForm({ trip, onSuccess, onCancel }: TripFormProps) {
       } else if (err instanceof TripValidationError) {
         setError(err.message)
       } else if (err instanceof UnauthorizedError) {
-        // Central handler drives re-auth; nothing more to do here.
+        return // central handler navigates away; component will unmount
       } else {
         setError('Something went wrong. Please try again.')
       }
