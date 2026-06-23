@@ -1,5 +1,7 @@
 # Epic M03.3 — Trip bucketing & listing (Current/Upcoming/Past)
 
+> **Status:** ✅ Done — all 3 stories merged (PRs [#206](https://github.com/gmestre98/khiimori/pull/206), [#207](https://github.com/gmestre98/khiimori/pull/207), [#211](https://github.com/gmestre98/khiimori/pull/211)) and all 4 acceptance criteria verified. Bucketing logic is centralised in a pure `bucketTrip` function; `GET /trips` returns trips grouped into Current/Upcoming/Past with archived excluded and the current trip flagged; all edge cases and owner-scoping are covered by unit + integration tests with a fixed clock.
+>
 > Milestone: [03 — Trips & Days](../README.md) · PRD refs: §5.1, §9.
 
 ## Description
