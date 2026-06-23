@@ -38,6 +38,14 @@ function TripCard({
         <p className="trip-card-dates">{dateRange}</p>
         <div className="trip-card-actions">
           <Link
+            to={`/trips/${trip.id}`}
+            state={{ trip }}
+            className="trip-card-open-link"
+            aria-label={`Open ${trip.name}`}
+          >
+            Open
+          </Link>
+          <Link
             to={`/trips/${trip.id}/edit`}
             state={{ trip }}
             className="trip-card-edit-link"
