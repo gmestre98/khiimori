@@ -1,5 +1,7 @@
 # Epic M03.4 — Server-side authorization integration
 
+> **Status:** ✅ Done — PRs [#214](https://github.com/gmestre98/khiimori/pull/214) (S1), [#215](https://github.com/gmestre98/khiimori/pull/215) (S2), [#217](https://github.com/gmestre98/khiimori/pull/217) (S3), [#219](https://github.com/gmestre98/khiimori/pull/219) (S4). All 4 ACs covered: Authorizer interface, owner-only shim, endpoints wired, integration tests (owner allowed / non-owner denied across CRUD + listing, 404-not-403 behaviour documented).
+
 > Milestone: [03 — Trips & Days](../README.md) · PRD refs: §5.9, §6, §7.0, §7.1.
 
 ## Description
@@ -15,7 +17,7 @@ implements that interface; swapping in the real membership check later requires 
 
 ## Acceptance Criteria
 
-- [ ] An **`Authorizer` interface** ("may user U perform action A on trip T?") is defined and called
+- [x] An **`Authorizer` interface** ("may user U perform action A on trip T?") is defined and called
       by every trip read/write path; the Trip module never queries access rules inline (PRD §5.9,
       §7.1).
 - [x] A v1 **owner-only shim** implements the interface (owner may do everything; non-owners are
@@ -23,7 +25,7 @@ implements that interface; swapping in the real membership check later requires 
       (PRD §7.0).
 - [x] **Unauthorized** trip access yields `403`/`404` (not data); no trip endpoint relies on
       client-side checks (PRD §5.9, §6).
-- [ ] Unit + integration tests cover owner-allowed and non-owner-denied paths across create/read/
+- [x] Unit + integration tests cover owner-allowed and non-owner-denied paths across create/read/
       update/delete and the listing (PRD §7.6).
 
 ## Implementation Details / Architecture
