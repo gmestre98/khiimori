@@ -8,11 +8,11 @@ via its check-in/out range (no per-night rows). Its `cost` is a source for Miles
 Add a migration for the `Stay` table in the `trip.*` schema.
 
 ## Acceptance criteria
-- [ ] A migration creates `Stay(id, trip_id, name, location, check_in, check_out, cost, link)` with a FK
+- [x] A migration creates `Stay(id, trip_id, name, location, check_in, check_out, cost, link)` with a FK
   to `trip.Trip` and an index on `trip_id`.
-- [ ] `name` is required; `location`, `cost`, `link`, and the dates are nullable/optional as appropriate
+- [x] `name` is required; `location`, `cost`, `link`, and the dates are nullable/optional as appropriate
   (a stay is useful with name + dates).
-- [ ] The migration applies cleanly via the M01.3 runner and is covered by the migration test setup.
+- [x] The migration applies cleanly via the M01.3 runner and is covered by the migration test setup.
 
 ## Constraints
 - Follow M01.3 migration conventions.
