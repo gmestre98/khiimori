@@ -4,6 +4,7 @@ import { Home } from './pages/Home'
 import { Profile } from './pages/Profile'
 import { SignIn } from './auth/SignIn'
 import { PostLoginRedirect, RequireAuth } from './auth/RequireAuth'
+import { TripFormPage } from './trips/TripFormPage'
 
 // App is the milestone-02 shell and route table. Public route: /signin. Gated
 // routes (everything under RequireAuth) require a valid session and redirect
@@ -22,6 +23,8 @@ function App() {
           <Route element={<RequireAuth />}>
             <Route path="/" element={<Home />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/trips/new" element={<TripFormPage />} />
+            <Route path="/trips/:id/edit" element={<TripFormPage />} />
           </Route>
           {/* Unknown paths fall back to home, which gates to sign-in if anonymous. */}
           <Route path="*" element={<Navigate to="/" replace />} />

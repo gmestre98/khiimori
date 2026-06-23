@@ -192,7 +192,12 @@ export interface TripsResponse {
 
 // fetchTrips loads the signed-in user's trips from GET /trips. It throws
 // UnauthorizedError on 401 and a generic Error on other failures.
+// Set VITE_USE_MOCK_TRIPS=true in .env.local to return local mock data instead.
 export async function fetchTrips(signal?: AbortSignal): Promise<TripsResponse> {
+  if (import.meta.env.VITE_USE_MOCK_TRIPS === 'true') {
+    const { mockTripsResponse } = await import('./mock-trips')
+    return mockTripsResponse
+  }
   const res = await apiFetch('/trips', { signal })
   if (res.status === 401) {
     throw new UnauthorizedError()
@@ -201,6 +206,77 @@ export async function fetchTrips(signal?: AbortSignal): Promise<TripsResponse> {
     throw new Error(`API returned HTTP ${res.status}`)
   }
   return (await res.json()) as TripsResponse
+}
+
+// TripInput is the editable fields sent to POST /trips or PATCH /trips/:id.
+export interface TripInput {
+  name: string
+  destinations: string[]
+  start_date: string
+  end_date: string
+  cover: string
+}
+
+// TripValidationError carries the API's 400 message so the form can surface it.
+export class TripValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'TripValidationError'
+  }
+}
+
+// TripShrinkConflictError is returned when a PATCH would remove days that hold
+// data (409 days_have_data). count is how many days would be removed. Retry with
+// forceShrink: true after user confirmation to proceed.
+export class TripShrinkConflictError extends Error {
+  constructor(public count: number) {
+    super(`${count} day(s) hold data`)
+    this.name = 'TripShrinkConflictError'
+  }
+}
+
+// createTrip calls POST /trips and returns the new trip. Throws TripValidationError
+// on 400 and UnauthorizedError on 401.
+export async function createTrip(input: TripInput): Promise<Trip> {
+  const res = await apiFetch('/trips', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 400) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new TripValidationError(body?.error?.message ?? 'Invalid trip')
+  }
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as Trip
+}
+
+// updateTrip calls PATCH /trips/:id. Set forceShrink to true after user
+// confirmation when TripShrinkConflictError is thrown.
+export async function updateTrip(
+  id: string,
+  input: TripInput,
+  forceShrink = false,
+): Promise<Trip> {
+  const res = await apiFetch(`/trips/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...input, force_shrink: forceShrink }),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 400) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new TripValidationError(body?.error?.message ?? 'Invalid trip')
+  }
+  if (res.status === 409) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    const msg = body?.error?.message ?? ''
+    const match = /^(\d+) day/.exec(msg)
+    throw new TripShrinkConflictError(match ? parseInt(match[1], 10) : 1)
+  }
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as Trip
 }
 
 // signOut ends the session server-side (clears the cookie, Epic 03). It resolves
