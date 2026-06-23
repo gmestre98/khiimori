@@ -14,13 +14,13 @@ set, and CRUD; the day-view rendering is Epic 05 and re-planning operations are 
 
 ## Acceptance Criteria
 
-- [ ] A migration adds `PlanItem(id, trip_id, day_id?, title, type, start_time?, duration?,
+- [x] A migration adds `PlanItem(id, trip_id, day_id?, title, type, start_time?, duration?,
       location?, booking_status?, cost?, link?, order, status)` to `trip.*` per PRD §9 (PRD §7.7).
-- [ ] **Create** requires **only `title`**; all other fields are optional and independently editable
+- [x] **Create** requires **only `title`**; all other fields are optional and independently editable
       (PRD §5.2).
-- [ ] An item is **untimed** when `start_time` is null and **timed** when a start time (+ optional
+- [x] An item is **untimed** when `start_time` is null and **timed** when a start time (+ optional
       duration) is set — both are first-class, never forcing a time where there isn't one (PRD §5.2).
-- [ ] `status` is one of `idea | planned | done | skipped | cancelled`, defaulting sensibly on
+- [x] `status` is one of `idea | planned | done | skipped | cancelled`, defaulting sensibly on
       create; `cost` is owned here for Milestone 05's roll-ups (PRD §9).
 - [ ] Unit + integration tests cover create-with-title-only, timed/untimed toggling, and full CRUD
       (PRD §7.6).

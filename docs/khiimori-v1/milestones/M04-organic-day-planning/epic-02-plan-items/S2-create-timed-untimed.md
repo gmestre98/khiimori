@@ -9,12 +9,12 @@ schema (S1).
 Implement plan-item creation with title-only minimum and timed/untimed handling.
 
 ## Acceptance criteria
-- [ ] A create endpoint accepts **only `title`** as required; type, time, duration, location, booking
+- [x] A create endpoint accepts **only `title`** as required; type, time, duration, location, booking
   status, link, and cost are optional.
-- [ ] An item with null `start_time` is **untimed**; with a start time it is **timed** (optional duration).
-- [ ] On create the item gets a default `status` and a sensible `order` within its day (or backlog).
-- [ ] Creation is **authorized** (M03 `Authorizer`) and **idempotent/queueable** for offline replay.
-- [ ] A unit test covers title-only create and timed/untimed creation.
+- [x] An item with null `start_time` is **untimed**; with a start time it is **timed** (optional duration).
+- [x] On create the item gets a default `status` and a sensible `order` within its day (or backlog).
+- [x] Creation is **authorized** (M03 `Authorizer`) and **idempotent/queueable** for offline replay.
+- [x] A unit test covers title-only create and timed/untimed creation.
 
 ## Constraints
 - Never force a time where there isn't one (PRD §5.2).
