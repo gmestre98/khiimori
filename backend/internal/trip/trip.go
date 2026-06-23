@@ -69,11 +69,11 @@ type NewTrip struct {
 // explicit user confirmation before sending true (the guard exists to prevent
 // silent data loss, not to block informed deletions).
 type EditTrip struct {
-	Name           string
-	Destinations   []string
-	StartDate      time.Time
-	EndDate        time.Time
-	Cover          string
+	Name            string
+	Destinations    []string
+	StartDate       time.Time
+	EndDate         time.Time
+	Cover           string
 	ForceRemoveDays bool
 }
 
