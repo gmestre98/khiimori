@@ -42,10 +42,11 @@ func authShim(userID string) httpx.Middleware {
 	}
 }
 
-// newModuleWithOwner wires a real Module authenticated as ownerID, truncates
+// newModuleWithOwnerAt wires a real Module authenticated as ownerID, truncates
 // the trip tables so each test starts clean, and returns a ready httptest.Server
-// registered for cleanup on t.
-func newModuleWithOwner(t *testing.T, ownerID string) *httptest.Server {
+// registered for cleanup on t. now is injected as the module clock so bucketing
+// tests remain deterministic regardless of when they run.
+func newModuleWithOwnerAt(t *testing.T, ownerID string, now func() time.Time) *httptest.Server {
 	t.Helper()
 	if testPool == nil {
 		t.Skip("DATABASE_URL_TEST not set; skipping trip HTTP integration test")
@@ -56,12 +57,20 @@ func newModuleWithOwner(t *testing.T, ownerID string) *httptest.Server {
 		t.Fatalf("truncating tables: %v", err)
 	}
 	store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{guard: noDayData{}}}
-	mod := &Module{store: store, requireAuth: authShim(ownerID), now: time.Now}
+	mod := &Module{store: store, requireAuth: authShim(ownerID), now: now}
 	mux := http.NewServeMux()
 	mod.RegisterRoutes(mux)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	return srv
+}
+
+// newModuleWithOwner wires a real Module authenticated as ownerID using the
+// wall clock. Use newModuleWithOwnerAt for tests that need bucketing
+// assertions with a fixed reference date.
+func newModuleWithOwner(t *testing.T, ownerID string) *httptest.Server {
+	t.Helper()
+	return newModuleWithOwnerAt(t, ownerID, time.Now)
 }
 
 // newModule is a convenience wrapper for tests that only need one owner.
@@ -517,10 +526,17 @@ func TestHTTPGetDayOtherOwnerIs404(t *testing.T) {
 	}
 }
 
+// listRef is the fixed reference date used by TestHTTPListBucketsAndScope so
+// bucketing assertions remain stable regardless of when the test runs. Trip
+// dates below are chosen relative to this anchor.
+var listRef = time.Date(2026, 6, 23, 12, 0, 0, 0, time.UTC)
+
 // TestHTTPListBucketsAndScope verifies GET /trips end-to-end: creates trips in
 // different time ranges and one archived trip, calls GET /trips, and asserts
 // correct bucketing, is_current flag, and exclusion of the archived trip. Also
-// asserts owner-scoping: a second owner's trips must not appear in owner A's list.
+// asserts owner-scoping: a second owner's trips must not appear in owner A's
+// list. A fixed reference date is injected into the module clock so the test is
+// deterministic regardless of when it runs.
 func TestHTTPListBucketsAndScope(t *testing.T) {
 	if testPool == nil {
 		t.Skip("DATABASE_URL_TEST not set; skipping")
@@ -534,9 +550,10 @@ func TestHTTPListBucketsAndScope(t *testing.T) {
 	ownerA := freshOwnerID(t)
 	ownerB := freshOwnerID(t)
 
+	fixedClock := func() time.Time { return listRef }
 	makeServer := func(ownerID string) *httptest.Server {
 		store := &pgxTripStore{pool: testPool, memberships: sqlOwnerMemberships{}, days: pgxDayRegenerator{guard: noDayData{}}}
-		mod := &Module{store: store, requireAuth: authShim(ownerID), now: time.Now}
+		mod := &Module{store: store, requireAuth: authShim(ownerID), now: fixedClock}
 		mux := http.NewServeMux()
 		mod.RegisterRoutes(mux)
 		srv := httptest.NewServer(mux)
@@ -556,7 +573,9 @@ func TestHTTPListBucketsAndScope(t *testing.T) {
 		return decodeTrip(t, resp)
 	}
 
-	// Create trips for owner A spanning different time buckets relative to today (2026-06-23).
+	// Trip dates are chosen relative to listRef (2026-06-23) so the bucketing
+	// is fixed: past ends before that date, current spans it, upcoming starts
+	// after it.
 	past := create(srvA, "Past", "2026-05-01", "2026-05-10")
 	current := create(srvA, "Current", "2026-06-20", "2026-06-30")
 	upcoming := create(srvA, "Upcoming", "2026-07-01", "2026-07-10")

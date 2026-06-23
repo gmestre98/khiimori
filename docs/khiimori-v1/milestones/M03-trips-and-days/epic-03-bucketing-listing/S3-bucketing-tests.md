@@ -8,12 +8,12 @@ today, a single-day trip, and the past/future boundaries (PRD §5.1, §7.6).
 Add unit + integration tests for bucketing and the listing endpoint.
 
 ## Acceptance criteria
-- [ ] Unit tests for S1 cover: trip **spanning today** (Current), **single-day** trip on today (Current),
+- [x] Unit tests for S1 cover: trip **spanning today** (Current), **single-day** trip on today (Current),
   trip ending **yesterday** (Past), trip starting **tomorrow** (Upcoming), and exact start/end == today
   boundaries.
-- [ ] An integration test for S2 asserts archived trips are excluded and the current trip is flagged.
-- [ ] An integration test asserts the listing is **scoped** (a user does not see another user's trips).
-- [ ] Tests use a **fixed `today`** for determinism.
+- [x] An integration test for S2 asserts archived trips are excluded and the current trip is flagged.
+- [x] An integration test asserts the listing is **scoped** (a user does not see another user's trips).
+- [x] Tests use a **fixed `today`** for determinism.
 
 ## Constraints
 - Inject `today` rather than using the wall clock so tests are deterministic.
