@@ -10,12 +10,12 @@ Define the `Authorizer` interface (and the action set it answers for) in a place
 implement.
 
 ## Acceptance criteria
-- [ ] An `Authorizer` interface exposes a check like `Can(ctx, userID, action, tripID) → (allowed, error)`
+- [x] An `Authorizer` interface exposes a check like `Can(ctx, userID, action, tripID) → (allowed, error)`
   (or equivalent), with a small **action set** covering trip read/write/manage operations.
-- [ ] The interface lives at a boundary both the Trip module (now) and the Sharing module (Milestone 08)
+- [x] The interface lives at a boundary both the Trip module (now) and the Sharing module (Milestone 08)
   can depend on, with callers depending on the interface, not an implementation (PRD §7.1).
-- [ ] The action set is documented so Epics 03/05 and later modules call consistent actions.
-- [ ] No implementation logic here beyond the interface and action definitions.
+- [x] The action set is documented so Epics 03/05 and later modules call consistent actions.
+- [x] No implementation logic here beyond the interface and action definitions.
 
 ## Constraints
 - Mirror the shape Milestone 08 will implement so swapping the shim (S2) for the real `Authorizer` needs
