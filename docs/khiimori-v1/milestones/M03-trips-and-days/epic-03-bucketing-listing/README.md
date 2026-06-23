@@ -14,13 +14,13 @@ lists.
 
 ## Acceptance Criteria
 
-- [ ] A listing endpoint returns the user's trips grouped into **Current / Upcoming / Past**, derived
+- [x] A listing endpoint returns the user's trips grouped into **Current / Upcoming / Past**, derived
       from dates vs. today (computed server-side, not client-side) (PRD §5.1).
-- [ ] The **current trip** (range spanning today) is identifiable in the response so the UI can
+- [x] The **current trip** (range spanning today) is identifiable in the response so the UI can
       surface it prominently; **archived** trips are excluded from active buckets (PRD §5.1).
-- [ ] Bucketing handles edge cases correctly: a trip **spanning today**, a **single-day** trip, and
+- [x] Bucketing handles edge cases correctly: a trip **spanning today**, a **single-day** trip, and
       the **past/future boundaries** around `start_date`/`end_date` (PRD §5.1).
-- [ ] Unit + integration tests cover the bucketing edge cases above with a fixed "today" reference
+- [x] Unit + integration tests cover the bucketing edge cases above with a fixed "today" reference
       (PRD §7.6).
 
 ## Implementation Details / Architecture
