@@ -13,15 +13,18 @@ milestones. This is the UI every feature milestone renders inside.
 
 ## Acceptance Criteria
 
-- [ ] A **Trips dashboard** renders the **Current / Upcoming / Past** buckets from Epic 03, with the
+- [x] A **Trips dashboard** renders the **Current / Upcoming / Past** buckets from Epic 03, with the
       **current trip surfaced prominently** showing **today's day number** and a **budget-glance
       slot** (figures provided later by Milestone 05; this epic renders the slot) (PRD §5.1).
+      _(Done: S1 #221, S2 #223)_
 - [ ] A **trip create/edit form** drives Epic 01's CRUD (name, destinations, start/end date, cover,
       EUR shown as fixed) with archive/delete affordances (PRD §5.1).
+      _(Create/edit form done: S3 #226 — archive/delete affordances pending S4)_
 - [ ] A **trip shell** hosts a per-day view that is **deep-linkable** (trip → day) and provides the
       mounting points the Planning/Budget/Journal/Maps milestones fill in (PRD §5.1).
-- [ ] The UI only shows trips the user is **authorized** to see (driven by Epic 03/04 server-side
+- [x] The UI only shows trips the user is **authorized** to see (driven by Epic 03/04 server-side
       scoping — the client never decides authorization) (PRD §5.9).
+      _(Server-side scoped from Epic 03/04; client renders what server returns)_
 - [ ] Surfaces are **responsive** (laptop + mobile) using basic styling now and Milestone 09
       components when available (PRD §5.10, §7.2).
 
