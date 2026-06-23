@@ -2,15 +2,21 @@ package trip
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// errPlanItemNotFound means no plan item matched the id within the given trip.
+var errPlanItemNotFound = errors.New("trip: plan item not found")
+
 // planItemStore is the persistence surface the plan-item handlers use.
 type planItemStore interface {
 	CreatePlanItem(ctx context.Context, n NewPlanItem) (PlanItem, error)
+	UpdatePlanItem(ctx context.Context, tripID, itemID string, e EditPlanItem) (PlanItem, error)
+	DeletePlanItem(ctx context.Context, tripID, itemID string) error
 }
 
 // pgxPlanItemStore is the Postgres-backed plan-item store.
@@ -93,4 +99,48 @@ func (s *pgxPlanItemStore) CreatePlanItem(ctx context.Context, n NewPlanItem) (P
 		return PlanItem{}, fmt.Errorf("trip: insert plan item: %w", err)
 	}
 	return p, nil
+}
+
+// UpdatePlanItem replaces the editable fields of one plan item scoped to a
+// trip. Setting e.StartTime to nil clears start_time (untimed); setting
+// e.Duration to nil clears duration. Returns errPlanItemNotFound when the item
+// does not exist within the trip.
+func (s *pgxPlanItemStore) UpdatePlanItem(ctx context.Context, tripID, itemID string, e EditPlanItem) (PlanItem, error) {
+	const q = `
+		UPDATE trip.plan_items
+		SET title          = $3,
+		    type           = $4,
+		    start_time     = $5::time,
+		    duration       = $6::interval,
+		    location       = $7,
+		    booking_status = $8,
+		    cost           = $9,
+		    link           = $10
+		WHERE id = $1::uuid AND trip_id = $2::uuid
+		RETURNING ` + planItemColumns
+	var p PlanItem
+	err := scanPlanItem(s.pool.QueryRow(ctx, q,
+		itemID, tripID,
+		e.Title, e.Type, e.StartTime, e.Duration,
+		e.Location, e.BookingStatus, e.Cost, e.Link,
+	), &p)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return PlanItem{}, errPlanItemNotFound
+		}
+		return PlanItem{}, fmt.Errorf("trip: update plan item: %w", err)
+	}
+	return p, nil
+}
+
+// DeletePlanItem removes a plan item scoped to a trip. Replaying a delete of a
+// non-existent item is a no-op (idempotent) for Epic 06 offline replay.
+func (s *pgxPlanItemStore) DeletePlanItem(ctx context.Context, tripID, itemID string) error {
+	_, err := s.pool.Exec(ctx,
+		`DELETE FROM trip.plan_items WHERE id = $1::uuid AND trip_id = $2::uuid`,
+		itemID, tripID)
+	if err != nil {
+		return fmt.Errorf("trip: delete plan item: %w", err)
+	}
+	return nil
 }

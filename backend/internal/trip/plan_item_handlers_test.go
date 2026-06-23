@@ -16,6 +16,16 @@ type fakePlanItemStore struct {
 	gotCreate    NewPlanItem
 	createResult PlanItem
 	createErr    error
+
+	gotUpdateTripID string
+	gotUpdateItemID string
+	gotUpdate       EditPlanItem
+	updateResult    PlanItem
+	updateErr       error
+
+	gotDeleteTripID string
+	gotDeleteItemID string
+	deleteErr       error
 }
 
 func (f *fakePlanItemStore) CreatePlanItem(_ context.Context, n NewPlanItem) (PlanItem, error) {
@@ -45,6 +55,37 @@ func (f *fakePlanItemStore) CreatePlanItem(_ context.Context, n NewPlanItem) (Pl
 		SortOrder:     0,
 		Status:        status,
 	}, nil
+}
+
+func (f *fakePlanItemStore) UpdatePlanItem(_ context.Context, tripID, itemID string, e EditPlanItem) (PlanItem, error) {
+	f.gotUpdateTripID = tripID
+	f.gotUpdateItemID = itemID
+	f.gotUpdate = e
+	if f.updateErr != nil {
+		return PlanItem{}, f.updateErr
+	}
+	if f.updateResult.ID != "" {
+		return f.updateResult, nil
+	}
+	return PlanItem{
+		ID:            itemID,
+		TripID:        tripID,
+		Title:         e.Title,
+		Type:          e.Type,
+		StartTime:     e.StartTime,
+		Duration:      e.Duration,
+		Location:      e.Location,
+		BookingStatus: e.BookingStatus,
+		Cost:          e.Cost,
+		Link:          e.Link,
+		Status:        "planned",
+	}, nil
+}
+
+func (f *fakePlanItemStore) DeletePlanItem(_ context.Context, tripID, itemID string) error {
+	f.gotDeleteTripID = tripID
+	f.gotDeleteItemID = itemID
+	return f.deleteErr
 }
 
 // newPlanItemModule constructs a Module wired to a trip store and plan-item store.
@@ -323,6 +364,250 @@ func TestHandleCreatePlanItemUnauthorized(t *testing.T) {
 		t.Fatalf("status = %d, want 404 (presence oracle protection)", rec.Code)
 	}
 	if pi.gotCreate.TripID != "" {
+		t.Error("store should not be called for an unauthorized request")
+	}
+}
+
+// updatePlanItemReq builds a PATCH /trips/{id}/plan-items/{itemID} request.
+func updatePlanItemReq(tripID, itemID, userID, body string) *http.Request {
+	req := httptest.NewRequest(http.MethodPatch, TripsPath+"/"+tripID+"/plan-items/"+itemID, strings.NewReader(body))
+	req.SetPathValue("id", tripID)
+	req.SetPathValue("itemID", itemID)
+	return withPrincipal(req, userID)
+}
+
+// deletePlanItemReq builds a DELETE /trips/{id}/plan-items/{itemID} request.
+func deletePlanItemReq(tripID, itemID, userID string) *http.Request {
+	req := httptest.NewRequest(http.MethodDelete, TripsPath+"/"+tripID+"/plan-items/"+itemID, nil)
+	req.SetPathValue("id", tripID)
+	req.SetPathValue("itemID", itemID)
+	return withPrincipal(req, userID)
+}
+
+// TestHandleUpdatePlanItemPartialFields asserts a partial edit updates only
+// the supplied fields and returns 200 with the item.
+func TestHandleUpdatePlanItemPartialFields(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	body := `{"title":"Updated title","location":"New place"}`
+	rec := httptest.NewRecorder()
+	m.handleUpdatePlanItem(rec, updatePlanItemReq("trip-1", "item-42", "owner-1", body))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotUpdateTripID != "trip-1" {
+		t.Errorf("tripID = %q, want trip-1", pi.gotUpdateTripID)
+	}
+	if pi.gotUpdateItemID != "item-42" {
+		t.Errorf("itemID = %q, want item-42", pi.gotUpdateItemID)
+	}
+	if pi.gotUpdate.Title != "Updated title" {
+		t.Errorf("title = %q, want Updated title", pi.gotUpdate.Title)
+	}
+	if pi.gotUpdate.Location == nil || *pi.gotUpdate.Location != "New place" {
+		t.Errorf("location = %v, want New place", pi.gotUpdate.Location)
+	}
+
+	var resp planItemResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.ID != "item-42" {
+		t.Errorf("response id = %q, want item-42", resp.ID)
+	}
+}
+
+// TestHandleUpdatePlanItemTimedToUntimed asserts setting start_time to null
+// makes the item untimed (clears start_time and duration).
+func TestHandleUpdatePlanItemTimedToUntimed(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	// null start_time → untimed; duration must also be absent/null
+	body := `{"title":"Walk"}`
+	rec := httptest.NewRecorder()
+	m.handleUpdatePlanItem(rec, updatePlanItemReq("trip-1", "item-99", "owner-1", body))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotUpdate.StartTime != nil {
+		t.Errorf("start_time = %v, want nil (untimed)", pi.gotUpdate.StartTime)
+	}
+	if pi.gotUpdate.Duration != nil {
+		t.Errorf("duration = %v, want nil when untimed", pi.gotUpdate.Duration)
+	}
+
+	var resp planItemResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.StartTime != nil {
+		t.Errorf("response start_time = %v, want omitted", resp.StartTime)
+	}
+}
+
+// TestHandleUpdatePlanItemUntimedToTimed asserts providing a valid start_time
+// makes the item timed.
+func TestHandleUpdatePlanItemUntimedToTimed(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	body := `{"title":"Morning hike","start_time":"08:00","duration":"PT3H"}`
+	rec := httptest.NewRecorder()
+	m.handleUpdatePlanItem(rec, updatePlanItemReq("trip-1", "item-7", "owner-1", body))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotUpdate.StartTime == nil || *pi.gotUpdate.StartTime != "08:00" {
+		t.Errorf("start_time = %v, want 08:00", pi.gotUpdate.StartTime)
+	}
+	if pi.gotUpdate.Duration == nil || *pi.gotUpdate.Duration != "PT3H" {
+		t.Errorf("duration = %v, want PT3H", pi.gotUpdate.Duration)
+	}
+}
+
+// TestHandleUpdatePlanItemNotFound asserts the store returning errPlanItemNotFound
+// is surfaced as 404.
+func TestHandleUpdatePlanItemNotFound(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{updateErr: errPlanItemNotFound}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleUpdatePlanItem(rec, updatePlanItemReq("trip-1", "gone", "owner-1", `{"title":"x"}`))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
+
+// TestHandleUpdatePlanItemRejectsMissingTitle asserts a missing title is 400.
+func TestHandleUpdatePlanItemRejectsMissingTitle(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleUpdatePlanItem(rec, updatePlanItemReq("trip-1", "item-1", "owner-1", `{"type":"activity"}`))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	if pi.gotUpdateItemID != "" {
+		t.Error("store should not be called for invalid request")
+	}
+}
+
+// TestHandleUpdatePlanItemUnauthenticated asserts a missing session is 401.
+func TestHandleUpdatePlanItemUnauthenticated(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	req := httptest.NewRequest(http.MethodPatch, TripsPath+"/trip-1/plan-items/item-1", strings.NewReader(`{"title":"x"}`))
+	req.SetPathValue("id", "trip-1")
+	req.SetPathValue("itemID", "item-1")
+	rec := httptest.NewRecorder()
+	m.handleUpdatePlanItem(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+}
+
+// TestHandleDeletePlanItemOK asserts a delete returns 204 and forwards the
+// correct ids to the store.
+func TestHandleDeletePlanItemOK(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleDeletePlanItem(rec, deletePlanItemReq("trip-1", "item-88", "owner-1"))
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotDeleteTripID != "trip-1" {
+		t.Errorf("tripID = %q, want trip-1", pi.gotDeleteTripID)
+	}
+	if pi.gotDeleteItemID != "item-88" {
+		t.Errorf("itemID = %q, want item-88", pi.gotDeleteItemID)
+	}
+}
+
+// TestHandleDeletePlanItemIdempotent asserts that replaying a delete of a
+// non-existent item still returns 204 (idempotent for Epic 06 offline replay).
+func TestHandleDeletePlanItemIdempotent(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	// Two consecutive deletes of the same item both return 204.
+	for i := 0; i < 2; i++ {
+		rec := httptest.NewRecorder()
+		m.handleDeletePlanItem(rec, deletePlanItemReq("trip-1", "item-gone", "owner-1"))
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("replay %d: status = %d, want 204", i+1, rec.Code)
+		}
+	}
+}
+
+// TestHandleDeletePlanItemUnauthenticated asserts a missing session is 401.
+func TestHandleDeletePlanItemUnauthenticated(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	req := httptest.NewRequest(http.MethodDelete, TripsPath+"/trip-1/plan-items/item-1", nil)
+	req.SetPathValue("id", "trip-1")
+	req.SetPathValue("itemID", "item-1")
+	rec := httptest.NewRecorder()
+	m.handleDeletePlanItem(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+}
+
+// TestHandleDeletePlanItemUnauthorized asserts a denied Authorizer results in
+// 404 and the store is not called.
+func TestHandleDeletePlanItemUnauthorized(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := &Module{
+		store:       &fakeTripStore{},
+		stays:       &fakeStayStore{},
+		planItems:   pi,
+		requireAuth: func(h http.Handler) http.Handler { return h },
+		authz:       denyAllAuthorizer{},
+		now:         func() time.Time { return fixedNow },
+	}
+
+	rec := httptest.NewRecorder()
+	m.handleDeletePlanItem(rec, deletePlanItemReq("trip-1", "item-1", "other-user"))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 (presence oracle protection)", rec.Code)
+	}
+	if pi.gotDeleteItemID != "" {
 		t.Error("store should not be called for an unauthorized request")
 	}
 }
