@@ -18,7 +18,7 @@ implements that interface; swapping in the real membership check later requires 
 - [ ] An **`Authorizer` interface** ("may user U perform action A on trip T?") is defined and called
       by every trip read/write path; the Trip module never queries access rules inline (PRD §5.9,
       §7.1).
-- [ ] A v1 **owner-only shim** implements the interface (owner may do everything; non-owners are
+- [x] A v1 **owner-only shim** implements the interface (owner may do everything; non-owners are
       denied), structured so Milestone 08's membership-based `Authorizer` is a drop-in replacement
       (PRD §7.0).
 - [ ] **Unauthorized** trip access yields `403`/`404` (not data); no trip endpoint relies on

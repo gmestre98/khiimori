@@ -9,11 +9,11 @@ and the Owner `TripMembership` (Epic 01 S2) so behaviour is already membership-s
 Implement an owner-only `Authorizer` satisfying the S1 interface.
 
 ## Acceptance criteria
-- [ ] The shim allows all actions for a trip's **owner** and denies non-owners.
-- [ ] It resolves ownership from the trip's `owner_id` / Owner `TripMembership` row (Epic 01).
-- [ ] It is structured so Milestone 08's membership `Authorizer` is a **drop-in replacement** (same
+- [x] The shim allows all actions for a trip's **owner** and denies non-owners.
+- [x] It resolves ownership from the trip's `owner_id` / Owner `TripMembership` row (Epic 01).
+- [x] It is structured so Milestone 08's membership `Authorizer` is a **drop-in replacement** (same
   interface, no caller changes).
-- [ ] Unit tests cover owner-allowed and non-owner-denied for each action.
+- [x] Unit tests cover owner-allowed and non-owner-denied for each action.
 
 ## Constraints
 - Keep it minimal and membership-shaped; do not implement roles (Editor/Viewer) — that is Milestone 08.
