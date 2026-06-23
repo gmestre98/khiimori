@@ -10,14 +10,7 @@ function TripCard({ trip }: { trip: Trip }) {
 
   return (
     <article className="trip-card">
-      {trip.cover && (
-        <img
-          src={trip.cover}
-          alt=""
-          className="trip-card-cover"
-          aria-hidden="true"
-        />
-      )}
+      {trip.cover && <img src={trip.cover} alt="" className="trip-card-cover" aria-hidden="true" />}
       <div className="trip-card-body">
         <h3 className="trip-card-name">{trip.name}</h3>
         {destinations && <p className="trip-card-destinations">{destinations}</p>}
@@ -29,7 +22,15 @@ function TripCard({ trip }: { trip: Trip }) {
 
 // BucketSection renders a labelled bucket (Current / Upcoming / Past) with its
 // trips or an empty-state message when there are none.
-function BucketSection({ title, trips, emptyLabel }: { title: string; trips: Trip[]; emptyLabel: string }) {
+function BucketSection({
+  title,
+  trips,
+  emptyLabel,
+}: {
+  title: string
+  trips: Trip[]
+  emptyLabel: string
+}) {
   return (
     <section className="trips-bucket" aria-label={title}>
       <h2 className="trips-bucket-title">{title}</h2>
@@ -78,11 +79,19 @@ export function TripsDashboard() {
   }, [])
 
   if (loading) {
-    return <p className="trips-loading" aria-busy="true">Loading trips…</p>
+    return (
+      <p className="trips-loading" aria-busy="true">
+        Loading trips…
+      </p>
+    )
   }
 
   if (error) {
-    return <p role="alert" className="trips-error">{error}</p>
+    return (
+      <p role="alert" className="trips-error">
+        {error}
+      </p>
+    )
   }
 
   if (!data) return null
