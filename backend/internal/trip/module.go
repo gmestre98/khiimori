@@ -18,18 +18,24 @@ type Module struct {
 	// httpx.Middleware so it never imports the auth module — every trip route is
 	// authenticated, with the owner taken from the session principal.
 	requireAuth httpx.Middleware
+	// authz enforces per-trip access decisions. The composition root injects
+	// OwnerOnlyAuthorizer for v1; Milestone 08 swaps in the membership-based
+	// implementation with no caller changes (PRD §7.0).
+	authz Authorizer
 	// now returns the current time. Defaults to time.Now; tests inject a fixed
 	// clock so bucketing assertions are not date-dependent.
 	now func() time.Time
 }
 
 // New constructs the trip module wired to the database pool, the auth middleware,
-// and the sharing membership writer. memberships is the consumer-side
-// OwnerMemberships interface; the composition root passes the concrete
-// *sharing.Memberships, so the trip module never imports the sharing module
-// (modular-monolith boundary). Day generation defaults to the Epic 01 no-op seam;
-// Epic 02 supplies the real generator.
-func New(pool *pgxpool.Pool, requireAuth httpx.Middleware, memberships OwnerMemberships) *Module {
+// the sharing membership writer, and the authorizer. memberships is the
+// consumer-side OwnerMemberships interface; the composition root passes the
+// concrete *sharing.Memberships, so the trip module never imports the sharing
+// module (modular-monolith boundary). authz is the Authorizer that guards every
+// trip-scoped endpoint; v1 uses OwnerOnlyAuthorizer, Milestone 08 swaps in the
+// membership-based implementation (PRD §7.0). Day generation defaults to the
+// Epic 01 no-op seam; Epic 02 supplies the real generator.
+func New(pool *pgxpool.Pool, requireAuth httpx.Middleware, memberships OwnerMemberships, authz Authorizer) *Module {
 	return &Module{
 		store: &pgxTripStore{
 			pool:        pool,
@@ -37,6 +43,7 @@ func New(pool *pgxpool.Pool, requireAuth httpx.Middleware, memberships OwnerMemb
 			days:        pgxDayRegenerator{guard: noDayData{}},
 		},
 		requireAuth: requireAuth,
+		authz:       authz,
 		now:         time.Now,
 	}
 }

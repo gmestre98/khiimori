@@ -222,6 +222,11 @@ func (m *Module) handleUpdate(w http.ResponseWriter, r *http.Request) {
 
 	id := r.PathValue("id")
 
+	if err := m.checkAccess(r.Context(), p.UserID, ActionWrite, id); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
 	var req editRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteError(w, r, httpx.NewAPIError(
@@ -275,6 +280,12 @@ func (m *Module) handleSetStatus(
 		return
 	}
 	id := r.PathValue("id")
+
+	if err := m.checkAccess(r.Context(), p.UserID, ActionManage, id); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
 	t, err := fn(r.Context(), id, p.UserID)
 	if err != nil {
 		if errors.Is(err, errTripNotFound) {
@@ -330,6 +341,11 @@ func (m *Module) handleGetDay(w http.ResponseWriter, r *http.Request) {
 	if _, err := parseDate("date", date); err != nil {
 		httpx.WriteError(w, r, httpx.NewAPIError(
 			http.StatusNotFound, "day_not_found", "day not found"))
+		return
+	}
+
+	if err := m.checkAccess(r.Context(), p.UserID, ActionRead, tripID); err != nil {
+		httpx.WriteError(w, r, err)
 		return
 	}
 
@@ -430,6 +446,12 @@ func (m *Module) handleDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PathValue("id")
+
+	if err := m.checkAccess(r.Context(), p.UserID, ActionManage, id); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
 	if err := m.store.Delete(r.Context(), id, p.UserID); err != nil {
 		if errors.Is(err, errTripNotFound) {
 			httpx.WriteError(w, r, httpx.NewAPIError(

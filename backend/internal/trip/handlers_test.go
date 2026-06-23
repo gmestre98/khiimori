@@ -150,10 +150,19 @@ func withPrincipal(r *http.Request, userID string) *http.Request {
 // bucketing assertions are stable regardless of when the tests run.
 var fixedNow = time.Date(2026, 6, 23, 12, 0, 0, 0, time.UTC)
 
+// allowAllAuthorizer is a test-only Authorizer that grants every request, so
+// handler unit tests can exercise handler logic without a database.
+type allowAllAuthorizer struct{}
+
+func (allowAllAuthorizer) Can(_ context.Context, _ string, _ Action, _ string) (bool, error) {
+	return true, nil
+}
+
 func newCreateModule(store tripStore) *Module {
 	return &Module{
 		store:       store,
 		requireAuth: func(h http.Handler) http.Handler { return h },
+		authz:       allowAllAuthorizer{},
 		now:         func() time.Time { return fixedNow },
 	}
 }
