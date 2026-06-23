@@ -196,7 +196,9 @@ describe('TripsDashboard', () => {
     fireEvent.click(screen.getByRole('button', { name: /archive japan 2024/i }))
     fireEvent.click(screen.getByRole('button', { name: /^archive$/i }))
 
-    await waitFor(() => expect(screen.getByRole('region', { name: /past\/archived/i })).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByRole('region', { name: /past\/archived/i })).toBeInTheDocument(),
+    )
     expect(screen.getByRole('region', { name: /upcoming/i })).not.toHaveTextContent('Japan 2024')
   })
 
