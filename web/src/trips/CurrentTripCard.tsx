@@ -19,7 +19,9 @@ function todayDayNumber(startDate: string): number | null {
 function BudgetGlanceSlot({ children }: { children?: ReactNode }) {
   return (
     <section className="current-trip-budget-slot" aria-label="Budget glance">
-      {children ?? <span className="current-trip-budget-placeholder">Budget overview coming soon</span>}
+      {children ?? (
+        <span className="current-trip-budget-placeholder">Budget overview coming soon</span>
+      )}
     </section>
   )
 }
@@ -27,13 +29,7 @@ function BudgetGlanceSlot({ children }: { children?: ReactNode }) {
 // CurrentTripCard renders the current trip prominently: trip name, destinations,
 // today's day number, and a budget-glance slot. Pass budgetGlance to fill the
 // slot with real figures (Milestone 05); omit it for the placeholder.
-export function CurrentTripCard({
-  trip,
-  budgetGlance,
-}: {
-  trip: Trip
-  budgetGlance?: ReactNode
-}) {
+export function CurrentTripCard({ trip, budgetGlance }: { trip: Trip; budgetGlance?: ReactNode }) {
   const dayNumber = todayDayNumber(trip.start_date)
   const destinations = trip.destinations.join(', ')
 
@@ -46,9 +42,7 @@ export function CurrentTripCard({
         <p className="current-trip-label">Current trip</p>
         <h2 className="current-trip-name">{trip.name}</h2>
         {destinations && <p className="current-trip-destinations">{destinations}</p>}
-        {dayNumber !== null && (
-          <p className="current-trip-day-number">Day {dayNumber}</p>
-        )}
+        {dayNumber !== null && <p className="current-trip-day-number">Day {dayNumber}</p>}
         <BudgetGlanceSlot>{budgetGlance}</BudgetGlanceSlot>
       </div>
     </section>
