@@ -9,12 +9,12 @@ create/edit.
 Implement inline quick add and inline edit for plan items in the day view.
 
 ## Acceptance criteria
-- [ ] A **quick add** captures a title in a tap or two and creates an (untimed) plan item on the day
+- [x] A **quick add** captures a title in a tap or two and creates an (untimed) plan item on the day
   (Epic 02 S2).
-- [ ] An expandable form reveals optional fields (type, time, duration, location, booking, link, cost)
+- [x] An expandable form reveals optional fields (type, time, duration, location, booking, link, cost)
   without leaving the day view.
-- [ ] **Inline edit** updates a field in place (Epic 02 S3) and reflects immediately.
-- [ ] Quick add to the **backlog** (no day) is also possible.
+- [x] **Inline edit** updates a field in place (Epic 02 S3) and reflects immediately.
+- [x] Quick add to the **backlog** (no day) is also possible.
 
 ## Constraints
 - Keep the default path frictionless (title only); optional fields are progressive disclosure.
