@@ -8,12 +8,12 @@ whole trip — each with a **simple progress indicator** (PRD §5.4). Reads Epic
 Build the roll-up display showing the three-level figures with progress indicators.
 
 ## Acceptance criteria
-- [ ] The display shows **spent / planned / remaining** at **per-day**, **per-category**, and **per-trip**
+- [x] The display shows **spent / planned / remaining** at **per-day**, **per-category**, and **per-trip**
   levels from Epic 02's roll-up API.
-- [ ] Each level has a **simple progress indicator** (e.g. a bar) using restrained accent colour
+- [x] Each level has a **simple progress indicator** (e.g. a bar) using restrained accent colour
   (PRD §5.10).
-- [ ] No aggregation is done client-side — the server is the source of truth (consistent across clients).
-- [ ] The display is responsive (web + mobile); Milestone 09 components when available.
+- [x] No aggregation is done client-side — the server is the source of truth (consistent across clients).
+- [x] The display is responsive (web + mobile); Milestone 09 components when available.
 
 ## Constraints
 - Render server figures; do not recompute totals in the client.

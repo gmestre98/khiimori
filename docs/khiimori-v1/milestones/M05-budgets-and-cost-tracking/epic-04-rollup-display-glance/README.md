@@ -1,5 +1,7 @@
 # Epic M05.4 — Roll-up display & dashboard glance (frontend)
 
+> **Status:** ✅ Done — [#293](https://github.com/gmestre98/khiimori/pull/293). All 4 ACs verified. Backend `ListBudgetLines` + planned amounts in rollup; `TripRollup`, `DayRollup`, `BudgetGlance` components with `SpendBar` progress bars; live re-fetch after mutations; dashboard glance slot filled.
+
 > Milestone: [05 — Budgets & Cost Tracking](../README.md) · PRD refs: §5.4, §5.10, §7.2.
 
 ## Description
@@ -13,13 +15,13 @@ sees budget progress at a glance from the home screen.
 
 ## Acceptance Criteria
 
-- [ ] Roll-ups display **spent vs. planned vs. remaining** at **three levels** — **per day, per
+- [x] Roll-ups display **spent vs. planned vs. remaining** at **three levels** — **per day, per
       category, per whole trip** — each with a **simple progress indicator** (PRD §5.4).
-- [ ] The trip dashboard's **current-trip budget glance** slot (from Milestone 03) is **populated**
+- [x] The trip dashboard's **current-trip budget glance** slot (from Milestone 03) is **populated**
       with live figures from Epic 02 (PRD §5.4, Milestone 03).
-- [ ] Indicators update as costs/budgets change (reflecting auto-saved/offline-synced edits from
+- [x] Indicators update as costs/budgets change (reflecting auto-saved/offline-synced edits from
       Epic 03) without a manual refresh (PRD §5.4).
-- [ ] Display is mobile-first and responsive, using restrained accent colour for bars per the minimal
+- [x] Display is mobile-first and responsive, using restrained accent colour for bars per the minimal
       theme and Milestone 09 components when available (PRD §5.10, §7.2).
 
 ## Implementation Details / Architecture
