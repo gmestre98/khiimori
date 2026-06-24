@@ -8,11 +8,11 @@ Photos are stored in the **Cloud Storage** bucket (from Milestone 01) behind a t
 Define the `MediaStore` interface and implement it over Cloud Storage.
 
 ## Acceptance criteria
-- [ ] A `MediaStore` interface exposes `Put(object) → url`, `Delete(url)`, and a read/URL method as needed.
-- [ ] A Cloud Storage implementation backs the interface, using the bucket provisioned in Milestone 01
+- [x] A `MediaStore` interface exposes `Put(object) → url`, `Delete(url)`, and a read/URL method as needed.
+- [x] A Cloud Storage implementation backs the interface, using the bucket provisioned in Milestone 01
   (M01.4) and credentials from the runtime service account.
-- [ ] Callers depend only on the interface (storage is swappable, PRD §7.0).
-- [ ] A unit test exercises the interface with a faked store (no live bucket needed).
+- [x] Callers depend only on the interface (storage is swappable, PRD §7.0).
+- [x] A unit test exercises the interface with a faked store (no live bucket needed).
 
 ## Constraints
 - A Cloud Storage client library is a likely dependency — **confirm with the author before adding it**

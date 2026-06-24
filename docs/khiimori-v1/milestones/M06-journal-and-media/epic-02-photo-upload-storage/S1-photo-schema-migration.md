@@ -8,10 +8,10 @@ the table; storage and upload are S2–S3.
 Add a migration for the `Photo` table in the `journal.*` schema.
 
 ## Acceptance criteria
-- [ ] A migration creates `Photo(id, journal_entry_id, storage_url, caption)` with a FK to
-  `journal.JournalEntry` and an index on `journal_entry_id`.
-- [ ] `caption` is optional; `storage_url` references the stored object.
-- [ ] The migration applies cleanly via the M01.3 runner.
+- [x] A migration creates `Photo(id, journal_entry_id, storage_url, caption)` with a FK to
+  `journal.JournalEntry` and an index on `journal_entry_id`. Also adds `size_bytes` for Epic 03.
+- [x] `caption` is optional; `storage_url` references the stored object.
+- [x] The migration applies cleanly via the M01.3 runner.
 
 ## Constraints
 - Follow M01.3 conventions.

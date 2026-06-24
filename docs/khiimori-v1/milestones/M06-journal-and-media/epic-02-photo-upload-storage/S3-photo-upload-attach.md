@@ -9,12 +9,12 @@ check and thumbnails (Epic 03) slot into this pipeline.
 Implement the photo upload endpoint that validates, stores the original, and attaches a `Photo` row.
 
 ## Acceptance criteria
-- [ ] An upload endpoint accepts an image, **validates** it (type/size sanity), stores the original via
+- [x] An upload endpoint accepts an image, **validates** it (type/size sanity), stores the original via
   `MediaStore` (S2), and writes a `Photo` row linked to the entry with an optional caption.
-- [ ] Access is **authorized** via the trip `Authorizer` — only owner + invited members may upload.
-- [ ] The pipeline is ordered so Epic 03's **quota check slots in front of `MediaStore.Put`** without
-  rework (define the seam).
-- [ ] Unit + integration tests cover a successful attach and the `MediaStore` boundary (storage faked).
+- [x] Access is **authorized** via the trip `Authorizer` — only owner + invited members may upload.
+- [x] The pipeline is ordered so Epic 03's **quota check slots in front of `MediaStore.Put`** without
+  rework (define the seam). Seam documented in `handleUploadPhoto`.
+- [x] Unit + integration tests cover a successful attach and the `MediaStore` boundary (storage faked).
 
 ## Constraints
 - Store the original here; quota enforcement and thumbnails are Epic 03 (note the seam).
