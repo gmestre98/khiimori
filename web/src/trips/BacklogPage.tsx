@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { UnauthorizedError, fetchBacklog, type PlanItem } from '../lib/api'
 
 // BacklogPage lists the ideas backlog for a trip — plan items with no assigned
 // day. Accessible from the day view via the backlog link (M04.5 S1 AC3).
 export function BacklogPage() {
   const { tripId } = useParams<{ tripId: string }>()
+  const navigate = useNavigate()
 
   const [items, setItems] = useState<PlanItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -30,9 +31,9 @@ export function BacklogPage() {
   return (
     <section className="backlog-page" aria-label="Ideas backlog">
       <header className="backlog-header">
-        <Link to={-1 as unknown as string} className="backlog-back" aria-label="Back to day">
+        <button className="backlog-back" aria-label="Back to day" onClick={() => navigate(-1)}>
           ← Back
-        </Link>
+        </button>
         <h2 className="backlog-title">Ideas backlog</h2>
       </header>
 

@@ -138,10 +138,10 @@ function PlanningSection({ day, tripId }: { day: Day; tripId: string }) {
       data-slot="planning"
     >
       <h2 className="day-slot-title">Plan</h2>
-      <StaysSection stays={day.stays ?? []} />
+      <StaysSection stays={day.stays} />
       <TimedSection items={timed} />
       <UntimedSection items={untimed} />
-      {day.plan_items.length === 0 && (day.stays ?? []).length === 0 && (
+      {day.plan_items.length === 0 && day.stays.length === 0 && (
         <p className="day-plan-empty">Nothing planned yet.</p>
       )}
       <BacklogLink tripId={tripId} />
@@ -252,7 +252,6 @@ export function DayView() {
             data-slot="planning"
           >
             <h2 className="day-slot-title">Plan</h2>
-            {!loading && !error && <p className="day-slot-placeholder">Loading plan…</p>}
           </section>
         )}
         <BudgetSlot />
