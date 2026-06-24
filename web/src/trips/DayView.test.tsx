@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { DayView } from './DayView'
@@ -93,6 +93,7 @@ function renderDayView(date = '2026-06-01', tripId = 'trip-1') {
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  vi.useRealTimers()
 })
 
 describe('DayView', () => {
@@ -452,6 +453,165 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Morning run')).toBeInTheDocument())
       expect(document.querySelector('.plan-item-drag-handle')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('auto-save', () => {
+    beforeEach(() => {
+      // shouldAdvanceTime lets real-time async (waitFor, fetchDay mocks) still
+      // work while allowing manual fast-forward for the debounce timer.
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+    })
+
+    it('does not trigger a save immediately when the edit form opens', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
+      vi.advanceTimersByTime(1000)
+
+      expect(api.updatePlanItem).not.toHaveBeenCalled()
+    })
+
+    it('auto-saves 800 ms after the last keystroke', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      const updated = makePlanItem({ title: 'Visit museum updated' })
+      vi.mocked(api.updatePlanItem).mockResolvedValue(updated)
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
+      const editingLi = document.querySelector('.plan-item--editing')!
+      const input = within(editingLi as HTMLElement).getByLabelText('Title')
+      await user.type(input, ' updated')
+
+      // No save yet — debounce hasn't fired.
+      expect(api.updatePlanItem).not.toHaveBeenCalled()
+
+      // Advance past the 800 ms debounce window.
+      await vi.runAllTimersAsync()
+
+      await waitFor(() => expect(api.updatePlanItem).toHaveBeenCalledTimes(1))
+      expect(api.updatePlanItem).toHaveBeenCalledWith(
+        'trip-1',
+        'item-1',
+        expect.objectContaining({ title: 'Visit museum updated' }),
+      )
+    })
+
+    it('coalesces rapid edits into a single save', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      vi.mocked(api.updatePlanItem).mockResolvedValue(makePlanItem({ title: 'Visit museum' }))
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Edit Visit/ }))
+      const editingLi = document.querySelector('.plan-item--editing')!
+      const input = within(editingLi as HTMLElement).getByLabelText('Title')
+
+      // Type several characters quickly; each keystroke resets the timer.
+      await user.type(input, ' museum')
+
+      // Advance past the debounce window and flush all pending promises.
+      await act(async () => {
+        vi.advanceTimersByTime(1000)
+      })
+
+      expect(api.updatePlanItem).toHaveBeenCalledTimes(1)
+    })
+
+    it('shows Saving… during the save and Saved on success', async () => {
+      let resolveSave!: (v: api.PlanItem) => void
+      vi.mocked(api.updatePlanItem).mockReturnValue(
+        new Promise<api.PlanItem>((resolve) => {
+          resolveSave = resolve
+        }),
+      )
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
+      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.type(within(editingLi as HTMLElement).getByLabelText('Title'), ' extra')
+
+      // Fire the debounce and flush microtasks so the save starts.
+      await act(async () => {
+        vi.advanceTimersByTime(1000)
+      })
+
+      expect(document.querySelector('.plan-item-save-status--saving')).toBeInTheDocument()
+      expect(document.querySelector('.plan-item-save-status')!.textContent).toBe('Saving…')
+
+      // Resolve the save and check the "Saved" state.
+      await act(async () => {
+        resolveSave(makePlanItem({ title: 'Visit museum extra' }))
+      })
+
+      expect(document.querySelector('.plan-item-save-status--saved')).toBeInTheDocument()
+      expect(document.querySelector('.plan-item-save-status')!.textContent).toBe('Saved')
+    })
+
+    it('shows error and retry button when save fails', async () => {
+      vi.mocked(api.updatePlanItem).mockRejectedValue(new Error('network'))
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
+      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.type(within(editingLi as HTMLElement).getByLabelText('Title'), ' extra')
+
+      await act(async () => {
+        vi.advanceTimersByTime(1000)
+      })
+
+      expect(document.querySelector('.plan-item-save-status--error')).toBeInTheDocument()
+      expect(within(editingLi as HTMLElement).getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+    })
+
+    it('retry button re-attempts the save', async () => {
+      vi.mocked(api.updatePlanItem)
+        .mockRejectedValueOnce(new Error('network'))
+        .mockResolvedValue(makePlanItem({ title: 'Visit museum extra' }))
+
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
+      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.type(within(editingLi as HTMLElement).getByLabelText('Title'), ' extra')
+
+      await act(async () => {
+        vi.advanceTimersByTime(1000)
+      })
+
+      expect(within(editingLi as HTMLElement).getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+
+      await user.click(within(editingLi as HTMLElement).getByRole('button', { name: 'Retry' }))
+
+      await waitFor(() =>
+        expect(document.querySelector('.plan-item-save-status--saved')).toBeInTheDocument(),
+      )
     })
   })
 })
