@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useParams } from 'react-router-dom'
 import {
   PlanItemValidationError,
@@ -17,6 +18,67 @@ import {
   type Stay,
 } from '../lib/api'
 import { useTripShell } from './useTripShell'
+
+// BottomSheet renders children in a bottom-anchored sliding panel on mobile
+// (viewport ≤ 640 px). On wider viewports the children render inline with no
+// wrapper — callers do not need to know which mode is active.
+function BottomSheet({
+  open,
+  onClose,
+  label,
+  children,
+}: {
+  open: boolean
+  onClose: () => void
+  label: string
+  children: React.ReactNode
+}) {
+  // Lock body scroll while the sheet is open.
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [open])
+
+  if (!open) return null
+
+  return createPortal(
+    <div
+      className="bottom-sheet-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label={label}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="bottom-sheet">
+        <div className="bottom-sheet-handle" aria-hidden="true" />
+        <button type="button" className="bottom-sheet-close" aria-label="Close" onClick={onClose}>
+          ✕
+        </button>
+        {children}
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+// useMobile returns true when the viewport width is ≤ 640 px and tracks
+// changes so components re-render on orientation / resize.
+function useMobile(): boolean {
+  const [mobile, setMobile] = useState(() => window.matchMedia('(max-width: 640px)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)')
+    const handler = (e: MediaQueryListEvent) => setMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+  return mobile
+}
 
 // statusLabel maps a plan item status to a human-readable label.
 function statusLabel(status: string): string {
@@ -421,6 +483,7 @@ function MoveToDayPicker({
 
 // PlanItemRow renders a single plan item and enters inline-edit mode on click.
 // It also exposes status, move-to-day, and demote-to-backlog affordances.
+// On mobile the edit form opens in a BottomSheet; touch reorder uses up/down buttons.
 function PlanItemRow({
   item,
   tripId,
@@ -432,6 +495,8 @@ function PlanItemRow({
   onDragStart,
   onDragOver,
   onDrop,
+  onMoveUp,
+  onMoveDown,
 }: {
   item: PlanItem
   tripId: string
@@ -443,7 +508,10 @@ function PlanItemRow({
   onDragStart?: (e: React.DragEvent, itemId: string) => void
   onDragOver?: (e: React.DragEvent, itemId: string) => void
   onDrop?: (e: React.DragEvent, itemId: string) => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
 }) {
+  const mobile = useMobile()
   const [editing, setEditing] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [showMovePicker, setShowMovePicker] = useState(false)
@@ -502,22 +570,45 @@ function PlanItemRow({
     }
   }
 
-  if (editing) {
+  const editForm = (
+    <PlanItemForm
+      initialFields={fieldsFromItem(item)}
+      submitLabel="Save"
+      onSubmit={handleSave}
+      onCancel={() => {
+        setEditing(false)
+        setEditError(null)
+      }}
+      onAutoSave={handleAutoSave}
+      error={editError}
+    />
+  )
+
+  if (editing && mobile) {
     return (
-      <li className="plan-item plan-item--editing">
-        <PlanItemForm
-          initialFields={fieldsFromItem(item)}
-          submitLabel="Save"
-          onSubmit={handleSave}
-          onCancel={() => {
+      <>
+        {/* Keep the item row visible behind the sheet */}
+        <li className="plan-item" aria-label={item.title}>
+          <div className="plan-item-main">
+            <span className="plan-item-title">{item.title}</span>
+          </div>
+        </li>
+        <BottomSheet
+          open
+          onClose={() => {
             setEditing(false)
             setEditError(null)
           }}
-          onAutoSave={handleAutoSave}
-          error={editError}
-        />
-      </li>
+          label={`Edit ${item.title}`}
+        >
+          {editForm}
+        </BottomSheet>
+      </>
     )
+  }
+
+  if (editing) {
+    return <li className="plan-item plan-item--editing">{editForm}</li>
   }
 
   return (
@@ -538,10 +629,32 @@ function PlanItemRow({
       onDrop={isDraggable && onDrop ? (e) => onDrop(e, item.id) : undefined}
     >
       <div className="plan-item-main">
-        {isDraggable && (
+        {isDraggable && !mobile && (
           <span className="plan-item-drag-handle" aria-hidden="true">
             ⠿
           </span>
+        )}
+        {isDraggable && mobile && (
+          <div className="plan-item-touch-reorder" aria-label="Reorder">
+            <button
+              type="button"
+              className="plan-item-reorder-btn"
+              onClick={onMoveUp}
+              disabled={!onMoveUp}
+              aria-label={`Move ${item.title} up`}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              className="plan-item-reorder-btn"
+              onClick={onMoveDown}
+              disabled={!onMoveDown}
+              aria-label={`Move ${item.title} down`}
+            >
+              ↓
+            </button>
+          </div>
         )}
         <button
           type="button"
@@ -626,8 +739,9 @@ function PlanItemRow({
   )
 }
 
-// QuickAddForm is the inline add form shown at the bottom of each planning
-// section. It calls the API and hands the new item back via onAdded.
+// QuickAddForm is the inline add form shown at the bottom of the planning
+// section. On mobile it renders as a large "+" FAB button that opens a
+// BottomSheet; on desktop the form is always visible inline.
 function QuickAddForm({
   tripId,
   dayId,
@@ -637,6 +751,8 @@ function QuickAddForm({
   dayId: string | null
   onAdded: (item: PlanItem) => void
 }) {
+  const mobile = useMobile()
+  const [sheetOpen, setSheetOpen] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
 
   async function handleAdd(fields: PlanItemFormFields) {
@@ -644,6 +760,7 @@ function QuickAddForm({
     try {
       const item = await createPlanItem(tripId, fieldsToInput(fields, dayId))
       onAdded(item)
+      if (mobile) setSheetOpen(false)
     } catch (err) {
       if (err instanceof PlanItemValidationError) {
         setAddError(err.message)
@@ -651,6 +768,31 @@ function QuickAddForm({
         setAddError('Could not add item.')
       }
     }
+  }
+
+  if (mobile) {
+    return (
+      <>
+        <button
+          type="button"
+          className="plan-item-fab"
+          aria-label="Add activity"
+          onClick={() => setSheetOpen(true)}
+        >
+          +
+        </button>
+        <BottomSheet
+          open={sheetOpen}
+          onClose={() => {
+            setSheetOpen(false)
+            setAddError(null)
+          }}
+          label="Add activity"
+        >
+          <PlanItemForm submitLabel="Add" onSubmit={handleAdd} error={addError} />
+        </BottomSheet>
+      </>
+    )
   }
 
   return (
@@ -765,12 +907,25 @@ function UntimedSection({
     })
   }
 
+  function handleTouchReorder(idx: number, direction: 'up' | 'down') {
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (targetIdx < 0 || targetIdx >= items.length) return
+    const reordered = [...items]
+    ;[reordered[idx], reordered[targetIdx]] = [reordered[targetIdx], reordered[idx]]
+    const snapshot = items
+    onReordered(reordered)
+    const allIds = [...timedItems.map((i) => i.id), ...reordered.map((i) => i.id)]
+    reorderPlanItems(tripId, day.id, allIds).catch(() => {
+      onReordered(snapshot)
+    })
+  }
+
   if (items.length === 0) return null
   return (
     <section className="day-plan-section day-plan-section--untimed" aria-label="Untimed activities">
       <h3 className="day-plan-section-title">Activities</h3>
       <ul className="plan-item-list">
-        {items.map((item) => (
+        {items.map((item, idx) => (
           <PlanItemRow
             key={item.id}
             item={item}
@@ -783,6 +938,8 @@ function UntimedSection({
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
+            onMoveUp={idx > 0 ? () => handleTouchReorder(idx, 'up') : undefined}
+            onMoveDown={idx < items.length - 1 ? () => handleTouchReorder(idx, 'down') : undefined}
           />
         ))}
       </ul>

@@ -346,6 +346,116 @@ describe('DayView', () => {
     })
   })
 
+  describe('mobile interactions (S5)', () => {
+    function setMobile(mobile: boolean) {
+      Object.defineProperty(window, 'matchMedia', {
+        writable: true,
+        value: (query: string) => ({
+          matches: mobile && query === '(max-width: 640px)',
+          media: query,
+          onchange: null,
+          addListener: () => {},
+          removeListener: () => {},
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          dispatchEvent: () => false,
+        }),
+      })
+    }
+
+    afterEach(() => setMobile(false))
+
+    it('renders a FAB button on mobile instead of the inline quick-add form', async () => {
+      setMobile(true)
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      renderDayView()
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Add activity' })).toBeInTheDocument(),
+      )
+      // The inline title input should NOT be visible (it's inside a hidden form on mobile)
+      expect(screen.queryByLabelText('Title')).not.toBeInTheDocument()
+    })
+
+    it('FAB opens a bottom sheet with the add form', async () => {
+      setMobile(true)
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      renderDayView()
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Add activity' })).toBeInTheDocument(),
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Add activity' }))
+      expect(screen.getByRole('dialog', { name: 'Add activity' })).toBeInTheDocument()
+      expect(screen.getByLabelText('Title')).toBeInTheDocument()
+    })
+
+    it('adding via FAB sheet closes the sheet on success', async () => {
+      setMobile(true)
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      vi.mocked(api.createPlanItem).mockResolvedValue(makePlanItem({ id: 'n1', title: 'New act' }))
+      renderDayView()
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Add activity' })).toBeInTheDocument(),
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Add activity' }))
+      await user.type(screen.getByLabelText('Title'), 'New act')
+      await user.click(screen.getByRole('button', { name: 'Add' }))
+
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog', { name: 'Add activity' })).not.toBeInTheDocument(),
+      )
+      expect(screen.getByText('New act')).toBeInTheDocument()
+    })
+
+    it('editing on mobile opens a bottom sheet', async () => {
+      setMobile(true)
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
+      expect(screen.getByRole('dialog', { name: /Edit Visit museum/ })).toBeInTheDocument()
+      expect(screen.getByLabelText('Title')).toBeInTheDocument()
+    })
+
+    it('renders touch reorder buttons on mobile for untimed items', async () => {
+      setMobile(true)
+      const items = [
+        makePlanItem({ id: 'i1', title: 'First', sort_order: 0 }),
+        makePlanItem({ id: 'i2', title: 'Second', sort_order: 1 }),
+      ]
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('First')).toBeInTheDocument())
+      expect(screen.getByRole('button', { name: /Move First down/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Move Second up/ })).toBeInTheDocument()
+    })
+
+    it('touch reorder up/down calls reorderPlanItems', async () => {
+      setMobile(true)
+      const user = userEvent.setup()
+      const items = [
+        makePlanItem({ id: 'i1', title: 'First', sort_order: 0 }),
+        makePlanItem({ id: 'i2', title: 'Second', sort_order: 1 }),
+      ]
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
+      vi.mocked(api.reorderPlanItems).mockResolvedValue()
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Second')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Move Second up/ }))
+
+      await waitFor(() =>
+        expect(api.reorderPlanItems).toHaveBeenCalledWith('trip-1', 'day-1', ['i2', 'i1']),
+      )
+    })
+  })
+
   describe('re-planning affordances', () => {
     it('renders a status select for each plan item', async () => {
       const item = makePlanItem({ title: 'Visit museum' })
