@@ -77,13 +77,10 @@ export function TripRollup({ rollup }: { rollup: BudgetRollup }) {
     planned: rollup.planned_by_category[cat] ?? 0,
   })).filter(({ spent, planned }) => spent > 0 || planned > 0)
 
-  // Day rows: sort by date string (UUIDs don't sort meaningfully, but the server
-  // stores dates so we pair them if we can, else show the UUID truncated).
-  const dayIds = Object.keys(rollup.by_day)
-  const hasDayPlanned = Object.keys(rollup.planned_by_day).length > 0
-  const allDayIds = hasDayPlanned
-    ? [...new Set([...dayIds, ...Object.keys(rollup.planned_by_day)])]
-    : dayIds
+  const isEmpty =
+    rollup.trip_total === 0 &&
+    rollup.planned_trip_total === 0 &&
+    categoryRows.length === 0
 
   return (
     <div className="trip-rollup">
@@ -105,23 +102,7 @@ export function TripRollup({ rollup }: { rollup: BudgetRollup }) {
         </section>
       )}
 
-      {allDayIds.length > 0 && (
-        <section className="rollup-section" aria-label="By day">
-          <h3 className="rollup-section-title">By day</h3>
-          {allDayIds.map((id) => (
-            <RollupRow
-              key={id}
-              label={id.slice(0, 8)}
-              spent={rollup.by_day[id] ?? 0}
-              planned={rollup.planned_by_day[id] ?? 0}
-            />
-          ))}
-        </section>
-      )}
-
-      {rollup.trip_total === 0 && categoryRows.length === 0 && (
-        <p className="rollup-empty">No costs recorded yet.</p>
-      )}
+      {isEmpty && <p className="rollup-empty">No costs recorded yet.</p>}
     </div>
   )
 }
