@@ -9,12 +9,12 @@ inside Milestone 03's trip/day shell.
 Build the day-view layout that renders the day's planning data.
 
 ## Acceptance criteria
-- [ ] **Timed items** render in chronological order; **untimed items** render as a loose list; the two are
+- [x] **Timed items** render in chronological order; **untimed items** render as a loose list; the two are
   clearly distinguished.
-- [ ] The day's **stay(s)** (multi-night spanning from Epic 01) are shown on each covered day.
-- [ ] The **ideas backlog** (Epic 03) is accessible from the day/trip view.
-- [ ] Item `status` (done/skipped/cancelled) is reflected visually (Epic 04 S3).
-- [ ] The view renders inside the M03 trip/day shell and is responsive (web + mobile).
+- [x] The day's **stay(s)** (multi-night spanning from Epic 01) are shown on each covered day.
+- [x] The **ideas backlog** (Epic 03) is accessible from the day/trip view.
+- [x] Item `status` (done/skipped/cancelled) is reflected visually (Epic 04 S3).
+- [x] The view renders inside the M03 trip/day shell and is responsive (web + mobile).
 
 ## Constraints
 - Pull data from Epics 01–04 APIs; render server-decided ordering (`order`/`start_time`).
