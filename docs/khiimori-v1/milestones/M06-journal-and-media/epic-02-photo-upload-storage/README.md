@@ -1,5 +1,7 @@
 # Epic M06.2 — Photo upload & object storage (`MediaStore`)
 
+> **Status:** ✅ Done — PRs [#299](https://github.com/gmestre98/khiimori/pull/299) (S1), [#300](https://github.com/gmestre98/khiimori/pull/300) (S2), [#301](https://github.com/gmestre98/khiimori/pull/301) (S3). All 4 ACs verified.
+
 > Milestone: [06 — Journal & Media](../README.md) · PRD refs: §5.5, §7.0, §7.8, §9.
 
 ## Description
@@ -13,14 +15,14 @@ and persistence of originals; the per-trip quota and thumbnail generation are Ep
 
 ## Acceptance Criteria
 
-- [ ] A migration adds `Photo(id, journal_entry_id, storage_url, caption)` to `journal.*` per PRD §9
-      (PRD §7.7).
-- [ ] A photo can be **attached to a journal entry** (upload → stored in Cloud Storage → `Photo` row
-      with `storage_url` and optional `caption`) (PRD §5.5, §9).
-- [ ] Storage goes through a thin **`MediaStore` interface** wrapping Cloud Storage so the backend
-      can be swapped without touching callers (PRD §7.0, §7.8).
-- [ ] Upload validates the file (type/size sanity) before persisting; unit + integration tests cover
-      attach and the `MediaStore` boundary (with the storage backend faked) (PRD §7.6).
+- [x] A migration adds `Photo(id, journal_entry_id, storage_url, caption)` to `journal.*` per PRD §9
+      (PRD §7.7). Also includes `size_bytes` for Epic 03 quota accounting. (#299)
+- [x] A photo can be **attached to a journal entry** (upload → stored in Cloud Storage → `Photo` row
+      with `storage_url` and optional `caption`) (PRD §5.5, §9). (#301)
+- [x] Storage goes through a thin **`MediaStore` interface** wrapping Cloud Storage so the backend
+      can be swapped without touching callers (PRD §7.0, §7.8). (#300)
+- [x] Upload validates the file (type/size sanity) before persisting; unit + integration tests cover
+      attach and the `MediaStore` boundary (with the storage backend faked) (PRD §7.6). (#301)
 
 ## Implementation Details / Architecture
 
