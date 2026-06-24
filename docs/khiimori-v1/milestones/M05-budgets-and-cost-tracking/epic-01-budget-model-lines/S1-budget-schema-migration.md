@@ -8,12 +8,12 @@ Milestone 05 introduces budgets. Per schema-per-module (PRD §7.7), the `budget`
 Add a migration creating the `budget` schema and the `BudgetLine` table.
 
 ## Acceptance criteria
-- [ ] A migration creates the **`budget`** schema and `BudgetLine(id, trip_id, day_id?, category,
+- [x] A migration creates the **`budget`** schema and `BudgetLine(id, trip_id, day_id?, category,
   planned_amount, actual_amount)` with FKs to `trip.Trip` and (nullable) `trip.Day`.
-- [ ] `category` is constrained to the fixed set **Stays, Transport, Food, Activities, Other**.
-- [ ] `day_id = null` represents a **trip-level** budget; otherwise **per day**. A uniqueness guard
+- [x] `category` is constrained to the fixed set **Stays, Transport, Food, Activities, Other**.
+- [x] `day_id = null` represents a **trip-level** budget; otherwise **per day**. A uniqueness guard
   prevents duplicate lines for the same `(trip_id, day_id, category)`.
-- [ ] The migration applies cleanly via the M01.3 runner.
+- [x] The migration applies cleanly via the M01.3 runner.
 
 ## Constraints
 - Follow M01.3 migration conventions.

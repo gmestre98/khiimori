@@ -8,12 +8,12 @@ EUR with no currency selector (PRD §5.4, §11.5). Builds on the schema (S1).
 Implement endpoints to set/update budget lines at trip and day level.
 
 ## Acceptance criteria
-- [ ] An endpoint sets/updates a `planned_amount` for a `(trip, category)` (trip-level) and for a
+- [x] An endpoint sets/updates a `planned_amount` for a `(trip, category)` (trip-level) and for a
   `(trip, day, category)` (per-day).
-- [ ] Categories are validated against the fixed set; invalid categories are rejected.
-- [ ] Amounts are **EUR** only (no currency field/selector).
-- [ ] Operations are **authorized** via the M03 `Authorizer`.
-- [ ] A unit test covers setting trip-level and per-day lines and category validation.
+- [x] Categories are validated against the fixed set; invalid categories are rejected.
+- [x] Amounts are **EUR** only (no currency field/selector).
+- [x] Operations are **authorized** via the M03 `Authorizer`.
+- [x] A unit test covers setting trip-level and per-day lines and category validation.
 
 ## Constraints
 - Upsert semantics on `(trip_id, day_id, category)` so setting a budget twice updates rather than

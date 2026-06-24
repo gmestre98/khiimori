@@ -1,5 +1,7 @@
 # Epic M05.1 — Budget model & budget lines (`budget.*`)
 
+> **Status:** ✅ Done — all 3 stories implemented and all 4 acceptance criteria verified; the `budget.budget_lines` schema, set/update endpoints, and unit + integration tests are live on `main` (PRs [#279](https://github.com/gmestre98/khiimori/pull/279), [#280](https://github.com/gmestre98/khiimori/pull/280), [#281](https://github.com/gmestre98/khiimori/pull/281)).
+>
 > Milestone: [05 — Budgets & Cost Tracking](../README.md) · PRD refs: §5.4, §7.7, §9, §11.5.
 
 ## Description
@@ -13,14 +15,14 @@ definition; the actual-spend aggregation is Epic 02.
 
 ## Acceptance Criteria
 
-- [ ] A migration creates the **`budget.*`** schema with
+- [x] A migration creates the **`budget.*`** schema with
       `BudgetLine(id, trip_id, day_id?, category, planned_amount, actual_amount)` per PRD §9
       (PRD §7.7).
-- [ ] A `planned_amount` can be set **per category** at **trip level** (`day_id = null`) and/or **per
+- [x] A `planned_amount` can be set **per category** at **trip level** (`day_id = null`) and/or **per
       day**; categories are fixed to **Stays, Transport, Food, Activities, Other** (PRD §5.4).
-- [ ] All amounts are **EUR**; there is **no currency selector** and `base_currency` stays fixed
+- [x] All amounts are **EUR**; there is **no currency selector** and `base_currency` stays fixed
       (PRD §5.4, §11.5).
-- [ ] Unit + integration tests cover setting/updating trip-level and per-day budget lines and
+- [x] Unit + integration tests cover setting/updating trip-level and per-day budget lines and
       category validation (PRD §7.6).
 
 ## Implementation Details / Architecture
