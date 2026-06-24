@@ -295,6 +295,7 @@ function MoveToDayPicker({
       onMoved(item.id)
     } catch {
       setError('Could not move item.')
+    } finally {
       setBusy(false)
     }
   }
@@ -672,6 +673,9 @@ function UntimedSection({
     const [moved] = reordered.splice(sourceIdx, 1)
     reordered.splice(targetIdx, 0, moved)
 
+    // Snapshot before-state so the revert below is scoped to this drag.
+    const snapshot = items
+
     // Optimistic update; revert handled via onReordered if server fails.
     onReordered(reordered)
     setDraggingId(null)
@@ -679,8 +683,8 @@ function UntimedSection({
     // Full day order: timed first (current server order), then untimed in new order.
     const allIds = [...timedItems.map((i) => i.id), ...reordered.map((i) => i.id)]
     reorderPlanItems(tripId, day.id, allIds).catch(() => {
-      // Revert to original order on failure.
-      onReordered(items)
+      // Revert to the order before *this* drag only.
+      onReordered(snapshot)
     })
   }
 
@@ -925,5 +929,3 @@ export function DayView() {
   )
 }
 
-// Re-export Stay for BacklogPage type use.
-export type { Stay }
