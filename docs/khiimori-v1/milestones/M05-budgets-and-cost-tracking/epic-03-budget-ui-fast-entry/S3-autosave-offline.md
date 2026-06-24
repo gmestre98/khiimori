@@ -8,10 +8,10 @@ shared offline mechanism from Milestone 04 (PRD §5.4, §6).
 Wire budget edits and cost entries into auto-save and the shared offline queue.
 
 ## Acceptance criteria
-- [ ] Budget-line edits (S1) and cost entries (S2) **auto-save** with debouncing, no explicit save button.
-- [ ] Edits made **offline queue** via Milestone 04's mutation queue and **replay** on reconnect.
-- [ ] Behaviour is identical online and offline (same mutation layer); save state is surfaced subtly.
-- [ ] A failed online save is retried/flagged without losing input.
+- [x] Budget-line edits (S1) and cost entries (S2) **auto-save** with debouncing, no explicit save button.
+- [x] Edits made **offline queue** via Milestone 04's mutation queue and **replay** on reconnect.
+- [x] Behaviour is identical online and offline (same mutation layer); save state is surfaced subtly.
+- [x] A failed online save is retried/flagged without losing input.
 
 ## Constraints
 - Reuse Milestone 04's offline queue/replay (one mechanism, PRD §7.0) — do not build a budget-specific

@@ -8,10 +8,10 @@ categories), driving Epic 01 (PRD §5.4). Renders in the trip/day shell (Milesto
 Build the budget editor UI wired to Epic 01's budget-line API.
 
 ## Acceptance criteria
-- [ ] The editor sets/updates `planned_amount` for each fixed category at **trip level** and **per day**.
-- [ ] Amounts are **EUR** only (no currency selector).
-- [ ] Saving drives Epic 01 S2 (upsert) and reflects immediately.
-- [ ] The editor is responsive (web + mobile); basic styling now, Milestone 09 later.
+- [x] The editor sets/updates `planned_amount` for each fixed category at **trip level** and **per day**.
+- [x] Amounts are **EUR** only (no currency selector).
+- [x] Saving drives Epic 01 S2 (upsert) and reflects immediately.
+- [x] The editor is responsive (web + mobile); basic styling now, Milestone 09 later.
 
 ## Constraints
 - Only the five fixed categories; no custom categories in v1.
