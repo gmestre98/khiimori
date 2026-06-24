@@ -266,10 +266,7 @@ func (m *Module) handlePromotePlanItem(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	item, err := m.planItems.PromotePlanItem(r.Context(), tripID, itemID, PromotePlanItemInput{
-		DayID:     req.DayID,
-		StartTime: req.StartTime,
-	})
+	item, err := m.planItems.PromotePlanItem(r.Context(), tripID, itemID, PromotePlanItemInput(req))
 	if err != nil {
 		if errors.Is(err, errPlanItemNotFound) {
 			httpx.WriteError(w, r, httpx.NewAPIError(
