@@ -247,7 +247,8 @@ func (s *pgxPlanItemStore) DeletePlanItem(ctx context.Context, tripID, itemID st
 func (s *pgxPlanItemStore) ReorderPlanItems(ctx context.Context, tripID, dayID string, itemIDs []string) ([]PlanItem, error) {
 	const q = `
 		WITH positions(id, pos) AS (
-		    SELECT unnest($3::uuid[]), generate_series(0, array_length($3::uuid[], 1) - 1)
+		    SELECT id, (ord - 1)::int
+		    FROM unnest($3::uuid[]) WITH ORDINALITY AS t(id, ord)
 		)
 		UPDATE trip.plan_items pi
 		SET sort_order = p.pos
