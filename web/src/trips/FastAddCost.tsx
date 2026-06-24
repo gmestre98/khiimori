@@ -236,7 +236,6 @@ function AddCostForm({
         setAmount('')
         setNote('')
         setOpen(false)
-        setSaveStatus('queued')
       } else {
         const entry = await createCostEntry(tripId, input)
         onAdded(entry)
