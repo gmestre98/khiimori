@@ -187,10 +187,11 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config) http.H
 	// boundary. The sharing membership writer is handed to trip the same way, so
 	// trip writes the Owner membership transactionally without importing sharing.
 	authModule := auth.New(cfg, pool)
+	tripAuthz := trip.NewOwnerOnlyAuthorizer(pool)
 	modules := []httpx.RouteRegistrar{
 		authModule,
-		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships(), trip.NewOwnerOnlyAuthorizer(pool)),
-		budget.New(),
+		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships(), tripAuthz),
+		budget.New(pool, authModule.RequireAuth, tripOwnerAuthzAdapter{tripAuthz}),
 		journal.New(),
 		sharing.New(),
 		geo.New(),
@@ -208,6 +209,18 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config) http.H
 	}
 
 	return mux
+}
+
+// tripOwnerAuthzAdapter adapts *trip.OwnerOnlyAuthorizer to budget.Authorizer.
+// The budget module declares its own Authorizer interface (consumer-side) so it
+// never imports the trip module — this adapter lives in the composition root
+// where both modules are visible.
+type tripOwnerAuthzAdapter struct {
+	inner *trip.OwnerOnlyAuthorizer
+}
+
+func (a tripOwnerAuthzAdapter) CanWrite(ctx context.Context, userID, tripID string) (bool, error) {
+	return a.inner.Can(ctx, userID, trip.ActionWrite, tripID)
 }
 
 // debugTriggerError deliberately returns a 500 so the error-rate metric spikes
