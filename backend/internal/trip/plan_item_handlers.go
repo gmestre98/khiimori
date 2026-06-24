@@ -223,6 +223,100 @@ func (m *Module) handleUpdatePlanItem(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(newPlanItemResponse(item))
 }
 
+// promotePlanItemRequest is the promote wire shape. day_id is required;
+// start_time is optional (omit to keep the item untimed on the target day).
+type promotePlanItemRequest struct {
+	DayID     string  `json:"day_id"`
+	StartTime *string `json:"start_time"`
+}
+
+// handlePromotePlanItem moves a backlog item to a specific day
+// (POST /trips/{id}/plan-items/{itemID}/promote).
+func (m *Module) handlePromotePlanItem(w http.ResponseWriter, r *http.Request) {
+	p, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusUnauthorized, "auth_required", "authentication required"))
+		return
+	}
+	tripID := r.PathValue("id")
+	itemID := r.PathValue("itemID")
+
+	if err := m.checkAccess(r.Context(), p.UserID, ActionWrite, tripID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	var req promotePlanItemRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusBadRequest, "invalid_json", "request body is not valid JSON"))
+		return
+	}
+	if req.DayID == "" {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusBadRequest, "invalid_promote", "day_id is required"))
+		return
+	}
+	if req.StartTime != nil {
+		if _, _, err := parseTimeHHMM(*req.StartTime); err != nil {
+			httpx.WriteError(w, r, httpx.NewAPIError(
+				http.StatusBadRequest, "invalid_promote", "start_time must be in HH:MM format"))
+			return
+		}
+	}
+
+	item, err := m.planItems.PromotePlanItem(r.Context(), tripID, itemID, PromotePlanItemInput(req))
+	if err != nil {
+		if errors.Is(err, errPlanItemNotFound) {
+			httpx.WriteError(w, r, httpx.NewAPIError(
+				http.StatusNotFound, "plan_item_not_found", "plan item not found"))
+			return
+		}
+		platformlog.FromContext(r.Context()).Error("promoting plan item", "err", err.Error())
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(newPlanItemResponse(item))
+}
+
+// handleDemotePlanItem moves a plan item back to the backlog
+// (POST /trips/{id}/plan-items/{itemID}/demote).
+func (m *Module) handleDemotePlanItem(w http.ResponseWriter, r *http.Request) {
+	p, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusUnauthorized, "auth_required", "authentication required"))
+		return
+	}
+	tripID := r.PathValue("id")
+	itemID := r.PathValue("itemID")
+
+	if err := m.checkAccess(r.Context(), p.UserID, ActionWrite, tripID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	item, err := m.planItems.DemotePlanItem(r.Context(), tripID, itemID)
+	if err != nil {
+		if errors.Is(err, errPlanItemNotFound) {
+			httpx.WriteError(w, r, httpx.NewAPIError(
+				http.StatusNotFound, "plan_item_not_found", "plan item not found"))
+			return
+		}
+		platformlog.FromContext(r.Context()).Error("demoting plan item", "err", err.Error())
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(newPlanItemResponse(item))
+}
+
 // handleDeletePlanItem removes a plan item (DELETE /trips/{id}/plan-items/{itemID}).
 // Replaying a delete of a non-existent item returns 204 — idempotent for
 // Epic 06's offline replay.

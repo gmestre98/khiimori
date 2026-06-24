@@ -30,6 +30,17 @@ type fakePlanItemStore struct {
 	gotDeleteTripID string
 	gotDeleteItemID string
 	deleteErr       error
+
+	gotPromoteTripID string
+	gotPromoteItemID string
+	gotPromote       PromotePlanItemInput
+	promoteResult    PlanItem
+	promoteErr       error
+
+	gotDemoteTripID string
+	gotDemoteItemID string
+	demoteResult    PlanItem
+	demoteErr       error
 }
 
 func (f *fakePlanItemStore) ListBacklog(_ context.Context, tripID string) ([]PlanItem, error) {
@@ -98,6 +109,46 @@ func (f *fakePlanItemStore) DeletePlanItem(_ context.Context, tripID, itemID str
 	f.gotDeleteTripID = tripID
 	f.gotDeleteItemID = itemID
 	return f.deleteErr
+}
+
+func (f *fakePlanItemStore) PromotePlanItem(_ context.Context, tripID, itemID string, p PromotePlanItemInput) (PlanItem, error) {
+	f.gotPromoteTripID = tripID
+	f.gotPromoteItemID = itemID
+	f.gotPromote = p
+	if f.promoteErr != nil {
+		return PlanItem{}, f.promoteErr
+	}
+	if f.promoteResult.ID != "" {
+		return f.promoteResult, nil
+	}
+	return PlanItem{
+		ID:        itemID,
+		TripID:    tripID,
+		DayID:     &p.DayID,
+		Title:     "Promoted item",
+		StartTime: p.StartTime,
+		SortOrder: 0,
+		Status:    "planned",
+	}, nil
+}
+
+func (f *fakePlanItemStore) DemotePlanItem(_ context.Context, tripID, itemID string) (PlanItem, error) {
+	f.gotDemoteTripID = tripID
+	f.gotDemoteItemID = itemID
+	if f.demoteErr != nil {
+		return PlanItem{}, f.demoteErr
+	}
+	if f.demoteResult.ID != "" {
+		return f.demoteResult, nil
+	}
+	return PlanItem{
+		ID:        itemID,
+		TripID:    tripID,
+		DayID:     nil,
+		Title:     "Demoted item",
+		SortOrder: 0,
+		Status:    "idea",
+	}, nil
 }
 
 // newPlanItemModule constructs a Module wired to a trip store and plan-item store.
@@ -711,6 +762,301 @@ func TestHandleListBacklogUnauthorized(t *testing.T) {
 		t.Fatalf("status = %d, want 404 (presence oracle protection)", rec.Code)
 	}
 	if pi.gotListBacklogTripID != "" {
+		t.Error("store should not be called for an unauthorized request")
+	}
+}
+
+// promotePlanItemReq builds a POST /trips/{id}/plan-items/{itemID}/promote request.
+func promotePlanItemReq(tripID, itemID, userID, body string) *http.Request {
+	req := httptest.NewRequest(http.MethodPost, TripsPath+"/"+tripID+"/plan-items/"+itemID+"/promote", strings.NewReader(body))
+	req.SetPathValue("id", tripID)
+	req.SetPathValue("itemID", itemID)
+	return withPrincipal(req, userID)
+}
+
+// demotePlanItemReq builds a POST /trips/{id}/plan-items/{itemID}/demote request.
+func demotePlanItemReq(tripID, itemID, userID string) *http.Request {
+	req := httptest.NewRequest(http.MethodPost, TripsPath+"/"+tripID+"/plan-items/"+itemID+"/demote", nil)
+	req.SetPathValue("id", tripID)
+	req.SetPathValue("itemID", itemID)
+	return withPrincipal(req, userID)
+}
+
+// TestHandlePromotePlanItemOK asserts a promote with day_id sets day_id and
+// transitions status to "planned".
+func TestHandlePromotePlanItemOK(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	body := `{"day_id":"day-1"}`
+	rec := httptest.NewRecorder()
+	m.handlePromotePlanItem(rec, promotePlanItemReq("trip-1", "item-5", "owner-1", body))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotPromoteTripID != "trip-1" {
+		t.Errorf("tripID = %q, want trip-1", pi.gotPromoteTripID)
+	}
+	if pi.gotPromoteItemID != "item-5" {
+		t.Errorf("itemID = %q, want item-5", pi.gotPromoteItemID)
+	}
+	if pi.gotPromote.DayID != "day-1" {
+		t.Errorf("day_id = %q, want day-1", pi.gotPromote.DayID)
+	}
+	if pi.gotPromote.StartTime != nil {
+		t.Errorf("start_time = %v, want nil (untimed promote)", pi.gotPromote.StartTime)
+	}
+
+	var resp planItemResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.DayID == nil || *resp.DayID != "day-1" {
+		t.Errorf("response day_id = %v, want day-1", resp.DayID)
+	}
+	if resp.Status != "planned" {
+		t.Errorf("response status = %q, want planned", resp.Status)
+	}
+}
+
+// TestHandlePromotePlanItemWithStartTime asserts a promote with start_time
+// forwards it to the store.
+func TestHandlePromotePlanItemWithStartTime(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	body := `{"day_id":"day-2","start_time":"10:00"}`
+	rec := httptest.NewRecorder()
+	m.handlePromotePlanItem(rec, promotePlanItemReq("trip-1", "item-7", "owner-1", body))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotPromote.StartTime == nil || *pi.gotPromote.StartTime != "10:00" {
+		t.Errorf("start_time = %v, want 10:00", pi.gotPromote.StartTime)
+	}
+}
+
+// TestHandlePromotePlanItemMissingDayID asserts a missing day_id is 400.
+func TestHandlePromotePlanItemMissingDayID(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handlePromotePlanItem(rec, promotePlanItemReq("trip-1", "item-1", "owner-1", `{}`))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	if pi.gotPromoteItemID != "" {
+		t.Error("store should not be called for an invalid request")
+	}
+}
+
+// TestHandlePromotePlanItemBadStartTime asserts a malformed start_time is 400.
+func TestHandlePromotePlanItemBadStartTime(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	body := `{"day_id":"day-1","start_time":"bad"}`
+	rec := httptest.NewRecorder()
+	m.handlePromotePlanItem(rec, promotePlanItemReq("trip-1", "item-1", "owner-1", body))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	if pi.gotPromoteItemID != "" {
+		t.Error("store should not be called for an invalid request")
+	}
+}
+
+// TestHandlePromotePlanItemNotFound asserts a store errPlanItemNotFound is 404.
+func TestHandlePromotePlanItemNotFound(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{promoteErr: errPlanItemNotFound}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handlePromotePlanItem(rec, promotePlanItemReq("trip-1", "gone", "owner-1", `{"day_id":"day-1"}`))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
+
+// TestHandlePromotePlanItemUnauthenticated asserts a missing session is 401.
+func TestHandlePromotePlanItemUnauthenticated(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	req := httptest.NewRequest(http.MethodPost, TripsPath+"/trip-1/plan-items/item-1/promote", strings.NewReader(`{"day_id":"day-1"}`))
+	req.SetPathValue("id", "trip-1")
+	req.SetPathValue("itemID", "item-1")
+	rec := httptest.NewRecorder()
+	m.handlePromotePlanItem(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+}
+
+// TestHandlePromotePlanItemUnauthorized asserts a denied Authorizer is 404.
+func TestHandlePromotePlanItemUnauthorized(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := &Module{
+		store:       &fakeTripStore{},
+		stays:       &fakeStayStore{},
+		planItems:   pi,
+		requireAuth: func(h http.Handler) http.Handler { return h },
+		authz:       denyAllAuthorizer{},
+		now:         func() time.Time { return fixedNow },
+	}
+
+	rec := httptest.NewRecorder()
+	m.handlePromotePlanItem(rec, promotePlanItemReq("trip-1", "item-1", "other-user", `{"day_id":"day-1"}`))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 (presence oracle protection)", rec.Code)
+	}
+	if pi.gotPromoteItemID != "" {
+		t.Error("store should not be called for an unauthorized request")
+	}
+}
+
+// TestHandleDemotePlanItemOK asserts a demote clears day_id and sets status to "idea".
+func TestHandleDemotePlanItemOK(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleDemotePlanItem(rec, demotePlanItemReq("trip-1", "item-3", "owner-1"))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotDemoteTripID != "trip-1" {
+		t.Errorf("tripID = %q, want trip-1", pi.gotDemoteTripID)
+	}
+	if pi.gotDemoteItemID != "item-3" {
+		t.Errorf("itemID = %q, want item-3", pi.gotDemoteItemID)
+	}
+
+	var resp planItemResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.DayID != nil {
+		t.Errorf("response day_id = %v, want nil (backlog)", resp.DayID)
+	}
+	if resp.Status != "idea" {
+		t.Errorf("response status = %q, want idea", resp.Status)
+	}
+}
+
+// TestHandleDemotePlanItemRoundTrip asserts promote then demote round-trip via
+// the fake store (idempotency of the no-re-entry guarantee).
+func TestHandleDemotePlanItemRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	// Promote
+	rec := httptest.NewRecorder()
+	m.handlePromotePlanItem(rec, promotePlanItemReq("trip-1", "item-9", "owner-1", `{"day_id":"day-42"}`))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("promote status = %d, want 200", rec.Code)
+	}
+
+	// Demote
+	rec2 := httptest.NewRecorder()
+	m.handleDemotePlanItem(rec2, demotePlanItemReq("trip-1", "item-9", "owner-1"))
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("demote status = %d, want 200", rec2.Code)
+	}
+
+	var resp planItemResponse
+	if err := json.Unmarshal(rec2.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode demote response: %v", err)
+	}
+	if resp.DayID != nil {
+		t.Errorf("after demote day_id = %v, want nil", resp.DayID)
+	}
+	if resp.Status != "idea" {
+		t.Errorf("after demote status = %q, want idea", resp.Status)
+	}
+}
+
+// TestHandleDemotePlanItemNotFound asserts errPlanItemNotFound is surfaced as 404.
+func TestHandleDemotePlanItemNotFound(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{demoteErr: errPlanItemNotFound}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleDemotePlanItem(rec, demotePlanItemReq("trip-1", "gone", "owner-1"))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
+
+// TestHandleDemotePlanItemUnauthenticated asserts a missing session is 401.
+func TestHandleDemotePlanItemUnauthenticated(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	req := httptest.NewRequest(http.MethodPost, TripsPath+"/trip-1/plan-items/item-1/demote", nil)
+	req.SetPathValue("id", "trip-1")
+	req.SetPathValue("itemID", "item-1")
+	rec := httptest.NewRecorder()
+	m.handleDemotePlanItem(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+}
+
+// TestHandleDemotePlanItemUnauthorized asserts a denied Authorizer is 404.
+func TestHandleDemotePlanItemUnauthorized(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := &Module{
+		store:       &fakeTripStore{},
+		stays:       &fakeStayStore{},
+		planItems:   pi,
+		requireAuth: func(h http.Handler) http.Handler { return h },
+		authz:       denyAllAuthorizer{},
+		now:         func() time.Time { return fixedNow },
+	}
+
+	rec := httptest.NewRecorder()
+	m.handleDemotePlanItem(rec, demotePlanItemReq("trip-1", "item-1", "other-user"))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 (presence oracle protection)", rec.Code)
+	}
+	if pi.gotDemoteItemID != "" {
 		t.Error("store should not be called for an unauthorized request")
 	}
 }
