@@ -1,5 +1,7 @@
 # Epic M04.5 — Day view & inline editing (frontend)
 
+> **Status:** 🔄 In progress — 3/5 ACs done. S1 (day view layout), S2 (inline quick add/edit), S3 (re-planning affordances: drag-reorder, move-to-day, promote/demote, status) merged via [#261](https://github.com/gmestre98/khiimori/pull/261), [#263](https://github.com/gmestre98/khiimori/pull/263), [#265](https://github.com/gmestre98/khiimori/pull/265).
+
 > Milestone: [04 — Organic Day Planning](../README.md) · PRD refs: §5.2, §5.3, §5.10, §7.2.
 
 ## Description
@@ -19,7 +21,7 @@ optimised for thumb-reachable mobile interaction.
       where there isn't one (PRD §5.2).
 - [x] **Inline add/edit** of a plan item is a couple of taps (title-only quick add, expand for
       optional fields) — as easy as journaling (PRD §5.3).
-- [ ] **Drag-reorder**, **move-to-day**, **promote/demote**, and **status** (done/skipped/cancelled)
+- [x] **Drag-reorder**, **move-to-day**, **promote/demote**, and **status** (done/skipped/cancelled)
       affordances are wired to Epics 03–04 (PRD §5.3).
 - [ ] All changes **auto-save** with no explicit "save" button; in-flight saves are debounced and
       surfaced subtly (PRD §5.3).
@@ -63,7 +65,7 @@ without reading the rest of the docs.
 |---|-------|------|---------|-----------|
 | [S1](S1-day-view-layout.md) ✅ | Day view layout (timed / untimed / stays / backlog) | ~3.5h | AC1 | M03 Epic 05, Epics 01–04 |
 | [S2](S2-inline-add-edit.md) ✅ | Inline quick add/edit | ~3h | AC2 | S1, Epic 02 |
-| [S3](S3-replanning-affordances.md) | Re-planning affordances (drag / move / promote / status) | ~3.5h | AC3 | S1, Epics 03/04 |
+| [S3](S3-replanning-affordances.md) ✅ | Re-planning affordances (drag / move / promote / status) | ~3.5h | AC3 | S1, Epics 03/04 |
 | [S4](S4-auto-save.md) | Auto-save (debounced) | ~2.5h | AC4 | S2, S3, Epic 06 |
 | [S5](S5-mobile-interactions.md) | Mobile-first interactions (sheets, thumb zones) | ~2.5h | AC5 | S1–S4 |
 
