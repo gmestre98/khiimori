@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   UnauthorizedError,
@@ -7,9 +7,10 @@ import {
   type BudgetRollup,
 } from '../lib/api'
 import { TripBudgetEditor } from './BudgetEditor'
+import { TripRollup } from './RollupDisplay'
 import { useTripShell } from './useTripShell'
 
-// TripBudgetPage renders the trip-level budget editor at /trips/:tripId/budget.
+// TripBudgetPage renders the trip-level budget editor and rollup display.
 export function TripBudgetPage() {
   const { tripId } = useParams<{ tripId: string }>()
   const { trip } = useTripShell()
@@ -17,18 +18,25 @@ export function TripBudgetPage() {
   const [lines, setLines] = useState<BudgetLine[]>([])
   const [error, setError] = useState<string | null>(null)
 
+  const loadRollup = useCallback(
+    (signal?: AbortSignal) => {
+      if (!tripId) return
+      fetchBudgetRollup(tripId, signal)
+        .then((r) => setRollup(r))
+        .catch((err: unknown) => {
+          if (err instanceof DOMException && err.name === 'AbortError') return
+          if (err instanceof UnauthorizedError) return
+          setError('Could not load budget data.')
+        })
+    },
+    [tripId],
+  )
+
   useEffect(() => {
-    if (!tripId) return
     const controller = new AbortController()
-    fetchBudgetRollup(tripId, controller.signal)
-      .then((r) => setRollup(r))
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === 'AbortError') return
-        if (err instanceof UnauthorizedError) return
-        setError('Could not load budget data.')
-      })
+    loadRollup(controller.signal)
     return () => controller.abort()
-  }, [tripId])
+  }, [loadRollup])
 
   function handleLineUpdated(line: BudgetLine) {
     setLines((prev) => {
@@ -40,6 +48,8 @@ export function TripBudgetPage() {
       }
       return [...prev, line]
     })
+    // Re-fetch rollup so planned totals reflect the new line immediately.
+    loadRollup()
   }
 
   if (!tripId) return null
@@ -59,12 +69,7 @@ export function TripBudgetPage() {
         </p>
       )}
 
-      {rollup && (
-        <div className="trip-budget-summary">
-          <span className="trip-budget-summary-label">Total spent:</span>
-          <span className="trip-budget-summary-value">€{rollup.trip_total.toFixed(2)}</span>
-        </div>
-      )}
+      {rollup && <TripRollup rollup={rollup} />}
 
       <TripBudgetEditor tripId={tripId} lines={lines} onUpdated={handleLineUpdated} />
     </article>

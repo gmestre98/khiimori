@@ -92,6 +92,10 @@ func (f *fakeBudgetStore) DeleteCostEntry(_ context.Context, entryID, tripID str
 	return f.deleteErr
 }
 
+func (f *fakeBudgetStore) ListBudgetLines(_ context.Context, _ string) ([]BudgetLine, error) {
+	return nil, nil
+}
+
 func (f *fakeBudgetStore) ListCostEntries(_ context.Context, _ string) ([]CostEntry, error) {
 	return f.listEntries, f.listErr
 }
