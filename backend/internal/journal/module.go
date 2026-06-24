@@ -15,6 +15,7 @@ type Module struct {
 	authz       Authorizer
 	requireAuth httpx.Middleware
 	media       MediaStore
+	quotaCap    int64 // per-trip cap in bytes; defaults to DefaultQuotaCap
 }
 
 // New constructs the journal module wired to the database pool, auth middleware,
@@ -27,6 +28,7 @@ func New(pool *pgxpool.Pool, requireAuth httpx.Middleware, authz Authorizer, med
 		authz:       authz,
 		requireAuth: requireAuth,
 		media:       media,
+		quotaCap:    DefaultQuotaCap,
 	}
 }
 

@@ -22,9 +22,13 @@ type Photo struct {
 // ErrPhotoNotFound is returned when an operation targets a non-existent photo.
 var ErrPhotoNotFound = errors.New("journal: photo not found")
 
-// Upload validation limits. Epic 03 adds the per-trip 1 GB cap on top of these.
+// ErrQuotaExceeded is returned when an upload would exceed the per-trip storage cap.
+var ErrQuotaExceeded = errors.New("journal: per-trip storage quota exceeded")
+
+// Upload validation limits.
 const (
-	maxUploadBytes = 10 << 20 // 10 MB per photo
+	maxUploadBytes  = 10 << 20 // 10 MB per photo
+	DefaultQuotaCap = 1 << 30  // 1 GB per trip (PRD §5.5, §11.4)
 )
 
 // allowedContentTypes lists MIME types accepted for upload.

@@ -188,8 +188,7 @@ func newRandomID() string {
 // Upload pipeline:
 //  1. Auth check (trip membership)
 //  2. Parse multipart form and validate file (type, size)
-//  3. [QUOTA CHECK SEAM] — Epic 03 inserts its per-trip 1 GB cap check here,
-//     before MediaStore.Put, so no rework is needed in this handler.
+//  3. Per-trip 1 GB cap check — rejected before any storage write
 //  4. MediaStore.Put → storage URL
 //  5. InsertPhoto row (on failure, Delete the stored object to avoid orphans)
 func (m *Module) handleUploadPhoto(w http.ResponseWriter, r *http.Request) {
@@ -242,9 +241,19 @@ func (m *Module) handleUploadPhoto(w http.ResponseWriter, r *http.Request) {
 
 	caption := r.FormValue("caption")
 
-	// [QUOTA CHECK SEAM] — Epic 03 will add:
-	//   if err := m.quota.Check(ctx, tripID, size); err != nil { ... }
-	// immediately before MediaStore.Put, without changing the rest of this handler.
+	// Per-trip 1 GB cap — enforced server-side before any storage write.
+	used, err := m.store.TripUsageBytes(r.Context(), tripID)
+	if err != nil {
+		platformlog.FromContext(r.Context()).Error("journal: quota check", "err", err.Error())
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusInternalServerError, "internal_error", "internal error"))
+		return
+	}
+	if used+size > m.quotaCap {
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusRequestEntityTooLarge,
+			"quota_exceeded",
+			fmt.Sprintf("trip storage quota exceeded: %d of %d bytes used", used, m.quotaCap)))
+		return
+	}
 
 	objectKey := fmt.Sprintf("trips/%s/%s", tripID, newRandomID())
 	storageURL, err := m.media.Put(r.Context(), objectKey, contentType, size, file)
