@@ -320,13 +320,13 @@ func (m *Module) handleUnarchive(w http.ResponseWriter, r *http.Request) {
 // duplication in the DB). PlanItems contains all plan items assigned to this
 // day, ordered timed-first (chronological) then untimed (sort_order).
 type dayResponse struct {
-	ID        string              `json:"id"`
-	TripID    string              `json:"trip_id"`
-	Date      string              `json:"date"`
-	Index     int                 `json:"index"`
-	Notes     string              `json:"notes"`
-	Stays     []stayResponse      `json:"stays"`
-	PlanItems []planItemResponse  `json:"plan_items"`
+	ID        string             `json:"id"`
+	TripID    string             `json:"trip_id"`
+	Date      string             `json:"date"`
+	Index     int                `json:"index"`
+	Notes     string             `json:"notes"`
+	Stays     []stayResponse     `json:"stays"`
+	PlanItems []planItemResponse `json:"plan_items"`
 }
 
 // handleGetDay returns a single day by trip + date. The route is

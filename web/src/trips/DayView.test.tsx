@@ -155,7 +155,9 @@ describe('DayView', () => {
   it('renders backlog link', async () => {
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
     renderDayView()
-    await waitFor(() => expect(screen.getByRole('link', { name: /Ideas backlog/i })).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: /Ideas backlog/i })).toBeInTheDocument(),
+    )
   })
 
   it('renders notes when present', async () => {

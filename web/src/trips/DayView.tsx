@@ -55,10 +55,7 @@ function PlanItemRow({ item }: { item: PlanItem }) {
 function TimedSection({ items }: { items: PlanItem[] }) {
   if (items.length === 0) return null
   return (
-    <section
-      className="day-plan-section day-plan-section--timed"
-      aria-label="Timed activities"
-    >
+    <section className="day-plan-section day-plan-section--timed" aria-label="Timed activities">
       <h3 className="day-plan-section-title">Schedule</h3>
       <ol className="plan-item-list">
         {items.map((item) => (
@@ -73,10 +70,7 @@ function TimedSection({ items }: { items: PlanItem[] }) {
 function UntimedSection({ items }: { items: PlanItem[] }) {
   if (items.length === 0) return null
   return (
-    <section
-      className="day-plan-section day-plan-section--untimed"
-      aria-label="Untimed activities"
-    >
+    <section className="day-plan-section day-plan-section--untimed" aria-label="Untimed activities">
       <h3 className="day-plan-section-title">Activities</h3>
       <ul className="plan-item-list">
         {items.map((item) => (
@@ -99,7 +93,10 @@ function StaysSection({ stays }: { stays: Stay[] }) {
             <span className="stay-name">{stay.name}</span>
             {stay.location && <span className="stay-location">{stay.location}</span>}
             {stay.check_in && stay.check_out && (
-              <span className="stay-dates" aria-label={`Check in ${stay.check_in}, check out ${stay.check_out}`}>
+              <span
+                className="stay-dates"
+                aria-label={`Check in ${stay.check_in}, check out ${stay.check_out}`}
+              >
                 {stay.check_in} – {stay.check_out}
               </span>
             )}
@@ -132,11 +129,7 @@ function PlanningSection({ day, tripId }: { day: Day; tripId: string }) {
   const untimed = day.plan_items.filter((item) => item.start_time == null)
 
   return (
-    <section
-      className="day-slot day-slot-planning"
-      aria-label="Planning"
-      data-slot="planning"
-    >
+    <section className="day-slot day-slot-planning" aria-label="Planning" data-slot="planning">
       <h2 className="day-slot-title">Plan</h2>
       <StaysSection stays={day.stays} />
       <TimedSection items={timed} />
