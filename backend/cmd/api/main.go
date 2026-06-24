@@ -193,7 +193,7 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config) http.H
 		authModule,
 		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships(), tripAuthz),
 		budget.New(pool, authModule.RequireAuth, tripOwnerAuthzAdapter{tripAuthz}, tripCostReaderAdapter{pool: pool}),
-		journal.New(),
+		journal.New(pool, authModule.RequireAuth, tripOwnerJournalAuthzAdapter{tripAuthz}),
 		sharing.New(),
 		geo.New(),
 	}
@@ -210,6 +210,15 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config) http.H
 	}
 
 	return mux
+}
+
+// tripOwnerJournalAuthzAdapter adapts *trip.OwnerOnlyAuthorizer to journal.Authorizer.
+type tripOwnerJournalAuthzAdapter struct {
+	inner *trip.OwnerOnlyAuthorizer
+}
+
+func (a tripOwnerJournalAuthzAdapter) CanAccess(ctx context.Context, userID, tripID string) (bool, error) {
+	return a.inner.Can(ctx, userID, trip.ActionRead, tripID)
 }
 
 // tripOwnerAuthzAdapter adapts *trip.OwnerOnlyAuthorizer to budget.Authorizer.
