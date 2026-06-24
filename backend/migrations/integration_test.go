@@ -82,6 +82,10 @@ func TestMigrationsCreateModuleSchemas(t *testing.T) {
 	// on; assert its status constraint, FK cascade, and day_id SET NULL applied.
 	assertTripPlanItemsTable(t, db)
 
+	// The journal.journal_entries table (00016) is the JournalEntry entity Epic
+	// M06.1 builds on; assert its one-per-day guard and column shape applied.
+	assertJournalEntriesTable(t, db)
+
 	// Roll everything back and assert the schemas are gone.
 	if err := goose.Reset(db, migrations.Dir); err != nil {
 		t.Fatalf("migrate reset: %v", err)
@@ -288,6 +292,63 @@ func assertTripPlanItemsTable(t *testing.T, db *sql.DB) {
 	}
 	if !statusCheck {
 		t.Error("trip.plan_items lacks a CHECK constraint on status")
+	}
+}
+
+// assertJournalEntriesTable checks the journal.journal_entries migration (00016)
+// applied with the shape S2–S3 depend on: the table exists and the day_id UNIQUE
+// constraint enforces one entry per day.
+func assertJournalEntriesTable(t *testing.T, db *sql.DB) {
+	t.Helper()
+
+	var tableExists bool
+	if err := db.QueryRow(
+		`SELECT EXISTS (
+			SELECT 1 FROM information_schema.tables
+			WHERE table_schema = 'journal' AND table_name = 'journal_entries'
+		)`,
+	).Scan(&tableExists); err != nil {
+		t.Fatalf("query journal.journal_entries existence: %v", err)
+	}
+	if !tableExists {
+		t.Fatal("journal.journal_entries table missing after migrate up")
+	}
+
+	// The UNIQUE constraint on day_id is the one-entry-per-day guard (PRD §7.7).
+	var uniqueOnDayID bool
+	if err := db.QueryRow(
+		`SELECT EXISTS (
+			SELECT 1
+			FROM pg_constraint c
+			WHERE c.conrelid = 'journal.journal_entries'::regclass
+			  AND c.contype IN ('u', 'p')
+			  AND c.conkey = ARRAY[(
+				SELECT attnum FROM pg_attribute
+				WHERE attrelid = 'journal.journal_entries'::regclass AND attname = 'day_id'
+			)]
+		)`,
+	).Scan(&uniqueOnDayID); err != nil {
+		t.Fatalf("query journal_entries day_id unique constraint: %v", err)
+	}
+	if !uniqueOnDayID {
+		t.Error("journal.journal_entries.day_id lacks a unique constraint (one-per-day guard)")
+	}
+
+	// The rating CHECK (1–5) must be present.
+	var ratingCheck bool
+	if err := db.QueryRow(
+		`SELECT EXISTS (
+			SELECT 1
+			FROM pg_constraint c
+			WHERE c.conrelid = 'journal.journal_entries'::regclass
+			  AND c.contype  = 'c'
+			  AND c.conname  LIKE '%rating%'
+		)`,
+	).Scan(&ratingCheck); err != nil {
+		t.Fatalf("query journal_entries rating check: %v", err)
+	}
+	if !ratingCheck {
+		t.Error("journal.journal_entries lacks a CHECK constraint on rating")
 	}
 }
 
