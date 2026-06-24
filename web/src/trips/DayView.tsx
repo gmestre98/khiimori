@@ -116,6 +116,8 @@ function PlanItemForm({
     setSubmitting(true)
     try {
       await onSubmit(fields)
+      // Reset after a successful quick-add (edit forms unmount on save instead).
+      if (!initialFields) setFields(emptyFields())
     } finally {
       setSubmitting(false)
     }
