@@ -156,6 +156,8 @@ export async function replayQueue(): Promise<ReplayResult[]> {
   const { toDispatch, superseded } = resolveConflicts(pending)
 
   // Drop superseded mutations immediately so they are never retried.
+  // IDB errors here are unrecoverable (corrupted store); let them propagate
+  // rather than silently proceeding with a partially-cleaned queue.
   for (const m of superseded) {
     await remove(m.id)
   }

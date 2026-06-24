@@ -28,6 +28,13 @@ import type { QueuedMutation } from './mutationQueue'
 // resourceKey returns a string that uniquely identifies the resource targeted
 // by a mutation. Mutations with the same key compete; the last (by seq) wins.
 // Returns null for mutations that are never deduplicated (e.g. createPlanItem).
+//
+// Assumption: every payload was enqueued by a well-typed call site and carries
+// the expected string fields (tripId, itemId, dayId). String() is used for
+// coercion because the payload is typed as `unknown`; a missing field would
+// stringify to "undefined" which is safe — it would only deduplicate against
+// another mutation with equally malformed payload (both would be dropped except
+// the last), never against a correctly formed one.
 function resourceKey(m: QueuedMutation): string | null {
   const p = m.payload as Record<string, unknown>
   switch (m.kind) {
