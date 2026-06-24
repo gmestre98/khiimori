@@ -56,12 +56,7 @@ function BottomSheet({
     >
       <div className="bottom-sheet">
         <div className="bottom-sheet-handle" aria-hidden="true" />
-        <button
-          type="button"
-          className="bottom-sheet-close"
-          aria-label="Close"
-          onClick={onClose}
-        >
+        <button type="button" className="bottom-sheet-close" aria-label="Close" onClick={onClose}>
           ✕
         </button>
         {children}
@@ -591,10 +586,7 @@ function PlanItemRow({
     return (
       <>
         {/* Keep the item row visible behind the sheet */}
-        <li
-          className="plan-item"
-          aria-label={item.title}
-        >
+        <li className="plan-item" aria-label={item.title}>
           <div className="plan-item-main">
             <span className="plan-item-title">{item.title}</span>
           </div>
@@ -614,11 +606,7 @@ function PlanItemRow({
   }
 
   if (editing) {
-    return (
-      <li className="plan-item plan-item--editing">
-        {editForm}
-      </li>
-    )
+    return <li className="plan-item plan-item--editing">{editForm}</li>
   }
 
   return (

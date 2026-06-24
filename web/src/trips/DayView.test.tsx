@@ -369,7 +369,9 @@ describe('DayView', () => {
       setMobile(true)
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
       renderDayView()
-      await waitFor(() => expect(screen.getByRole('button', { name: 'Add activity' })).toBeInTheDocument())
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Add activity' })).toBeInTheDocument(),
+      )
       // The inline title input should NOT be visible (it's inside a hidden form on mobile)
       expect(screen.queryByLabelText('Title')).not.toBeInTheDocument()
     })
@@ -379,7 +381,9 @@ describe('DayView', () => {
       const user = userEvent.setup()
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
       renderDayView()
-      await waitFor(() => expect(screen.getByRole('button', { name: 'Add activity' })).toBeInTheDocument())
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Add activity' })).toBeInTheDocument(),
+      )
 
       await user.click(screen.getByRole('button', { name: 'Add activity' }))
       expect(screen.getByRole('dialog', { name: 'Add activity' })).toBeInTheDocument()
@@ -392,13 +396,17 @@ describe('DayView', () => {
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
       vi.mocked(api.createPlanItem).mockResolvedValue(makePlanItem({ id: 'n1', title: 'New act' }))
       renderDayView()
-      await waitFor(() => expect(screen.getByRole('button', { name: 'Add activity' })).toBeInTheDocument())
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Add activity' })).toBeInTheDocument(),
+      )
 
       await user.click(screen.getByRole('button', { name: 'Add activity' }))
       await user.type(screen.getByLabelText('Title'), 'New act')
       await user.click(screen.getByRole('button', { name: 'Add' }))
 
-      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Add activity' })).not.toBeInTheDocument())
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog', { name: 'Add activity' })).not.toBeInTheDocument(),
+      )
       expect(screen.getByText('New act')).toBeInTheDocument()
     })
 
@@ -442,11 +450,9 @@ describe('DayView', () => {
 
       await user.click(screen.getByRole('button', { name: /Move Second up/ }))
 
-      await waitFor(() => expect(api.reorderPlanItems).toHaveBeenCalledWith(
-        'trip-1',
-        'day-1',
-        ['i2', 'i1'],
-      ))
+      await waitFor(() =>
+        expect(api.reorderPlanItems).toHaveBeenCalledWith('trip-1', 'day-1', ['i2', 'i1']),
+      )
     })
   })
 
