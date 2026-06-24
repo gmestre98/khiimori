@@ -86,6 +86,34 @@ interface SetPlanItemStatusPayload {
   status: string
 }
 
+// Budget payload shapes (M05.3 S3).
+interface SetTripBudgetLinePayload {
+  tripId: string
+  input: api.SetBudgetLineInput
+}
+
+interface SetDayBudgetLinePayload {
+  tripId: string
+  dayId: string
+  input: api.SetBudgetLineInput
+}
+
+interface CreateCostEntryPayload {
+  tripId: string
+  input: api.CreateCostEntryInput
+}
+
+interface UpdateCostEntryPayload {
+  tripId: string
+  entryId: string
+  input: api.UpdateCostEntryInput
+}
+
+interface DeleteCostEntryPayload {
+  tripId: string
+  entryId: string
+}
+
 // isPermanentFailure returns true for HTTP status codes that indicate the server
 // definitively rejected the mutation (not a transient issue). 401 is treated as
 // permanent so an expired session doesn't block the queue forever; re-auth and
@@ -135,6 +163,31 @@ async function dispatch(m: QueuedMutation): Promise<void> {
     case 'setPlanItemStatus': {
       const { tripId, itemId, status } = p as unknown as SetPlanItemStatusPayload
       await api.setPlanItemStatus(tripId, itemId, status)
+      return
+    }
+    case 'setTripBudgetLine': {
+      const { tripId, input } = p as unknown as SetTripBudgetLinePayload
+      await api.setTripBudgetLine(tripId, input)
+      return
+    }
+    case 'setDayBudgetLine': {
+      const { tripId, dayId, input } = p as unknown as SetDayBudgetLinePayload
+      await api.setDayBudgetLine(tripId, dayId, input)
+      return
+    }
+    case 'createCostEntry': {
+      const { tripId, input } = p as unknown as CreateCostEntryPayload
+      await api.createCostEntry(tripId, input)
+      return
+    }
+    case 'updateCostEntry': {
+      const { tripId, entryId, input } = p as unknown as UpdateCostEntryPayload
+      await api.updateCostEntry(tripId, entryId, input)
+      return
+    }
+    case 'deleteCostEntry': {
+      const { tripId, entryId } = p as unknown as DeleteCostEntryPayload
+      await api.deleteCostEntry(tripId, entryId)
       return
     }
     default: {
