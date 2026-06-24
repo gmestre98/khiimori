@@ -9,11 +9,11 @@ can replay it (PRD §5.5, §6).
 Implement journal-entry create/update (upsert per day) with an idempotent save contract.
 
 ## Acceptance criteria
-- [ ] An upsert endpoint creates/updates the day's single entry (body + optional rating/weather/mood),
+- [x] An upsert endpoint creates/updates the day's single entry (body + optional rating/weather/mood),
   setting `author_id` from the session.
-- [ ] The save path is **idempotent** (stable per-day entry / upsert) so offline replay is safe.
-- [ ] Reading a day returns its entry (or none).
-- [ ] A unit test covers create, update, one-per-day enforcement, and author capture.
+- [x] The save path is **idempotent** (stable per-day entry / upsert) so offline replay is safe.
+- [x] Reading a day returns its entry (or none).
+- [x] A unit test covers create, update, one-per-day enforcement, and author capture.
 
 ## Constraints
 - One entry per day (S1 guard); concurrent saves upsert rather than duplicate.

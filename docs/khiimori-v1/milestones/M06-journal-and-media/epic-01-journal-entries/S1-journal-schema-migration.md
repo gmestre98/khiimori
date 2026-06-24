@@ -9,11 +9,11 @@ an `author_id`.
 Add a migration creating the `journal` schema and the `JournalEntry` table.
 
 ## Acceptance criteria
-- [ ] A migration creates the **`journal`** schema and `JournalEntry(id, day_id, author_id, body, rating,
+- [x] A migration creates the **`journal`** schema and `JournalEntry(id, day_id, author_id, body, rating,
   weather, mood, created_at)` with FKs to `trip.Day` and `auth.User`.
-- [ ] A uniqueness guard enforces **one entry per day** (`day_id` unique).
-- [ ] `body` may be a **JSONB** column for rich content; rating/weather/mood are optional.
-- [ ] The migration applies cleanly via the M01.3 runner.
+- [x] A uniqueness guard enforces **one entry per day** (`day_id` unique).
+- [x] `body` may be a **JSONB** column for rich content; rating/weather/mood are optional.
+- [x] The migration applies cleanly via the M01.3 runner.
 
 ## Constraints
 - Follow M01.3 conventions.

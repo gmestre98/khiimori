@@ -1,5 +1,7 @@
 # Epic M06.1 — Journal entries (`journal.*`, auto-save)
 
+> **Status:** ✅ Done — PRs [#295](https://github.com/gmestre98/khiimori/pull/295) (S1), [#296](https://github.com/gmestre98/khiimori/pull/296) (S2), [#297](https://github.com/gmestre98/khiimori/pull/297) (S3). All 4 ACs verified.
+
 > Milestone: [06 — Journal & Media](../README.md) · PRD refs: §5.5, §7.7, §9.
 
 ## Description
@@ -14,14 +16,14 @@ Epic 04.
 
 ## Acceptance Criteria
 
-- [ ] A migration creates the **`journal.*`** schema with
+- [x] A migration creates the **`journal.*`** schema with
       `JournalEntry(id, day_id, author_id, body, rating, weather, mood, created_at)` per PRD §9, with
       **one entry per day** (PRD §7.7).
-- [ ] An entry supports a **free-text body** plus **optional** rating, weather, and mood;
+- [x] An entry supports a **free-text body** plus **optional** rating, weather, and mood;
       `author_id` records the writer (PRD §5.5, §9).
-- [ ] Entry text **auto-saves** server-side (no explicit save); the save path is **idempotent** so
+- [x] Entry text **auto-saves** server-side (no explicit save); the save path is **idempotent** so
       Epic 04's offline queue can replay it (PRD §5.5, §6).
-- [ ] Unit + integration tests cover one-entry-per-day, optional fields, and `author_id` capture
+- [x] Unit + integration tests cover one-entry-per-day, optional fields, and `author_id` capture
       (PRD §7.6).
 
 ## Implementation Details / Architecture
