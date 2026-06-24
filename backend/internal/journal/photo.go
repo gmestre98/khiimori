@@ -7,12 +7,15 @@ import (
 )
 
 // Photo is a photo attached to a journal entry, backed by a Cloud Storage object.
+// IsThumbnail distinguishes generated thumbnail variants from original uploads;
+// only originals (IsThumbnail = false) count toward the per-trip 1 GB cap.
 type Photo struct {
 	ID             string
 	JournalEntryID string
 	StorageURL     string // gs:// URI returned by MediaStore.Put
 	Caption        string // optional
 	SizeBytes      int64
+	IsThumbnail    bool
 	CreatedAt      time.Time
 }
 

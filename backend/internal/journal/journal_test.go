@@ -15,13 +15,20 @@ import (
 	"github.com/gmestre98/khiimori/backend/internal/platform/httpx"
 )
 
+// compile-time check that fakeStore satisfies journalStore
+var _ journalStore = (*fakeStore)(nil)
+
 // --- fakes ---
 
 type fakeStore struct {
-	entries map[string]JournalEntry // keyed by dayID
+	entries       map[string]JournalEntry // keyed by dayID
+	photos        []Photo
+	usageByTripID map[string]int64
 }
 
-func newFakeStore() *fakeStore { return &fakeStore{entries: map[string]JournalEntry{}} }
+func newFakeStore() *fakeStore {
+	return &fakeStore{entries: map[string]JournalEntry{}, usageByTripID: map[string]int64{}}
+}
 
 func (s *fakeStore) UpsertEntry(_ context.Context, e UpsertEntry) (JournalEntry, error) {
 	existing, ok := s.entries[e.DayID]
@@ -57,11 +64,22 @@ func (s *fakeStore) GetEntry(_ context.Context, dayID string) (JournalEntry, err
 
 func (s *fakeStore) InsertPhoto(_ context.Context, p Photo) (Photo, error) {
 	p.ID = "photo-" + p.JournalEntryID
+	s.photos = append(s.photos, p)
 	return p, nil
 }
 
 func (s *fakeStore) ListPhotos(_ context.Context, journalEntryID string) ([]Photo, error) {
-	return nil, nil
+	var out []Photo
+	for _, p := range s.photos {
+		if p.JournalEntryID == journalEntryID {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}
+
+func (s *fakeStore) TripUsageBytes(_ context.Context, tripID string) (int64, error) {
+	return s.usageByTripID[tripID], nil
 }
 
 type allowAuthz struct{}
@@ -428,5 +446,31 @@ func TestUploadPhoto_Unauthorized(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("want 404, got %d", resp.StatusCode)
+	}
+}
+
+// --- usage tracking tests ---
+
+// TestFakeStore_TripUsageBytes verifies that TripUsageBytes returns the
+// pre-seeded value from the fake, giving coverage for the interface contract.
+func TestFakeStore_TripUsageBytes(t *testing.T) {
+	t.Parallel()
+	store := newFakeStore()
+	store.usageByTripID["trip-1"] = 512
+	ctx := context.Background()
+	got, err := store.TripUsageBytes(ctx, "trip-1")
+	if err != nil {
+		t.Fatalf("TripUsageBytes: %v", err)
+	}
+	if got != 512 {
+		t.Errorf("usage: got %d, want 512", got)
+	}
+	// Unknown trip → zero.
+	got2, err := store.TripUsageBytes(ctx, "unknown")
+	if err != nil {
+		t.Fatalf("TripUsageBytes unknown: %v", err)
+	}
+	if got2 != 0 {
+		t.Errorf("unknown trip usage: got %d, want 0", got2)
 	}
 }
