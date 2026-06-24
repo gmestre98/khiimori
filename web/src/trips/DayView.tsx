@@ -41,12 +41,25 @@ function PlanItemRow({ item }: { item: PlanItem }) {
         {item.title}
       </span>
       {item.start_time && (
-        <span className="plan-item-time" aria-label={`Start time: ${item.start_time}`}>
-          {item.start_time.slice(0, 5)}
-        </span>
+        <>
+          {' '}
+          <span className="plan-item-time" aria-label={`Start time: ${item.start_time}`}>
+            {item.start_time.slice(0, 5)}
+          </span>
+        </>
       )}
-      {item.location && <span className="plan-item-location">{item.location}</span>}
-      {label && <span className="plan-item-status-badge">{label}</span>}
+      {item.location && (
+        <>
+          {' '}
+          <span className="plan-item-location">{item.location}</span>
+        </>
+      )}
+      {label && (
+        <>
+          {' '}
+          <span className="plan-item-status-badge">{label}</span>
+        </>
+      )}
     </li>
   )
 }
@@ -90,15 +103,15 @@ function StaysSection({ stays }: { stays: Stay[] }) {
       <ul className="stay-list">
         {stays.map((stay) => (
           <li key={stay.id} className="stay-item">
-            <span className="stay-name">{stay.name}</span>
-            {stay.location && <span className="stay-location">{stay.location}</span>}
+            <div className="stay-name">{stay.name}</div>
+            {stay.location && <div className="stay-location">{stay.location}</div>}
             {stay.check_in && stay.check_out && (
-              <span
+              <div
                 className="stay-dates"
                 aria-label={`Check in ${stay.check_in}, check out ${stay.check_out}`}
               >
                 {stay.check_in} – {stay.check_out}
-              </span>
+              </div>
             )}
           </li>
         ))}
