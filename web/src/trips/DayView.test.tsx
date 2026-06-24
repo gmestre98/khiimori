@@ -4,7 +4,25 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { DayView } from './DayView'
 import * as api from '../lib/api'
-import type { Day, PlanItem, Stay } from '../lib/api'
+import type { Day, PlanItem, Stay, Trip } from '../lib/api'
+
+function makeTrip(overrides?: Partial<Trip>): Trip {
+  return {
+    id: 'trip-1',
+    owner_id: 'user-1',
+    name: 'Test Trip',
+    destinations: [],
+    start_date: '2026-06-01',
+    end_date: '2026-06-03',
+    base_currency: 'EUR',
+    cover: '',
+    status: 'upcoming',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    is_current: false,
+    ...overrides,
+  }
+}
 
 function makeDay(overrides?: Partial<Day>): Day {
   return {
@@ -50,8 +68,16 @@ vi.mock('../lib/api', async (importOriginal) => {
     fetchDay: vi.fn(),
     createPlanItem: vi.fn(),
     updatePlanItem: vi.fn(),
+    setPlanItemStatus: vi.fn(),
+    demotePlanItem: vi.fn(),
+    movePlanItem: vi.fn(),
+    reorderPlanItems: vi.fn(),
   }
 })
+
+vi.mock('./useTripShell', () => ({
+  useTripShell: vi.fn(() => ({ trip: makeTrip() })),
+}))
 
 function renderDayView(date = '2026-06-01', tripId = 'trip-1') {
   return render(
@@ -129,7 +155,8 @@ describe('DayView', () => {
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
     renderDayView()
     await waitFor(() => expect(screen.getByText('Done task')).toBeInTheDocument())
-    expect(screen.getByText('Done')).toBeInTheDocument()
+    // The badge is in a .plan-item-status-badge span; the select also has a "Done" option.
+    expect(document.querySelector('.plan-item-status-badge')).toHaveTextContent('Done')
     expect(screen.getByLabelText(/Done task — Done/)).toBeInTheDocument()
   })
 
@@ -138,7 +165,7 @@ describe('DayView', () => {
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
     renderDayView()
     await waitFor(() => expect(screen.getByText('Skipped task')).toBeInTheDocument())
-    expect(screen.getByText('Skipped')).toBeInTheDocument()
+    expect(document.querySelector('.plan-item-status-badge')).toHaveTextContent('Skipped')
   })
 
   it('shows cancelled badge on cancelled items', async () => {
@@ -146,7 +173,7 @@ describe('DayView', () => {
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
     renderDayView()
     await waitFor(() => expect(screen.getByText('Cancelled task')).toBeInTheDocument())
-    expect(screen.getByText('Cancelled')).toBeInTheDocument()
+    expect(document.querySelector('.plan-item-status-badge')).toHaveTextContent('Cancelled')
   })
 
   it('shows empty message when no items or stays', async () => {
@@ -315,6 +342,112 @@ describe('DayView', () => {
       expect(within(editingLi as HTMLElement).getByRole('alert')).toHaveTextContent(
         'Could not save changes.',
       )
+    })
+  })
+
+  describe('re-planning affordances', () => {
+    it('renders a status select for each plan item', async () => {
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+      expect(screen.getByLabelText('Status: planned')).toBeInTheDocument()
+    })
+
+    it('changing the status select calls setPlanItemStatus and updates the badge', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum', status: 'planned' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      const updated = makePlanItem({ title: 'Visit museum', status: 'done' })
+      vi.mocked(api.setPlanItemStatus).mockResolvedValue(updated)
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Status: planned')).toBeInTheDocument())
+
+      await user.selectOptions(screen.getByLabelText('Status: planned'), 'done')
+
+      await waitFor(() => expect(api.setPlanItemStatus).toHaveBeenCalledWith('trip-1', 'item-1', 'done'))
+      await waitFor(() =>
+        expect(document.querySelector('.plan-item-status-badge')).toHaveTextContent('Done'),
+      )
+    })
+
+    it('renders a Move… button on each plan item', async () => {
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+      expect(
+        screen.getByRole('button', { name: /Move Visit museum to another day/ }),
+      ).toBeInTheDocument()
+    })
+
+    it('clicking Move… shows the day picker', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Move Visit museum to another day/ }))
+      expect(screen.getByLabelText('Target day')).toBeInTheDocument()
+    })
+
+    it('confirming Move calls movePlanItem and removes the item', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay)
+        .mockResolvedValueOnce(makeDay({ plan_items: [item] })) // initial load
+        .mockResolvedValueOnce(makeDay({ id: 'day-2', date: '2026-06-02' })) // target day lookup
+      vi.mocked(api.movePlanItem).mockResolvedValue({ ...item, day_id: 'day-2' })
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Move Visit museum to another day/ }))
+      await user.click(screen.getByRole('button', { name: 'Move' }))
+
+      await waitFor(() => expect(screen.queryByText('Visit museum')).not.toBeInTheDocument())
+      expect(api.movePlanItem).toHaveBeenCalledWith('trip-1', 'item-1', 'day-2')
+    })
+
+    it('renders a → Backlog button on each plan item', async () => {
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+      expect(screen.getByRole('button', { name: /Move Visit museum to backlog/ })).toBeInTheDocument()
+    })
+
+    it('clicking → Backlog demotes the item and removes it from the view', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      vi.mocked(api.demotePlanItem).mockResolvedValue({ ...item, day_id: undefined })
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Move Visit museum to backlog/ }))
+
+      await waitFor(() => expect(screen.queryByText('Visit museum')).not.toBeInTheDocument())
+      expect(api.demotePlanItem).toHaveBeenCalledWith('trip-1', 'item-1')
+    })
+
+    it('untimed items render drag handles', async () => {
+      const item = makePlanItem({ title: 'Buy souvenirs' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Buy souvenirs')).toBeInTheDocument())
+      expect(document.querySelector('.plan-item-drag-handle')).toBeInTheDocument()
+    })
+
+    it('timed items do not render drag handles', async () => {
+      const item = makePlanItem({ title: 'Morning run', start_time: '07:00:00' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Morning run')).toBeInTheDocument())
+      expect(document.querySelector('.plan-item-drag-handle')).not.toBeInTheDocument()
     })
   })
 })

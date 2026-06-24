@@ -4,10 +4,14 @@ import {
   PlanItemValidationError,
   UnauthorizedError,
   createPlanItem,
+  datesInRange,
   fetchBacklog,
+  fetchDay,
+  promotePlanItem,
   type PlanItem,
   type PlanItemInput,
 } from '../lib/api'
+import { useTripShell } from './useTripShell'
 
 // BacklogQuickAdd is the inline add form for the backlog. It creates a plan
 // item with no day assigned (backlog).
@@ -78,12 +82,148 @@ function BacklogQuickAdd({
   )
 }
 
+// PromotePicker is the inline day-picker shown when the user clicks "Promote…"
+// on a backlog item. It resolves the selected date to a day UUID and calls
+// promotePlanItem, then removes the item from the backlog list.
+function PromotePicker({
+  tripId,
+  item,
+  tripDates,
+  onPromoted,
+  onCancel,
+}: {
+  tripId: string
+  item: PlanItem
+  tripDates: string[]
+  onPromoted: (itemId: string) => void
+  onCancel: () => void
+}) {
+  const [selectedDate, setSelectedDate] = useState(tripDates[0] ?? '')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handlePromote() {
+    if (!selectedDate) return
+    setBusy(true)
+    setError(null)
+    try {
+      const targetDay = await fetchDay(tripId, selectedDate)
+      await promotePlanItem(tripId, item.id, targetDay.id)
+      onPromoted(item.id)
+    } catch {
+      setError('Could not promote item.')
+      setBusy(false)
+    }
+  }
+
+  if (tripDates.length === 0) {
+    return (
+      <span className="backlog-promote-picker">
+        <span className="backlog-promote-picker-empty">No days in trip.</span>
+        <button type="button" className="backlog-promote-cancel" onClick={onCancel}>
+          Cancel
+        </button>
+      </span>
+    )
+  }
+
+  return (
+    <span className="backlog-promote-picker">
+      <select
+        className="backlog-promote-select"
+        value={selectedDate}
+        onChange={(e) => setSelectedDate(e.target.value)}
+        disabled={busy}
+        aria-label="Target day"
+      >
+        {tripDates.map((d) => (
+          <option key={d} value={d}>
+            {d}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        className="backlog-promote-confirm"
+        onClick={handlePromote}
+        disabled={busy || !selectedDate}
+      >
+        Add to day
+      </button>
+      <button
+        type="button"
+        className="backlog-promote-cancel"
+        onClick={onCancel}
+        disabled={busy}
+      >
+        Cancel
+      </button>
+      {error && (
+        <span role="alert" className="backlog-promote-error">
+          {error}
+        </span>
+      )}
+    </span>
+  )
+}
+
+// BacklogItem renders a single backlog item with a promote-to-day affordance.
+function BacklogItem({
+  item,
+  tripId,
+  tripDates,
+  onPromoted,
+}: {
+  item: PlanItem
+  tripId: string
+  tripDates: string[]
+  onPromoted: (itemId: string) => void
+}) {
+  const [showPicker, setShowPicker] = useState(false)
+
+  return (
+    <li className="backlog-item">
+      <div className="backlog-item-main">
+        <span className="backlog-item-title">{item.title}</span>
+        {item.type && <span className="backlog-item-type">{item.type}</span>}
+        {item.location && <span className="backlog-item-location">{item.location}</span>}
+      </div>
+      <div className="backlog-item-actions">
+        {showPicker ? (
+          <PromotePicker
+            tripId={tripId}
+            item={item}
+            tripDates={tripDates}
+            onPromoted={(id) => {
+              setShowPicker(false)
+              onPromoted(id)
+            }}
+            onCancel={() => setShowPicker(false)}
+          />
+        ) : (
+          <button
+            type="button"
+            className="backlog-promote-btn"
+            onClick={() => setShowPicker(true)}
+            aria-label={`Promote ${item.title} to a day`}
+          >
+            Promote…
+          </button>
+        )}
+      </div>
+    </li>
+  )
+}
+
 // BacklogPage lists the ideas backlog for a trip — plan items with no assigned
 // day. Accessible from the day view via the backlog link (M04.5 S1 AC3).
-// Quick-add is available inline (M04.5 S2 AC4).
+// Quick-add is available inline (M04.5 S2 AC4). Promote-to-day is wired to
+// Epic 03 S2 (M04.5 S3 AC3).
 export function BacklogPage() {
   const { tripId } = useParams<{ tripId: string }>()
   const navigate = useNavigate()
+  const { trip } = useTripShell()
+  const tripDates = datesInRange(trip.start_date, trip.end_date)
 
   const [items, setItems] = useState<PlanItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -109,6 +249,10 @@ export function BacklogPage() {
     setItems((prev) => (prev ? [...prev, item] : [item]))
   }
 
+  function handlePromoted(itemId: string) {
+    setItems((prev) => (prev ? prev.filter((i) => i.id !== itemId) : prev))
+  }
+
   return (
     <section className="backlog-page" aria-label="Ideas backlog">
       <header className="backlog-header">
@@ -132,11 +276,13 @@ export function BacklogPage() {
       {items !== null && items.length > 0 && (
         <ul className="backlog-list">
           {items.map((item) => (
-            <li key={item.id} className="backlog-item">
-              <span className="backlog-item-title">{item.title}</span>
-              {item.type && <span className="backlog-item-type">{item.type}</span>}
-              {item.location && <span className="backlog-item-location">{item.location}</span>}
-            </li>
+            <BacklogItem
+              key={item.id}
+              item={item}
+              tripId={tripId!}
+              tripDates={tripDates}
+              onPromoted={handlePromoted}
+            />
           ))}
         </ul>
       )}

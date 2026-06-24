@@ -427,6 +427,87 @@ export async function updatePlanItem(
   return (await res.json()) as PlanItem
 }
 
+// reorderPlanItems sends the new sort order for all plan items in a day.
+// item_ids must include every item assigned to that day in the desired order.
+export async function reorderPlanItems(
+  tripId: string,
+  dayId: string,
+  itemIds: string[],
+): Promise<void> {
+  const res = await apiFetch(`/trips/${tripId}/plan-items/reorder`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ day_id: dayId, item_ids: itemIds }),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+}
+
+// movePlanItem moves a plan item to a different day in the same trip.
+export async function movePlanItem(
+  tripId: string,
+  itemId: string,
+  dayId: string,
+  startTime?: string,
+): Promise<PlanItem> {
+  const body: Record<string, string> = { day_id: dayId }
+  if (startTime) body.start_time = startTime
+  const res = await apiFetch(`/trips/${tripId}/plan-items/${itemId}/move`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as PlanItem
+}
+
+// promotePlanItem moves a backlog item to a specific day.
+export async function promotePlanItem(
+  tripId: string,
+  itemId: string,
+  dayId: string,
+  startTime?: string,
+): Promise<PlanItem> {
+  const body: Record<string, string> = { day_id: dayId }
+  if (startTime) body.start_time = startTime
+  const res = await apiFetch(`/trips/${tripId}/plan-items/${itemId}/promote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as PlanItem
+}
+
+// demotePlanItem moves a plan item back to the backlog (no day assigned).
+export async function demotePlanItem(tripId: string, itemId: string): Promise<PlanItem> {
+  const res = await apiFetch(`/trips/${tripId}/plan-items/${itemId}/demote`, {
+    method: 'POST',
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as PlanItem
+}
+
+// setPlanItemStatus sets the status of a plan item to one of: planned, done,
+// skipped, cancelled. Toggling the same status is idempotent (server-enforced).
+export async function setPlanItemStatus(
+  tripId: string,
+  itemId: string,
+  status: string,
+): Promise<PlanItem> {
+  const res = await apiFetch(`/trips/${tripId}/plan-items/${itemId}/status`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as PlanItem
+}
+
 // datesInRange returns YYYY-MM-DD strings for every calendar date in [start, end],
 // derived client-side from the trip's start_date and end_date strings. Matches the
 // server's day generation so the shell can navigate without an extra API call.

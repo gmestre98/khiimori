@@ -4,13 +4,18 @@ import {
   PlanItemValidationError,
   UnauthorizedError,
   createPlanItem,
+  demotePlanItem,
   fetchDay,
+  movePlanItem,
+  reorderPlanItems,
+  setPlanItemStatus,
   updatePlanItem,
+  datesInRange,
   type Day,
   type PlanItem,
   type PlanItemInput,
-  type Stay,
 } from '../lib/api'
+import { useTripShell } from './useTripShell'
 
 // statusLabel maps a plan item status to a human-readable label.
 function statusLabel(status: string): string {
@@ -257,18 +262,124 @@ function PlanItemForm({
   )
 }
 
+// MoveToDayPicker is the inline day-picker shown when the user clicks "Move…"
+// on a plan item. It fetches the target day to resolve date → UUID and calls
+// movePlanItem on confirm.
+function MoveToDayPicker({
+  tripId,
+  item,
+  tripDates,
+  currentDate,
+  onMoved,
+  onCancel,
+}: {
+  tripId: string
+  item: PlanItem
+  tripDates: string[]
+  currentDate: string
+  onMoved: (itemId: string) => void
+  onCancel: () => void
+}) {
+  const otherDates = tripDates.filter((d) => d !== currentDate)
+  const [selectedDate, setSelectedDate] = useState(otherDates[0] ?? '')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleMove() {
+    if (!selectedDate) return
+    setBusy(true)
+    setError(null)
+    try {
+      const targetDay = await fetchDay(tripId, selectedDate)
+      await movePlanItem(tripId, item.id, targetDay.id)
+      onMoved(item.id)
+    } catch {
+      setError('Could not move item.')
+      setBusy(false)
+    }
+  }
+
+  if (otherDates.length === 0) {
+    return (
+      <span className="plan-item-move-picker">
+        <span className="plan-item-move-picker-empty">No other days in trip.</span>
+        <button type="button" className="plan-item-move-cancel" onClick={onCancel}>
+          Cancel
+        </button>
+      </span>
+    )
+  }
+
+  return (
+    <span className="plan-item-move-picker">
+      <select
+        className="plan-item-move-select"
+        value={selectedDate}
+        onChange={(e) => setSelectedDate(e.target.value)}
+        disabled={busy}
+        aria-label="Target day"
+      >
+        {otherDates.map((d) => (
+          <option key={d} value={d}>
+            {d}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        className="plan-item-move-confirm"
+        onClick={handleMove}
+        disabled={busy || !selectedDate}
+      >
+        Move
+      </button>
+      <button
+        type="button"
+        className="plan-item-move-cancel"
+        onClick={onCancel}
+        disabled={busy}
+      >
+        Cancel
+      </button>
+      {error && (
+        <span role="alert" className="plan-item-move-error">
+          {error}
+        </span>
+      )}
+    </span>
+  )
+}
+
 // PlanItemRow renders a single plan item and enters inline-edit mode on click.
+// It also exposes status, move-to-day, and demote-to-backlog affordances.
 function PlanItemRow({
   item,
   tripId,
+  day,
+  tripDates,
+  draggable: isDraggable,
   onUpdated,
+  onRemoved,
+  onDragStart,
+  onDragOver,
+  onDrop,
 }: {
   item: PlanItem
   tripId: string
+  day: Day
+  tripDates: string[]
+  draggable?: boolean
   onUpdated: (updated: PlanItem) => void
+  onRemoved: (itemId: string) => void
+  onDragStart?: (e: React.DragEvent, itemId: string) => void
+  onDragOver?: (e: React.DragEvent, itemId: string) => void
+  onDrop?: (e: React.DragEvent, itemId: string) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
+  const [showMovePicker, setShowMovePicker] = useState(false)
+  const [statusBusy, setStatusBusy] = useState(false)
+  const [demoteBusy, setDemoteBusy] = useState(false)
 
   const isDone = item.status === 'done'
   const isSkipped = item.status === 'skipped'
@@ -288,6 +399,29 @@ function PlanItemRow({
       } else {
         setEditError('Could not save changes.')
       }
+    }
+  }
+
+  async function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const newStatus = e.target.value
+    setStatusBusy(true)
+    try {
+      const updated = await setPlanItemStatus(tripId, item.id, newStatus)
+      onUpdated(updated)
+    } catch {
+      // leave status unchanged on failure
+    } finally {
+      setStatusBusy(false)
+    }
+  }
+
+  async function handleDemote() {
+    setDemoteBusy(true)
+    try {
+      await demotePlanItem(tripId, item.id)
+      onRemoved(item.id)
+    } catch {
+      setDemoteBusy(false)
     }
   }
 
@@ -315,41 +449,101 @@ function PlanItemRow({
         isDone ? 'plan-item--done' : '',
         isSkipped ? 'plan-item--skipped' : '',
         isCancelled ? 'plan-item--cancelled' : '',
+        isDraggable ? 'plan-item--draggable' : '',
       ]
         .filter(Boolean)
         .join(' ')}
       aria-label={item.title + (label ? ` — ${label}` : '')}
+      draggable={isDraggable}
+      onDragStart={isDraggable && onDragStart ? (e) => onDragStart(e, item.id) : undefined}
+      onDragOver={isDraggable && onDragOver ? (e) => onDragOver(e, item.id) : undefined}
+      onDrop={isDraggable && onDrop ? (e) => onDrop(e, item.id) : undefined}
     >
-      <button
-        type="button"
-        className="plan-item-edit-btn"
-        aria-label={`Edit ${item.title}`}
-        onClick={() => setEditing(true)}
-      >
-        <span className="plan-item-title" style={inactive ? { opacity: 0.5 } : undefined}>
-          {item.title}
-        </span>
-        {item.start_time && (
-          <>
-            {' '}
-            <span className="plan-item-time" aria-label={`Start time: ${item.start_time}`}>
-              {item.start_time.slice(0, 5)}
-            </span>
-          </>
+      <div className="plan-item-main">
+        {isDraggable && (
+          <span className="plan-item-drag-handle" aria-hidden="true">
+            ⠿
+          </span>
         )}
-        {item.location && (
-          <>
-            {' '}
-            <span className="plan-item-location">{item.location}</span>
-          </>
+        <button
+          type="button"
+          className="plan-item-edit-btn"
+          aria-label={`Edit ${item.title}`}
+          onClick={() => setEditing(true)}
+        >
+          <span className="plan-item-title" style={inactive ? { opacity: 0.5 } : undefined}>
+            {item.title}
+          </span>
+          {item.start_time && (
+            <>
+              {' '}
+              <span className="plan-item-time" aria-label={`Start time: ${item.start_time}`}>
+                {item.start_time.slice(0, 5)}
+              </span>
+            </>
+          )}
+          {item.location && (
+            <>
+              {' '}
+              <span className="plan-item-location">{item.location}</span>
+            </>
+          )}
+          {label && (
+            <>
+              {' '}
+              <span className="plan-item-status-badge">{label}</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      <div className="plan-item-actions">
+        <select
+          className="plan-item-status-select"
+          value={item.status}
+          onChange={handleStatusChange}
+          disabled={statusBusy}
+          aria-label={`Status: ${item.status}`}
+        >
+          <option value="planned">Planned</option>
+          <option value="done">Done</option>
+          <option value="skipped">Skipped</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+
+        {showMovePicker ? (
+          <MoveToDayPicker
+            tripId={tripId}
+            item={item}
+            tripDates={tripDates}
+            currentDate={day.date}
+            onMoved={(id) => {
+              setShowMovePicker(false)
+              onRemoved(id)
+            }}
+            onCancel={() => setShowMovePicker(false)}
+          />
+        ) : (
+          <button
+            type="button"
+            className="plan-item-move-btn"
+            onClick={() => setShowMovePicker(true)}
+            aria-label={`Move ${item.title} to another day`}
+          >
+            Move…
+          </button>
         )}
-        {label && (
-          <>
-            {' '}
-            <span className="plan-item-status-badge">{label}</span>
-          </>
-        )}
-      </button>
+
+        <button
+          type="button"
+          className="plan-item-demote-btn"
+          onClick={handleDemote}
+          disabled={demoteBusy}
+          aria-label={`Move ${item.title} to backlog`}
+        >
+          → Backlog
+        </button>
+      </div>
     </li>
   )
 }
@@ -392,11 +586,17 @@ function QuickAddForm({
 function TimedSection({
   items,
   tripId,
+  day,
+  tripDates,
   onUpdated,
+  onRemoved,
 }: {
   items: PlanItem[]
   tripId: string
+  day: Day
+  tripDates: string[]
   onUpdated: (updated: PlanItem) => void
+  onRemoved: (itemId: string) => void
 }) {
   if (items.length === 0) return null
   return (
@@ -404,30 +604,108 @@ function TimedSection({
       <h3 className="day-plan-section-title">Schedule</h3>
       <ol className="plan-item-list">
         {items.map((item) => (
-          <PlanItemRow key={item.id} item={item} tripId={tripId} onUpdated={onUpdated} />
+          <PlanItemRow
+            key={item.id}
+            item={item}
+            tripId={tripId}
+            day={day}
+            tripDates={tripDates}
+            onUpdated={onUpdated}
+            onRemoved={onRemoved}
+          />
         ))}
       </ol>
     </section>
   )
 }
 
-// UntimedSection renders plan items without a start_time as a loose list.
+// UntimedSection renders untimed plan items as a draggable loose list.
+// Drag-reorder calls the reorder API with the new combined item order for the day.
 function UntimedSection({
   items,
+  timedItems,
   tripId,
+  day,
+  tripDates,
   onUpdated,
+  onRemoved,
+  onReordered,
 }: {
   items: PlanItem[]
+  timedItems: PlanItem[]
   tripId: string
+  day: Day
+  tripDates: string[]
   onUpdated: (updated: PlanItem) => void
+  onRemoved: (itemId: string) => void
+  onReordered: (newUntimed: PlanItem[]) => void
 }) {
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+
+  function handleDragStart(e: React.DragEvent, itemId: string) {
+    setDraggingId(itemId)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', itemId)
+  }
+
+  function handleDragOver(e: React.DragEvent, _itemId: string) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  function handleDrop(e: React.DragEvent, targetId: string) {
+    e.preventDefault()
+    const sourceId = e.dataTransfer.getData('text/plain') || draggingId
+    if (!sourceId || sourceId === targetId) {
+      setDraggingId(null)
+      return
+    }
+
+    const sourceIdx = items.findIndex((i) => i.id === sourceId)
+    const targetIdx = items.findIndex((i) => i.id === targetId)
+    if (sourceIdx === -1 || targetIdx === -1) {
+      setDraggingId(null)
+      return
+    }
+
+    const reordered = [...items]
+    const [moved] = reordered.splice(sourceIdx, 1)
+    reordered.splice(targetIdx, 0, moved)
+
+    // Optimistic update; revert handled via onReordered if server fails.
+    onReordered(reordered)
+    setDraggingId(null)
+
+    // Full day order: timed first (current server order), then untimed in new order.
+    const allIds = [...timedItems.map((i) => i.id), ...reordered.map((i) => i.id)]
+    reorderPlanItems(tripId, day.id, allIds).catch(() => {
+      // Revert to original order on failure.
+      onReordered(items)
+    })
+  }
+
   if (items.length === 0) return null
   return (
-    <section className="day-plan-section day-plan-section--untimed" aria-label="Untimed activities">
+    <section
+      className="day-plan-section day-plan-section--untimed"
+      aria-label="Untimed activities"
+    >
       <h3 className="day-plan-section-title">Activities</h3>
       <ul className="plan-item-list">
         {items.map((item) => (
-          <PlanItemRow key={item.id} item={item} tripId={tripId} onUpdated={onUpdated} />
+          <PlanItemRow
+            key={item.id}
+            item={item}
+            tripId={tripId}
+            day={day}
+            tripDates={tripDates}
+            draggable
+            onUpdated={onUpdated}
+            onRemoved={onRemoved}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          />
         ))}
       </ul>
     </section>
@@ -477,8 +755,11 @@ function BacklogLink({ tripId }: { tripId: string }) {
 
 // PlanningSection replaces the old PlanningSlot placeholder with real content:
 // stays, timed items, untimed items, quick-add form, and a link to the ideas
-// backlog.
+// backlog. Re-planning affordances (reorder, move, demote, status) are wired
+// to the Epic 03–04 API operations.
 function PlanningSection({ day, tripId }: { day: Day; tripId: string }) {
+  const { trip } = useTripShell()
+  const tripDates = datesInRange(trip.start_date, trip.end_date)
   const [items, setItems] = useState<PlanItem[]>(day.plan_items)
 
   const timed = items.filter((item) => item.start_time != null)
@@ -492,12 +773,36 @@ function PlanningSection({ day, tripId }: { day: Day; tripId: string }) {
     setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)))
   }
 
+  function handleRemoved(itemId: string) {
+    setItems((prev) => prev.filter((i) => i.id !== itemId))
+  }
+
+  function handleReordered(newUntimed: PlanItem[]) {
+    setItems((prev) => [...prev.filter((i) => i.start_time != null), ...newUntimed])
+  }
+
   return (
     <section className="day-slot day-slot-planning" aria-label="Planning" data-slot="planning">
       <h2 className="day-slot-title">Plan</h2>
       <StaysSection stays={day.stays} />
-      <TimedSection items={timed} tripId={tripId} onUpdated={handleUpdated} />
-      <UntimedSection items={untimed} tripId={tripId} onUpdated={handleUpdated} />
+      <TimedSection
+        items={timed}
+        tripId={tripId}
+        day={day}
+        tripDates={tripDates}
+        onUpdated={handleUpdated}
+        onRemoved={handleRemoved}
+      />
+      <UntimedSection
+        items={untimed}
+        timedItems={timed}
+        tripId={tripId}
+        day={day}
+        tripDates={tripDates}
+        onUpdated={handleUpdated}
+        onRemoved={handleRemoved}
+        onReordered={handleReordered}
+      />
       {items.length === 0 && day.stays.length === 0 && (
         <p className="day-plan-empty">Nothing planned yet.</p>
       )}
@@ -619,3 +924,6 @@ export function DayView() {
     </article>
   )
 }
+
+// Re-export Stay for BacklogPage type use.
+export type { Stay }

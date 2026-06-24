@@ -626,6 +626,368 @@
   font-style: italic;
 }
 
+/* ── Plan item rows (M04.5 S1–S3) ──────────────────────────────────────────── */
+
+.day-plan-section {
+  margin-bottom: 12px;
+}
+.day-plan-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin: 0 0 6px;
+}
+.plan-item-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+}
+.plan-item {
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: var(--surface, #fff);
+}
+.plan-item--done {
+  background: var(--surface-muted, #f9fafb);
+}
+.plan-item--skipped,
+.plan-item--cancelled {
+  background: var(--surface-muted, #f9fafb);
+  opacity: 0.7;
+}
+.plan-item--draggable {
+  cursor: grab;
+}
+.plan-item--draggable:active {
+  cursor: grabbing;
+}
+.plan-item-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.plan-item-drag-handle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  cursor: grab;
+  user-select: none;
+}
+.plan-item-edit-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+}
+.plan-item-title {
+  font-size: 14px;
+}
+.plan-item-time {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.plan-item-location {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.plan-item-status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--accent-subtle, #eef2ff);
+  color: var(--accent, #4f46e5);
+}
+
+/* Re-planning affordances row (status, move, demote) */
+.plan-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  font-size: 12px;
+}
+.plan-item-status-select {
+  font-size: 12px;
+  padding: 2px 4px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 4px;
+  background: var(--surface, #fff);
+  cursor: pointer;
+}
+.plan-item-move-btn,
+.plan-item-demote-btn {
+  font-size: 12px;
+  padding: 2px 8px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 4px;
+  background: var(--surface, #fff);
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.plan-item-move-btn:hover,
+.plan-item-demote-btn:hover {
+  background: var(--surface-hover, #f3f4f6);
+}
+
+/* Inline move-to-day picker */
+.plan-item-move-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.plan-item-move-select {
+  font-size: 12px;
+  padding: 2px 4px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 4px;
+}
+.plan-item-move-confirm {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: none;
+  background: var(--accent, #4f46e5);
+  color: #fff;
+  cursor: pointer;
+}
+.plan-item-move-confirm:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.plan-item-move-cancel {
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border, #e5e7eb);
+  background: var(--surface, #fff);
+  cursor: pointer;
+}
+.plan-item-move-error,
+.plan-item-move-picker-empty {
+  font-size: 12px;
+  color: var(--danger, #c00);
+}
+
+.day-plan-empty {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin: 0 0 8px;
+}
+.plan-item-quick-add {
+  margin-top: 8px;
+}
+.day-backlog-section {
+  margin-top: 8px;
+}
+.day-backlog-link {
+  font-size: 13px;
+  color: var(--accent, #4f46e5);
+  text-decoration: none;
+}
+.day-backlog-link:hover {
+  text-decoration: underline;
+}
+
+/* Stays section */
+.day-stays-section {
+  margin-bottom: 12px;
+}
+.day-stays-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin: 0 0 6px;
+}
+.stay-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.stay-item {
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: var(--surface, #fff);
+}
+.stay-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+.stay-location,
+.stay-dates {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Backlog page items with promote affordance (M04.5 S3) */
+.backlog-item {
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  background: var(--surface, #fff);
+}
+.backlog-item-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.backlog-item-title {
+  font-size: 14px;
+}
+.backlog-item-type,
+.backlog-item-location {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.backlog-item-actions {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.backlog-promote-btn {
+  font-size: 12px;
+  padding: 2px 8px;
+  border: 1px solid var(--accent, #4f46e5);
+  border-radius: 4px;
+  background: var(--surface, #fff);
+  color: var(--accent, #4f46e5);
+  cursor: pointer;
+}
+.backlog-promote-btn:hover {
+  background: var(--accent-hover, #eef2ff);
+}
+.backlog-promote-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.backlog-promote-select {
+  font-size: 12px;
+  padding: 2px 4px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 4px;
+}
+.backlog-promote-confirm {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: none;
+  background: var(--accent, #4f46e5);
+  color: #fff;
+  cursor: pointer;
+}
+.backlog-promote-confirm:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.backlog-promote-cancel {
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border, #e5e7eb);
+  background: var(--surface, #fff);
+  cursor: pointer;
+}
+.backlog-promote-error,
+.backlog-promote-picker-empty {
+  font-size: 12px;
+  color: var(--danger, #c00);
+}
+
+/* Plan item forms (M04.5 S2) */
+.plan-item-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.plan-item-form-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.plan-item-form-title {
+  flex: 1;
+  font-size: 14px;
+  padding: 6px 8px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 6px;
+}
+.plan-item-form-submit {
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  background: var(--accent, #4f46e5);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 500;
+}
+.plan-item-form-submit:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.plan-item-form-cancel {
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #e5e7eb);
+  background: var(--surface, #fff);
+  cursor: pointer;
+}
+.plan-item-form-toggle {
+  font-size: 12px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent, #4f46e5);
+  cursor: pointer;
+  text-align: left;
+}
+.plan-item-form-optional {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.plan-item-form-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.plan-item-form-field {
+  font-size: 14px;
+  padding: 4px 8px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 6px;
+}
+.plan-item-form-error {
+  font-size: 13px;
+  color: var(--danger, #c00);
+  margin: 0;
+}
+
 /* Open link (trip card → shell) */
 .trip-card-open-link {
   font-size: 14px;
