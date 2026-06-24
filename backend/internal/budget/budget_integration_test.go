@@ -141,8 +141,12 @@ func insertDay(t *testing.T, tripID string) string {
 }
 
 // freshOwnerID generates a random UUID to use as the owner.
+// It skips the test when DATABASE_URL_TEST is unset (testPool == nil).
 func freshOwnerID(t *testing.T) string {
 	t.Helper()
+	if testPool == nil {
+		t.Skip("DATABASE_URL_TEST not set; skipping budget integration test")
+	}
 	var id string
 	if err := testPool.QueryRow(context.Background(), `SELECT gen_random_uuid()::text`).Scan(&id); err != nil {
 		t.Fatalf("generating owner id: %v", err)
@@ -283,4 +287,3 @@ func TestIntegration_InvalidCategory_Rejected(t *testing.T) {
 		t.Fatalf("expected 400, got %d", resp.StatusCode)
 	}
 }
-

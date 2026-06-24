@@ -67,7 +67,7 @@ func newTestModule(store budgetStore, authz Authorizer) (*Module, *http.ServeMux
 	return m, mux
 }
 
-func putJSON(t *testing.T, mux http.Handler, path string, body any) *httptest.ResponseRecorder {
+func putJSONUnit(t *testing.T, mux http.Handler, path string, body any) *httptest.ResponseRecorder {
 	t.Helper()
 	b, _ := json.Marshal(body)
 	req := httptest.NewRequest(http.MethodPut, path, bytes.NewReader(b))
@@ -82,7 +82,7 @@ func TestSetTripBudgetLine_Success(t *testing.T) {
 	store := &fakeBudgetStore{}
 	_, mux := newTestModule(store, fakeAuthz{allow: true})
 
-	rec := putJSON(t, mux, "/trips/trip-1/budget-lines", map[string]any{
+	rec := putJSONUnit(t, mux, "/trips/trip-1/budget-lines", map[string]any{
 		"category":       "Food",
 		"planned_amount": 250.00,
 	})
@@ -109,7 +109,7 @@ func TestSetDayBudgetLine_Success(t *testing.T) {
 	store := &fakeBudgetStore{}
 	_, mux := newTestModule(store, fakeAuthz{allow: true})
 
-	rec := putJSON(t, mux, "/trips/trip-1/days/day-1/budget-lines", map[string]any{
+	rec := putJSONUnit(t, mux, "/trips/trip-1/days/day-1/budget-lines", map[string]any{
 		"category":       "Transport",
 		"planned_amount": 80.00,
 	})
@@ -130,7 +130,7 @@ func TestSetBudgetLine_InvalidCategory(t *testing.T) {
 	store := &fakeBudgetStore{}
 	_, mux := newTestModule(store, fakeAuthz{allow: true})
 
-	rec := putJSON(t, mux, "/trips/trip-1/budget-lines", map[string]any{
+	rec := putJSONUnit(t, mux, "/trips/trip-1/budget-lines", map[string]any{
 		"category":       "Shopping",
 		"planned_amount": 100.00,
 	})
@@ -145,7 +145,7 @@ func TestSetBudgetLine_NegativeAmount(t *testing.T) {
 	store := &fakeBudgetStore{}
 	_, mux := newTestModule(store, fakeAuthz{allow: true})
 
-	rec := putJSON(t, mux, "/trips/trip-1/budget-lines", map[string]any{
+	rec := putJSONUnit(t, mux, "/trips/trip-1/budget-lines", map[string]any{
 		"category":       "Food",
 		"planned_amount": -10.00,
 	})
@@ -160,7 +160,7 @@ func TestSetBudgetLine_Unauthorized(t *testing.T) {
 	store := &fakeBudgetStore{}
 	_, mux := newTestModule(store, fakeAuthz{allow: false})
 
-	rec := putJSON(t, mux, "/trips/trip-1/budget-lines", map[string]any{
+	rec := putJSONUnit(t, mux, "/trips/trip-1/budget-lines", map[string]any{
 		"category":       "Food",
 		"planned_amount": 100.00,
 	})
