@@ -304,7 +304,36 @@ export async function signOut(): Promise<void> {
   }
 }
 
-// --- Days (M03.5 S5) ---------------------------------------------------------
+// --- Days (M03.5 S5, M04.5 S1) ----------------------------------------------
+
+// Stay is the wire shape of a stay embedded in the day response.
+export interface Stay {
+  id: string
+  trip_id: string
+  name: string
+  location?: string
+  check_in?: string
+  check_out?: string
+  cost?: number
+  link?: string
+}
+
+// PlanItem is the wire shape of a plan item embedded in the day response.
+export interface PlanItem {
+  id: string
+  trip_id: string
+  day_id?: string
+  title: string
+  type?: string
+  start_time?: string
+  duration?: string
+  location?: string
+  booking_status?: string
+  cost?: number
+  link?: string
+  sort_order: number
+  status: string
+}
 
 // Day is the wire shape of GET /trips/:id/days/:date.
 export interface Day {
@@ -313,6 +342,8 @@ export interface Day {
   date: string
   index: number
   notes: string
+  stays: Stay[]
+  plan_items: PlanItem[]
 }
 
 // fetchDay loads a single day by trip ID and YYYY-MM-DD date. Throws
@@ -323,6 +354,16 @@ export async function fetchDay(tripId: string, date: string, signal?: AbortSigna
   if (res.status === 404) throw new Error('day_not_found')
   if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
   return (await res.json()) as Day
+}
+
+// fetchBacklog loads the ideas backlog (plan items with no day assigned) for a
+// trip. Throws UnauthorizedError on 401 and a generic Error on other failures.
+export async function fetchBacklog(tripId: string, signal?: AbortSignal): Promise<PlanItem[]> {
+  const res = await apiFetch(`/trips/${tripId}/plan-items/backlog`, { signal })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  const body = (await res.json()) as { items: PlanItem[] }
+  return body.items ?? []
 }
 
 // datesInRange returns YYYY-MM-DD strings for every calendar date in [start, end],

@@ -162,6 +162,7 @@ func newCreateModule(store tripStore) *Module {
 	return &Module{
 		store:       store,
 		stays:       &fakeStayStore{},
+		planItems:   &fakePlanItemStore{},
 		requireAuth: func(h http.Handler) http.Handler { return h },
 		authz:       allowAllAuthorizer{},
 		now:         func() time.Time { return fixedNow },
@@ -569,6 +570,65 @@ func TestHandleGetDaySuccess(t *testing.T) {
 		t.Errorf("index = %d, want 2", resp.Index)
 	}
 }
+
+// TestHandleGetDayIncludesPlanItems asserts that plan items for the day are
+// embedded in the response and that ListByDay is called with the day's ID.
+func TestHandleGetDayIncludesPlanItems(t *testing.T) {
+	t.Parallel()
+
+	d := mustDate(t, "2026-07-03")
+	store := &fakeTripStore{getDayResult: Day{
+		ID:     "day-uuid",
+		TripID: "trip-uuid",
+		Date:   d,
+		Index:  0,
+	}}
+	title := "Visit museum"
+	pi := &fakePlanItemStore{
+		listByDayResult: []PlanItem{{
+			ID:     "item-1",
+			TripID: "trip-uuid",
+			DayID:  strPtr("day-uuid"),
+			Title:  title,
+			Status: "planned",
+		}},
+	}
+	m := &Module{
+		store:       store,
+		stays:       &fakeStayStore{},
+		planItems:   pi,
+		requireAuth: func(h http.Handler) http.Handler { return h },
+		authz:       allowAllAuthorizer{},
+		now:         func() time.Time { return fixedNow },
+	}
+
+	rec := httptest.NewRecorder()
+	m.handleGetDay(rec, getDayReq("trip-uuid", "2026-07-03", "owner-1"))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotListByDayTripID != "trip-uuid" {
+		t.Errorf("ListByDay trip_id = %q, want trip-uuid", pi.gotListByDayTripID)
+	}
+	if pi.gotListByDayDayID != "day-uuid" {
+		t.Errorf("ListByDay day_id = %q, want day-uuid", pi.gotListByDayDayID)
+	}
+
+	var resp dayResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.PlanItems) != 1 {
+		t.Fatalf("plan_items length = %d, want 1", len(resp.PlanItems))
+	}
+	if resp.PlanItems[0].Title != title {
+		t.Errorf("plan_items[0].title = %q, want %q", resp.PlanItems[0].Title, title)
+	}
+}
+
+// strPtr returns a pointer to s.
+func strPtr(s string) *string { return &s }
 
 // TestHandleGetDayNotFound asserts that errDayNotFound maps to 404.
 func TestHandleGetDayNotFound(t *testing.T) {

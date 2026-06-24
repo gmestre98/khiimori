@@ -22,7 +22,7 @@ const mockTrip: Trip = {
 }
 
 function makeMockDay(date: string, index: number): api.Day {
-  return { id: `day-${index}`, trip_id: 'trip-1', date, index, notes: '' }
+  return { id: `day-${index}`, trip_id: 'trip-1', date, index, notes: '', stays: [], plan_items: [] }
 }
 
 const mockDay = makeMockDay('2026-06-01', 0)

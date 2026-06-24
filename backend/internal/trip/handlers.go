@@ -317,14 +317,16 @@ func (m *Module) handleUnarchive(w http.ResponseWriter, r *http.Request) {
 // dayResponse is the wire shape returned for a single day. Stays contains every
 // accommodation whose [check_in, check_out) range covers this date (derived at
 // read time — a single stay row may appear on multiple day responses without
-// duplication in the DB).
+// duplication in the DB). PlanItems contains all plan items assigned to this
+// day, ordered timed-first (chronological) then untimed (sort_order).
 type dayResponse struct {
-	ID     string         `json:"id"`
-	TripID string         `json:"trip_id"`
-	Date   string         `json:"date"`
-	Index  int            `json:"index"`
-	Notes  string         `json:"notes"`
-	Stays  []stayResponse `json:"stays"`
+	ID        string              `json:"id"`
+	TripID    string              `json:"trip_id"`
+	Date      string              `json:"date"`
+	Index     int                 `json:"index"`
+	Notes     string              `json:"notes"`
+	Stays     []stayResponse      `json:"stays"`
+	PlanItems []planItemResponse  `json:"plan_items"`
 }
 
 // handleGetDay returns a single day by trip + date. The route is
@@ -372,20 +374,33 @@ func (m *Module) handleGetDay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	planItems, err := m.planItems.ListByDay(r.Context(), tripID, day.ID)
+	if err != nil {
+		platformlog.FromContext(r.Context()).Error("getting plan items for day", "err", err.Error())
+		httpx.WriteError(w, r, err)
+		return
+	}
+
 	stayResps := make([]stayResponse, len(stays))
 	for i, s := range stays {
 		stayResps[i] = newStayResponse(s)
 	}
 
+	itemResps := make([]planItemResponse, len(planItems))
+	for i, item := range planItems {
+		itemResps[i] = newPlanItemResponse(item)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(dayResponse{
-		ID:     day.ID,
-		TripID: day.TripID,
-		Date:   day.Date.Format(dateLayout),
-		Index:  day.Index,
-		Notes:  day.Notes,
-		Stays:  stayResps,
+		ID:        day.ID,
+		TripID:    day.TripID,
+		Date:      day.Date.Format(dateLayout),
+		Index:     day.Index,
+		Notes:     day.Notes,
+		Stays:     stayResps,
+		PlanItems: itemResps,
 	})
 }
 

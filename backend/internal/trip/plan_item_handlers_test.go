@@ -13,6 +13,11 @@ import (
 // fakePlanItemStore records calls and returns canned results so plan-item
 // handler policy can be tested without a database.
 type fakePlanItemStore struct {
+	gotListByDayTripID string
+	gotListByDayDayID  string
+	listByDayResult    []PlanItem
+	listByDayErr       error
+
 	gotListBacklogTripID string
 	listBacklogResult    []PlanItem
 	listBacklogErr       error
@@ -55,6 +60,12 @@ type fakePlanItemStore struct {
 	statusErr       error
 
 	moveErr error
+}
+
+func (f *fakePlanItemStore) ListByDay(_ context.Context, tripID, dayID string) ([]PlanItem, error) {
+	f.gotListByDayTripID = tripID
+	f.gotListByDayDayID = dayID
+	return f.listByDayResult, f.listByDayErr
 }
 
 func (f *fakePlanItemStore) ListBacklog(_ context.Context, tripID string) ([]PlanItem, error) {
