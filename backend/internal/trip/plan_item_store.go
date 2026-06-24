@@ -20,6 +20,15 @@ type planItemStore interface {
 	DeletePlanItem(ctx context.Context, tripID, itemID string) error
 	PromotePlanItem(ctx context.Context, tripID, itemID string, p PromotePlanItemInput) (PlanItem, error)
 	DemotePlanItem(ctx context.Context, tripID, itemID string) (PlanItem, error)
+	// ReorderPlanItems sets sort_order = 0, 1, 2, … for the given item IDs
+	// within a day, in the caller-supplied sequence. All IDs must belong to
+	// tripID and dayID; any item not in the list keeps its current sort_order.
+	// The scheme (explicit integer positions assigned by list index) is
+	// idempotent and convergent: replaying the same list always produces the
+	// same sort_order values, so offline queues converge deterministically
+	// (PRD §6). Reused by move (S2) to place the moved item at the end of
+	// the target day.
+	ReorderPlanItems(ctx context.Context, tripID, dayID string, itemIDs []string) ([]PlanItem, error)
 }
 
 // pgxPlanItemStore is the Postgres-backed plan-item store.
@@ -228,4 +237,51 @@ func (s *pgxPlanItemStore) DeletePlanItem(ctx context.Context, tripID, itemID st
 		return fmt.Errorf("trip: delete plan item: %w", err)
 	}
 	return nil
+}
+
+// ReorderPlanItems assigns sort_order = 0, 1, 2, … to the items in itemIDs
+// order, then returns all items for the day ordered by sort_order. Items not
+// present in itemIDs are unaffected. The UPDATE uses a single unnest CTE so
+// it is one round-trip and safe under concurrent writes: the last writer
+// wins, which is the desired convergence behaviour for offline replay (PRD §6).
+func (s *pgxPlanItemStore) ReorderPlanItems(ctx context.Context, tripID, dayID string, itemIDs []string) ([]PlanItem, error) {
+	const q = `
+		WITH positions(id, pos) AS (
+		    SELECT unnest($3::uuid[]), generate_series(0, array_length($3::uuid[], 1) - 1)
+		)
+		UPDATE trip.plan_items pi
+		SET sort_order = p.pos
+		FROM positions p
+		WHERE pi.id = p.id
+		  AND pi.trip_id = $1::uuid
+		  AND pi.day_id  = $2::uuid`
+
+	if _, err := s.pool.Exec(ctx, q, tripID, dayID, itemIDs); err != nil {
+		return nil, fmt.Errorf("trip: reorder plan items: %w", err)
+	}
+
+	const listQ = `
+		SELECT ` + planItemColumns + `
+		FROM trip.plan_items
+		WHERE trip_id = $1::uuid AND day_id = $2::uuid
+		ORDER BY sort_order`
+
+	rows, err := s.pool.Query(ctx, listQ, tripID, dayID)
+	if err != nil {
+		return nil, fmt.Errorf("trip: list day items after reorder: %w", err)
+	}
+	defer rows.Close()
+
+	var items []PlanItem
+	for rows.Next() {
+		var p PlanItem
+		if err := scanPlanItem(rows, &p); err != nil {
+			return nil, fmt.Errorf("trip: scan day item: %w", err)
+		}
+		items = append(items, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("trip: list day items rows: %w", err)
+	}
+	return items, nil
 }

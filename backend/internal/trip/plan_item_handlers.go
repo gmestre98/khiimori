@@ -317,6 +317,69 @@ func (m *Module) handleDemotePlanItem(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(newPlanItemResponse(item))
 }
 
+// reorderPlanItemsRequest is the reorder wire shape.
+// item_ids is the desired sequence; sort_order 0, 1, 2, … is assigned
+// by position. All IDs must belong to the given trip and day_id.
+type reorderPlanItemsRequest struct {
+	DayID   string   `json:"day_id"`
+	ItemIDs []string `json:"item_ids"`
+}
+
+// handleReorderPlanItems sets sort_order for items within a day
+// (POST /trips/{id}/plan-items/reorder). The caller sends the complete
+// desired sequence in item_ids; sort_order is assigned 0, 1, 2, … by
+// list position. The operation is idempotent — replaying with the same
+// list produces the same sort_order values (PRD §6).
+func (m *Module) handleReorderPlanItems(w http.ResponseWriter, r *http.Request) {
+	p, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusUnauthorized, "auth_required", "authentication required"))
+		return
+	}
+	tripID := r.PathValue("id")
+
+	if err := m.checkAccess(r.Context(), p.UserID, ActionWrite, tripID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	var req reorderPlanItemsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusBadRequest, "invalid_json", "request body is not valid JSON"))
+		return
+	}
+	if req.DayID == "" {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusBadRequest, "invalid_reorder", "day_id is required"))
+		return
+	}
+	if len(req.ItemIDs) == 0 {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusBadRequest, "invalid_reorder", "item_ids must not be empty"))
+		return
+	}
+
+	items, err := m.planItems.ReorderPlanItems(r.Context(), tripID, req.DayID, req.ItemIDs)
+	if err != nil {
+		platformlog.FromContext(r.Context()).Error("reordering plan items", "err", err.Error())
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	resp := struct {
+		Items []planItemResponse `json:"items"`
+	}{Items: make([]planItemResponse, len(items))}
+	for i, item := range items {
+		resp.Items[i] = newPlanItemResponse(item)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
 // handleDeletePlanItem removes a plan item (DELETE /trips/{id}/plan-items/{itemID}).
 // Replaying a delete of a non-existent item returns 204 — idempotent for
 // Epic 06's offline replay.
