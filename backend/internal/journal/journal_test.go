@@ -82,6 +82,16 @@ func (s *fakeStore) TripUsageBytes(_ context.Context, tripID string) (int64, err
 	return s.usageByTripID[tripID], nil
 }
 
+func (s *fakeStore) UpdatePhotoThumbnail(_ context.Context, photoID, thumbnailURL string) error {
+	for i, p := range s.photos {
+		if p.ID == photoID {
+			s.photos[i].ThumbnailURL = thumbnailURL
+			return nil
+		}
+	}
+	return nil
+}
+
 type allowAuthz struct{}
 
 func (allowAuthz) CanAccess(_ context.Context, _, _ string) (bool, error) { return true, nil }

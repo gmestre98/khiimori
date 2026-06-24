@@ -1,12 +1,14 @@
 package journal
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/gmestre98/khiimori/backend/internal/platform/authn"
@@ -157,6 +159,7 @@ type photoResponse struct {
 	ID             string `json:"id"`
 	JournalEntryID string `json:"journal_entry_id"`
 	StorageURL     string `json:"storage_url"`
+	ThumbnailURL   string `json:"thumbnail_url,omitempty"`
 	Caption        string `json:"caption,omitempty"`
 	SizeBytes      int64  `json:"size_bytes"`
 	CreatedAt      string `json:"created_at"`
@@ -167,6 +170,7 @@ func photoToResponse(p Photo) photoResponse {
 		ID:             p.ID,
 		JournalEntryID: p.JournalEntryID,
 		StorageURL:     p.StorageURL,
+		ThumbnailURL:   p.ThumbnailURL,
 		Caption:        p.Caption,
 		SizeBytes:      p.SizeBytes,
 		CreatedAt:      p.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
@@ -275,6 +279,29 @@ func (m *Module) handleUploadPhoto(w http.ResponseWriter, r *http.Request) {
 		platformlog.FromContext(r.Context()).Error("journal: insert photo", "err", err.Error())
 		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusInternalServerError, "internal_error", "internal error"))
 		return
+	}
+
+	// Inline thumbnail generation — seek to start of file to re-read for resize.
+	// On failure we log and continue: the original is stored and the row exists;
+	// the thumbnail_url will simply remain empty (scale-up: move to async job).
+	if seeker, ok := file.(io.Seeker); ok {
+		if _, err := seeker.Seek(0, io.SeekStart); err == nil {
+			thumbBytes, thumbErr := generateThumbnail(file, contentType)
+			if thumbErr != nil {
+				platformlog.FromContext(r.Context()).Error("journal: generate thumbnail", "err", thumbErr.Error())
+			} else {
+				thumbKey := objectKey + "_thumb"
+				thumbURL, putErr := m.media.Put(r.Context(), thumbKey, "image/jpeg", int64(len(thumbBytes)), bytes.NewReader(thumbBytes))
+				if putErr != nil {
+					platformlog.FromContext(r.Context()).Error("journal: store thumbnail", "err", putErr.Error())
+				} else if updateErr := m.store.UpdatePhotoThumbnail(r.Context(), photo.ID, thumbURL); updateErr != nil {
+					_ = m.media.Delete(r.Context(), thumbURL)
+					platformlog.FromContext(r.Context()).Error("journal: update photo thumbnail", "err", updateErr.Error())
+				} else {
+					photo.ThumbnailURL = thumbURL
+				}
+			}
+		}
 	}
 
 	writeJSON(w, http.StatusCreated, photoToResponse(photo))

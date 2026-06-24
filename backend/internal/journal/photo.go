@@ -12,7 +12,8 @@ import (
 type Photo struct {
 	ID             string
 	JournalEntryID string
-	StorageURL     string // gs:// URI returned by MediaStore.Put
+	StorageURL     string // gs:// URI of the original, returned by MediaStore.Put
+	ThumbnailURL   string // gs:// URI of the generated thumbnail; empty until thumbnail generation succeeds
 	Caption        string // optional
 	SizeBytes      int64
 	IsThumbnail    bool
