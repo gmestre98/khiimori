@@ -25,7 +25,7 @@ func TestReplayReorderConvergesIntegration(t *testing.T) {
 
 	srv := newModule(t)
 	tripID := createTripForPlanItemTest(t, srv)
-	dayID := getDayID(t, srv, tripID, "2026-10-01")
+	dayID := getDayID(t, srv, tripID, "2026-09-01")
 
 	a := createPlanItem(t, srv, tripID, fmt.Sprintf(`{"title":"Alpha","day_id":%q}`, dayID))
 	b := createPlanItem(t, srv, tripID, fmt.Sprintf(`{"title":"Beta","day_id":%q}`, dayID))
@@ -66,8 +66,8 @@ func TestReplayMoveConvergesIntegration(t *testing.T) {
 
 	srv := newModule(t)
 	tripID := createTripForPlanItemTest(t, srv)
-	srcDayID := getDayID(t, srv, tripID, "2026-10-02")
-	dstDayID := getDayID(t, srv, tripID, "2026-10-03")
+	srcDayID := getDayID(t, srv, tripID, "2026-09-02")
+	dstDayID := getDayID(t, srv, tripID, "2026-09-03")
 
 	pi := createPlanItem(t, srv, tripID, fmt.Sprintf(`{"title":"Walk","day_id":%q}`, srcDayID))
 	moveBody := fmt.Sprintf(`{"day_id":%q}`, dstDayID)
@@ -95,7 +95,7 @@ func TestReplayStatusConvergesIntegration(t *testing.T) {
 
 	srv := newModule(t)
 	tripID := createTripForPlanItemTest(t, srv)
-	dayID := getDayID(t, srv, tripID, "2026-10-04")
+	dayID := getDayID(t, srv, tripID, "2026-09-04")
 
 	pi := createPlanItem(t, srv, tripID, fmt.Sprintf(`{"title":"Dinner","day_id":%q}`, dayID))
 
@@ -120,8 +120,8 @@ func TestReplayAllThreeOperationsIntegration(t *testing.T) {
 
 	srv := newModule(t)
 	tripID := createTripForPlanItemTest(t, srv)
-	day1ID := getDayID(t, srv, tripID, "2026-10-05")
-	day2ID := getDayID(t, srv, tripID, "2026-10-06")
+	day1ID := getDayID(t, srv, tripID, "2026-09-05")
+	day2ID := getDayID(t, srv, tripID, "2026-09-06")
 
 	// Create two items on day1 and one on day2.
 	piA := createPlanItem(t, srv, tripID, fmt.Sprintf(`{"title":"Activity A","day_id":%q}`, day1ID))
