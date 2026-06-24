@@ -41,6 +41,12 @@ type fakePlanItemStore struct {
 	gotDemoteItemID string
 	demoteResult    PlanItem
 	demoteErr       error
+
+	gotReorderTripID string
+	gotReorderDayID  string
+	gotReorderIDs    []string
+	reorderResult    []PlanItem
+	reorderErr       error
 }
 
 func (f *fakePlanItemStore) ListBacklog(_ context.Context, tripID string) ([]PlanItem, error) {
@@ -149,6 +155,23 @@ func (f *fakePlanItemStore) DemotePlanItem(_ context.Context, tripID, itemID str
 		SortOrder: 0,
 		Status:    "idea",
 	}, nil
+}
+
+func (f *fakePlanItemStore) ReorderPlanItems(_ context.Context, tripID, dayID string, itemIDs []string) ([]PlanItem, error) {
+	f.gotReorderTripID = tripID
+	f.gotReorderDayID = dayID
+	f.gotReorderIDs = itemIDs
+	if f.reorderErr != nil {
+		return nil, f.reorderErr
+	}
+	if f.reorderResult != nil {
+		return f.reorderResult, nil
+	}
+	items := make([]PlanItem, len(itemIDs))
+	for i, id := range itemIDs {
+		items[i] = PlanItem{ID: id, TripID: tripID, DayID: &dayID, Title: "item", SortOrder: i, Status: "planned"}
+	}
+	return items, nil
 }
 
 // newPlanItemModule constructs a Module wired to a trip store and plan-item store.
@@ -1083,6 +1106,107 @@ func TestHandleDeletePlanItemUnauthorized(t *testing.T) {
 		t.Fatalf("status = %d, want 404 (presence oracle protection)", rec.Code)
 	}
 	if pi.gotDeleteItemID != "" {
+		t.Error("store should not be called for an unauthorized request")
+	}
+}
+
+// reorderPlanItemsReq builds a POST /trips/{id}/plan-items/reorder request.
+func reorderPlanItemsReq(tripID, userID, body string) *http.Request {
+	req := httptest.NewRequest(http.MethodPost, TripsPath+"/"+tripID+"/plan-items/reorder", strings.NewReader(body))
+	req.SetPathValue("id", tripID)
+	return withPrincipal(req, userID)
+}
+
+// TestHandleReorderPlanItems asserts a valid reorder request calls the store
+// with the correct arguments and returns 200 with the ordered items.
+func TestHandleReorderPlanItems(t *testing.T) {
+	t.Parallel()
+
+	dayID := "day-abc"
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	body := `{"day_id":"day-abc","item_ids":["id-2","id-1","id-3"]}`
+	rec := httptest.NewRecorder()
+	m.handleReorderPlanItems(rec, reorderPlanItemsReq("trip-1", "owner-1", body))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotReorderTripID != "trip-1" {
+		t.Errorf("store trip_id = %q, want trip-1", pi.gotReorderTripID)
+	}
+	if pi.gotReorderDayID != dayID {
+		t.Errorf("store day_id = %q, want %q", pi.gotReorderDayID, dayID)
+	}
+	if len(pi.gotReorderIDs) != 3 || pi.gotReorderIDs[0] != "id-2" {
+		t.Errorf("store item_ids = %v, want [id-2 id-1 id-3]", pi.gotReorderIDs)
+	}
+
+	var resp struct {
+		Items []planItemResponse `json:"items"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(resp.Items) != 3 {
+		t.Errorf("response items count = %d, want 3", len(resp.Items))
+	}
+}
+
+// TestHandleReorderPlanItemsMissingDayID asserts a request without day_id
+// returns 400.
+func TestHandleReorderPlanItemsMissingDayID(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleReorderPlanItems(rec, reorderPlanItemsReq("trip-1", "owner-1", `{"item_ids":["id-1"]}`))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+}
+
+// TestHandleReorderPlanItemsEmptyList asserts an empty item_ids list returns 400.
+func TestHandleReorderPlanItemsEmptyList(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleReorderPlanItems(rec, reorderPlanItemsReq("trip-1", "owner-1", `{"day_id":"day-1","item_ids":[]}`))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+}
+
+// TestHandleReorderPlanItemsUnauthorized asserts a denied Authorizer returns
+// 404 and the store is not called.
+func TestHandleReorderPlanItemsUnauthorized(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := &Module{
+		store:       &fakeTripStore{},
+		stays:       &fakeStayStore{},
+		planItems:   pi,
+		requireAuth: func(h http.Handler) http.Handler { return h },
+		authz:       denyAllAuthorizer{},
+		now:         func() time.Time { return fixedNow },
+	}
+
+	rec := httptest.NewRecorder()
+	m.handleReorderPlanItems(rec, reorderPlanItemsReq("trip-1", "other-user", `{"day_id":"day-1","item_ids":["id-1"]}`))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 (presence oracle protection)", rec.Code)
+	}
+	if pi.gotReorderDayID != "" {
 		t.Error("store should not be called for an unauthorized request")
 	}
 }
