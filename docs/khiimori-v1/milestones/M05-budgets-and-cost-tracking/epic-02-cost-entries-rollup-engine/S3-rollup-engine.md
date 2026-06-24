@@ -9,14 +9,14 @@
 Implement the roll-up engine computing actual spend at the three levels.
 
 ## Acceptance criteria
-- [ ] Actual spend is computed per **category**, per **day**, and per **whole trip** as the sum of
+- [x] Actual spend is computed per **category**, per **day**, and per **whole trip** as the sum of
   `Stay.cost`, `PlanItem.cost`, and `CostEntry.amount`.
-- [ ] Plan-item/stay costs are **read through the Trip module interface** — the Budget module does not own
+- [x] Plan-item/stay costs are **read through the Trip module interface** — the Budget module does not own
   those rows (clean boundary, PRD §7.1).
-- [ ] Each cost source is mapped to one of the five fixed categories (mapping defined and documented).
-- [ ] Computation is via **SQL aggregation**; `BudgetLine.actual_amount` is computed-on-read first (cache
+- [x] Each cost source is mapped to one of the five fixed categories (mapping defined and documented).
+- [x] Computation is via **SQL aggregation**; `BudgetLine.actual_amount` is computed-on-read first (cache
   only if a measured need arises, PRD §7.0).
-- [ ] A unit test covers a mixed scenario (stays + plan items + cost entries) at all three levels.
+- [x] A unit test covers a mixed scenario (stays + plan items + cost entries) at all three levels.
 
 ## Constraints
 - Read stay/plan-item costs via the Trip interface, not by querying `trip.*` tables directly across the

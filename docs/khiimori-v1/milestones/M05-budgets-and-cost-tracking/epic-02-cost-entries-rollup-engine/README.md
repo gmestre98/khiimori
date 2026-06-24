@@ -1,5 +1,7 @@
 # Epic M05.2 — Cost entries & roll-up engine
 
+> **Status:** ✅ Done — PRs [#283](https://github.com/gmestre98/khiimori/pull/283) [#284](https://github.com/gmestre98/khiimori/pull/284) [#285](https://github.com/gmestre98/khiimori/pull/285) [#286](https://github.com/gmestre98/khiimori/pull/286) [#287](https://github.com/gmestre98/khiimori/pull/287) — 5/5 ACs complete.
+
 > Milestone: [05 — Budgets & Cost Tracking](../README.md) · PRD refs: §5.4, §7.1, §7.7, §9.
 
 ## Description
@@ -15,16 +17,16 @@ roll-ups correctly.
 
 ## Acceptance Criteria
 
-- [ ] A migration adds `CostEntry(id, trip_id, day_id?, plan_item_id?, category, amount, note,
+- [x] A migration adds `CostEntry(id, trip_id, day_id?, plan_item_id?, category, amount, note,
       created_at)` per PRD §9 (PRD §7.7).
-- [ ] **Manual cost entries** can be created/edited/deleted quickly (category, amount, note, optional
+- [x] **Manual cost entries** can be created/edited/deleted quickly (category, amount, note, optional
       day/plan-item link) (PRD §5.4).
-- [ ] **Automatic roll-up:** actual spend per category/day/trip is the sum of `Stay.cost`,
+- [x] **Automatic roll-up:** actual spend per category/day/trip is the sum of `Stay.cost`,
       `PlanItem.cost` (read via the Trip module interface), **plus** `CostEntry.amount` — no manual
       re-entry of plan/stay costs (PRD §5.4).
-- [ ] Roll-up math is **consistent and transactional**, and **editing/deleting** a stay, plan item,
+- [x] Roll-up math is **consistent and transactional**, and **editing/deleting** a stay, plan item,
       or cost entry **updates the relevant roll-ups correctly** (PRD §5.4, §9).
-- [ ] Unit + integration tests cover multi-level aggregation, category mapping, and edit/delete
+- [x] Unit + integration tests cover multi-level aggregation, category mapping, and edit/delete
       propagation (PRD §7.6).
 
 ## Implementation Details / Architecture

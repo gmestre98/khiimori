@@ -8,12 +8,12 @@ plan-item link (PRD §5.4). Builds on the schema (S1).
 Implement create/edit/delete endpoints for cost entries.
 
 ## Acceptance criteria
-- [ ] Endpoints create, edit, and delete a `CostEntry` (category, amount, note, optional day/plan-item
+- [x] Endpoints create, edit, and delete a `CostEntry` (category, amount, note, optional day/plan-item
   link).
-- [ ] Operations are **authorized** via the M03 `Authorizer` and **idempotent/queueable** for offline
+- [x] Operations are **authorized** via the M03 `Authorizer` and **idempotent/queueable** for offline
   replay (shared queue).
-- [ ] Category is validated; amount is EUR.
-- [ ] A unit test covers create/edit/delete and an unauthorized attempt being denied.
+- [x] Category is validated; amount is EUR.
+- [x] A unit test covers create/edit/delete and an unauthorized attempt being denied.
 
 ## Constraints
 - Keep mutations idempotent for offline replay (Milestone 04 queue, used by Epic 03 UI).
