@@ -16,7 +16,7 @@ optimised for thumb-reachable mobile interaction.
 
 ## Acceptance Criteria
 
-- [ ] The day view shows **timed items in chronological order** and **untimed items as a loose
+- [x] The day view shows **timed items in chronological order** and **untimed items as a loose
       list**, plus the day's **stay(s)** and access to the **ideas backlog** — never forcing a time
       where there isn't one (PRD §5.2).
 - [x] **Inline add/edit** of a plan item is a couple of taps (title-only quick add, expand for

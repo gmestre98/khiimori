@@ -1,5 +1,7 @@
 # Milestone 04 — Organic Day Planning
 
+> **Status:** ✅ Done — All 26 ACs complete across 6 epics. Epics 01–04 (stays, plan items, backlog, re-planning) shipped as Go backend; Epic 05 (day view & inline editing) shipped as React/TS frontend; Epic 06 (offline-capable writes) shipped as IndexedDB mutation queue with ordered replay and LWW conflict resolution. PRs #233–#277.
+
 > The spontaneity-first planning core: stays, plan items (timed & untimed), the ideas backlog,
 > inline editing with auto-save, drag-reorder / move-to-day, item statuses, and offline-capable
 > writes. Plans are loose by default and precise when wanted.
