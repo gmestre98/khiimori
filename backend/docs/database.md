@@ -13,7 +13,7 @@ secrets live. Migration authoring detail lives in
 | Tier | **Free** (≈€0) — the one component that doesn't scale to zero for free forever (PRD §8.4 #1) |
 | Region | `eu-west-2` (AWS, London) — close to the GCP region M01.4 deploys to |
 | Database | `neondb` |
-| Branch | `main` (Neon's default branch) |
+| Branches | `production` (default — app + deploy target) and `dev` (local schema iteration; see [Dev branch & the destructive-migration guard](#dev-branch--the-destructive-migration-guard)) |
 | Postgres | 18 |
 
 ## Pooled vs direct endpoints
@@ -71,6 +71,45 @@ make migrate-status    # show applied / pending
 These load `backend/.env` when present and otherwise use the ambient
 environment, so they migrate whatever `DATABASE_URL_DIRECT` points at. To author
 a migration, see [`../migrations/README.md`](../migrations/README.md).
+
+> **`down` and `reset` are destructive.** Their goose `Down` sections `DROP`
+> tables and schemas, so they erase data. They are **blocked against the
+> production endpoint** — see the next section. Run them against the `dev`
+> branch instead.
+
+## Dev branch & the destructive-migration guard
+
+There is one Neon project with two branches. `production` is what the app and the
+deploy pipeline use; **`dev`** is a copy-on-write branch (parent: `production`)
+for local schema work. Because a branch is an independent endpoint, running
+`migrate reset`/`down` against `dev` can never touch production data.
+
+**Local dev points at `dev`.** In the Neon console open the `dev` branch, copy
+its pooled + direct connection strings (the endpoint id differs from
+production's), and put them in `backend/.env` as `DATABASE_URL` /
+`DATABASE_URL_DIRECT`. Production credentials live only in GitHub secrets and GCP
+Secret Manager — not in anyone's `.env`.
+
+**The guard.** `migrate down` and `migrate reset` refuse to run when
+`DATABASE_URL_DIRECT` resolves to a *protected* host — by default the production
+endpoint `ep-shiny-glade-ab3ps862` (a bare host fragment, not a secret).
+`migrate up` is additive and never guarded, so deploys are unaffected. The check
+lives in [`config.IsProtectedMigrationTarget`](../internal/platform/config/config.go)
+and is enforced in [`cmd/migrate`](../cmd/migrate/main.go).
+
+| Variable | Effect |
+|----------|--------|
+| `MIGRATE_PROTECTED_HOSTS` | Comma-separated host fragments to protect. Overrides the default (e.g. protect a staging branch too). |
+| `MIGRATE_FORCE=true` | Escape hatch for a *deliberate* production rollback. Prints a loud warning, then proceeds. |
+
+```sh
+# Against production this now refuses instead of wiping data:
+$ make migrate-reset
+migrate: refusing to run "reset" against protected host
+  "ep-shiny-glade-ab3ps862.eu-west-2.aws.neon.tech": this would roll back
+  migrations and DROP tables, destroying data. Use a Neon dev branch for schema
+  iteration, or set MIGRATE_FORCE=true to override
+```
 
 ## Where the connection strings live
 

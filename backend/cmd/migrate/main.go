@@ -13,6 +13,12 @@
 //	migrate reset     roll back all migrations
 //	migrate status    show applied/pending migrations
 //
+// The destructive commands (down, reset) refuse to run against the production
+// database: they roll back migrations, whose Down sections DROP tables/schemas
+// and so destroy data. Iterate on schema changes against a Neon dev branch, not
+// production. Set MIGRATE_FORCE=true to override the guard for a deliberate
+// production rollback. See config.IsProtectedMigrationTarget.
+//
 // Any failure exits non-zero with a message on stderr, so CI can gate on it.
 // The make migrate-* targets wrap these and load backend/.env for local dev.
 package main
@@ -22,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 
 	// pgx's database/sql driver, registered as "pgx" — the direct path goose
 	// uses for migrations (the app pool uses pgxpool separately).
@@ -55,6 +62,26 @@ func run(args []string) error {
 	dsn, err := config.LoadMigrationDSN()
 	if err != nil {
 		return err
+	}
+
+	// Guard the destructive commands: down/reset roll back migrations, whose
+	// Down sections DROP tables/schemas, so against production they erase real
+	// data. Fail closed if the target can't be classified. MIGRATE_FORCE=true is
+	// the deliberate-rollback escape hatch.
+	if command == "down" || command == "reset" {
+		protected, host, err := config.IsProtectedMigrationTarget(dsn)
+		if err != nil {
+			return err
+		}
+		if protected {
+			force, _ := strconv.ParseBool(os.Getenv("MIGRATE_FORCE"))
+			if !force {
+				return fmt.Errorf("refusing to run %q against protected host %q: "+
+					"this would roll back migrations and DROP tables, destroying data. "+
+					"Use a Neon dev branch for schema iteration, or set MIGRATE_FORCE=true to override", command, host)
+			}
+			fmt.Fprintf(os.Stderr, "migrate: WARNING — MIGRATE_FORCE set; running destructive %q against protected host %q\n", command, host)
+		}
 	}
 
 	db, err := sql.Open("pgx", dsn)

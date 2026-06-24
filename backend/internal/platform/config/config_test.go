@@ -256,3 +256,53 @@ func TestLoadActiveDSN(t *testing.T) {
 		})
 	}
 }
+
+func TestIsProtectedMigrationTarget(t *testing.T) {
+	const (
+		prodDirect = "postgresql://neondb_owner:pw@ep-shiny-glade-ab3ps862.eu-west-2.aws.neon.tech/neondb?sslmode=require"
+		prodPooled = "postgresql://neondb_owner:pw@ep-shiny-glade-ab3ps862-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require"
+		devBranch  = "postgresql://neondb_owner:pw@ep-cool-river-12345678.eu-west-2.aws.neon.tech/neondb?sslmode=require"
+		localDB    = "postgres://postgres:postgres@localhost:5432/khiimori_test?sslmode=disable"
+	)
+	tests := []struct {
+		name          string
+		dsn           string
+		protectedEnv  string // MIGRATE_PROTECTED_HOSTS; "" means leave unset
+		wantProtected bool
+		wantErr       bool
+	}{
+		{name: "production direct endpoint", dsn: prodDirect, wantProtected: true},
+		{name: "production pooled endpoint shares the id", dsn: prodPooled, wantProtected: true},
+		{name: "dev branch is not protected", dsn: devBranch, wantProtected: false},
+		{name: "localhost is not protected", dsn: localDB, wantProtected: false},
+		{name: "override protects the dev host", dsn: devBranch, protectedEnv: "ep-cool-river-12345678", wantProtected: true},
+		{name: "override stops protecting prod", dsn: prodDirect, protectedEnv: "some-other-host", wantProtected: false},
+		{name: "blank override falls back to default", dsn: prodDirect, protectedEnv: "  ", wantProtected: true},
+		{name: "no host is an error", dsn: "postgres:///neondb", wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.protectedEnv == "" {
+				if err := os.Unsetenv("MIGRATE_PROTECTED_HOSTS"); err != nil {
+					t.Fatalf("unset MIGRATE_PROTECTED_HOSTS: %v", err)
+				}
+			} else {
+				t.Setenv("MIGRATE_PROTECTED_HOSTS", tc.protectedEnv)
+			}
+
+			protected, _, err := IsProtectedMigrationTarget(tc.dsn)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("IsProtectedMigrationTarget() returned nil error, want error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("IsProtectedMigrationTarget() returned error %v, want success", err)
+			}
+			if protected != tc.wantProtected {
+				t.Fatalf("IsProtectedMigrationTarget() = %v, want %v", protected, tc.wantProtected)
+			}
+		})
+	}
+}
