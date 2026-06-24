@@ -18,6 +18,8 @@ type planItemStore interface {
 	CreatePlanItem(ctx context.Context, n NewPlanItem) (PlanItem, error)
 	UpdatePlanItem(ctx context.Context, tripID, itemID string, e EditPlanItem) (PlanItem, error)
 	DeletePlanItem(ctx context.Context, tripID, itemID string) error
+	PromotePlanItem(ctx context.Context, tripID, itemID string, p PromotePlanItemInput) (PlanItem, error)
+	DemotePlanItem(ctx context.Context, tripID, itemID string) (PlanItem, error)
 }
 
 // pgxPlanItemStore is the Postgres-backed plan-item store.
@@ -162,6 +164,58 @@ func (s *pgxPlanItemStore) ListBacklog(ctx context.Context, tripID string) ([]Pl
 		return nil, fmt.Errorf("trip: list backlog rows: %w", err)
 	}
 	return items, nil
+}
+
+// PromotePlanItem moves a backlog item (day_id = null) to a specific day by
+// setting its day_id (and optionally start_time). The item is placed at the
+// end of the target day's order. Status transitions from "idea" to "planned"
+// if it was previously in the backlog; other statuses are left unchanged.
+// Returns errPlanItemNotFound when the item does not exist within the trip.
+func (s *pgxPlanItemStore) PromotePlanItem(ctx context.Context, tripID, itemID string, p PromotePlanItemInput) (PlanItem, error) {
+	const q = `
+		UPDATE trip.plan_items
+		SET day_id     = $3::uuid,
+		    start_time = $4::time,
+		    sort_order = (
+		        SELECT COALESCE(MAX(sort_order), -1) + 1
+		        FROM trip.plan_items
+		        WHERE trip_id = $2::uuid AND day_id = $3::uuid AND id != $1::uuid
+		    ),
+		    status     = CASE WHEN status = 'idea' THEN 'planned' ELSE status END
+		WHERE id = $1::uuid AND trip_id = $2::uuid
+		RETURNING ` + planItemColumns
+	var item PlanItem
+	err := scanPlanItem(s.pool.QueryRow(ctx, q, itemID, tripID, p.DayID, p.StartTime), &item)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return PlanItem{}, errPlanItemNotFound
+		}
+		return PlanItem{}, fmt.Errorf("trip: promote plan item: %w", err)
+	}
+	return item, nil
+}
+
+// DemotePlanItem moves a plan item back to the backlog by clearing its day_id
+// (and start_time, so the item becomes untimed). Status is set to "idea".
+// Returns errPlanItemNotFound when the item does not exist within the trip.
+func (s *pgxPlanItemStore) DemotePlanItem(ctx context.Context, tripID, itemID string) (PlanItem, error) {
+	const q = `
+		UPDATE trip.plan_items
+		SET day_id     = NULL,
+		    start_time = NULL,
+		    duration   = NULL,
+		    status     = 'idea'
+		WHERE id = $1::uuid AND trip_id = $2::uuid
+		RETURNING ` + planItemColumns
+	var item PlanItem
+	err := scanPlanItem(s.pool.QueryRow(ctx, q, itemID, tripID), &item)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return PlanItem{}, errPlanItemNotFound
+		}
+		return PlanItem{}, fmt.Errorf("trip: demote plan item: %w", err)
+	}
+	return item, nil
 }
 
 // DeletePlanItem removes a plan item scoped to a trip. Replaying a delete of a

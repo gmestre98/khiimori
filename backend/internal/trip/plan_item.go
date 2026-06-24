@@ -68,6 +68,14 @@ type EditPlanItem struct {
 	Link          *string
 }
 
+// PromotePlanItemInput is the validated input to promote a backlog item to a
+// specific day. DayID is required; StartTime is optional — when set the item
+// becomes timed on that day.
+type PromotePlanItemInput struct {
+	DayID     string
+	StartTime *string // optional; "HH:MM"
+}
+
 // validatePlanItemFields checks the client-supplied plan-item fields. It
 // returns a client-safe error describing the first problem found.
 func validatePlanItemFields(title string, itemType, startTime, duration, location, link *string) error {
