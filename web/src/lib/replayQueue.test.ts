@@ -348,6 +348,63 @@ describe('replayQueue — all mutation kinds', () => {
 })
 
 // ---------------------------------------------------------------------------
+// replayQueue — conflict resolution integration (M04.6 S3)
+// ---------------------------------------------------------------------------
+
+describe('replayQueue — conflict resolution', () => {
+  it('collapses two reorders for the same day and dispatches only the last', async () => {
+    const mockFetch = makeOkFetch()
+    globalThis.fetch = mockFetch as typeof globalThis.fetch
+
+    await enqueue('reorderPlanItems', { tripId, dayId, itemIds: ['a', 'b'] })
+    await enqueue('reorderPlanItems', { tripId, dayId, itemIds: ['b', 'a'] })
+
+    const results = await replayQueue()
+
+    // Only one reorder dispatched (the last one wins).
+    expect(results).toHaveLength(1)
+    expect(results[0].outcome).toBe('success')
+    expect(mockFetch).toHaveBeenCalledOnce()
+
+    // Queue is now empty — both mutations were consumed.
+    const second = await replayQueue()
+    expect(second).toHaveLength(0)
+  })
+
+  it('superseded mutations are removed from the store even on replay success', async () => {
+    globalThis.fetch = makeOkFetch() as typeof globalThis.fetch
+
+    await enqueue('updatePlanItem', { tripId, itemId, input: { title: 'stale' } })
+    await enqueue('updatePlanItem', { tripId, itemId, input: { title: 'final' } })
+
+    const results = await replayQueue()
+
+    expect(results).toHaveLength(1)
+    expect(results[0].outcome).toBe('success')
+
+    // A second replay should find nothing — the superseded mutation was also removed.
+    const second = await replayQueue()
+    expect(second).toHaveLength(0)
+  })
+
+  it('preserves creates alongside deduplicated updates', async () => {
+    const mockFetch = makeOkFetch()
+    globalThis.fetch = mockFetch as typeof globalThis.fetch
+
+    await enqueue('createPlanItem', { tripId, input: { title: 'New item' } })
+    await enqueue('updatePlanItem', { tripId, itemId, input: { title: 'v1' } })
+    await enqueue('updatePlanItem', { tripId, itemId, input: { title: 'v2' } }) // supersedes prev
+
+    const results = await replayQueue()
+
+    // create + update(v2) = 2 dispatches
+    expect(results).toHaveLength(2)
+    expect(results.every((r) => r.outcome === 'success')).toBe(true)
+    expect(mockFetch).toHaveBeenCalledTimes(2)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // startReplayOnReconnect / stopReplayOnReconnect
 // ---------------------------------------------------------------------------
 

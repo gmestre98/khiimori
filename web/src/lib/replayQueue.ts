@@ -17,6 +17,7 @@
 
 import * as api from './api'
 import { getAll, remove, type QueuedMutation } from './mutationQueue'
+import { resolveConflicts } from './conflictResolution'
 
 // ReplayResult summarises what happened to a single queued mutation during replay.
 export type ReplayOutcome = 'success' | 'permanent_failure' | 'transient_failure'
@@ -152,9 +153,18 @@ export async function replayQueue(): Promise<ReplayResult[]> {
   const pending = await getAll()
   if (pending.length === 0) return []
 
+  const { toDispatch, superseded } = resolveConflicts(pending)
+
+  // Drop superseded mutations immediately so they are never retried.
+  // IDB errors here are unrecoverable (corrupted store); let them propagate
+  // rather than silently proceeding with a partially-cleaned queue.
+  for (const m of superseded) {
+    await remove(m.id)
+  }
+
   const results: ReplayResult[] = []
 
-  for (const m of pending) {
+  for (const m of toDispatch) {
     let outcome: ReplayOutcome
     let error: unknown
     try {
