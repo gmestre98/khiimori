@@ -366,6 +366,67 @@ export async function fetchBacklog(tripId: string, signal?: AbortSignal): Promis
   return body.items ?? []
 }
 
+// PlanItemInput is the editable payload for creating or updating a plan item.
+// Only title is required; all other fields are optional. Omit day_id to create
+// a backlog item (no day assigned).
+export interface PlanItemInput {
+  title: string
+  day_id?: string | null
+  type?: string | null
+  start_time?: string | null
+  duration?: string | null
+  location?: string | null
+  booking_status?: string | null
+  cost?: number | null
+  link?: string | null
+}
+
+// PlanItemValidationError carries the API's 400 message so the form can show it.
+export class PlanItemValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'PlanItemValidationError'
+  }
+}
+
+// createPlanItem calls POST /trips/:id/plan-items and returns the new item.
+// Throws PlanItemValidationError on 400 and UnauthorizedError on 401.
+export async function createPlanItem(tripId: string, input: PlanItemInput): Promise<PlanItem> {
+  const res = await apiFetch(`/trips/${tripId}/plan-items`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 400) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new PlanItemValidationError(body?.error?.message ?? 'Invalid plan item')
+  }
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as PlanItem
+}
+
+// updatePlanItem calls PATCH /trips/:id/plan-items/:itemId and returns the
+// updated item. Throws PlanItemValidationError on 400 and UnauthorizedError on 401.
+export async function updatePlanItem(
+  tripId: string,
+  itemId: string,
+  input: PlanItemInput,
+): Promise<PlanItem> {
+  const res = await apiFetch(`/trips/${tripId}/plan-items/${itemId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 400) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new PlanItemValidationError(body?.error?.message ?? 'Invalid plan item')
+  }
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as PlanItem
+}
+
 // datesInRange returns YYYY-MM-DD strings for every calendar date in [start, end],
 // derived client-side from the trip's start_date and end_date strings. Matches the
 // server's day generation so the shell can navigate without an extra API call.

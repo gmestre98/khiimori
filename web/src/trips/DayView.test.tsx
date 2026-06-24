@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { DayView } from './DayView'
 import * as api from '../lib/api'
@@ -47,6 +48,8 @@ vi.mock('../lib/api', async (importOriginal) => {
   return {
     ...orig,
     fetchDay: vi.fn(),
+    createPlanItem: vi.fn(),
+    updatePlanItem: vi.fn(),
   }
 })
 
@@ -164,5 +167,137 @@ describe('DayView', () => {
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ notes: 'Arrive early' }))
     renderDayView()
     await waitFor(() => expect(screen.getByText('Arrive early')).toBeInTheDocument())
+  })
+
+  describe('quick add', () => {
+    it('renders the quick add form after load', async () => {
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+    })
+
+    it('adds a new item and shows it in the list', async () => {
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      const newItem = makePlanItem({ id: 'new-1', title: 'New activity' })
+      vi.mocked(api.createPlanItem).mockResolvedValue(newItem)
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+
+      await user.type(screen.getByLabelText('Title'), 'New activity')
+      await user.click(screen.getByRole('button', { name: 'Add' }))
+
+      await waitFor(() => expect(screen.getByText('New activity')).toBeInTheDocument())
+      expect(api.createPlanItem).toHaveBeenCalledWith(
+        'trip-1',
+        expect.objectContaining({ title: 'New activity', day_id: 'day-1' }),
+      )
+    })
+
+    it('shows error when add fails', async () => {
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      vi.mocked(api.createPlanItem).mockRejectedValue(new Error('network'))
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+
+      await user.type(screen.getByLabelText('Title'), 'Bad item')
+      await user.click(screen.getByRole('button', { name: 'Add' }))
+
+      await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+      expect(screen.getByRole('alert')).toHaveTextContent('Could not add item.')
+    })
+
+    it('expands optional fields when More options is clicked', async () => {
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: 'More options' }))
+      expect(screen.getByLabelText('Location')).toBeInTheDocument()
+    })
+  })
+
+  describe('inline edit', () => {
+    it('clicking a plan item shows the edit form', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
+      // The editing li has class plan-item--editing; query within it to avoid
+      // matching the quick-add form that is also on the page.
+      const editingLi = document.querySelector('.plan-item--editing')!
+      const titleInput = within(editingLi as HTMLElement).getByLabelText('Title')
+      expect(titleInput).toBeInTheDocument()
+      expect((titleInput as HTMLInputElement).value).toBe('Visit museum')
+    })
+
+    it('saves the edit and reflects the update', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      const updated = makePlanItem({ title: 'Visit gallery' })
+      vi.mocked(api.updatePlanItem).mockResolvedValue(updated)
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
+      const editingLi = document.querySelector('.plan-item--editing')!
+      const input = within(editingLi as HTMLElement).getByLabelText('Title')
+      await user.clear(input)
+      await user.type(input, 'Visit gallery')
+      await user.click(within(editingLi as HTMLElement).getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => expect(screen.getByText('Visit gallery')).toBeInTheDocument())
+      expect(api.updatePlanItem).toHaveBeenCalledWith(
+        'trip-1',
+        'item-1',
+        expect.objectContaining({ title: 'Visit gallery' }),
+      )
+    })
+
+    it('cancels the edit and restores the item row', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
+      const editingLi = document.querySelector('.plan-item--editing')!
+      expect(within(editingLi as HTMLElement).getByLabelText('Title')).toBeInTheDocument()
+
+      await user.click(within(editingLi as HTMLElement).getByRole('button', { name: 'Cancel' }))
+      expect(document.querySelector('.plan-item--editing')).not.toBeInTheDocument()
+      expect(screen.getByText('Visit museum')).toBeInTheDocument()
+    })
+
+    it('shows error when save fails', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      vi.mocked(api.updatePlanItem).mockRejectedValue(new Error('network'))
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
+      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.click(within(editingLi as HTMLElement).getByRole('button', { name: 'Save' }))
+
+      await waitFor(() =>
+        expect(within(editingLi as HTMLElement).getByRole('alert')).toBeInTheDocument(),
+      )
+      expect(within(editingLi as HTMLElement).getByRole('alert')).toHaveTextContent(
+        'Could not save changes.',
+      )
+    })
   })
 })
