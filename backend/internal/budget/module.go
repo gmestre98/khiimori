@@ -37,6 +37,14 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	// Per-day budget line: PUT /trips/{tripID}/days/{dayID}/budget-lines
 	mux.Handle("PUT /trips/{tripID}/days/{dayID}/budget-lines",
 		m.requireAuth(http.HandlerFunc(m.handleSetDayBudgetLine)))
+
+	// Cost entries: POST / PATCH / DELETE
+	mux.Handle("POST /trips/{tripID}/cost-entries",
+		m.requireAuth(http.HandlerFunc(m.handleCreateCostEntry)))
+	mux.Handle("PATCH /trips/{tripID}/cost-entries/{entryID}",
+		m.requireAuth(http.HandlerFunc(m.handleUpdateCostEntry)))
+	mux.Handle("DELETE /trips/{tripID}/cost-entries/{entryID}",
+		m.requireAuth(http.HandlerFunc(m.handleDeleteCostEntry)))
 }
 
 // Compile-time check that *Module implements the route-mounting contract.
