@@ -14,6 +14,7 @@ import {
   type Day,
   type PlanItem,
   type PlanItemInput,
+  type Stay,
 } from '../lib/api'
 import { useTripShell } from './useTripShell'
 
