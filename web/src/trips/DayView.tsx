@@ -94,7 +94,13 @@ interface PlanItemFormProps {
   error: string | null
 }
 
-function PlanItemForm({ initialFields, submitLabel, onSubmit, onCancel, error }: PlanItemFormProps) {
+function PlanItemForm({
+  initialFields,
+  submitLabel,
+  onSubmit,
+  onCancel,
+  error,
+}: PlanItemFormProps) {
   const [fields, setFields] = useState<PlanItemFormFields>(initialFields ?? emptyFields())
   const [expanded, setExpanded] = useState(false)
   const [submitting, setSubmitting] = useState(false)
