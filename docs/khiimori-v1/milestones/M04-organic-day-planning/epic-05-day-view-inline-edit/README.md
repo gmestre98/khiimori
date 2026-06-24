@@ -17,7 +17,7 @@ optimised for thumb-reachable mobile interaction.
 - [ ] The day view shows **timed items in chronological order** and **untimed items as a loose
       list**, plus the day's **stay(s)** and access to the **ideas backlog** — never forcing a time
       where there isn't one (PRD §5.2).
-- [ ] **Inline add/edit** of a plan item is a couple of taps (title-only quick add, expand for
+- [x] **Inline add/edit** of a plan item is a couple of taps (title-only quick add, expand for
       optional fields) — as easy as journaling (PRD §5.3).
 - [ ] **Drag-reorder**, **move-to-day**, **promote/demote**, and **status** (done/skipped/cancelled)
       affordances are wired to Epics 03–04 (PRD §5.3).
@@ -62,7 +62,7 @@ without reading the rest of the docs.
 | # | Story | Est. | Epic AC | Depends on |
 |---|-------|------|---------|-----------|
 | [S1](S1-day-view-layout.md) ✅ | Day view layout (timed / untimed / stays / backlog) | ~3.5h | AC1 | M03 Epic 05, Epics 01–04 |
-| [S2](S2-inline-add-edit.md) | Inline quick add/edit | ~3h | AC2 | S1, Epic 02 |
+| [S2](S2-inline-add-edit.md) ✅ | Inline quick add/edit | ~3h | AC2 | S1, Epic 02 |
 | [S3](S3-replanning-affordances.md) | Re-planning affordances (drag / move / promote / status) | ~3.5h | AC3 | S1, Epics 03/04 |
 | [S4](S4-auto-save.md) | Auto-save (debounced) | ~2.5h | AC4 | S2, S3, Epic 06 |
 | [S5](S5-mobile-interactions.md) | Mobile-first interactions (sheets, thumb zones) | ~2.5h | AC5 | S1–S4 |
