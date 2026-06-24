@@ -72,6 +72,19 @@ func (s *gcsMediaStore) Delete(ctx context.Context, url string) error {
 	return nil
 }
 
+// NoopMediaStore is a MediaStore implementation that returns an error on every
+// call. It is used when MEDIA_BUCKET_NAME is not configured (e.g. local dev
+// without GCS) so the service boots without requiring GCS credentials.
+type NoopMediaStore struct{}
+
+func (NoopMediaStore) Put(_ context.Context, _, _ string, _ int64, _ io.Reader) (string, error) {
+	return "", fmt.Errorf("mediastore: photo upload not configured (MEDIA_BUCKET_NAME unset)")
+}
+
+func (NoopMediaStore) Delete(_ context.Context, _ string) error {
+	return fmt.Errorf("mediastore: photo upload not configured (MEDIA_BUCKET_NAME unset)")
+}
+
 // keyFromURL extracts the object key from a gs://{bucket}/{key} URL.
 func keyFromURL(bucket, url string) (string, error) {
 	prefix := "gs://" + bucket + "/"

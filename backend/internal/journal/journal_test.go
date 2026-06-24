@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"testing"
 	"time"
 
@@ -53,6 +55,15 @@ func (s *fakeStore) GetEntry(_ context.Context, dayID string) (JournalEntry, err
 	return e, nil
 }
 
+func (s *fakeStore) InsertPhoto(_ context.Context, p Photo) (Photo, error) {
+	p.ID = "photo-" + p.JournalEntryID
+	return p, nil
+}
+
+func (s *fakeStore) ListPhotos(_ context.Context, journalEntryID string) ([]Photo, error) {
+	return nil, nil
+}
+
 type allowAuthz struct{}
 
 func (allowAuthz) CanAccess(_ context.Context, _, _ string) (bool, error) { return true, nil }
@@ -68,7 +79,7 @@ func newTestModule(store journalStore, authz Authorizer) *Module {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
-	return &Module{store: store, authz: authz, requireAuth: requireAuth}
+	return &Module{store: store, authz: authz, requireAuth: requireAuth, media: newFakeMediaStore()}
 }
 
 func newTestServer(t *testing.T, store journalStore, authz Authorizer) *httptest.Server {
@@ -261,4 +272,191 @@ func TestUpsertEntry_Unauthorized(t *testing.T) {
 func TestPackageCompiles(t *testing.T) {
 	t.Parallel()
 	_ = httpx.RouteRegistrar((*Module)(nil))
+}
+
+// --- photo upload tests ---
+
+func uploadPhoto(srv *httptest.Server, path string, body []byte, contentType, caption string) (*http.Response, error) {
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+
+	part, err := mw.CreateFormFile("photo", "test.jpg")
+	if err != nil {
+		return nil, err
+	}
+	if _, err := part.Write(body); err != nil {
+		return nil, err
+	}
+	if caption != "" {
+		if err := mw.WriteField("caption", caption); err != nil {
+			return nil, err
+		}
+	}
+	_ = mw.Close()
+
+	req, err := http.NewRequest(http.MethodPost, srv.URL+path, &buf)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	// Override the part's Content-Type since CreateFormFile defaults to application/octet-stream.
+	// In real usage the client sets the file's Content-Type; for the test we patch the multipart header.
+	// Instead, we use a helper that sets the Content-Type on the form part directly.
+	_ = contentType // contentType is set in the part header below via the alternate helper
+	return http.DefaultClient.Do(req)
+}
+
+// uploadPhotoWithType creates a multipart form with the given MIME type on the photo part.
+func uploadPhotoWithType(srv *httptest.Server, path string, body []byte, mimeType, caption string) (*http.Response, error) {
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", `form-data; name="photo"; filename="test.jpg"`)
+	h.Set("Content-Type", mimeType)
+	part, err := mw.CreatePart(h)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := part.Write(body); err != nil {
+		return nil, err
+	}
+	if caption != "" {
+		if err := mw.WriteField("caption", caption); err != nil {
+			return nil, err
+		}
+	}
+	_ = mw.Close()
+
+	req, err := http.NewRequest(http.MethodPost, srv.URL+path, &buf)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	return http.DefaultClient.Do(req)
+}
+
+func TestUploadPhoto_Success(t *testing.T) {
+	t.Parallel()
+	store := newFakeStore()
+	srv := newTestServer(t, store, allowAuthz{})
+
+	// First create the entry.
+	putResp, _ := putJSON(srv, "/trips/trip-1/days/day-A/journal", map[string]any{
+		"body": json.RawMessage(`{"text":"hello"}`),
+	})
+	_ = putResp.Body.Close()
+
+	resp, err := uploadPhotoWithType(srv, "/trips/trip-1/days/day-A/journal/photos",
+		[]byte("fake-jpeg-bytes"), "image/jpeg", "sunset view")
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("want 201, got %d", resp.StatusCode)
+	}
+
+	var out photoResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if out.Caption != "sunset view" {
+		t.Errorf("caption: got %q", out.Caption)
+	}
+	if out.StorageURL == "" {
+		t.Error("storage_url is empty")
+	}
+}
+
+func TestUploadPhoto_EntryNotFound(t *testing.T) {
+	t.Parallel()
+	store := newFakeStore()
+	srv := newTestServer(t, store, allowAuthz{})
+
+	resp, err := uploadPhotoWithType(srv, "/trips/trip-1/days/no-entry/journal/photos",
+		[]byte("bytes"), "image/jpeg", "")
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("want 404, got %d", resp.StatusCode)
+	}
+}
+
+func TestUploadPhoto_InvalidMIME(t *testing.T) {
+	t.Parallel()
+	store := newFakeStore()
+	srv := newTestServer(t, store, allowAuthz{})
+
+	putResp, _ := putJSON(srv, "/trips/trip-1/days/day-B/journal", map[string]any{})
+	_ = putResp.Body.Close()
+
+	resp, err := uploadPhotoWithType(srv, "/trips/trip-1/days/day-B/journal/photos",
+		[]byte("bytes"), "application/pdf", "")
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("want 422, got %d", resp.StatusCode)
+	}
+}
+
+func TestUploadPhoto_EmptyFile(t *testing.T) {
+	t.Parallel()
+	store := newFakeStore()
+	srv := newTestServer(t, store, allowAuthz{})
+
+	putResp, _ := putJSON(srv, "/trips/trip-1/days/day-C/journal", map[string]any{})
+	_ = putResp.Body.Close()
+
+	resp, err := uploadPhotoWithType(srv, "/trips/trip-1/days/day-C/journal/photos",
+		[]byte{}, "image/jpeg", "")
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("want 422, got %d", resp.StatusCode)
+	}
+}
+
+func TestListPhotos_Empty(t *testing.T) {
+	t.Parallel()
+	store := newFakeStore()
+	srv := newTestServer(t, store, allowAuthz{})
+
+	putResp, _ := putJSON(srv, "/trips/trip-1/days/day-D/journal", map[string]any{})
+	_ = putResp.Body.Close()
+
+	resp, _ := http.Get(srv.URL + "/trips/trip-1/days/day-D/journal/photos")
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("want 200, got %d", resp.StatusCode)
+	}
+	var photos []photoResponse
+	if err := json.NewDecoder(resp.Body).Decode(&photos); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(photos) != 0 {
+		t.Errorf("want 0 photos, got %d", len(photos))
+	}
+}
+
+func TestUploadPhoto_Unauthorized(t *testing.T) {
+	t.Parallel()
+	store := newFakeStore()
+	srv := newTestServer(t, store, denyAuthz{})
+
+	resp, err := uploadPhotoWithType(srv, "/trips/trip-1/days/day-E/journal/photos",
+		[]byte("bytes"), "image/jpeg", "")
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("want 404, got %d", resp.StatusCode)
+	}
 }

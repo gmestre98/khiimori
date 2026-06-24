@@ -14,17 +14,19 @@ type Module struct {
 	store       journalStore
 	authz       Authorizer
 	requireAuth httpx.Middleware
+	media       MediaStore
 }
 
 // New constructs the journal module wired to the database pool, auth middleware,
-// and authorizer. The Authorizer is a consumer-side interface; the composition
-// root passes a concrete adapter so the journal module never imports trip or
-// sharing.
-func New(pool *pgxpool.Pool, requireAuth httpx.Middleware, authz Authorizer) *Module {
+// authorizer, and media store. The Authorizer is a consumer-side interface; the
+// composition root passes a concrete adapter so the journal module never imports
+// trip or sharing.
+func New(pool *pgxpool.Pool, requireAuth httpx.Middleware, authz Authorizer, media MediaStore) *Module {
 	return &Module{
 		store:       &pgxJournalStore{pool: pool},
 		authz:       authz,
 		requireAuth: requireAuth,
+		media:       media,
 	}
 }
 
@@ -37,6 +39,16 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	// Fetch the day's entry: GET /trips/{tripID}/days/{dayID}/journal
 	mux.Handle("GET /trips/{tripID}/days/{dayID}/journal",
 		m.requireAuth(http.HandlerFunc(m.handleGetEntry)))
+
+	// Upload a photo and attach it to the day's journal entry:
+	// POST /trips/{tripID}/days/{dayID}/journal/photos
+	mux.Handle("POST /trips/{tripID}/days/{dayID}/journal/photos",
+		m.requireAuth(http.HandlerFunc(m.handleUploadPhoto)))
+
+	// List photos attached to the day's journal entry:
+	// GET /trips/{tripID}/days/{dayID}/journal/photos
+	mux.Handle("GET /trips/{tripID}/days/{dayID}/journal/photos",
+		m.requireAuth(http.HandlerFunc(m.handleListPhotos)))
 }
 
 // Compile-time check that *Module implements the route-mounting contract.

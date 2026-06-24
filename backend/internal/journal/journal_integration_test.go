@@ -15,8 +15,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"os"
 	"testing"
 
@@ -103,7 +105,7 @@ func newIntegrationServer(t *testing.T, ownerID string) *httptest.Server {
 		})
 	}
 
-	mod := New(testPool, requireAuth, alwaysAllowIntegrationAuthz{})
+	mod := New(testPool, requireAuth, alwaysAllowIntegrationAuthz{}, newFakeMediaStore())
 	mux := http.NewServeMux()
 	mod.RegisterRoutes(mux)
 	srv := httptest.NewServer(mux)
@@ -134,7 +136,7 @@ func newIntegrationServerWithUser(t *testing.T, callerID, ownerID string) *httpt
 
 	// Use the real trip.OwnerOnlyAuthorizer via a pool-backed authz that checks
 	// sharing.trip_memberships. We stub it here with a membership-checking authz.
-	mod := New(testPool, requireAuth, &membershipAuthz{pool: testPool, ownerID: ownerID})
+	mod := New(testPool, requireAuth, &membershipAuthz{pool: testPool, ownerID: ownerID}, newFakeMediaStore())
 	mux := http.NewServeMux()
 	mod.RegisterRoutes(mux)
 	srv := httptest.NewServer(mux)
@@ -450,5 +452,156 @@ func TestIntegration_UnauthorizedUser_Denied(t *testing.T) {
 	_ = getResp.Body.Close()
 	if getResp.StatusCode != http.StatusNotFound {
 		t.Errorf("get: want 404, got %d", getResp.StatusCode)
+	}
+}
+
+// --- photo integration tests ---
+
+func uploadPhotoIntegration(srv *httptest.Server, tripID, dayID string, imageBytes []byte, mimeType, caption string) (*http.Response, error) {
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", `form-data; name="photo"; filename="test.jpg"`)
+	h.Set("Content-Type", mimeType)
+	part, err := mw.CreatePart(h)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := part.Write(imageBytes); err != nil {
+		return nil, err
+	}
+	if caption != "" {
+		if err := mw.WriteField("caption", caption); err != nil {
+			return nil, err
+		}
+	}
+	_ = mw.Close()
+
+	req, err := http.NewRequest(http.MethodPost,
+		srv.URL+fmt.Sprintf("/trips/%s/days/%s/journal/photos", tripID, dayID), &buf)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	return http.DefaultClient.Do(req)
+}
+
+func listPhotosIntegration(srv *httptest.Server, tripID, dayID string) (*http.Response, error) {
+	return http.Get(srv.URL + fmt.Sprintf("/trips/%s/days/%s/journal/photos", tripID, dayID))
+}
+
+// TestIntegration_UploadPhoto_AttachesToEntry verifies a photo upload inserts a row
+// in journal.photos and returns 201 with the stored URL and caption.
+func TestIntegration_UploadPhoto_AttachesToEntry(t *testing.T) {
+	ownerID := freshOwnerID(t)
+	srv := newIntegrationServer(t, ownerID)
+	tripID := insertTrip(t, ownerID)
+	dayID := insertDay(t, tripID)
+
+	// Create the entry first.
+	putResp, err := putEntry(srv, tripID, dayID, map[string]any{
+		"body": json.RawMessage(`{"text":"day one"}`),
+	})
+	if err != nil {
+		t.Fatalf("put entry: %v", err)
+	}
+	_ = putResp.Body.Close()
+
+	fakeImage := bytes.Repeat([]byte("X"), 1024) // 1 KB fake JPEG
+	resp, err := uploadPhotoIntegration(srv, tripID, dayID, fakeImage, "image/jpeg", "lovely sunset")
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("want 201, got %d", resp.StatusCode)
+	}
+
+	var out photoResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if out.Caption != "lovely sunset" {
+		t.Errorf("caption: got %q", out.Caption)
+	}
+	if out.StorageURL == "" {
+		t.Error("storage_url is empty")
+	}
+	if out.SizeBytes != 1024 {
+		t.Errorf("size_bytes: got %d, want 1024", out.SizeBytes)
+	}
+
+	// Verify a row exists in journal.photos.
+	var count int
+	if err := testPool.QueryRow(context.Background(),
+		`SELECT COUNT(*) FROM journal.photos WHERE journal_entry_id = $1::uuid`, out.JournalEntryID,
+	).Scan(&count); err != nil {
+		t.Fatalf("count photos: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("want 1 photo row, got %d", count)
+	}
+}
+
+// TestIntegration_ListPhotos_ReturnsAttached verifies GET photos returns all
+// photos attached to the entry in order.
+func TestIntegration_ListPhotos_ReturnsAttached(t *testing.T) {
+	ownerID := freshOwnerID(t)
+	srv := newIntegrationServer(t, ownerID)
+	tripID := insertTrip(t, ownerID)
+	dayID := insertDay(t, tripID)
+
+	putResp, _ := putEntry(srv, tripID, dayID, map[string]any{})
+	_ = putResp.Body.Close()
+
+	fakeImage := bytes.Repeat([]byte("Y"), 512)
+	for _, caption := range []string{"first", "second"} {
+		r, err := uploadPhotoIntegration(srv, tripID, dayID, fakeImage, "image/jpeg", caption)
+		if err != nil {
+			t.Fatalf("upload %q: %v", caption, err)
+		}
+		_ = r.Body.Close()
+	}
+
+	resp, err := listPhotosIntegration(srv, tripID, dayID)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("want 200, got %d", resp.StatusCode)
+	}
+
+	var photos []photoResponse
+	if err := json.NewDecoder(resp.Body).Decode(&photos); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(photos) != 2 {
+		t.Fatalf("want 2 photos, got %d", len(photos))
+	}
+	if photos[0].Caption != "first" {
+		t.Errorf("first caption: got %q", photos[0].Caption)
+	}
+	if photos[1].Caption != "second" {
+		t.Errorf("second caption: got %q", photos[1].Caption)
+	}
+}
+
+// TestIntegration_UploadPhoto_NoEntry verifies 404 when entry doesn't exist.
+func TestIntegration_UploadPhoto_NoEntry(t *testing.T) {
+	ownerID := freshOwnerID(t)
+	srv := newIntegrationServer(t, ownerID)
+	tripID := insertTrip(t, ownerID)
+	dayID := insertDay(t, tripID)
+
+	fakeImage := bytes.Repeat([]byte("Z"), 512)
+	resp, err := uploadPhotoIntegration(srv, tripID, dayID, fakeImage, "image/jpeg", "")
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("want 404, got %d", resp.StatusCode)
 	}
 }

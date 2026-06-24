@@ -123,6 +123,13 @@ type Config struct {
 	// is bootstrapped as admin (everyone stays is_admin=false). Set via the
 	// ADMIN_EMAIL env var.
 	AdminEmail string
+
+	// MediaBucketName is the name of the Cloud Storage bucket for journal photos
+	// (M06.2, PRD §7.8). Optional at startup — the service boots without it, but
+	// photo upload/attach will fail at call time if unset. In production the IaC
+	// injects the bucket name as an env var (MEDIA_BUCKET_NAME). Set via the
+	// MEDIA_BUCKET_NAME env var.
+	MediaBucketName string
 }
 
 // Load reads configuration from the environment and returns an error if any
@@ -237,6 +244,10 @@ func Load() (Config, error) {
 	// so a stray space in the secret/env value doesn't defeat the match; the
 	// comparison itself is case-insensitive at provisioning time.
 	cfg.AdminEmail = strings.TrimSpace(os.Getenv("ADMIN_EMAIL"))
+
+	// Optional: Cloud Storage bucket for journal photos. The service boots
+	// without it; photo endpoints fail at call time when unset.
+	cfg.MediaBucketName = strings.TrimSpace(os.Getenv("MEDIA_BUCKET_NAME"))
 
 	return cfg, nil
 }

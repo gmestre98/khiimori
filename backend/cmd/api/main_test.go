@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gmestre98/khiimori/backend/internal/journal"
 	"github.com/gmestre98/khiimori/backend/internal/platform/config"
 )
 
@@ -31,7 +32,7 @@ type readyzBody struct {
 }
 
 func TestReadyzReportsDBHealthy(t *testing.T) {
-	rec := get(t, newRouter(fakePinger{nil}, nil, config.Config{}), "/readyz")
+	rec := get(t, newRouter(fakePinger{nil}, nil, config.Config{}, journal.NoopMediaStore{}), "/readyz")
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("status = %d, want 200", rec.Code)
@@ -47,7 +48,7 @@ func TestReadyzReportsDBHealthy(t *testing.T) {
 
 func TestReadyzReportsDBUnreachable(t *testing.T) {
 	secret := "connection refused to 10.0.0.5:5432 with password hunter2"
-	rec := get(t, newRouter(fakePinger{errors.New(secret)}, nil, config.Config{}), "/readyz")
+	rec := get(t, newRouter(fakePinger{errors.New(secret)}, nil, config.Config{}, journal.NoopMediaStore{}), "/readyz")
 
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Errorf("status = %d, want 503", rec.Code)
@@ -68,7 +69,7 @@ func TestReadyzReportsDBUnreachable(t *testing.T) {
 // TestHealthzIgnoresDB asserts liveness does no DB I/O: it is 200 even when the
 // database is unreachable (only readiness should flip).
 func TestHealthzIgnoresDB(t *testing.T) {
-	h := newRouter(fakePinger{errors.New("db down")}, nil, config.Config{})
+	h := newRouter(fakePinger{errors.New("db down")}, nil, config.Config{}, journal.NoopMediaStore{})
 
 	rec := get(t, h, "/healthz")
 	if rec.Code != http.StatusOK {
@@ -77,7 +78,7 @@ func TestHealthzIgnoresDB(t *testing.T) {
 }
 
 func TestDebugTriggerErrorWhenEnabled(t *testing.T) {
-	h := newRouter(fakePinger{nil}, nil, config.Config{DebugErrorTrigger: true})
+	h := newRouter(fakePinger{nil}, nil, config.Config{DebugErrorTrigger: true}, journal.NoopMediaStore{})
 
 	rec := get(t, h, "/debug/trigger-error")
 
@@ -94,7 +95,7 @@ func TestDebugTriggerErrorWhenEnabled(t *testing.T) {
 }
 
 func TestDebugTriggerErrorWhenDisabled(t *testing.T) {
-	h := newRouter(fakePinger{nil}, nil, config.Config{})
+	h := newRouter(fakePinger{nil}, nil, config.Config{}, journal.NoopMediaStore{})
 
 	// When the trigger is disabled the path must return 404 so it is not
 	// discoverable in normal operation.
