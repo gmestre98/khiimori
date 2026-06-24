@@ -14,6 +14,10 @@ var errPlanItemNotFound = errors.New("trip: plan item not found")
 
 // planItemStore is the persistence surface the plan-item handlers use.
 type planItemStore interface {
+	// ListByDay returns all plan items assigned to dayID within tripID, ordered
+	// by start_time (nulls last) then sort_order. Timed items come first in
+	// chronological order; untimed items follow in their manual sort order.
+	ListByDay(ctx context.Context, tripID, dayID string) ([]PlanItem, error)
 	ListBacklog(ctx context.Context, tripID string) ([]PlanItem, error)
 	CreatePlanItem(ctx context.Context, n NewPlanItem) (PlanItem, error)
 	UpdatePlanItem(ctx context.Context, tripID, itemID string, e EditPlanItem) (PlanItem, error)
@@ -185,6 +189,39 @@ func (s *pgxPlanItemStore) ListBacklog(ctx context.Context, tripID string) ([]Pl
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("trip: list backlog rows: %w", err)
+	}
+	return items, nil
+}
+
+// ListByDay returns all plan items assigned to dayID within tripID. Timed items
+// (start_time IS NOT NULL) sort first in chronological order; untimed items
+// follow ordered by sort_order. Returns an empty slice when there are no items.
+func (s *pgxPlanItemStore) ListByDay(ctx context.Context, tripID, dayID string) ([]PlanItem, error) {
+	const q = `
+		SELECT ` + planItemColumns + `
+		FROM trip.plan_items
+		WHERE trip_id = $1::uuid AND day_id = $2::uuid
+		ORDER BY
+			(start_time IS NULL),
+			start_time,
+			sort_order`
+
+	rows, err := s.pool.Query(ctx, q, tripID, dayID)
+	if err != nil {
+		return nil, fmt.Errorf("trip: list day items: %w", err)
+	}
+	defer rows.Close()
+
+	var items []PlanItem
+	for rows.Next() {
+		var p PlanItem
+		if err := scanPlanItem(rows, &p); err != nil {
+			return nil, fmt.Errorf("trip: scan day item: %w", err)
+		}
+		items = append(items, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("trip: list day items rows: %w", err)
 	}
 	return items, nil
 }

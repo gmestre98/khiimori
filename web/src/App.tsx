@@ -7,6 +7,7 @@ import { PostLoginRedirect, RequireAuth } from './auth/RequireAuth'
 import { TripFormPage } from './trips/TripFormPage'
 import { TripShellRoute } from './trips/TripShell'
 import { DayView } from './trips/DayView'
+import { BacklogPage } from './trips/BacklogPage'
 
 // App is the milestone-02 shell and route table. Public route: /signin. Gated
 // routes (everything under RequireAuth) require a valid session and redirect
@@ -29,6 +30,7 @@ function App() {
             <Route path="/trips/:id/edit" element={<TripFormPage />} />
             <Route path="/trips/:tripId" element={<TripShellRoute />}>
               <Route path="days/:date" element={<DayView />} />
+              <Route path="backlog" element={<BacklogPage />} />
             </Route>
           </Route>
           {/* Unknown paths fall back to home, which gates to sign-in if anonymous. */}
