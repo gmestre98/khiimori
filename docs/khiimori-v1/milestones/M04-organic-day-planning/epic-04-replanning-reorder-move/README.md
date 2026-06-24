@@ -18,7 +18,7 @@ are rendered in Epic 05 and replayed offline by Epic 06.
       (PRD §5.3).
 - [x] **Move an item to another day** changes its `day_id` (via drag or a "move to day" action) and
       places it sensibly in the target day's order — reusing the same row (PRD §5.3).
-- [ ] Items can be marked **`done`, `skipped`, or `cancelled`** (transitions over the
+- [x] Items can be marked **`done`, `skipped`, or `cancelled`** (transitions over the
       `idea | planned | done | skipped | cancelled` set) so the day records what happened (PRD §9).
 - [ ] Reorder, move, and status changes are **idempotent/queueable** for offline replay; unit +
       integration tests cover reorder, move-between-days, and status transitions (PRD §7.6, §6).

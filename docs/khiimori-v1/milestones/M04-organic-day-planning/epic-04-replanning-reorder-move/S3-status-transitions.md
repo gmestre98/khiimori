@@ -9,11 +9,11 @@ cancelled` set) so the day records what happened (PRD §9). v1 keeps it simple �
 Implement status transitions on a plan item.
 
 ## Acceptance criteria
-- [ ] A status operation sets an item's `status` to any value in the allowed set.
-- [ ] Status changes are **authorized** (M03 `Authorizer`) and **idempotent/queueable** for offline
+- [x] A status operation sets an item's `status` to any value in the allowed set.
+- [x] Status changes are **authorized** (M03 `Authorizer`) and **idempotent/queueable** for offline
   replay.
-- [ ] The model permits any transition (no rigid state machine) but rejects values outside the set.
-- [ ] A unit test covers setting each status and rejecting an invalid value.
+- [x] The model permits any transition (no rigid state machine) but rejects values outside the set.
+- [x] A unit test covers setting each status and rejecting an invalid value.
 
 ## Constraints
 - Keep it simple — no enforced transition graph in v1 (PRD §7.0).
