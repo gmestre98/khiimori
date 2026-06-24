@@ -8,11 +8,11 @@ subtly (PRD §5.3). This applies to inline edits (S2) and re-planning (S3).
 Implement debounced auto-save for day-view edits with subtle status feedback.
 
 ## Acceptance criteria
-- [ ] Edits **auto-save** without an explicit save action; rapid edits are **debounced** into efficient
+- [x] Edits **auto-save** without an explicit save action; rapid edits are **debounced** into efficient
   writes.
-- [ ] Save state is surfaced **subtly** (e.g. saved / saving / retry) without nagging the user.
-- [ ] Saves go through the same mutation layer Epic 06 wraps so behaviour is identical online and offline.
-- [ ] Failed saves (online) are retried or clearly flagged without losing the user's input.
+- [x] Save state is surfaced **subtly** (e.g. saved / saving / retry) without nagging the user.
+- [x] Saves go through the same mutation layer Epic 06 wraps so behaviour is identical online and offline.
+- [x] Failed saves (online) are retried or clearly flagged without losing the user's input.
 
 ## Constraints
 - Debounce per item/field to avoid write storms; coalesce where possible.
