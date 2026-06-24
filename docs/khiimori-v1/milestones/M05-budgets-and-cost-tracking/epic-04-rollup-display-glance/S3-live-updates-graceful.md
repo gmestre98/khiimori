@@ -8,12 +8,12 @@ without a manual refresh, and degrade gracefully when a budget line isn't set (P
 Make the roll-up display and glance update live and handle the no-budget case.
 
 ## Acceptance criteria
-- [ ] After an auto-saved/offline-synced budget or cost edit (Epic 03), the roll-up display and glance
+- [x] After an auto-saved/offline-synced budget or cost edit (Epic 03), the roll-up display and glance
   **update without a manual refresh**.
-- [ ] When a `BudgetLine` isn't set for a category/level, the UI shows **spend without a planned-vs bar**
+- [x] When a `BudgetLine` isn't set for a category/level, the UI shows **spend without a planned-vs bar**
   (graceful degradation), not an error.
-- [ ] Updates remain consistent with the server source of truth (re-fetch or reconcile after sync).
-- [ ] Behaviour is verified for the offline → online reconcile path.
+- [x] Updates remain consistent with the server source of truth (re-fetch or reconcile after sync).
+- [x] Behaviour is verified for the offline → online reconcile path.
 
 ## Constraints
 - Reconcile with the server after the offline queue replays (Milestone 04) — don't show stale totals

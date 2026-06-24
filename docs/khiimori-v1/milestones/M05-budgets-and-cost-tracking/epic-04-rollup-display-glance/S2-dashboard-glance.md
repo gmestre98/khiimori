@@ -8,12 +8,12 @@ with live figures from Epic 02 (PRD §5.4). This gives an at-a-glance budget rea
 Fill the dashboard's current-trip budget-glance slot with live roll-up figures.
 
 ## Acceptance criteria
-- [ ] The current-trip glance slot renders live **spent vs. planned (vs. remaining)** for the current
+- [x] The current-trip glance slot renders live **spent vs. planned (vs. remaining)** for the current
   trip, from Epic 02's roll-up API.
-- [ ] It uses the stable slot/contract Milestone 03 S2 defined (clean boundary — M03 owns the slot, M05
+- [x] It uses the stable slot/contract Milestone 03 S2 defined (clean boundary — M03 owns the slot, M05
   the figures).
-- [ ] When no current trip / no budget exists, the glance degrades gracefully.
-- [ ] It is consistent with the full roll-up display (S1) — same source of truth.
+- [x] When no current trip / no budget exists, the glance degrades gracefully.
+- [x] It is consistent with the full roll-up display (S1) — same source of truth.
 
 ## Constraints
 - Fill the existing slot; do not restructure the dashboard (Milestone 03 owns it).
