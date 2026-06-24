@@ -649,7 +649,7 @@ function UntimedSection({
     e.dataTransfer.setData('text/plain', itemId)
   }
 
-  function handleDragOver(e: React.DragEvent, _itemId: string) {
+  function handleDragOver(e: React.DragEvent) {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
   }
