@@ -310,11 +310,7 @@ function PlanItemForm({
           className={`plan-item-save-status plan-item-save-status--${saveStatus}`}
           aria-live="polite"
           aria-label={
-            saveStatus === 'saving'
-              ? 'Saving…'
-              : saveStatus === 'saved'
-                ? 'Saved'
-                : 'Save failed'
+            saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : 'Save failed'
           }
         >
           {saveStatus === 'saving' && 'Saving…'}

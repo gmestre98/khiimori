@@ -582,7 +582,9 @@ describe('DayView', () => {
       })
 
       expect(document.querySelector('.plan-item-save-status--error')).toBeInTheDocument()
-      expect(within(editingLi as HTMLElement).getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+      expect(
+        within(editingLi as HTMLElement).getByRole('button', { name: 'Retry' }),
+      ).toBeInTheDocument()
     })
 
     it('retry button re-attempts the save', async () => {
@@ -605,7 +607,9 @@ describe('DayView', () => {
         vi.advanceTimersByTime(1000)
       })
 
-      expect(within(editingLi as HTMLElement).getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+      expect(
+        within(editingLi as HTMLElement).getByRole('button', { name: 'Retry' }),
+      ).toBeInTheDocument()
 
       await user.click(within(editingLi as HTMLElement).getByRole('button', { name: 'Retry' }))
 
