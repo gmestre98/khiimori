@@ -14,13 +14,13 @@ parts"). Server writes are idempotent so replays are safe.
 
 ## Acceptance Criteria
 
-- [ ] Planning mutations made **offline queue locally** and **replay automatically** when back
+- [x] Planning mutations made **offline queue locally** and **replay automatically** when back
       online, for the **current trip** (PRD §5.3, §6).
-- [ ] Writes are **idempotent** (stable client-generated ids / upsert semantics) so replays don't
+- [x] Writes are **idempotent** (stable client-generated ids / upsert semantics) so replays don't
       duplicate or corrupt data; conflicting edits resolve deterministically (PRD §6).
-- [ ] The mechanism is **shared with Milestone 06** (one queue/replay design used by both Planning
+- [x] The mechanism is **shared with Milestone 06** (one queue/replay design used by both Planning
       and Journal), not a planning-only implementation (PRD §7.0).
-- [ ] Unit + integration tests cover queue → replay, idempotent replay (no duplicates), and a basic
+- [x] Unit + integration tests cover queue → replay, idempotent replay (no duplicates), and a basic
       conflict case (PRD §7.6).
 
 ## Implementation Details / Architecture
