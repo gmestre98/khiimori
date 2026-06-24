@@ -2,6 +2,8 @@
 
 > Milestone: [05 — Budgets & Cost Tracking](../README.md) · PRD refs: §5.4, §6, §5.10, §7.2.
 
+> **Status:** ✅ Done — 4/4 ACs, 3 PRs ([#289](https://github.com/gmestre98/khiimori/pull/289) S1 budget editor, [#290](https://github.com/gmestre98/khiimori/pull/290) S2 fast add cost, [#291](https://github.com/gmestre98/khiimori/pull/291) S3 auto-save & offline). Budget editor (trip + day, 5 categories, click-to-edit), fast cost entry list with inline edit/delete, and full offline queue integration via M04's mutation queue with optimistic updates and Queued badges.
+
 ## Description
 
 Build the **budget editor** (set planned amounts per trip / per day / per category) and a **fast
@@ -13,14 +15,14 @@ edits via the shared offline mechanism. All amounts are EUR.
 
 ## Acceptance Criteria
 
-- [ ] A **budget editor** sets `planned_amount` per **trip / per day / per category** (the five fixed
+- [x] A **budget editor** sets `planned_amount` per **trip / per day / per category** (the five fixed
       categories), driving Epic 01 (PRD §5.4).
-- [ ] A **fast "add cost"** affordance reachable from the day view creates a `CostEntry` in roughly
+- [x] A **fast "add cost"** affordance reachable from the day view creates a `CostEntry` in roughly
       the effort of adding a plan item (category, amount, note, optional day/plan-item link)
       (PRD §5.4).
-- [ ] Cost logging **auto-saves** (no explicit save) and is **offline-capable**, queuing via the
+- [x] Cost logging **auto-saves** (no explicit save) and is **offline-capable**, queuing via the
       shared offline mechanism from Milestone 04 (PRD §5.4, §6).
-- [ ] Amounts display and accept **EUR only** (no currency selector); the UI is mobile-first and
+- [x] Amounts display and accept **EUR only** (no currency selector); the UI is mobile-first and
       responsive, using Milestone 09 components when available (PRD §5.10, §11.5).
 
 ## Implementation Details / Architecture

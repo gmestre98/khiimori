@@ -8,12 +8,12 @@ reachable from the day view (PRD §5.4). Drives Epic 02's `CostEntry` create.
 Build a fast add-cost affordance in the day view.
 
 ## Acceptance criteria
-- [ ] A fast affordance (reachable from the day view) creates a `CostEntry` in a tap or two: category,
+- [x] A fast affordance (reachable from the day view) creates a `CostEntry` in a tap or two: category,
   amount, optional note, optional day/plan-item link (Epic 02 S2).
-- [ ] Defaults minimise friction (e.g. prefilled day, sensible category) so a spontaneous spend is logged
+- [x] Defaults minimise friction (e.g. prefilled day, sensible category) so a spontaneous spend is logged
   quickly.
-- [ ] Amounts are **EUR** only.
-- [ ] The affordance sits next to the day's plan list (consistent with the planning add flow).
+- [x] Amounts are **EUR** only.
+- [x] The affordance sits next to the day's plan list (consistent with the planning add flow).
 
 ## Constraints
 - Match the low-friction feel of Milestone 04's plan-item quick add.
