@@ -61,7 +61,7 @@ without reading the rest of the docs.
 
 | # | Story | Est. | Epic AC | Depends on |
 |---|-------|------|---------|-----------|
-| [S1](S1-day-view-layout.md) | Day view layout (timed / untimed / stays / backlog) | ~3.5h | AC1 | M03 Epic 05, Epics 01–04 |
+| [S1](S1-day-view-layout.md) ✅ | Day view layout (timed / untimed / stays / backlog) | ~3.5h | AC1 | M03 Epic 05, Epics 01–04 |
 | [S2](S2-inline-add-edit.md) | Inline quick add/edit | ~3h | AC2 | S1, Epic 02 |
 | [S3](S3-replanning-affordances.md) | Re-planning affordances (drag / move / promote / status) | ~3.5h | AC3 | S1, Epics 03/04 |
 | [S4](S4-auto-save.md) | Auto-save (debounced) | ~2.5h | AC4 | S2, S3, Epic 06 |
