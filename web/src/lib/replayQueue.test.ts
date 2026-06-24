@@ -213,8 +213,11 @@ describe('replayQueue — transient failures', () => {
     await expect(replayQueue()).rejects.toBeInstanceOf(ReplayError)
 
     // The mutation must still be in the queue for the next reconnect.
-    const remaining = await replayQueue().catch((e: ReplayError) => e.results)
-    expect((remaining as ReplayResult[])[0].outcome).toBe('transient_failure')
+    let remaining: ReplayResult[] = []
+    await replayQueue().catch((e: unknown) => {
+      if (e instanceof ReplayError) remaining = e.results
+    })
+    expect(remaining[0].outcome).toBe('transient_failure')
   })
 
   it('throws ReplayError whose results include the transient entry', async () => {
@@ -222,9 +225,13 @@ describe('replayQueue — transient failures', () => {
 
     await enqueue('reorderPlanItems', { tripId, dayId, itemIds: ['a', 'b'] })
 
-    const err = await replayQueue().catch((e) => e as ReplayError)
+    let caught: unknown
+    await replayQueue().catch((e) => {
+      caught = e
+    })
 
-    expect(err).toBeInstanceOf(ReplayError)
+    expect(caught).toBeInstanceOf(ReplayError)
+    const err = caught as ReplayError
     expect(err.results).toHaveLength(1)
     expect(err.results[0].outcome).toBe('transient_failure')
   })
@@ -244,9 +251,13 @@ describe('replayQueue — transient failures', () => {
     await enqueue('createPlanItem', { tripId, input: { title: 'fail' } })
     await enqueue('updatePlanItem', { tripId, itemId, input: { title: 'ok' } })
 
-    const err = await replayQueue().catch((e) => e as ReplayError)
+    let caught: unknown
+    await replayQueue().catch((e) => {
+      caught = e
+    })
 
-    expect(err).toBeInstanceOf(ReplayError)
+    expect(caught).toBeInstanceOf(ReplayError)
+    const err = caught as ReplayError
     expect(err.results).toHaveLength(2)
     expect(err.results[0].outcome).toBe('transient_failure')
     expect(err.results[1].outcome).toBe('success')
