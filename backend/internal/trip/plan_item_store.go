@@ -27,6 +27,13 @@ type planItemStore interface {
 	// idempotent: replaying with the same targetDayID always converges to the
 	// same state.
 	MovePlanItem(ctx context.Context, tripID, itemID string, m MovePlanItemInput) (PlanItem, error)
+	// SetPlanItemStatus sets an item's status to the given value within the same
+	// trip, reusing the same row. The caller validates that status is in the
+	// allowed lifecycle set (validatePlanItemStatus); the DB CHECK is a backstop.
+	// The model permits any transition (no rigid state machine, PRD §7.0). The
+	// operation is idempotent: replaying with the same status converges. Returns
+	// errPlanItemNotFound when the item does not exist within the trip.
+	SetPlanItemStatus(ctx context.Context, tripID, itemID, status string) (PlanItem, error)
 	// ReorderPlanItems sets sort_order = 0, 1, 2, … for the given item IDs
 	// within a day, in the caller-supplied sequence. All IDs must belong to
 	// tripID and dayID; any item not in the list keeps its current sort_order.
@@ -270,6 +277,31 @@ func (s *pgxPlanItemStore) MovePlanItem(ctx context.Context, tripID, itemID stri
 			return PlanItem{}, errPlanItemNotFound
 		}
 		return PlanItem{}, fmt.Errorf("trip: move plan item: %w", err)
+	}
+	return item, nil
+}
+
+// SetPlanItemStatus sets the status column of one plan item scoped to a trip
+// and returns the updated row. No other field is touched, so a timed item stays
+// timed and its day_id/sort_order are preserved. v1 permits any transition
+// between the allowed lifecycle states (PRD §7.0); the handler validates
+// membership before calling, and the DB CHECK rejects out-of-set values as a
+// backstop. Replaying the same status is a no-op that converges (idempotent for
+// Epic 06 offline replay). Returns errPlanItemNotFound when the item does not
+// exist within the trip.
+func (s *pgxPlanItemStore) SetPlanItemStatus(ctx context.Context, tripID, itemID, status string) (PlanItem, error) {
+	const q = `
+		UPDATE trip.plan_items
+		SET status = $3
+		WHERE id = $1::uuid AND trip_id = $2::uuid
+		RETURNING ` + planItemColumns
+	var item PlanItem
+	err := scanPlanItem(s.pool.QueryRow(ctx, q, itemID, tripID, status), &item)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return PlanItem{}, errPlanItemNotFound
+		}
+		return PlanItem{}, fmt.Errorf("trip: set plan item status: %w", err)
 	}
 	return item, nil
 }

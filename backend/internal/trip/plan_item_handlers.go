@@ -443,6 +443,63 @@ func (m *Module) handleMovePlanItem(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(newPlanItemResponse(item))
 }
 
+// setPlanItemStatusRequest is the status-transition wire shape. status is
+// required and must be one of the allowed lifecycle states (idea | planned |
+// done | skipped | cancelled).
+type setPlanItemStatusRequest struct {
+	Status string `json:"status"`
+}
+
+// handleSetPlanItemStatus sets a plan item's status
+// (POST /trips/{id}/plan-items/{itemID}/status). Any value in the allowed set
+// (idea | planned | done | skipped | cancelled) is accepted from any current
+// status — v1 has no rigid transition graph (PRD §7.0). Values outside the set
+// are rejected with 400. The operation is idempotent: replaying with the same
+// status converges, so Epic 06's offline queue can replay it safely.
+func (m *Module) handleSetPlanItemStatus(w http.ResponseWriter, r *http.Request) {
+	p, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusUnauthorized, "auth_required", "authentication required"))
+		return
+	}
+	tripID := r.PathValue("id")
+	itemID := r.PathValue("itemID")
+
+	if err := m.checkAccess(r.Context(), p.UserID, ActionWrite, tripID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	var req setPlanItemStatusRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusBadRequest, "invalid_json", "request body is not valid JSON"))
+		return
+	}
+	if err := validatePlanItemStatus(req.Status); err != nil {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusBadRequest, "invalid_status", err.Error()))
+		return
+	}
+
+	item, err := m.planItems.SetPlanItemStatus(r.Context(), tripID, itemID, req.Status)
+	if err != nil {
+		if errors.Is(err, errPlanItemNotFound) {
+			httpx.WriteError(w, r, httpx.NewAPIError(
+				http.StatusNotFound, "plan_item_not_found", "plan item not found"))
+			return
+		}
+		platformlog.FromContext(r.Context()).Error("setting plan item status", "err", err.Error())
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(newPlanItemResponse(item))
+}
+
 // handleDeletePlanItem removes a plan item (DELETE /trips/{id}/plan-items/{itemID}).
 // Replaying a delete of a non-existent item returns 204 — idempotent for
 // Epic 06's offline replay.
