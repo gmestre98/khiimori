@@ -105,9 +105,9 @@ beforeEach(() => {
     by_category: {},
     by_day: {},
     by_day_category: {},
-      planned_trip_total: 0,
-      planned_by_category: {},
-      planned_by_day: {},
+    planned_trip_total: 0,
+    planned_by_category: {},
+    planned_by_day: {},
   })
 })
 

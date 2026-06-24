@@ -10,7 +10,10 @@ function fmt(n: number): string {
 function SpendBar({ spent, planned }: { spent: number; planned: number }) {
   if (planned <= 0) {
     return (
-      <div className="rollup-bar rollup-bar--no-budget" aria-label={`Spent ${fmt(spent)}, no budget set`}>
+      <div
+        className="rollup-bar rollup-bar--no-budget"
+        aria-label={`Spent ${fmt(spent)}, no budget set`}
+      >
         <div className="rollup-bar-spend-only" />
       </div>
     )
@@ -35,15 +38,7 @@ function SpendBar({ spent, planned }: { spent: number; planned: number }) {
 }
 
 // RollupRow renders one labelled row: label | bar | spent / planned | remaining.
-function RollupRow({
-  label,
-  spent,
-  planned,
-}: {
-  label: string
-  spent: number
-  planned: number
-}) {
+function RollupRow({ label, spent, planned }: { label: string; spent: number; planned: number }) {
   const remaining = planned > 0 ? planned - spent : null
   return (
     <div className="rollup-row">
@@ -78,19 +73,13 @@ export function TripRollup({ rollup }: { rollup: BudgetRollup }) {
   })).filter(({ spent, planned }) => spent > 0 || planned > 0)
 
   const isEmpty =
-    rollup.trip_total === 0 &&
-    rollup.planned_trip_total === 0 &&
-    categoryRows.length === 0
+    rollup.trip_total === 0 && rollup.planned_trip_total === 0 && categoryRows.length === 0
 
   return (
     <div className="trip-rollup">
       <section className="rollup-section" aria-label="Trip total">
         <h3 className="rollup-section-title">Trip total</h3>
-        <RollupRow
-          label="Total"
-          spent={rollup.trip_total}
-          planned={rollup.planned_trip_total}
-        />
+        <RollupRow label="Total" spent={rollup.trip_total} planned={rollup.planned_trip_total} />
       </section>
 
       {categoryRows.length > 0 && (
@@ -108,13 +97,7 @@ export function TripRollup({ rollup }: { rollup: BudgetRollup }) {
 }
 
 // DayRollup shows the per-day rollup for a single day: per-category breakdown.
-export function DayRollup({
-  rollup,
-  dayId,
-}: {
-  rollup: BudgetRollup
-  dayId: string
-}) {
+export function DayRollup({ rollup, dayId }: { rollup: BudgetRollup; dayId: string }) {
   const daySpent = rollup.by_day[dayId] ?? 0
   const dayPlanned = rollup.planned_by_day[dayId] ?? 0
   const dayCategories = rollup.by_day_category[dayId] ?? {}
