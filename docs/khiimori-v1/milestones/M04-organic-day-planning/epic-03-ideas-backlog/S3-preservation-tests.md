@@ -8,12 +8,12 @@ the target day's `order` (PRD §5.3). Epic AC requires tests for promote/demote.
 Verify and test field/order preservation across promote/demote.
 
 ## Acceptance criteria
-- [ ] Promoting then demoting an item leaves all non-`day_id` fields unchanged (title, type, cost, link,
+- [x] Promoting then demoting an item leaves all non-`day_id` fields unchanged (title, type, cost, link,
   duration, etc.).
-- [ ] On promote, the item appears in the target day's ordered list at a sensible position; on demote it
+- [x] On promote, the item appears in the target day's ordered list at a sensible position; on demote it
   returns to the backlog ordering.
-- [ ] Integration tests (M01.3 harness) cover promote, demote, and field/order preservation.
-- [ ] A test confirms promote/demote do not create or delete rows (same `id` throughout).
+- [x] Integration tests (M01.3 harness) cover promote, demote, and field/order preservation.
+- [x] A test confirms promote/demote do not create or delete rows (same `id` throughout).
 
 ## Constraints
 - Reuse the M01.3 harness; hermetic per-test state.

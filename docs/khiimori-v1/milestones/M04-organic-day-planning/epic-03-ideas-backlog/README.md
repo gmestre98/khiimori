@@ -2,6 +2,8 @@
 
 > Milestone: [04 — Organic Day Planning](../README.md) · PRD refs: §5.2, §5.3, §9.
 
+> **Status:** ✅ Done — 4/4 ACs complete. S1 (backlog read), S2 (promote/demote), and S3 (field/order preservation tests) all merged.
+
 ## Description
 
 Provide the **parking lot** of unscheduled ideas — a `PlanItem` with `day_id = null` at trip (and/or
@@ -13,13 +15,13 @@ row moves between backlog and day.
 
 ## Acceptance Criteria
 
-- [ ] A **backlog** of ideas exists at trip (and/or day) level, represented as `PlanItem`s with
+- [x] A **backlog** of ideas exists at trip (and/or day) level, represented as `PlanItem`s with
       `day_id = null` (PRD §5.2, §9).
-- [ ] **Promote** sets a backlog item's `day_id` (and optionally `start_time`); **demote** clears
+- [x] **Promote** sets a backlog item's `day_id` (and optionally `start_time`); **demote** clears
       `day_id` back to the backlog — both **reuse the same row** (no re-entry) (PRD §5.3).
-- [ ] Promote/demote preserve the item's other fields (title, cost, link, etc.) and place it sensibly
+- [x] Promote/demote preserve the item's other fields (title, cost, link, etc.) and place it sensibly
       in the target day's `order` (PRD §5.3).
-- [ ] Unit + integration tests cover promote, demote, and field/`order` preservation (PRD §7.6).
+- [x] Unit + integration tests cover promote, demote, and field/`order` preservation (PRD §7.6).
 
 ## Implementation Details / Architecture
 
