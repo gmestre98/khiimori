@@ -4,7 +4,25 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { BacklogPage } from './BacklogPage'
 import * as api from '../lib/api'
-import type { PlanItem } from '../lib/api'
+import type { PlanItem, Trip } from '../lib/api'
+
+function makeTrip(overrides?: Partial<Trip>): Trip {
+  return {
+    id: 'trip-1',
+    owner_id: 'user-1',
+    name: 'Test Trip',
+    destinations: [],
+    start_date: '2026-06-01',
+    end_date: '2026-06-03',
+    base_currency: 'EUR',
+    cover: '',
+    status: 'upcoming',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    is_current: false,
+    ...overrides,
+  }
+}
 
 function makePlanItem(overrides?: Partial<PlanItem>): PlanItem {
   return {
@@ -23,8 +41,14 @@ vi.mock('../lib/api', async (importOriginal) => {
     ...orig,
     fetchBacklog: vi.fn(),
     createPlanItem: vi.fn(),
+    fetchDay: vi.fn(),
+    promotePlanItem: vi.fn(),
   }
 })
+
+vi.mock('./useTripShell', () => ({
+  useTripShell: vi.fn(() => ({ trip: makeTrip() })),
+}))
 
 function renderBacklogPage(tripId = 'trip-1') {
   return render(
@@ -121,5 +145,55 @@ describe('BacklogPage', () => {
 
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
     expect(screen.getByRole('alert')).toHaveTextContent('Could not add idea.')
+  })
+
+  describe('promote to day', () => {
+    it('renders a Promote… button on each backlog item', async () => {
+      const item = makePlanItem()
+      vi.mocked(api.fetchBacklog).mockResolvedValue([item])
+      renderBacklogPage()
+      await waitFor(() => expect(screen.getByText('See the Eiffel Tower')).toBeInTheDocument())
+      expect(
+        screen.getByRole('button', { name: /Promote See the Eiffel Tower/ }),
+      ).toBeInTheDocument()
+    })
+
+    it('clicking Promote… shows the day picker', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem()
+      vi.mocked(api.fetchBacklog).mockResolvedValue([item])
+      renderBacklogPage()
+      await waitFor(() => expect(screen.getByText('See the Eiffel Tower')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Promote See the Eiffel Tower/ }))
+      expect(screen.getByLabelText('Target day')).toBeInTheDocument()
+    })
+
+    it('confirming Promote calls promotePlanItem and removes the item', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem()
+      vi.mocked(api.fetchBacklog).mockResolvedValue([item])
+      vi.mocked(api.fetchDay).mockResolvedValue({
+        id: 'day-1',
+        trip_id: 'trip-1',
+        date: '2026-06-01',
+        index: 0,
+        notes: '',
+        stays: [],
+        plan_items: [],
+      })
+      vi.mocked(api.promotePlanItem).mockResolvedValue({ ...item, day_id: 'day-1' })
+
+      renderBacklogPage()
+      await waitFor(() => expect(screen.getByText('See the Eiffel Tower')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Promote See the Eiffel Tower/ }))
+      await user.click(screen.getByRole('button', { name: 'Add to day' }))
+
+      await waitFor(() =>
+        expect(screen.queryByText('See the Eiffel Tower')).not.toBeInTheDocument(),
+      )
+      expect(api.promotePlanItem).toHaveBeenCalledWith('trip-1', 'item-1', 'day-1')
+    })
   })
 })
