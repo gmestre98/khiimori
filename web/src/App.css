@@ -1376,3 +1376,259 @@
 .trip-shell-budget-link:hover {
   background: var(--accent-hover, #eef2ff);
 }
+
+/* ── Fast add cost (M05.3 S2) ────────────────────────────────────────────── */
+.fast-add-cost {
+  margin-top: 12px;
+}
+
+.cost-entry-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.cost-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-faint, #f3f4f6);
+  flex-wrap: wrap;
+}
+
+.cost-entry--editing {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.cost-entry-category {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text, #111);
+  min-width: 70px;
+}
+
+.cost-entry-amount {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text, #111);
+  min-width: 60px;
+}
+
+.cost-entry-note {
+  font-size: 12px;
+  color: var(--muted, #6b7280);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cost-entry-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.cost-entry-edit-btn {
+  font-size: 12px;
+  color: var(--accent, #4f46e5);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.cost-entry-delete-btn {
+  font-size: 12px;
+  color: var(--muted, #6b7280);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.cost-entry-delete-btn:hover {
+  color: var(--error, #dc2626);
+}
+
+.cost-entry-error {
+  font-size: 11px;
+  color: var(--error, #dc2626);
+  width: 100%;
+}
+
+.cost-entry-category-select,
+.cost-entry-amount-input,
+.cost-entry-note-input {
+  font-size: 13px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+
+.cost-entry-currency {
+  font-size: 13px;
+  color: var(--muted, #6b7280);
+}
+
+.cost-entry-amount-input {
+  width: 72px;
+  text-align: right;
+}
+
+.cost-entry-note-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.cost-entry-edit-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.cost-entry-save-btn {
+  font-size: 13px;
+  background: var(--accent, #4f46e5);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.cost-entry-save-btn:disabled {
+  opacity: 0.6;
+}
+
+.cost-entry-cancel-btn {
+  font-size: 13px;
+  background: none;
+  color: var(--muted, #6b7280);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.cost-entry-total {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 4px 0 8px;
+  border-top: 1px solid var(--border, #e5e7eb);
+}
+
+.cost-entry-total-label {
+  font-size: 12px;
+  color: var(--muted, #6b7280);
+}
+
+.cost-entry-total-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text, #111);
+}
+
+/* Quick-add trigger button */
+.fast-add-cost-btn {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent, #4f46e5);
+  background: none;
+  border: 1px dashed var(--accent, #4f46e5);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+}
+
+.fast-add-cost-btn:hover {
+  background: var(--accent-hover, #eef2ff);
+}
+
+/* Inline add form */
+.fast-add-cost-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--surface, #f9fafb);
+  border-radius: 6px;
+  border: 1px solid var(--border, #e5e7eb);
+}
+
+.fast-add-cost-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fast-add-cost-category {
+  font-size: 13px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 4px;
+  padding: 4px 6px;
+  flex: 1;
+}
+
+.fast-add-cost-currency {
+  font-size: 13px;
+  color: var(--muted, #6b7280);
+}
+
+.fast-add-cost-amount {
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 4px;
+  padding: 4px 6px;
+  width: 80px;
+  text-align: right;
+}
+
+.fast-add-cost-note {
+  font-size: 13px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 4px;
+  padding: 4px 6px;
+}
+
+.fast-add-cost-error {
+  font-size: 11px;
+  color: var(--error, #dc2626);
+}
+
+.fast-add-cost-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.fast-add-cost-submit {
+  font-size: 13px;
+  background: var(--accent, #4f46e5);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 14px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.fast-add-cost-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.fast-add-cost-cancel {
+  font-size: 13px;
+  background: none;
+  color: var(--muted, #6b7280);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 4px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
