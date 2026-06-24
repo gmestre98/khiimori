@@ -15,12 +15,14 @@ import {
   datesInRange,
   type BudgetLine,
   type BudgetRollup,
+  type CostEntry,
   type Day,
   type PlanItem,
   type PlanItemInput,
   type Stay,
 } from '../lib/api'
 import { DayBudgetEditor } from './BudgetEditor'
+import { FastAddCost } from './FastAddCost'
 import { useTripShell } from './useTripShell'
 
 // BottomSheet renders children in a bottom-anchored sliding panel on mobile
@@ -1051,10 +1053,11 @@ function PlanningSection({ day, tripId }: { day: Day; tripId: string }) {
   )
 }
 
-// BudgetSlot renders the per-day budget editor and live spend summary.
+// BudgetSlot renders the per-day budget editor, cost entry list, and fast-add form.
 function BudgetSlot({ tripId, day }: { tripId: string; day: Day }) {
   const [rollup, setRollup] = useState<BudgetRollup | null>(null)
   const [lines, setLines] = useState<BudgetLine[]>([])
+  const [entries, setEntries] = useState<CostEntry[]>([])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -1080,6 +1083,18 @@ function BudgetSlot({ tripId, day }: { tripId: string; day: Day }) {
     })
   }
 
+  function handleEntryAdded(entry: CostEntry) {
+    setEntries((prev) => [...prev, entry])
+  }
+
+  function handleEntryUpdated(entry: CostEntry) {
+    setEntries((prev) => prev.map((e) => (e.id === entry.id ? entry : e)))
+  }
+
+  function handleEntryDeleted(id: string) {
+    setEntries((prev) => prev.filter((e) => e.id !== id))
+  }
+
   // Build lines list seeded with actual_amount from rollup for display
   const displayLines: BudgetLine[] = lines.map((l) => ({
     ...l,
@@ -1094,6 +1109,14 @@ function BudgetSlot({ tripId, day }: { tripId: string; day: Day }) {
         dayId={day.id}
         lines={displayLines}
         onUpdated={handleLineUpdated}
+      />
+      <FastAddCost
+        tripId={tripId}
+        dayId={day.id}
+        entries={entries}
+        onAdded={handleEntryAdded}
+        onUpdated={handleEntryUpdated}
+        onDeleted={handleEntryDeleted}
       />
     </section>
   )
