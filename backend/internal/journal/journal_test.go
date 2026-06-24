@@ -97,7 +97,23 @@ func newTestModule(store journalStore, authz Authorizer) *Module {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
-	return &Module{store: store, authz: authz, requireAuth: requireAuth, media: newFakeMediaStore()}
+	return &Module{store: store, authz: authz, requireAuth: requireAuth, media: newFakeMediaStore(), quotaCap: DefaultQuotaCap}
+}
+
+func newTestModuleWithCap(store journalStore, authz Authorizer, cap int64) *Module {
+	m := newTestModule(store, authz)
+	m.quotaCap = cap
+	return m
+}
+
+func newTestServerWithCap(t *testing.T, store journalStore, authz Authorizer, cap int64) *httptest.Server {
+	t.Helper()
+	mod := newTestModuleWithCap(store, authz, cap)
+	mux := http.NewServeMux()
+	mod.RegisterRoutes(mux)
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv
 }
 
 func newTestServer(t *testing.T, store journalStore, authz Authorizer) *httptest.Server {
@@ -446,6 +462,79 @@ func TestUploadPhoto_Unauthorized(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("want 404, got %d", resp.StatusCode)
+	}
+}
+
+// --- cap enforcement tests ---
+
+// TestUploadPhoto_UnderCap verifies an upload is allowed when below the cap.
+func TestUploadPhoto_UnderCap(t *testing.T) {
+	t.Parallel()
+	store := newFakeStore()
+	store.usageByTripID["trip-1"] = 0
+	const cap = 1024
+	srv := newTestServerWithCap(t, store, allowAuthz{}, cap)
+
+	putResp, _ := putJSON(srv, "/trips/trip-1/days/day-A/journal", map[string]any{})
+	_ = putResp.Body.Close()
+
+	img := bytes.Repeat([]byte("X"), 512) // 512 bytes < 1024 cap
+	resp, err := uploadPhotoWithType(srv, "/trips/trip-1/days/day-A/journal/photos", img, "image/jpeg", "")
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusCreated {
+		t.Errorf("want 201, got %d", resp.StatusCode)
+	}
+}
+
+// TestUploadPhoto_AtCap verifies an upload is rejected when it would exactly hit the cap.
+// "at cap" means used+size == cap, which is allowed (≤ not <).
+func TestUploadPhoto_AtCap(t *testing.T) {
+	t.Parallel()
+	store := newFakeStore()
+	const cap = 1024
+	store.usageByTripID["trip-1"] = 512 // 512 already used
+	srv := newTestServerWithCap(t, store, allowAuthz{}, cap)
+
+	putResp, _ := putJSON(srv, "/trips/trip-1/days/day-A/journal", map[string]any{})
+	_ = putResp.Body.Close()
+
+	img := bytes.Repeat([]byte("X"), 512) // 512 bytes: 512+512 == cap → allowed
+	resp, err := uploadPhotoWithType(srv, "/trips/trip-1/days/day-A/journal/photos", img, "image/jpeg", "")
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusCreated {
+		t.Errorf("want 201 at cap boundary, got %d", resp.StatusCode)
+	}
+}
+
+// TestUploadPhoto_OverCap verifies an upload is rejected without storage when it exceeds the cap.
+func TestUploadPhoto_OverCap(t *testing.T) {
+	t.Parallel()
+	store := newFakeStore()
+	const cap = 1024
+	store.usageByTripID["trip-1"] = 600 // 600 already used
+	srv := newTestServerWithCap(t, store, allowAuthz{}, cap)
+
+	putResp, _ := putJSON(srv, "/trips/trip-1/days/day-A/journal", map[string]any{})
+	_ = putResp.Body.Close()
+
+	img := bytes.Repeat([]byte("X"), 512) // 512 bytes: 600+512 > cap → rejected
+	resp, err := uploadPhotoWithType(srv, "/trips/trip-1/days/day-A/journal/photos", img, "image/jpeg", "")
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Errorf("want 413, got %d", resp.StatusCode)
+	}
+	// Nothing should be stored.
+	if len(store.photos) != 0 {
+		t.Errorf("expected no photos stored on over-cap rejection, got %d", len(store.photos))
 	}
 }
 
