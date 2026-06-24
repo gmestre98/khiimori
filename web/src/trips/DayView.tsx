@@ -1,6 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { UnauthorizedError, fetchDay, type Day, type PlanItem, type Stay } from '../lib/api'
+import {
+  PlanItemValidationError,
+  UnauthorizedError,
+  createPlanItem,
+  fetchDay,
+  updatePlanItem,
+  type Day,
+  type PlanItem,
+  type PlanItemInput,
+  type Stay,
+} from '../lib/api'
 
 // statusLabel maps a plan item status to a human-readable label.
 function statusLabel(status: string): string {
@@ -16,14 +26,285 @@ function statusLabel(status: string): string {
   }
 }
 
-// PlanItemRow renders a single plan item. Status (done/skipped/cancelled) is
-// reflected visually via a CSS class so each state is distinguishable at a glance.
-function PlanItemRow({ item }: { item: PlanItem }) {
+// PlanItemFormFields holds the raw string values of the optional fields in the
+// add/edit form. We use strings throughout so controlled inputs work without
+// type coercion; numeric fields are parsed on submit.
+interface PlanItemFormFields {
+  title: string
+  type: string
+  start_time: string
+  duration: string
+  location: string
+  booking_status: string
+  cost: string
+  link: string
+}
+
+function emptyFields(): PlanItemFormFields {
+  return {
+    title: '',
+    type: '',
+    start_time: '',
+    duration: '',
+    location: '',
+    booking_status: '',
+    cost: '',
+    link: '',
+  }
+}
+
+function fieldsFromItem(item: PlanItem): PlanItemFormFields {
+  return {
+    title: item.title,
+    type: item.type ?? '',
+    start_time: item.start_time ? item.start_time.slice(0, 5) : '',
+    duration: item.duration ?? '',
+    location: item.location ?? '',
+    booking_status: item.booking_status ?? '',
+    cost: item.cost != null ? String(item.cost) : '',
+    link: item.link ?? '',
+  }
+}
+
+function fieldsToInput(
+  fields: PlanItemFormFields,
+  dayId: string | null | undefined,
+): PlanItemInput {
+  return {
+    title: fields.title.trim(),
+    day_id: dayId ?? null,
+    type: fields.type.trim() || null,
+    start_time: fields.start_time.trim() || null,
+    duration: fields.duration.trim() || null,
+    location: fields.location.trim() || null,
+    booking_status: fields.booking_status.trim() || null,
+    cost: fields.cost.trim() ? parseFloat(fields.cost) : null,
+    link: fields.link.trim() || null,
+  }
+}
+
+// PlanItemForm is the shared add/edit form used in both the day and backlog
+// views. It renders a compact title-only quick path; clicking "More options"
+// reveals the optional fields.
+interface PlanItemFormProps {
+  initialFields?: PlanItemFormFields
+  submitLabel: string
+  onSubmit: (fields: PlanItemFormFields) => Promise<void>
+  onCancel?: () => void
+  error: string | null
+}
+
+function PlanItemForm({
+  initialFields,
+  submitLabel,
+  onSubmit,
+  onCancel,
+  error,
+}: PlanItemFormProps) {
+  const [fields, setFields] = useState<PlanItemFormFields>(initialFields ?? emptyFields())
+  const [expanded, setExpanded] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const optionalId = useId()
+
+  function set(key: keyof PlanItemFormFields, value: string) {
+    setFields((prev) => ({ ...prev, [key]: value }))
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!fields.title.trim()) return
+    setSubmitting(true)
+    try {
+      await onSubmit(fields)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form className="plan-item-form" onSubmit={handleSubmit} aria-label="Plan item form">
+      <div className="plan-item-form-row">
+        <input
+          className="plan-item-form-title"
+          type="text"
+          placeholder="Add activity…"
+          value={fields.title}
+          onChange={(e) => set('title', e.target.value)}
+          required
+          aria-label="Title"
+          disabled={submitting}
+          autoFocus={!!initialFields}
+        />
+        <button
+          type="submit"
+          className="plan-item-form-submit"
+          disabled={submitting || !fields.title.trim()}
+          aria-label={submitLabel}
+        >
+          {submitLabel}
+        </button>
+        {onCancel && (
+          <button
+            type="button"
+            className="plan-item-form-cancel"
+            onClick={onCancel}
+            disabled={submitting}
+            aria-label="Cancel"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+
+      <button
+        type="button"
+        className="plan-item-form-toggle"
+        onClick={() => setExpanded((x) => !x)}
+        aria-expanded={expanded}
+        aria-controls={optionalId}
+      >
+        {expanded ? 'Fewer options' : 'More options'}
+      </button>
+
+      {expanded && (
+        <div className="plan-item-form-optional" id={optionalId}>
+          <label className="plan-item-form-label">
+            Type
+            <input
+              className="plan-item-form-field"
+              type="text"
+              value={fields.type}
+              onChange={(e) => set('type', e.target.value)}
+              placeholder="e.g. food, museum"
+              disabled={submitting}
+            />
+          </label>
+          <label className="plan-item-form-label">
+            Start time
+            <input
+              className="plan-item-form-field"
+              type="time"
+              value={fields.start_time}
+              onChange={(e) => set('start_time', e.target.value)}
+              disabled={submitting}
+            />
+          </label>
+          <label className="plan-item-form-label">
+            Duration
+            <input
+              className="plan-item-form-field"
+              type="text"
+              value={fields.duration}
+              onChange={(e) => set('duration', e.target.value)}
+              placeholder="e.g. 01:30"
+              disabled={submitting}
+            />
+          </label>
+          <label className="plan-item-form-label">
+            Location
+            <input
+              className="plan-item-form-field"
+              type="text"
+              value={fields.location}
+              onChange={(e) => set('location', e.target.value)}
+              disabled={submitting}
+            />
+          </label>
+          <label className="plan-item-form-label">
+            Booking
+            <input
+              className="plan-item-form-field"
+              type="text"
+              value={fields.booking_status}
+              onChange={(e) => set('booking_status', e.target.value)}
+              placeholder="e.g. confirmed"
+              disabled={submitting}
+            />
+          </label>
+          <label className="plan-item-form-label">
+            Cost
+            <input
+              className="plan-item-form-field"
+              type="number"
+              min="0"
+              step="0.01"
+              value={fields.cost}
+              onChange={(e) => set('cost', e.target.value)}
+              disabled={submitting}
+            />
+          </label>
+          <label className="plan-item-form-label">
+            Link
+            <input
+              className="plan-item-form-field"
+              type="url"
+              value={fields.link}
+              onChange={(e) => set('link', e.target.value)}
+              disabled={submitting}
+            />
+          </label>
+        </div>
+      )}
+
+      {error && (
+        <p role="alert" className="plan-item-form-error">
+          {error}
+        </p>
+      )}
+    </form>
+  )
+}
+
+// PlanItemRow renders a single plan item and enters inline-edit mode on click.
+function PlanItemRow({
+  item,
+  tripId,
+  onUpdated,
+}: {
+  item: PlanItem
+  tripId: string
+  onUpdated: (updated: PlanItem) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+
   const isDone = item.status === 'done'
   const isSkipped = item.status === 'skipped'
   const isCancelled = item.status === 'cancelled'
   const inactive = isSkipped || isCancelled
   const label = statusLabel(item.status)
+
+  async function handleSave(fields: PlanItemFormFields) {
+    setEditError(null)
+    try {
+      const updated = await updatePlanItem(tripId, item.id, fieldsToInput(fields, item.day_id))
+      onUpdated(updated)
+      setEditing(false)
+    } catch (err) {
+      if (err instanceof PlanItemValidationError) {
+        setEditError(err.message)
+      } else {
+        setEditError('Could not save changes.')
+      }
+    }
+  }
+
+  if (editing) {
+    return (
+      <li className="plan-item plan-item--editing">
+        <PlanItemForm
+          initialFields={fieldsFromItem(item)}
+          submitLabel="Save"
+          onSubmit={handleSave}
+          onCancel={() => {
+            setEditing(false)
+            setEditError(null)
+          }}
+          error={editError}
+        />
+      </li>
+    )
+  }
 
   return (
     <li
@@ -37,42 +318,91 @@ function PlanItemRow({ item }: { item: PlanItem }) {
         .join(' ')}
       aria-label={item.title + (label ? ` — ${label}` : '')}
     >
-      <span className="plan-item-title" style={inactive ? { opacity: 0.5 } : undefined}>
-        {item.title}
-      </span>
-      {item.start_time && (
-        <>
-          {' '}
-          <span className="plan-item-time" aria-label={`Start time: ${item.start_time}`}>
-            {item.start_time.slice(0, 5)}
-          </span>
-        </>
-      )}
-      {item.location && (
-        <>
-          {' '}
-          <span className="plan-item-location">{item.location}</span>
-        </>
-      )}
-      {label && (
-        <>
-          {' '}
-          <span className="plan-item-status-badge">{label}</span>
-        </>
-      )}
+      <button
+        type="button"
+        className="plan-item-edit-btn"
+        aria-label={`Edit ${item.title}`}
+        onClick={() => setEditing(true)}
+      >
+        <span className="plan-item-title" style={inactive ? { opacity: 0.5 } : undefined}>
+          {item.title}
+        </span>
+        {item.start_time && (
+          <>
+            {' '}
+            <span className="plan-item-time" aria-label={`Start time: ${item.start_time}`}>
+              {item.start_time.slice(0, 5)}
+            </span>
+          </>
+        )}
+        {item.location && (
+          <>
+            {' '}
+            <span className="plan-item-location">{item.location}</span>
+          </>
+        )}
+        {label && (
+          <>
+            {' '}
+            <span className="plan-item-status-badge">{label}</span>
+          </>
+        )}
+      </button>
     </li>
   )
 }
 
+// QuickAddForm is the inline add form shown at the bottom of each planning
+// section. It calls the API and hands the new item back via onAdded.
+function QuickAddForm({
+  tripId,
+  dayId,
+  onAdded,
+}: {
+  tripId: string
+  dayId: string | null
+  onAdded: (item: PlanItem) => void
+}) {
+  const [addError, setAddError] = useState<string | null>(null)
+
+  async function handleAdd(fields: PlanItemFormFields) {
+    setAddError(null)
+    try {
+      const item = await createPlanItem(tripId, fieldsToInput(fields, dayId))
+      onAdded(item)
+    } catch (err) {
+      if (err instanceof PlanItemValidationError) {
+        setAddError(err.message)
+      } else {
+        setAddError('Could not add item.')
+      }
+    }
+  }
+
+  return (
+    <div className="plan-item-quick-add">
+      <PlanItemForm submitLabel="Add" onSubmit={handleAdd} error={addError} />
+    </div>
+  )
+}
+
 // TimedSection renders plan items that have a start_time in chronological order.
-function TimedSection({ items }: { items: PlanItem[] }) {
+function TimedSection({
+  items,
+  tripId,
+  onUpdated,
+}: {
+  items: PlanItem[]
+  tripId: string
+  onUpdated: (updated: PlanItem) => void
+}) {
   if (items.length === 0) return null
   return (
     <section className="day-plan-section day-plan-section--timed" aria-label="Timed activities">
       <h3 className="day-plan-section-title">Schedule</h3>
       <ol className="plan-item-list">
         {items.map((item) => (
-          <PlanItemRow key={item.id} item={item} />
+          <PlanItemRow key={item.id} item={item} tripId={tripId} onUpdated={onUpdated} />
         ))}
       </ol>
     </section>
@@ -80,14 +410,22 @@ function TimedSection({ items }: { items: PlanItem[] }) {
 }
 
 // UntimedSection renders plan items without a start_time as a loose list.
-function UntimedSection({ items }: { items: PlanItem[] }) {
+function UntimedSection({
+  items,
+  tripId,
+  onUpdated,
+}: {
+  items: PlanItem[]
+  tripId: string
+  onUpdated: (updated: PlanItem) => void
+}) {
   if (items.length === 0) return null
   return (
     <section className="day-plan-section day-plan-section--untimed" aria-label="Untimed activities">
       <h3 className="day-plan-section-title">Activities</h3>
       <ul className="plan-item-list">
         {items.map((item) => (
-          <PlanItemRow key={item.id} item={item} />
+          <PlanItemRow key={item.id} item={item} tripId={tripId} onUpdated={onUpdated} />
         ))}
       </ul>
     </section>
@@ -136,20 +474,32 @@ function BacklogLink({ tripId }: { tripId: string }) {
 }
 
 // PlanningSection replaces the old PlanningSlot placeholder with real content:
-// stays, timed items, untimed items, and a link to the ideas backlog.
+// stays, timed items, untimed items, quick-add form, and a link to the ideas
+// backlog.
 function PlanningSection({ day, tripId }: { day: Day; tripId: string }) {
-  const timed = day.plan_items.filter((item) => item.start_time != null)
-  const untimed = day.plan_items.filter((item) => item.start_time == null)
+  const [items, setItems] = useState<PlanItem[]>(day.plan_items)
+
+  const timed = items.filter((item) => item.start_time != null)
+  const untimed = items.filter((item) => item.start_time == null)
+
+  function handleAdded(item: PlanItem) {
+    setItems((prev) => [...prev, item])
+  }
+
+  function handleUpdated(updated: PlanItem) {
+    setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)))
+  }
 
   return (
     <section className="day-slot day-slot-planning" aria-label="Planning" data-slot="planning">
       <h2 className="day-slot-title">Plan</h2>
       <StaysSection stays={day.stays} />
-      <TimedSection items={timed} />
-      <UntimedSection items={untimed} />
-      {day.plan_items.length === 0 && day.stays.length === 0 && (
+      <TimedSection items={timed} tripId={tripId} onUpdated={handleUpdated} />
+      <UntimedSection items={untimed} tripId={tripId} onUpdated={handleUpdated} />
+      {items.length === 0 && day.stays.length === 0 && (
         <p className="day-plan-empty">Nothing planned yet.</p>
       )}
+      <QuickAddForm tripId={tripId} dayId={day.id} onAdded={handleAdded} />
       <BacklogLink tripId={tripId} />
     </section>
   )
@@ -188,8 +538,8 @@ function MapSlot() {
 
 // DayView renders a single trip day identified by /trips/:tripId/days/:date.
 // It fetches the day from the API, shows its metadata, and renders the planning
-// section (stays, timed/untimed items, backlog link) plus placeholder slots
-// for Budget (M05), Journal (M06), and Map (M07).
+// section (stays, timed/untimed items, quick-add, backlog link) plus placeholder
+// slots for Budget (M05), Journal (M06), and Map (M07).
 export function DayView() {
   const { tripId, date } = useParams<{ tripId: string; date: string }>()
 
@@ -250,7 +600,7 @@ export function DayView() {
           layout in assets/02-day-plan-map.svg (PRD §4.2). */}
       <div className="day-slots">
         {day && tripId ? (
-          <PlanningSection day={day} tripId={tripId} />
+          <PlanningSection key={day.id} day={day} tripId={tripId} />
         ) : (
           <section
             className="day-slot day-slot-planning"
