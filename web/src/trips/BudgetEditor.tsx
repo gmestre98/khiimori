@@ -5,7 +5,10 @@ import {
   setTripBudgetLine,
   type BudgetCategory,
   type BudgetLine,
+  type SetBudgetLineInput,
 } from '../lib/api'
+import { enqueue } from '../lib/mutationQueue'
+import { useIsOnline } from '../lib/useIsOnline'
 
 // formatEUR formats a number as a compact EUR string, e.g. "€12.50".
 function formatEUR(amount: number): string {
@@ -24,15 +27,14 @@ function CategoryBudgetRow({
 }) {
   const [editing, setEditing] = useState(false)
   const [inputVal, setInputVal] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'queued' | 'error'>('idle')
   const inputRef = useRef<HTMLInputElement>(null)
   const committingRef = useRef(false)
 
   function startEdit() {
     setInputVal(line?.planned_amount != null ? String(line.planned_amount) : '')
     setEditing(true)
-    setError(null)
+    setSaveStatus('idle')
   }
 
   useEffect(() => {
@@ -44,19 +46,24 @@ function CategoryBudgetRow({
     committingRef.current = true
     const val = parseFloat(inputVal)
     if (isNaN(val) || val < 0) {
-      setError('Enter a valid non-negative amount')
+      setSaveStatus('error')
       committingRef.current = false
       return
     }
-    setSaving(true)
-    setError(null)
+    setSaveStatus('saving')
     try {
       await onSave(category, val)
       setEditing(false)
-    } catch {
-      setError('Save failed — try again')
+      setSaveStatus('idle')
+    } catch (err) {
+      // onSave signals offline by throwing with message 'queued'
+      if (err instanceof Error && err.message === 'queued') {
+        setEditing(false)
+        setSaveStatus('queued')
+      } else {
+        setSaveStatus('error')
+      }
     } finally {
-      setSaving(false)
       committingRef.current = false
     }
   }
@@ -86,9 +93,11 @@ function CategoryBudgetRow({
             onKeyDown={handleKeyDown}
             onBlur={commit}
             aria-label={`Planned amount for ${category}`}
-            disabled={saving}
+            disabled={saveStatus === 'saving'}
           />
-          {error && <span className="budget-editor-error">{error}</span>}
+          {saveStatus === 'error' && (
+            <span className="budget-editor-error">Enter a valid non-negative amount</span>
+          )}
         </span>
       ) : (
         <button
@@ -105,7 +114,15 @@ function CategoryBudgetRow({
         </button>
       )}
       <span className="budget-editor-actual" aria-label={`Actual spend for ${category}`}>
-        {actual > 0 ? formatEUR(actual) : '—'}
+        {saveStatus === 'saving' && <span className="budget-save-status">Saving…</span>}
+        {saveStatus === 'queued' && (
+          <span className="budget-save-status budget-save-queued">Queued</span>
+        )}
+        {actual > 0 && saveStatus !== 'saving' && saveStatus !== 'queued'
+          ? formatEUR(actual)
+          : saveStatus === 'idle'
+            ? '—'
+            : null}
       </span>
     </li>
   )
@@ -121,10 +138,26 @@ export function TripBudgetEditor({
   lines: BudgetLine[]
   onUpdated: (line: BudgetLine) => void
 }) {
+  const isOnline = useIsOnline()
   const lineByCategory = Object.fromEntries(lines.map((l) => [l.category, l]))
 
   async function handleSave(category: BudgetCategory, amount: number) {
-    const saved = await setTripBudgetLine(tripId, { category, planned_amount: amount })
+    const input: SetBudgetLineInput = { category, planned_amount: amount }
+    if (!isOnline) {
+      await enqueue('setTripBudgetLine', { tripId, input })
+      // Optimistically update with the new planned_amount so the row reflects the edit.
+      const existing = lineByCategory[category]
+      onUpdated({
+        id: existing?.id ?? '',
+        trip_id: tripId,
+        day_id: null,
+        category,
+        planned_amount: amount,
+        actual_amount: existing?.actual_amount ?? 0,
+      })
+      throw new Error('queued')
+    }
+    const saved = await setTripBudgetLine(tripId, input)
     onUpdated(saved)
   }
 
@@ -163,10 +196,25 @@ export function DayBudgetEditor({
   lines: BudgetLine[]
   onUpdated: (line: BudgetLine) => void
 }) {
+  const isOnline = useIsOnline()
   const lineByCategory = Object.fromEntries(lines.map((l) => [l.category, l]))
 
   async function handleSave(category: BudgetCategory, amount: number) {
-    const saved = await setDayBudgetLine(tripId, dayId, { category, planned_amount: amount })
+    const input: SetBudgetLineInput = { category, planned_amount: amount }
+    if (!isOnline) {
+      await enqueue('setDayBudgetLine', { tripId, dayId, input })
+      const existing = lineByCategory[category]
+      onUpdated({
+        id: existing?.id ?? '',
+        trip_id: tripId,
+        day_id: dayId,
+        category,
+        planned_amount: amount,
+        actual_amount: existing?.actual_amount ?? 0,
+      })
+      throw new Error('queued')
+    }
+    const saved = await setDayBudgetLine(tripId, dayId, input)
     onUpdated(saved)
   }
 

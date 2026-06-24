@@ -21,6 +21,11 @@ export type MutationKind =
   | 'promotePlanItem'
   | 'demotePlanItem'
   | 'setPlanItemStatus'
+  | 'setTripBudgetLine'
+  | 'setDayBudgetLine'
+  | 'createCostEntry'
+  | 'updateCostEntry'
+  | 'deleteCostEntry'
 
 // QueuedMutation is the persisted record shape. It is designed to be
 // replayed verbatim: kind + payload carry enough data to reconstruct the

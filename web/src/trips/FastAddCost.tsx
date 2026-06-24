@@ -6,7 +6,11 @@ import {
   updateCostEntry,
   type BudgetCategory,
   type CostEntry,
+  type CreateCostEntryInput,
+  type UpdateCostEntryInput,
 } from '../lib/api'
+import { enqueue } from '../lib/mutationQueue'
+import { useIsOnline } from '../lib/useIsOnline'
 
 // formatEUR formats a number as a compact EUR string, e.g. "€12.50".
 function formatEUR(amount: number): string {
@@ -18,16 +22,19 @@ function CostEntryItem({
   entry,
   onUpdated,
   onDeleted,
+  isOnline,
 }: {
   entry: CostEntry
   onUpdated: (e: CostEntry) => void
   onDeleted: (id: string) => void
+  isOnline: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [category, setCategory] = useState<BudgetCategory>(entry.category)
   const [amount, setAmount] = useState(String(entry.amount))
   const [note, setNote] = useState(entry.note)
   const [saving, setSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'queued'>('idle')
   const [error, setError] = useState<string | null>(null)
 
   async function handleSave() {
@@ -38,14 +45,19 @@ function CostEntryItem({
     }
     setSaving(true)
     setError(null)
+    const input: UpdateCostEntryInput = { category, amount: val, note: note.trim() || undefined }
     try {
-      const updated = await updateCostEntry(entry.trip_id, entry.id, {
-        category,
-        amount: val,
-        note: note.trim() || undefined,
-      })
-      onUpdated(updated)
-      setEditing(false)
+      if (!isOnline) {
+        await enqueue('updateCostEntry', { tripId: entry.trip_id, entryId: entry.id, input })
+        // Optimistic update
+        onUpdated({ ...entry, category, amount: val, note: note.trim() })
+        setEditing(false)
+        setSaveStatus('queued')
+      } else {
+        const updated = await updateCostEntry(entry.trip_id, entry.id, input)
+        onUpdated(updated)
+        setEditing(false)
+      }
     } catch {
       setError('Save failed — try again')
     } finally {
@@ -55,8 +67,13 @@ function CostEntryItem({
 
   async function handleDelete() {
     try {
-      await deleteCostEntry(entry.trip_id, entry.id)
-      onDeleted(entry.id)
+      if (!isOnline) {
+        await enqueue('deleteCostEntry', { tripId: entry.trip_id, entryId: entry.id })
+        onDeleted(entry.id)
+      } else {
+        await deleteCostEntry(entry.trip_id, entry.id)
+        onDeleted(entry.id)
+      }
     } catch {
       setError('Delete failed — try again')
     }
@@ -126,6 +143,11 @@ function CostEntryItem({
       <span className="cost-entry-category">{entry.category}</span>
       <span className="cost-entry-amount">{formatEUR(entry.amount)}</span>
       {entry.note && <span className="cost-entry-note">{entry.note}</span>}
+      {saveStatus === 'queued' && (
+        <span className="cost-entry-queued" aria-label="Queued for sync">
+          Queued
+        </span>
+      )}
       <div className="cost-entry-actions">
         <button
           type="button"
@@ -154,11 +176,13 @@ function AddCostForm({
   tripId,
   dayId,
   defaultCategory,
+  isOnline,
   onAdded,
 }: {
   tripId: string
   dayId: string
   defaultCategory: BudgetCategory
+  isOnline: boolean
   onAdded: (e: CostEntry) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -188,17 +212,37 @@ function AddCostForm({
     }
     setSubmitting(true)
     setError(null)
+    const input: CreateCostEntryInput = {
+      day_id: dayId,
+      category,
+      amount: val,
+      note: note.trim() || undefined,
+    }
     try {
-      const entry = await createCostEntry(tripId, {
-        day_id: dayId,
-        category,
-        amount: val,
-        note: note.trim() || undefined,
-      })
-      onAdded(entry)
-      setAmount('')
-      setNote('')
-      setOpen(false)
+      if (!isOnline) {
+        await enqueue('createCostEntry', { tripId, input })
+        // Synthesise a temporary entry so the UI shows it immediately.
+        const tempEntry: CostEntry = {
+          id: crypto.randomUUID(),
+          trip_id: tripId,
+          day_id: dayId,
+          plan_item_id: '',
+          category,
+          amount: val,
+          note: note.trim(),
+          created_at: new Date().toISOString(),
+        }
+        onAdded(tempEntry)
+        setAmount('')
+        setNote('')
+        setOpen(false)
+      } else {
+        const entry = await createCostEntry(tripId, input)
+        onAdded(entry)
+        setAmount('')
+        setNote('')
+        setOpen(false)
+      }
     } catch {
       setError('Failed to log cost — try again')
     } finally {
@@ -292,15 +336,25 @@ export function FastAddCost({
   onUpdated: (e: CostEntry) => void
   onDeleted: (id: string) => void
 }) {
+  const isOnline = useIsOnline()
   const total = entries.reduce((sum, e) => sum + e.amount, 0)
 
   return (
     <div className="fast-add-cost">
+      {!isOnline && (
+        <p className="fast-add-cost-offline">Offline — changes will sync when reconnected.</p>
+      )}
       {entries.length > 0 && (
         <>
           <ul className="cost-entry-list" aria-label="Cost entries">
             {entries.map((e) => (
-              <CostEntryItem key={e.id} entry={e} onUpdated={onUpdated} onDeleted={onDeleted} />
+              <CostEntryItem
+                key={e.id}
+                entry={e}
+                onUpdated={onUpdated}
+                onDeleted={onDeleted}
+                isOnline={isOnline}
+              />
             ))}
           </ul>
           <div className="cost-entry-total">
@@ -309,7 +363,13 @@ export function FastAddCost({
           </div>
         </>
       )}
-      <AddCostForm tripId={tripId} dayId={dayId} defaultCategory="Other" onAdded={onAdded} />
+      <AddCostForm
+        tripId={tripId}
+        dayId={dayId}
+        defaultCategory="Other"
+        isOnline={isOnline}
+        onAdded={onAdded}
+      />
     </div>
   )
 }

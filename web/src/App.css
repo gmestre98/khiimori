@@ -1632,3 +1632,28 @@
   padding: 5px 10px;
   cursor: pointer;
 }
+
+/* ── Budget save state / offline indicators (M05.3 S3) ───────────────────── */
+.budget-save-status {
+  font-size: 10px;
+  color: var(--muted, #6b7280);
+}
+
+.budget-save-queued {
+  color: var(--accent, #4f46e5);
+}
+
+.cost-entry-queued {
+  font-size: 10px;
+  color: var(--accent, #4f46e5);
+  margin-left: 4px;
+}
+
+.fast-add-cost-offline {
+  font-size: 11px;
+  color: var(--accent, #4f46e5);
+  margin: 0 0 6px;
+  padding: 4px 6px;
+  background: var(--accent-hover, #eef2ff);
+  border-radius: 4px;
+}
