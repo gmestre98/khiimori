@@ -8,11 +8,11 @@ relying on the **idempotent/queueable** mutation shape (stable ids / upserts) fr
 Implement ordered, idempotent replay of the mutation queue when connectivity returns.
 
 ## Acceptance criteria
-- [ ] On reconnect, queued mutations replay **in order** to the server.
-- [ ] Replay is **idempotent**: re-sending a mutation (stable id / upsert) does not duplicate or corrupt
+- [x] On reconnect, queued mutations replay **in order** to the server.
+- [x] Replay is **idempotent**: re-sending a mutation (stable id / upsert) does not duplicate or corrupt
   data.
-- [ ] Successfully applied mutations are removed from the queue; failures are retried or surfaced.
-- [ ] The current-trip data reconciles to the server state after replay.
+- [x] Successfully applied mutations are removed from the queue; failures are retried or surfaced.
+- [x] The current-trip data reconciles to the server state after replay.
 
 ## Constraints
 - Rely on the server's idempotent mutation APIs (Epics 02–04) — do not invent server changes here.
