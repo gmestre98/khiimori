@@ -9,11 +9,11 @@ it in the target day's order — reusing the same row (PRD §5.3). This shares m
 Implement moving a plan item between days.
 
 ## Acceptance criteria
-- [ ] A move operation changes an item's `day_id` to another day in the trip and inserts it into that
+- [x] A move operation changes an item's `day_id` to another day in the trip and inserts it into that
   day's `order` sensibly.
-- [ ] The same row is reused (no delete/recreate); other fields are preserved.
-- [ ] Move is **authorized** (M03 `Authorizer`) and **idempotent/queueable** for offline replay.
-- [ ] A unit test covers moving an item between days and order placement in the target.
+- [x] The same row is reused (no delete/recreate); other fields are preserved.
+- [x] Move is **authorized** (M03 `Authorizer`) and **idempotent/queueable** for offline replay.
+- [x] A unit test covers moving an item between days and order placement in the target.
 
 ## Constraints
 - Reuse the ordering scheme from S1 and the `day_id`-change mechanics shared with Epic 03 promote/demote.
