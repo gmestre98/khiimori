@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   PlanItemValidationError,
@@ -31,6 +31,8 @@ function statusLabel(status: string): string {
       return ''
   }
 }
+
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 // PlanItemFormFields holds the raw string values of the optional fields in the
 // add/edit form. We use strings throughout so controlled inputs work without
@@ -89,14 +91,23 @@ function fieldsToInput(
   }
 }
 
+// AUTO_SAVE_DEBOUNCE_MS is the delay before a pending edit is flushed to the
+// server. Kept short enough to feel instant but long enough to coalesce rapid
+// keystrokes into a single write.
+const AUTO_SAVE_DEBOUNCE_MS = 800
+
 // PlanItemForm is the shared add/edit form used in both the day and backlog
 // views. It renders a compact title-only quick path; clicking "More options"
 // reveals the optional fields.
+//
+// When onAutoSave is provided (edit mode), field changes are debounced and
+// sent automatically; a subtle status badge surfaces saving/saved/error state.
 interface PlanItemFormProps {
   initialFields?: PlanItemFormFields
   submitLabel: string
   onSubmit: (fields: PlanItemFormFields) => Promise<void>
   onCancel?: () => void
+  onAutoSave?: (fields: PlanItemFormFields) => Promise<void>
   error: string | null
 }
 
@@ -105,12 +116,52 @@ function PlanItemForm({
   submitLabel,
   onSubmit,
   onCancel,
+  onAutoSave,
   error,
 }: PlanItemFormProps) {
   const [fields, setFields] = useState<PlanItemFormFields>(initialFields ?? emptyFields())
   const [expanded, setExpanded] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const optionalId = useId()
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Skip auto-save on the initial render so opening the edit form doesn't
+  // immediately trigger a write.
+  const isFirstRender = useRef(true)
+
+  useEffect(() => {
+    if (!onAutoSave) return
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    if (timerRef.current) clearTimeout(timerRef.current)
+    const timerId = setTimeout(async () => {
+      if (!fields.title.trim()) return
+      setSaveStatus('saving')
+      try {
+        await onAutoSave(fields)
+        setSaveStatus('saved')
+      } catch {
+        setSaveStatus('error')
+      }
+    }, AUTO_SAVE_DEBOUNCE_MS)
+    timerRef.current = timerId
+    return () => {
+      clearTimeout(timerId)
+    }
+  }, [fields, onAutoSave])
+
+  async function retryAutoSave() {
+    if (!onAutoSave) return
+    setSaveStatus('saving')
+    try {
+      await onAutoSave(fields)
+      setSaveStatus('saved')
+    } catch {
+      setSaveStatus('error')
+    }
+  }
 
   function set(key: keyof PlanItemFormFields, value: string) {
     setFields((prev) => ({ ...prev, [key]: value }))
@@ -252,6 +303,27 @@ function PlanItemForm({
             />
           </label>
         </div>
+      )}
+
+      {onAutoSave && saveStatus !== 'idle' && (
+        <p
+          className={`plan-item-save-status plan-item-save-status--${saveStatus}`}
+          aria-live="polite"
+          aria-label={
+            saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : 'Save failed'
+          }
+        >
+          {saveStatus === 'saving' && 'Saving…'}
+          {saveStatus === 'saved' && 'Saved'}
+          {saveStatus === 'error' && (
+            <>
+              Could not save.{' '}
+              <button type="button" className="plan-item-save-retry" onClick={retryAutoSave}>
+                Retry
+              </button>
+            </>
+          )}
+        </p>
       )}
 
       {error && (
@@ -399,6 +471,14 @@ function PlanItemRow({
     }
   }
 
+  const handleAutoSave = useCallback(
+    async (fields: PlanItemFormFields) => {
+      const updated = await updatePlanItem(tripId, item.id, fieldsToInput(fields, item.day_id))
+      onUpdated(updated)
+    },
+    [tripId, item.id, item.day_id, onUpdated],
+  )
+
   async function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const newStatus = e.target.value
     setStatusBusy(true)
@@ -433,6 +513,7 @@ function PlanItemRow({
             setEditing(false)
             setEditError(null)
           }}
+          onAutoSave={handleAutoSave}
           error={editError}
         />
       </li>
