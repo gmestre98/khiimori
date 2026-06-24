@@ -8,10 +8,10 @@ The day view prioritises **thumb-reachable, low-friction add/edit and drag gestu
 Optimise the day-view interactions for mobile.
 
 ## Acceptance criteria
-- [ ] Quick add/edit uses **sheets/drawers** reachable in the thumb zone on mobile.
-- [ ] Primary actions (add, status, move) have large tap targets in reachable positions.
-- [ ] Drag interactions are usable on touch, with non-drag fallbacks (controls/menus).
-- [ ] The layout adapts between a comfortable laptop view and a purpose-built mobile view (not a shrunk
+- [x] Quick add/edit uses **sheets/drawers** reachable in the thumb zone on mobile.
+- [x] Primary actions (add, status, move) have large tap targets in reachable positions.
+- [x] Drag interactions are usable on touch, with non-drag fallbacks (controls/menus).
+- [x] The layout adapts between a comfortable laptop view and a purpose-built mobile view (not a shrunk
   desktop).
 
 ## Constraints

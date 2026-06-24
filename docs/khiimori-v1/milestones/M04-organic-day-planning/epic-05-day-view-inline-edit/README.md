@@ -1,6 +1,6 @@
 # Epic M04.5 — Day view & inline editing (frontend)
 
-> **Status:** 🔄 In progress — 4/5 ACs done. S1 (day view layout), S2 (inline quick add/edit), S3 (re-planning affordances: drag-reorder, move-to-day, promote/demote, status), S4 (auto-save debounced) merged via [#261](https://github.com/gmestre98/khiimori/pull/261), [#263](https://github.com/gmestre98/khiimori/pull/263), [#265](https://github.com/gmestre98/khiimori/pull/265), [#267](https://github.com/gmestre98/khiimori/pull/267).
+> **Status:** ✅ Done — All 5 ACs complete. S1 (day view layout), S2 (inline quick add/edit), S3 (re-planning affordances), S4 (auto-save debounced), S5 (mobile-first interactions: FAB, bottom sheet, touch reorder, large tap targets) merged via [#261](https://github.com/gmestre98/khiimori/pull/261), [#263](https://github.com/gmestre98/khiimori/pull/263), [#265](https://github.com/gmestre98/khiimori/pull/265), [#267](https://github.com/gmestre98/khiimori/pull/267), [#269](https://github.com/gmestre98/khiimori/pull/269).
 
 > Milestone: [04 — Organic Day Planning](../README.md) · PRD refs: §5.2, §5.3, §5.10, §7.2.
 
@@ -25,7 +25,7 @@ optimised for thumb-reachable mobile interaction.
       affordances are wired to Epics 03–04 (PRD §5.3).
 - [x] All changes **auto-save** with no explicit "save" button; in-flight saves are debounced and
       surfaced subtly (PRD §5.3).
-- [ ] The view is **mobile-first** (thumb-reachable actions, sheets for quick add/edit) and
+- [x] The view is **mobile-first** (thumb-reachable actions, sheets for quick add/edit) and
       responsive on laptop, using basic styling now and Milestone 09 components when available
       (PRD §5.10, §7.2).
 
