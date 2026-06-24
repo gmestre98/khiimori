@@ -27,6 +27,7 @@ function CategoryBudgetRow({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const committingRef = useRef(false)
 
   function startEdit() {
     setInputVal(line?.planned_amount != null ? String(line.planned_amount) : '')
@@ -39,9 +40,12 @@ function CategoryBudgetRow({
   }, [editing])
 
   async function commit() {
+    if (committingRef.current) return
+    committingRef.current = true
     const val = parseFloat(inputVal)
     if (isNaN(val) || val < 0) {
       setError('Enter a valid non-negative amount')
+      committingRef.current = false
       return
     }
     setSaving(true)
@@ -53,6 +57,7 @@ function CategoryBudgetRow({
       setError('Save failed — try again')
     } finally {
       setSaving(false)
+      committingRef.current = false
     }
   }
 

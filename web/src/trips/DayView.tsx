@@ -1078,12 +1078,6 @@ function BudgetSlot({ tripId, day }: { tripId: string; day: Day }) {
       }
       return [...prev, line]
     })
-    // Optimistically patch rollup actual amounts from the returned line
-    setRollup((prev) => {
-      if (!prev) return prev
-      const byCat = { ...prev.by_category }
-      return { ...prev, by_category: byCat }
-    })
   }
 
   // Build lines list seeded with actual_amount from rollup for display

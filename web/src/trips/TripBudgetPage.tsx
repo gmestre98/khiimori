@@ -42,11 +42,6 @@ export function TripBudgetPage() {
     })
   }
 
-  const displayLines: BudgetLine[] = lines.map((l) => ({
-    ...l,
-    actual_amount: rollup?.by_category?.[l.category] ?? l.actual_amount,
-  }))
-
   if (!tripId) return null
 
   return (
@@ -71,7 +66,7 @@ export function TripBudgetPage() {
         </div>
       )}
 
-      <TripBudgetEditor tripId={tripId} lines={displayLines} onUpdated={handleLineUpdated} />
+      <TripBudgetEditor tripId={tripId} lines={lines} onUpdated={handleLineUpdated} />
     </article>
   )
 }
