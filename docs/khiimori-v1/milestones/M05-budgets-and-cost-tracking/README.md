@@ -5,6 +5,8 @@
 > whole trip. All amounts EUR.
 >
 > PRD refs: §5.4, §9 (BudgetLine, CostEntry), §7.1 (Budget module).
+>
+> **Status:** ✅ Done — all 4 epics and 17 ACs complete; budget model & lines, cost entries & roll-up engine, budget editor & fast cost entry, and roll-up display & dashboard glance are live on `main` (PRs [#279](https://github.com/gmestre98/khiimori/pull/279)–[#294](https://github.com/gmestre98/khiimori/pull/294)).
 
 ---
 
