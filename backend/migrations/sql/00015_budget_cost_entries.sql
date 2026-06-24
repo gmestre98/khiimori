@@ -8,9 +8,9 @@
 -- application code.
 CREATE TABLE budget.cost_entries (
     id           uuid         PRIMARY KEY DEFAULT gen_random_uuid(),
-    trip_id      uuid         NOT NULL,
-    day_id       uuid,
-    plan_item_id uuid,
+    trip_id      uuid         NOT NULL,         -- application-level ref; no cross-schema FK (migrations/README)
+    day_id       uuid,                          -- application-level ref; no cross-schema FK
+    plan_item_id uuid,                          -- application-level ref; no cross-schema FK
     category     text         NOT NULL,
     amount       numeric(12, 2) NOT NULL,
     note         text         NOT NULL DEFAULT '',
