@@ -21,6 +21,7 @@ import (
 	"syscall"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/gmestre98/khiimori/backend/internal/auth"
@@ -85,6 +86,25 @@ func run() error {
 	}
 	logger.Info("database connected", "pooled", cfg.DBPooled)
 
+	// Cloud Storage client for journal photo uploads (M06.2). Uses ADC
+	// (Application Default Credentials) — on Cloud Run the runtime service
+	// account is used automatically. When MEDIA_BUCKET_NAME is unset (e.g.
+	// local dev without GCS configured) we skip creating the client and pass a
+	// no-op MediaStore so the service boots without requiring GCS credentials;
+	// photo endpoints will return 503 at call time rather than failing startup.
+	var mediaStore journal.MediaStore = journal.NoopMediaStore{}
+	if cfg.MediaBucketName != "" {
+		gcsClient, gcsErr := storage.NewClient(context.Background())
+		if gcsErr != nil {
+			logger.Error("creating GCS client", "err", gcsErr.Error())
+			return gcsErr
+		}
+		defer func() { _ = gcsClient.Close() }()
+		mediaStore = journal.NewGCSMediaStore(gcsClient, cfg.MediaBucketName)
+	} else {
+		logger.Info("MEDIA_BUCKET_NAME unset: photo upload disabled (no GCS client)")
+	}
+
 	addr := net.JoinHostPort("", strconv.Itoa(cfg.Port))
 	// Apply the shared middleware chain once at the root so every module
 	// inherits request ids, access logging, panic recovery, and CORS. RequestID
@@ -92,7 +112,7 @@ func run() error {
 	// above the rest so cross-origin headers land on every response (including a
 	// 500) and a preflight short-circuits before the handlers; Recovery is
 	// innermost so a handler panic becomes a 500 the access log can observe.
-	handler := httpx.Chain(newRouter(database, database.Pool(), cfg),
+	handler := httpx.Chain(newRouter(database, database.Pool(), cfg, mediaStore),
 		httpx.RequestIDMiddleware(),
 		httpx.CORS(cfg.CORSAllowedOrigins),
 		httpx.Logging(logger, cfg.GCPProject),
@@ -167,7 +187,7 @@ func run() error {
 // pool. pool is the same database's connection pool, handed to the modules that
 // run queries (auth provisioning); it is kept separate from dbPinger so the
 // readiness seam stays narrow.
-func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config) http.Handler {
+func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaStore journal.MediaStore) http.Handler {
 	mux := http.NewServeMux()
 
 	// Health probes are mounted on the root router so they inherit the shared
@@ -193,7 +213,7 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config) http.H
 		authModule,
 		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships(), tripAuthz),
 		budget.New(pool, authModule.RequireAuth, tripOwnerAuthzAdapter{tripAuthz}, tripCostReaderAdapter{pool: pool}),
-		journal.New(pool, authModule.RequireAuth, tripOwnerJournalAuthzAdapter{tripAuthz}),
+		journal.New(pool, authModule.RequireAuth, tripOwnerJournalAuthzAdapter{tripAuthz}, mediaStore),
 		sharing.New(),
 		geo.New(),
 	}

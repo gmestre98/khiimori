@@ -9,11 +9,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// journalStore is the persistence surface for journal entries.
+// journalStore is the persistence surface for journal entries and photos.
 // The concrete pgxJournalStore implements it; unit tests supply a fake.
 type journalStore interface {
 	UpsertEntry(ctx context.Context, e UpsertEntry) (JournalEntry, error)
 	GetEntry(ctx context.Context, dayID string) (JournalEntry, error)
+	InsertPhoto(ctx context.Context, p Photo) (Photo, error)
+	ListPhotos(ctx context.Context, journalEntryID string) ([]Photo, error)
 }
 
 // pgxJournalStore is the Postgres-backed journal store.
@@ -73,6 +75,54 @@ func (s *pgxJournalStore) GetEntry(ctx context.Context, dayID string) (JournalEn
 	}
 	if err != nil {
 		return JournalEntry{}, fmt.Errorf("journal: get entry: %w", err)
+	}
+	return out, nil
+}
+
+// InsertPhoto writes a Photo row. The caller must have already stored the object
+// via MediaStore.Put (storage_url must be non-empty).
+func (s *pgxJournalStore) InsertPhoto(ctx context.Context, p Photo) (Photo, error) {
+	const q = `
+		INSERT INTO journal.photos (journal_entry_id, storage_url, caption, size_bytes)
+		VALUES ($1::uuid, $2, NULLIF($3, ''), $4)
+		RETURNING id::text, journal_entry_id::text, storage_url,
+		          COALESCE(caption, ''), size_bytes, created_at`
+
+	var out Photo
+	err := s.pool.QueryRow(ctx, q, p.JournalEntryID, p.StorageURL, p.Caption, p.SizeBytes).Scan(
+		&out.ID, &out.JournalEntryID, &out.StorageURL, &out.Caption, &out.SizeBytes, &out.CreatedAt,
+	)
+	if err != nil {
+		return Photo{}, fmt.Errorf("journal: insert photo: %w", err)
+	}
+	return out, nil
+}
+
+// ListPhotos returns all photos attached to a journal entry, ordered by creation time.
+func (s *pgxJournalStore) ListPhotos(ctx context.Context, journalEntryID string) ([]Photo, error) {
+	const q = `
+		SELECT id::text, journal_entry_id::text, storage_url,
+		       COALESCE(caption, ''), size_bytes, created_at
+		FROM journal.photos
+		WHERE journal_entry_id = $1::uuid
+		ORDER BY created_at ASC`
+
+	rows, err := s.pool.Query(ctx, q, journalEntryID)
+	if err != nil {
+		return nil, fmt.Errorf("journal: list photos: %w", err)
+	}
+	defer rows.Close()
+
+	var out []Photo
+	for rows.Next() {
+		var p Photo
+		if err := rows.Scan(&p.ID, &p.JournalEntryID, &p.StorageURL, &p.Caption, &p.SizeBytes, &p.CreatedAt); err != nil {
+			return nil, fmt.Errorf("journal: scan photo: %w", err)
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("journal: list photos rows: %w", err)
 	}
 	return out, nil
 }
