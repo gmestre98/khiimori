@@ -8,11 +8,11 @@ requires tests for queue → replay, idempotent replay, and a basic conflict cas
 Document the shared queue/replay contract for Milestone 06 to reuse, and add the test suite.
 
 ## Acceptance criteria
-- [ ] A documented **contract** describes the queue record format and the replay/conflict behaviour so
+- [x] A documented **contract** describes the queue record format and the replay/conflict behaviour so
   Milestone 06 reuses it verbatim (not a second implementation).
-- [ ] Tests cover **queue → replay** (offline mutate, reconnect, server reflects).
-- [ ] Tests cover **idempotent replay** (replaying twice produces no duplicates).
-- [ ] A test covers a **basic conflict** case with the deterministic outcome (S3).
+- [x] Tests cover **queue → replay** (offline mutate, reconnect, server reflects).
+- [x] Tests cover **idempotent replay** (replaying twice produces no duplicates).
+- [x] A test covers a **basic conflict** case with the deterministic outcome (S3).
 
 ## Constraints
 - The contract is binding for Milestone 06's Journal offline (one mechanism, PRD §7.0).

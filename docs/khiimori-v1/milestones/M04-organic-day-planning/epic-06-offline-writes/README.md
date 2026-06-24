@@ -1,5 +1,7 @@
 # Epic M04.6 — Offline-capable writes (shared queue/replay)
 
+> **Status:** ✅ Done — all 4 stories merged (PRs #271, #273, #275, #277). 4/4 ACs complete. IndexedDB mutation queue, ordered idempotent replay, LWW conflict resolution, and shared contract documented for Milestone 06.
+
 > Milestone: [04 — Organic Day Planning](../README.md) · PRD refs: §5.3, §6, §7.0.
 
 ## Description
