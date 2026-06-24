@@ -24,10 +24,7 @@ import (
 // listBacklog calls GET …/plan-items/backlog and returns the decoded response.
 func listBacklog(t *testing.T, srv *httptest.Server, tripID string) backlogResponse {
 	t.Helper()
-	resp, err := http.Get(fmt.Sprintf("%s%s/%s/plan-items/backlog", srv.URL, TripsPath, tripID))
-	if err != nil {
-		t.Fatalf("list backlog: %v", err)
-	}
+	resp := httpGet(t, srv, fmt.Sprintf("%s/%s/plan-items/backlog", TripsPath, tripID))
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("list backlog status = %d, want 200", resp.StatusCode)
@@ -207,6 +204,9 @@ func TestPromoteDemoteNoRowsCreatedOrDeleted(t *testing.T) {
 	}
 	// pi2 must still be in the backlog.
 	mid := listBacklog(t, srv, tripID)
+	if len(mid.Items) == 0 {
+		t.Fatal("backlog empty after promote, want pi2 still present")
+	}
 	if mid.Items[0].ID != pi2.ID {
 		t.Errorf("remaining backlog item id = %q, want %q", mid.Items[0].ID, pi2.ID)
 	}
