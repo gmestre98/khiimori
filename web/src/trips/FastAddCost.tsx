@@ -256,7 +256,11 @@ function AddCostForm({
       />
       {error && <span className="fast-add-cost-error">{error}</span>}
       <div className="fast-add-cost-actions">
-        <button type="submit" className="fast-add-cost-submit" disabled={submitting || !amount}>
+        <button
+          type="submit"
+          className="fast-add-cost-submit"
+          disabled={submitting || amount === '' || isNaN(parseFloat(amount))}
+        >
           {submitting ? 'Saving…' : 'Log'}
         </button>
         <button
