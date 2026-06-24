@@ -106,6 +106,14 @@ function TripShell() {
           )}
         </div>
         <Link
+          to={`/trips/${trip.id}/budget`}
+          state={{ trip }}
+          className="trip-shell-budget-link"
+          aria-label={`Budget for ${trip.name}`}
+        >
+          Budget
+        </Link>
+        <Link
           to={`/trips/${trip.id}/edit`}
           state={{ trip }}
           className="trip-card-edit-link"

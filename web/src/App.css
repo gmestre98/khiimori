@@ -1194,3 +1194,185 @@
 .trip-card-open-link:hover {
   background: var(--accent-hover, #eef2ff);
 }
+
+/* ── Budget editor (M05.3 S1) ────────────────────────────────────────────── */
+.budget-editor {
+  padding: 8px 0;
+}
+
+.budget-editor-heading {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--text, #111);
+}
+
+.budget-editor-header-row {
+  display: grid;
+  grid-template-columns: 1fr 90px 90px;
+  gap: 4px;
+  padding: 0 0 4px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  margin-bottom: 4px;
+}
+
+.budget-editor-col-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted, #6b7280);
+}
+
+.budget-editor-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.budget-editor-row {
+  display: grid;
+  grid-template-columns: 1fr 90px 90px;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-faint, #f3f4f6);
+}
+
+.budget-editor-category {
+  font-size: 14px;
+  color: var(--text, #111);
+}
+
+.budget-editor-planned {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent, #4f46e5);
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  cursor: pointer;
+  border-radius: 4px;
+  text-align: right;
+}
+
+.budget-editor-planned:hover {
+  background: var(--accent-hover, #eef2ff);
+}
+
+.budget-editor-unset {
+  font-size: 12px;
+  color: var(--muted, #6b7280);
+  font-weight: 400;
+}
+
+.budget-editor-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  position: relative;
+}
+
+.budget-editor-currency-prefix {
+  font-size: 13px;
+  color: var(--muted, #6b7280);
+}
+
+.budget-editor-input {
+  width: 72px;
+  font-size: 14px;
+  border: 1px solid var(--accent, #4f46e5);
+  border-radius: 4px;
+  padding: 2px 4px;
+  text-align: right;
+  outline: none;
+}
+
+.budget-editor-error {
+  font-size: 11px;
+  color: var(--error, #dc2626);
+  position: absolute;
+  top: 100%;
+  left: 0;
+  white-space: nowrap;
+}
+
+.budget-editor-actual {
+  font-size: 13px;
+  color: var(--muted, #6b7280);
+  text-align: right;
+}
+
+.budget-editor-hint {
+  font-size: 11px;
+  color: var(--muted, #6b7280);
+  margin: 8px 0 0;
+}
+
+/* Trip-level budget page */
+.trip-budget-page {
+  padding: 16px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.trip-budget-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.trip-budget-back {
+  font-size: 14px;
+  color: var(--accent, #4f46e5);
+  text-decoration: none;
+}
+
+.trip-budget-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.trip-budget-summary {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: var(--surface, #f9fafb);
+  border-radius: 8px;
+  border: 1px solid var(--border, #e5e7eb);
+}
+
+.trip-budget-summary-label {
+  font-size: 13px;
+  color: var(--muted, #6b7280);
+}
+
+.trip-budget-summary-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text, #111);
+}
+
+.trip-budget-error {
+  color: var(--error, #dc2626);
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.trip-shell-budget-link {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent, #4f46e5);
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--accent, #4f46e5);
+}
+
+.trip-shell-budget-link:hover {
+  background: var(--accent-hover, #eef2ff);
+}

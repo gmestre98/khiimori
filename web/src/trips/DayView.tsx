@@ -6,17 +6,21 @@ import {
   UnauthorizedError,
   createPlanItem,
   demotePlanItem,
+  fetchBudgetRollup,
   fetchDay,
   movePlanItem,
   reorderPlanItems,
   setPlanItemStatus,
   updatePlanItem,
   datesInRange,
+  type BudgetLine,
+  type BudgetRollup,
   type Day,
   type PlanItem,
   type PlanItemInput,
   type Stay,
 } from '../lib/api'
+import { DayBudgetEditor } from './BudgetEditor'
 import { useTripShell } from './useTripShell'
 
 // BottomSheet renders children in a bottom-anchored sliding panel on mobile
@@ -1047,13 +1051,50 @@ function PlanningSection({ day, tripId }: { day: Day; tripId: string }) {
   )
 }
 
-// BudgetSlot is the stable mount point Milestone 05 fills with per-day budget
-// figures.
-function BudgetSlot() {
+// BudgetSlot renders the per-day budget editor and live spend summary.
+function BudgetSlot({ tripId, day }: { tripId: string; day: Day }) {
+  const [rollup, setRollup] = useState<BudgetRollup | null>(null)
+  const [lines, setLines] = useState<BudgetLine[]>([])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    fetchBudgetRollup(tripId, controller.signal)
+      .then((r) => {
+        setRollup(r)
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return
+      })
+    return () => controller.abort()
+  }, [tripId, day.id])
+
+  function handleLineUpdated(line: BudgetLine) {
+    setLines((prev) => {
+      const idx = prev.findIndex((l) => l.id === line.id)
+      if (idx >= 0) {
+        const next = [...prev]
+        next[idx] = line
+        return next
+      }
+      return [...prev, line]
+    })
+  }
+
+  // Build lines list seeded with actual_amount from rollup for display
+  const displayLines: BudgetLine[] = lines.map((l) => ({
+    ...l,
+    actual_amount: rollup?.by_day_category?.[day.id]?.[l.category] ?? l.actual_amount,
+  }))
+
   return (
     <section className="day-slot day-slot-budget" aria-label="Budget" data-slot="budget">
       <h2 className="day-slot-title">Budget</h2>
-      <p className="day-slot-placeholder">Budget breakdown coming in Milestone 05</p>
+      <DayBudgetEditor
+        tripId={tripId}
+        dayId={day.id}
+        lines={displayLines}
+        onUpdated={handleLineUpdated}
+      />
     </section>
   )
 }
@@ -1152,7 +1193,13 @@ export function DayView() {
             <h2 className="day-slot-title">Plan</h2>
           </section>
         )}
-        <BudgetSlot />
+        {day && tripId ? (
+          <BudgetSlot tripId={tripId} day={day} />
+        ) : (
+          <section className="day-slot day-slot-budget" aria-label="Budget" data-slot="budget">
+            <h2 className="day-slot-title">Budget</h2>
+          </section>
+        )}
         <JournalSlot />
         <MapSlot />
       </div>
