@@ -71,6 +71,9 @@ vi.mock('../lib/api', async (importOriginal) => {
       by_category: {},
       by_day: {},
       by_day_category: {},
+      planned_trip_total: 0,
+      planned_by_category: {},
+      planned_by_day: {},
     }),
     createPlanItem: vi.fn(),
     updatePlanItem: vi.fn(),
@@ -102,6 +105,9 @@ beforeEach(() => {
     by_category: {},
     by_day: {},
     by_day_category: {},
+      planned_trip_total: 0,
+      planned_by_category: {},
+      planned_by_day: {},
   })
 })
 

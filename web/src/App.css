@@ -1657,3 +1657,149 @@
   background: var(--accent-hover, #eef2ff);
   border-radius: 4px;
 }
+
+/* ── Rollup display (M05.4) ─────────────────────────────────────────────── */
+
+.trip-rollup,
+.day-rollup {
+  margin: 12px 0 16px;
+}
+
+.rollup-section {
+  margin-bottom: 16px;
+}
+
+.rollup-section-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary, #6b7280);
+  margin: 0 0 8px;
+}
+
+.rollup-row {
+  display: grid;
+  grid-template-columns: 7rem 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  row-gap: 2px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.rollup-row-label {
+  font-size: 0.875rem;
+  color: var(--text, #111827);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rollup-bar {
+  height: 6px;
+  background: var(--surface-muted, #e5e7eb);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.rollup-bar--no-budget {
+  background: transparent;
+}
+
+.rollup-bar-fill {
+  height: 100%;
+  background: var(--accent, #4f46e5);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.rollup-bar-fill--over {
+  background: #ef4444;
+}
+
+.rollup-bar-spend-only {
+  height: 100%;
+  width: 4px;
+  background: var(--accent, #4f46e5);
+  border-radius: 2px;
+}
+
+.rollup-row-amounts {
+  font-size: 0.8rem;
+  color: var(--text, #111827);
+  white-space: nowrap;
+  text-align: right;
+}
+
+.rollup-row-planned {
+  color: var(--text-secondary, #6b7280);
+}
+
+.rollup-row-sep {
+  color: var(--text-secondary, #6b7280);
+}
+
+.rollup-row-remaining {
+  grid-column: 2 / -1;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+.rollup-row-remaining--over {
+  color: #ef4444;
+}
+
+.rollup-empty {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
+  font-style: italic;
+}
+
+/* Budget glance (dashboard slot) */
+.budget-glance {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.budget-glance-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 0.875rem;
+}
+
+.budget-glance-label {
+  color: var(--text-secondary, #6b7280);
+  font-size: 0.8rem;
+}
+
+.budget-glance-value {
+  font-weight: 600;
+  color: var(--text, #111827);
+}
+
+.budget-glance-sep {
+  color: var(--text-secondary, #6b7280);
+}
+
+.budget-glance-planned {
+  color: var(--text-secondary, #6b7280);
+}
+
+.budget-glance-remaining {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+.budget-glance-remaining--over {
+  color: #ef4444;
+}
+
+@media (max-width: 600px) {
+  .rollup-row {
+    grid-template-columns: 6rem 1fr auto;
+  }
+}

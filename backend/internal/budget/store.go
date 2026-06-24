@@ -13,6 +13,7 @@ import (
 // The concrete pgxBudgetStore implements it; unit tests supply a fake.
 type budgetStore interface {
 	Upsert(ctx context.Context, line SetBudgetLine) (BudgetLine, error)
+	ListBudgetLines(ctx context.Context, tripID string) ([]BudgetLine, error)
 	CreateCostEntry(ctx context.Context, e CreateCostEntry) (CostEntry, error)
 	UpdateCostEntry(ctx context.Context, e UpdateCostEntry) (CostEntry, error)
 	DeleteCostEntry(ctx context.Context, entryID, tripID string) error
@@ -105,6 +106,33 @@ func (s *pgxBudgetStore) DeleteCostEntry(ctx context.Context, entryID, tripID st
 		return ErrCostEntryNotFound
 	}
 	return nil
+}
+
+// ListBudgetLines returns all budget lines for tripID (both trip-level and per-day).
+func (s *pgxBudgetStore) ListBudgetLines(ctx context.Context, tripID string) ([]BudgetLine, error) {
+	const q = `
+		SELECT id::text, trip_id::text, COALESCE(day_id::text, ''), category,
+		       planned_amount, actual_amount
+		FROM budget.budget_lines
+		WHERE trip_id = $1::uuid
+		ORDER BY COALESCE(day_id::text, ''), category`
+
+	rows, err := s.pool.Query(ctx, q, tripID)
+	if err != nil {
+		return nil, fmt.Errorf("budget: list budget lines: %w", err)
+	}
+	defer rows.Close()
+
+	var out []BudgetLine
+	for rows.Next() {
+		var bl BudgetLine
+		if err := rows.Scan(&bl.ID, &bl.TripID, &bl.DayID, &bl.Category,
+			&bl.PlannedAmount, &bl.ActualAmount); err != nil {
+			return nil, fmt.Errorf("budget: scan budget line: %w", err)
+		}
+		out = append(out, bl)
+	}
+	return out, rows.Err()
 }
 
 // ListCostEntries returns all cost entries for tripID ordered by created_at.

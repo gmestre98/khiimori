@@ -21,7 +21,9 @@ type TripCostReader interface {
 }
 
 // RollupResult holds actual spend aggregated from the three sources
-// (stays, plan items, manual cost entries) at three levels.
+// (stays, plan items, manual cost entries) at three levels, plus the planned
+// amounts from budget_lines so the UI can show spent vs. planned vs. remaining
+// in a single round-trip.
 type RollupResult struct {
 	// TripTotal is the sum of all costs across the whole trip.
 	TripTotal float64 `json:"trip_total"`
@@ -33,16 +35,24 @@ type RollupResult struct {
 	// ByCategoryDay is the sum per (day, category); only days with at least one
 	// cost appear as keys.
 	ByCategoryDay map[string]map[string]float64 `json:"by_day_category"`
+
+	// Planned amounts from budget_lines — zero/absent when no line is set.
+	PlannedTripTotal  float64            `json:"planned_trip_total"`
+	PlannedByCategory map[string]float64 `json:"planned_by_category"`
+	PlannedByDay      map[string]float64 `json:"planned_by_day"`
 }
 
 // computeRollup aggregates actual spend from external costs (stays + plan items)
 // and manual cost entries into a RollupResult. Costs with an empty DayID
 // contribute to TripTotal and ByCategory only (trip-level, e.g. stays).
-func computeRollup(external []ExternalCost, entries []CostEntry) RollupResult {
+// lines populates the planned amount fields; pass nil when not needed.
+func computeRollup(external []ExternalCost, entries []CostEntry, lines []BudgetLine) RollupResult {
 	result := RollupResult{
-		ByCategory:    make(map[string]float64),
-		ByDay:         make(map[string]float64),
-		ByCategoryDay: make(map[string]map[string]float64),
+		ByCategory:        make(map[string]float64),
+		ByDay:             make(map[string]float64),
+		ByCategoryDay:     make(map[string]map[string]float64),
+		PlannedByCategory: make(map[string]float64),
+		PlannedByDay:      make(map[string]float64),
 	}
 
 	add := func(dayID string, cat Category, amount float64) {
@@ -62,6 +72,17 @@ func computeRollup(external []ExternalCost, entries []CostEntry) RollupResult {
 	}
 	for _, e := range entries {
 		add(e.DayID, e.Category, e.Amount)
+	}
+
+	for _, bl := range lines {
+		if bl.DayID == "" {
+			// Trip-level line: contributes to trip total and by-category planned.
+			result.PlannedTripTotal += bl.PlannedAmount
+			result.PlannedByCategory[string(bl.Category)] += bl.PlannedAmount
+		} else {
+			// Day-level line: contributes to per-day planned total.
+			result.PlannedByDay[bl.DayID] += bl.PlannedAmount
+		}
 	}
 
 	return result

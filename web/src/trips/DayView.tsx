@@ -23,6 +23,7 @@ import {
 } from '../lib/api'
 import { DayBudgetEditor } from './BudgetEditor'
 import { FastAddCost } from './FastAddCost'
+import { DayRollup } from './RollupDisplay'
 import { useTripShell } from './useTripShell'
 
 // BottomSheet renders children in a bottom-anchored sliding panel on mobile
@@ -1053,23 +1054,28 @@ function PlanningSection({ day, tripId }: { day: Day; tripId: string }) {
   )
 }
 
-// BudgetSlot renders the per-day budget editor, cost entry list, and fast-add form.
+// BudgetSlot renders the per-day budget editor, rollup display, and fast-add form.
 function BudgetSlot({ tripId, day }: { tripId: string; day: Day }) {
   const [rollup, setRollup] = useState<BudgetRollup | null>(null)
   const [lines, setLines] = useState<BudgetLine[]>([])
   const [entries, setEntries] = useState<CostEntry[]>([])
 
+  const loadRollup = useCallback(
+    (signal?: AbortSignal) => {
+      fetchBudgetRollup(tripId, signal)
+        .then((r) => setRollup(r))
+        .catch((err: unknown) => {
+          if (err instanceof DOMException && err.name === 'AbortError') return
+        })
+    },
+    [tripId],
+  )
+
   useEffect(() => {
     const controller = new AbortController()
-    fetchBudgetRollup(tripId, controller.signal)
-      .then((r) => {
-        setRollup(r)
-      })
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === 'AbortError') return
-      })
+    loadRollup(controller.signal)
     return () => controller.abort()
-  }, [tripId, day.id])
+  }, [loadRollup, day.id])
 
   function handleLineUpdated(line: BudgetLine) {
     setLines((prev) => {
@@ -1081,18 +1087,22 @@ function BudgetSlot({ tripId, day }: { tripId: string; day: Day }) {
       }
       return [...prev, line]
     })
+    loadRollup()
   }
 
   function handleEntryAdded(entry: CostEntry) {
     setEntries((prev) => [...prev, entry])
+    loadRollup()
   }
 
   function handleEntryUpdated(entry: CostEntry) {
     setEntries((prev) => prev.map((e) => (e.id === entry.id ? entry : e)))
+    loadRollup()
   }
 
   function handleEntryDeleted(id: string) {
     setEntries((prev) => prev.filter((e) => e.id !== id))
+    loadRollup()
   }
 
   // Build lines list seeded with actual_amount from rollup for display
@@ -1104,6 +1114,7 @@ function BudgetSlot({ tripId, day }: { tripId: string; day: Day }) {
   return (
     <section className="day-slot day-slot-budget" aria-label="Budget" data-slot="budget">
       <h2 className="day-slot-title">Budget</h2>
+      {rollup && <DayRollup rollup={rollup} dayId={day.id} />}
       <DayBudgetEditor
         tripId={tripId}
         dayId={day.id}

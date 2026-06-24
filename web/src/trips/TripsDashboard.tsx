@@ -2,14 +2,17 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   UnauthorizedError,
+  fetchBudgetRollup,
   fetchTrips,
   archiveTrip,
   deleteTrip,
+  type BudgetRollup,
   type Trip,
   type TripsResponse,
 } from '../lib/api'
 import { CurrentTripCard } from './CurrentTripCard'
 import { ConfirmModal } from '../components/ConfirmModal'
+import { BudgetGlance } from './RollupDisplay'
 
 type PendingAction = { type: 'archive' | 'delete'; trip: Trip }
 
@@ -127,6 +130,7 @@ export function TripsDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [currentRollup, setCurrentRollup] = useState<BudgetRollup | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -135,6 +139,14 @@ export function TripsDashboard() {
       .then((trips) => {
         setData(trips)
         setLoading(false)
+        const current = trips.current.find((t) => t.is_current)
+        if (current) {
+          fetchBudgetRollup(current.id, controller.signal)
+            .then((r) => setCurrentRollup(r))
+            .catch(() => {
+              // Glance is best-effort; silently degrade.
+            })
+        }
       })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === 'AbortError') {
@@ -230,6 +242,7 @@ export function TripsDashboard() {
       {currentTrip ? (
         <CurrentTripCard
           trip={currentTrip}
+          budgetGlance={currentRollup ? <BudgetGlance rollup={currentRollup} /> : undefined}
           onArchive={() => setPending({ type: 'archive', trip: currentTrip })}
           onDelete={() => setPending({ type: 'delete', trip: currentTrip })}
         />

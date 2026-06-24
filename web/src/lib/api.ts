@@ -625,6 +625,9 @@ export interface BudgetRollup {
   by_category: Record<string, number>
   by_day: Record<string, number>
   by_day_category: Record<string, Record<string, number>>
+  planned_trip_total: number
+  planned_by_category: Record<string, number>
+  planned_by_day: Record<string, number>
 }
 
 // fetchBudgetRollup calls GET /trips/:id/budget/rollup.
