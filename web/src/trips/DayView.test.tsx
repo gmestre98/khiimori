@@ -66,6 +66,12 @@ vi.mock('../lib/api', async (importOriginal) => {
   return {
     ...orig,
     fetchDay: vi.fn(),
+    fetchBudgetRollup: vi.fn().mockResolvedValue({
+      trip_total: 0,
+      by_category: {},
+      by_day: {},
+      by_day_category: {},
+    }),
     createPlanItem: vi.fn(),
     updatePlanItem: vi.fn(),
     setPlanItemStatus: vi.fn(),
@@ -89,6 +95,15 @@ function renderDayView(date = '2026-06-01', tripId = 'trip-1') {
     </MemoryRouter>,
   )
 }
+
+beforeEach(() => {
+  vi.mocked(api.fetchBudgetRollup).mockResolvedValue({
+    trip_total: 0,
+    by_category: {},
+    by_day: {},
+    by_day_category: {},
+  })
+})
 
 afterEach(() => {
   cleanup()
@@ -130,7 +145,12 @@ describe('DayView', () => {
     const item = makePlanItem({ id: 'i2', title: 'Buy souvenirs' })
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
     renderDayView()
-    await waitFor(() => expect(screen.getByText('Activities')).toBeInTheDocument())
+    // The planning section header is an h3; scope query to the planning slot.
+    await waitFor(() => {
+      const planSlot = document.querySelector('[data-slot="planning"]')
+      expect(planSlot).not.toBeNull()
+      expect(within(planSlot as HTMLElement).getByText('Activities')).toBeInTheDocument()
+    })
     expect(screen.getByText('Buy souvenirs')).toBeInTheDocument()
   })
 
@@ -138,7 +158,11 @@ describe('DayView', () => {
     const item = makePlanItem({ id: 'i3', title: 'Untimed' })
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
     renderDayView()
-    await waitFor(() => expect(screen.getByText('Activities')).toBeInTheDocument())
+    await waitFor(() => {
+      const planSlot = document.querySelector('[data-slot="planning"]')
+      expect(planSlot).not.toBeNull()
+      expect(within(planSlot as HTMLElement).getByText('Activities')).toBeInTheDocument()
+    })
     expect(screen.queryByText('Schedule')).not.toBeInTheDocument()
   })
 

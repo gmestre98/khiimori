@@ -508,6 +508,135 @@ export async function setPlanItemStatus(
   return (await res.json()) as PlanItem
 }
 
+// --- Budget lines (M05.3 S1) -------------------------------------------------
+
+export const BUDGET_CATEGORIES = ['Stays', 'Transport', 'Food', 'Activities', 'Other'] as const
+export type BudgetCategory = (typeof BUDGET_CATEGORIES)[number]
+
+export interface BudgetLine {
+  id: string
+  trip_id: string
+  day_id: string | null
+  category: BudgetCategory
+  planned_amount: number
+  actual_amount: number
+}
+
+export interface SetBudgetLineInput {
+  category: BudgetCategory
+  planned_amount: number
+}
+
+// setTripBudgetLine upserts a trip-level budget line (no day scope).
+export async function setTripBudgetLine(
+  tripId: string,
+  input: SetBudgetLineInput,
+): Promise<BudgetLine> {
+  const res = await apiFetch(`/trips/${tripId}/budget-lines`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) throw new Error('Failed to set trip budget line')
+  return (await res.json()) as BudgetLine
+}
+
+// setDayBudgetLine upserts a per-day budget line.
+export async function setDayBudgetLine(
+  tripId: string,
+  dayId: string,
+  input: SetBudgetLineInput,
+): Promise<BudgetLine> {
+  const res = await apiFetch(`/trips/${tripId}/days/${dayId}/budget-lines`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) throw new Error('Failed to set day budget line')
+  return (await res.json()) as BudgetLine
+}
+
+// --- Cost entries (M05.3 S2) -------------------------------------------------
+
+export interface CostEntry {
+  id: string
+  trip_id: string
+  day_id: string
+  plan_item_id: string
+  category: BudgetCategory
+  amount: number
+  note: string
+  created_at: string
+}
+
+export interface CreateCostEntryInput {
+  day_id?: string
+  plan_item_id?: string
+  category: BudgetCategory
+  amount: number
+  note?: string
+}
+
+export interface UpdateCostEntryInput {
+  category: BudgetCategory
+  amount: number
+  note?: string
+}
+
+// createCostEntry calls POST /trips/:id/cost-entries.
+export async function createCostEntry(
+  tripId: string,
+  input: CreateCostEntryInput,
+): Promise<CostEntry> {
+  const res = await apiFetch(`/trips/${tripId}/cost-entries`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) throw new Error('Failed to create cost entry')
+  return (await res.json()) as CostEntry
+}
+
+// updateCostEntry calls PATCH /trips/:id/cost-entries/:entryId.
+export async function updateCostEntry(
+  tripId: string,
+  entryId: string,
+  input: UpdateCostEntryInput,
+): Promise<CostEntry> {
+  const res = await apiFetch(`/trips/${tripId}/cost-entries/${entryId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) throw new Error('Failed to update cost entry')
+  return (await res.json()) as CostEntry
+}
+
+// deleteCostEntry calls DELETE /trips/:id/cost-entries/:entryId.
+export async function deleteCostEntry(tripId: string, entryId: string): Promise<void> {
+  const res = await apiFetch(`/trips/${tripId}/cost-entries/${entryId}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Failed to delete cost entry')
+}
+
+// --- Roll-up (M05.3 display) -------------------------------------------------
+
+export interface BudgetRollup {
+  trip_total: number
+  by_category: Record<string, number>
+  by_day: Record<string, number>
+  by_day_category: Record<string, Record<string, number>>
+}
+
+// fetchBudgetRollup calls GET /trips/:id/budget/rollup.
+export async function fetchBudgetRollup(
+  tripId: string,
+  signal?: AbortSignal,
+): Promise<BudgetRollup> {
+  const res = await apiFetch(`/trips/${tripId}/budget/rollup`, { signal })
+  if (!res.ok) throw new Error('Failed to fetch budget rollup')
+  return (await res.json()) as BudgetRollup
+}
+
 // datesInRange returns YYYY-MM-DD strings for every calendar date in [start, end],
 // derived client-side from the trip's start_date and end_date strings. Matches the
 // server's day generation so the shell can navigate without an extra API call.
