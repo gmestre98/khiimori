@@ -8,6 +8,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -264,6 +265,47 @@ func parseOrigins(raw string) []string {
 // config.
 func LoadMigrationDSN() (string, error) {
 	return required("DATABASE_URL_DIRECT")
+}
+
+// defaultProtectedHosts marks the production Neon endpoint. It is a bare host
+// fragment (no credentials), so it is safe to commit — the password is the
+// secret, not the endpoint id. Destructive migrations (down/reset) refuse to
+// run against a DSN whose host contains any protected fragment, so an accidental
+// `make migrate-reset` with a production .env can't wipe real data. Use a Neon
+// branch (e.g. dev) for local schema iteration; its endpoint id differs, so it
+// is not protected. Override the set with MIGRATE_PROTECTED_HOSTS.
+const defaultProtectedHosts = "ep-shiny-glade-ab3ps862"
+
+// IsProtectedMigrationTarget reports whether dsn points at a protected
+// (production) database, returning the parsed host for use in messages. The
+// protected host fragments come from MIGRATE_PROTECTED_HOSTS (comma-separated)
+// when set, otherwise defaultProtectedHosts. Matching is a case-insensitive
+// substring test against the DSN host, so it covers both the pooled and direct
+// endpoints of the same branch (they share the endpoint id, differing only by
+// the -pooler segment). A dsn that cannot be parsed is an error — callers
+// gating a destructive command should fail closed rather than assume it is safe.
+func IsProtectedMigrationTarget(dsn string) (protected bool, host string, err error) {
+	u, err := url.Parse(dsn)
+	if err != nil {
+		return false, "", fmt.Errorf("config: parse migration DSN: %w", err)
+	}
+	host = u.Hostname()
+	if host == "" {
+		return false, "", errors.New("config: migration DSN has no host")
+	}
+	hostLower := strings.ToLower(host)
+
+	fragments := defaultProtectedHosts
+	if override, ok := os.LookupEnv("MIGRATE_PROTECTED_HOSTS"); ok && strings.TrimSpace(override) != "" {
+		fragments = override
+	}
+	for _, frag := range strings.Split(fragments, ",") {
+		frag = strings.ToLower(strings.TrimSpace(frag))
+		if frag != "" && strings.Contains(hostLower, frag) {
+			return true, host, nil
+		}
+	}
+	return false, host, nil
 }
 
 // required reads a mandatory environment variable, returning an error if it is
