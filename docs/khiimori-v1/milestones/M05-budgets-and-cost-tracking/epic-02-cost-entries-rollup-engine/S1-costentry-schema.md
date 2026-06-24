@@ -8,12 +8,12 @@ and/or plan item. This story adds the table; CRUD is S2 and aggregation is S3.
 Add a migration for the `CostEntry` table in the `budget.*` schema.
 
 ## Acceptance criteria
-- [ ] A migration creates `CostEntry(id, trip_id, day_id?, plan_item_id?, category, amount, note,
+- [x] A migration creates `CostEntry(id, trip_id, day_id?, plan_item_id?, category, amount, note,
   created_at)` with FKs to trip and (nullable) day / plan item.
-- [ ] `category` is constrained to the fixed set (Stays, Transport, Food, Activities, Other); `amount` is
+- [x] `category` is constrained to the fixed set (Stays, Transport, Food, Activities, Other); `amount` is
   EUR.
-- [ ] Indexes support aggregation reads (by `trip_id`, `day_id`, `category`).
-- [ ] The migration applies cleanly via the M01.3 runner.
+- [x] Indexes support aggregation reads (by `trip_id`, `day_id`, `category`).
+- [x] The migration applies cleanly via the M01.3 runner.
 
 ## Constraints
 - Follow M01.3 conventions.
