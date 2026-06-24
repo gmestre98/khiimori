@@ -9,11 +9,11 @@ is the shared mechanism Milestone 06 also reuses.
 Implement a persistent client-side mutation queue in the `/web` app.
 
 ## Acceptance criteria
-- [ ] Planning mutations (add/edit stay, add/edit/move/reorder/status plan item, promote/demote) are
+- [x] Planning mutations (add/edit stay, add/edit/move/reorder/status plan item, promote/demote) are
   enqueued locally when offline, persisted across reloads (e.g. IndexedDB).
-- [ ] Each queued mutation carries a **stable client-generated id** and enough data to replay it.
-- [ ] The queue records an order so replay (S2) can apply them deterministically.
-- [ ] The queue API is generic enough that Milestone 06 (Journal) can reuse it (not planning-specific).
+- [x] Each queued mutation carries a **stable client-generated id** and enough data to replay it.
+- [x] The queue records an order so replay (S2) can apply them deterministically.
+- [x] The queue API is generic enough that Milestone 06 (Journal) can reuse it (not planning-specific).
 
 ## Constraints
 - Confirm any client storage/queue library with the author before adding it (project rule); prefer a thin
