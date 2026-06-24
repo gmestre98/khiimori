@@ -174,6 +174,11 @@ func (f *fakePlanItemStore) ReorderPlanItems(_ context.Context, tripID, dayID st
 	return items, nil
 }
 
+func (f *fakePlanItemStore) MovePlanItem(_ context.Context, tripID, itemID string, m MovePlanItemInput) (PlanItem, error) {
+	dayID := m.DayID
+	return PlanItem{ID: itemID, TripID: tripID, DayID: &dayID, Title: "item", SortOrder: 0, Status: "planned"}, nil
+}
+
 // newPlanItemModule constructs a Module wired to a trip store and plan-item store.
 func newPlanItemModule(tripSt tripStore, piSt planItemStore) *Module {
 	return &Module{

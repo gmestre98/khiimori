@@ -20,6 +20,13 @@ type planItemStore interface {
 	DeletePlanItem(ctx context.Context, tripID, itemID string) error
 	PromotePlanItem(ctx context.Context, tripID, itemID string, p PromotePlanItemInput) (PlanItem, error)
 	DemotePlanItem(ctx context.Context, tripID, itemID string) (PlanItem, error)
+	// MovePlanItem changes an item's day_id to targetDayID within the same trip,
+	// placing it at the end of that day's sort order. start_time is updated when
+	// m.StartTime is non-nil; otherwise it is left unchanged. Status is not
+	// altered. The same row is reused (no delete/recreate). The operation is
+	// idempotent: replaying with the same targetDayID always converges to the
+	// same state.
+	MovePlanItem(ctx context.Context, tripID, itemID string, m MovePlanItemInput) (PlanItem, error)
 	// ReorderPlanItems sets sort_order = 0, 1, 2, … for the given item IDs
 	// within a day, in the caller-supplied sequence. All IDs must belong to
 	// tripID and dayID; any item not in the list keeps its current sort_order.
@@ -237,6 +244,34 @@ func (s *pgxPlanItemStore) DeletePlanItem(ctx context.Context, tripID, itemID st
 		return fmt.Errorf("trip: delete plan item: %w", err)
 	}
 	return nil
+}
+
+// MovePlanItem moves an item to a different day within the same trip by
+// updating day_id and sort_order (appended at end of the target day). When
+// m.StartTime is non-nil it replaces the existing start_time; otherwise the
+// column is left as-is. Status is not changed. Returns errPlanItemNotFound
+// when the item does not exist within the trip.
+func (s *pgxPlanItemStore) MovePlanItem(ctx context.Context, tripID, itemID string, m MovePlanItemInput) (PlanItem, error) {
+	const q = `
+		UPDATE trip.plan_items
+		SET day_id     = $3::uuid,
+		    start_time = CASE WHEN $4::time IS NOT NULL THEN $4::time ELSE start_time END,
+		    sort_order = (
+		        SELECT COALESCE(MAX(sort_order), -1) + 1
+		        FROM trip.plan_items
+		        WHERE trip_id = $2::uuid AND day_id = $3::uuid AND id != $1::uuid
+		    )
+		WHERE id = $1::uuid AND trip_id = $2::uuid
+		RETURNING ` + planItemColumns
+	var item PlanItem
+	err := scanPlanItem(s.pool.QueryRow(ctx, q, itemID, tripID, m.DayID, m.StartTime), &item)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return PlanItem{}, errPlanItemNotFound
+		}
+		return PlanItem{}, fmt.Errorf("trip: move plan item: %w", err)
+	}
+	return item, nil
 }
 
 // ReorderPlanItems assigns sort_order = 0, 1, 2, … to the items in itemIDs
