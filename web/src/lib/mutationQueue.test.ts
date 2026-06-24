@@ -12,7 +12,6 @@ import {
   clearQueue,
   _resetForTesting,
   type MutationKind,
-  type QueuedMutation,
 } from './mutationQueue'
 
 afterEach(async () => {
