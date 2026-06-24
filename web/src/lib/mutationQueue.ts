@@ -62,8 +62,11 @@ function openDB(): Promise<IDBDatabase> {
 
 // nextSeq returns the next sequence number. On the first call it seeds from
 // the current max seq in the store so numbers stay monotonic across reloads.
+// _seqCounter is set to -1 as a sentinel before the async seed so concurrent
+// callers skip re-entry and increment from wherever the seeding lands.
 async function nextSeq(): Promise<number> {
   if (_seqCounter === 0) {
+    _seqCounter = -1 // sentinel: seeding in progress
     const existing = await getAll()
     _seqCounter = existing.reduce((max, m) => Math.max(max, m.seq), 0)
   }
@@ -128,9 +131,12 @@ export async function clearQueue(): Promise<void> {
 
 // _resetForTesting closes the cached DB handle and resets the seq counter so
 // test suites start from a clean state. Never call this in production code.
-export function _resetForTesting(): void {
+// Returns a Promise so callers can await the close before the next test opens
+// a fresh handle (avoids InvalidStateError from a still-closing connection).
+export async function _resetForTesting(): Promise<void> {
   if (_dbPromise) {
-    _dbPromise.then((db) => db.close()).catch(() => {})
+    const db = await _dbPromise.catch(() => null)
+    db?.close()
     _dbPromise = null
   }
   _seqCounter = 0

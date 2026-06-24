@@ -17,7 +17,7 @@ import {
 
 afterEach(async () => {
   await clearQueue().catch(() => {})
-  _resetForTesting()
+  await _resetForTesting()
 })
 
 describe('enqueue', () => {
@@ -141,7 +141,7 @@ describe('seq continuity across restarts', () => {
     // seq is now at 2 in the store
 
     // Simulate a page reload: reset the in-memory counter but keep the IDB data.
-    _resetForTesting()
+    await _resetForTesting()
 
     const c = await enqueue('setPlanItemStatus', {})
     // After reseeding from max(seq)=2, the next seq must be 3.
