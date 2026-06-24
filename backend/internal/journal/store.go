@@ -19,6 +19,8 @@ type journalStore interface {
 	// TripUsageBytes returns the sum of size_bytes for all original photos in
 	// the trip (thumbnails are excluded from the cap — see photo.go).
 	TripUsageBytes(ctx context.Context, tripID string) (int64, error)
+	// UpdatePhotoThumbnail sets thumbnail_url on an existing photo row.
+	UpdatePhotoThumbnail(ctx context.Context, photoID, thumbnailURL string) error
 }
 
 // pgxJournalStore is the Postgres-backed journal store.
@@ -89,16 +91,28 @@ func (s *pgxJournalStore) InsertPhoto(ctx context.Context, p Photo) (Photo, erro
 		INSERT INTO journal.photos (journal_entry_id, storage_url, caption, size_bytes, is_thumbnail)
 		VALUES ($1::uuid, $2, NULLIF($3, ''), $4, $5)
 		RETURNING id::text, journal_entry_id::text, storage_url,
-		          COALESCE(caption, ''), size_bytes, is_thumbnail, created_at`
+		          COALESCE(caption, ''), size_bytes, is_thumbnail,
+		          COALESCE(thumbnail_url, ''), created_at`
 
 	var out Photo
 	err := s.pool.QueryRow(ctx, q, p.JournalEntryID, p.StorageURL, p.Caption, p.SizeBytes, p.IsThumbnail).Scan(
-		&out.ID, &out.JournalEntryID, &out.StorageURL, &out.Caption, &out.SizeBytes, &out.IsThumbnail, &out.CreatedAt,
+		&out.ID, &out.JournalEntryID, &out.StorageURL, &out.Caption, &out.SizeBytes, &out.IsThumbnail,
+		&out.ThumbnailURL, &out.CreatedAt,
 	)
 	if err != nil {
 		return Photo{}, fmt.Errorf("journal: insert photo: %w", err)
 	}
 	return out, nil
+}
+
+// UpdatePhotoThumbnail sets the thumbnail_url on an existing photo row.
+func (s *pgxJournalStore) UpdatePhotoThumbnail(ctx context.Context, photoID, thumbnailURL string) error {
+	const q = `UPDATE journal.photos SET thumbnail_url = $2 WHERE id = $1::uuid`
+	_, err := s.pool.Exec(ctx, q, photoID, thumbnailURL)
+	if err != nil {
+		return fmt.Errorf("journal: update photo thumbnail: %w", err)
+	}
+	return nil
 }
 
 // TripUsageBytes returns the total original-photo bytes stored for a trip.
@@ -122,7 +136,8 @@ func (s *pgxJournalStore) TripUsageBytes(ctx context.Context, tripID string) (in
 func (s *pgxJournalStore) ListPhotos(ctx context.Context, journalEntryID string) ([]Photo, error) {
 	const q = `
 		SELECT id::text, journal_entry_id::text, storage_url,
-		       COALESCE(caption, ''), size_bytes, is_thumbnail, created_at
+		       COALESCE(caption, ''), size_bytes, is_thumbnail,
+		       COALESCE(thumbnail_url, ''), created_at
 		FROM journal.photos
 		WHERE journal_entry_id = $1::uuid
 		ORDER BY created_at ASC`
@@ -136,7 +151,7 @@ func (s *pgxJournalStore) ListPhotos(ctx context.Context, journalEntryID string)
 	var out []Photo
 	for rows.Next() {
 		var p Photo
-		if err := rows.Scan(&p.ID, &p.JournalEntryID, &p.StorageURL, &p.Caption, &p.SizeBytes, &p.IsThumbnail, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.JournalEntryID, &p.StorageURL, &p.Caption, &p.SizeBytes, &p.IsThumbnail, &p.ThumbnailURL, &p.CreatedAt); err != nil {
 			return nil, fmt.Errorf("journal: scan photo: %w", err)
 		}
 		out = append(out, p)
