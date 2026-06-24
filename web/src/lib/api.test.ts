@@ -51,9 +51,7 @@ describe('apiFetch 401 interceptor', () => {
 
 describe('reorderPlanItems', () => {
   it('posts day_id and item_ids to the reorder endpoint', async () => {
-    const spy = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(new Response('', { status: 200 }))
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 200 }))
 
     await reorderPlanItems('trip-1', 'day-1', ['a', 'b', 'c'])
 

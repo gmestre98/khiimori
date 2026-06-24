@@ -366,7 +366,9 @@ describe('DayView', () => {
 
       await user.selectOptions(screen.getByLabelText('Status: planned'), 'done')
 
-      await waitFor(() => expect(api.setPlanItemStatus).toHaveBeenCalledWith('trip-1', 'item-1', 'done'))
+      await waitFor(() =>
+        expect(api.setPlanItemStatus).toHaveBeenCalledWith('trip-1', 'item-1', 'done'),
+      )
       await waitFor(() =>
         expect(document.querySelector('.plan-item-status-badge')).toHaveTextContent('Done'),
       )
@@ -416,7 +418,9 @@ describe('DayView', () => {
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
-      expect(screen.getByRole('button', { name: /Move Visit museum to backlog/ })).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: /Move Visit museum to backlog/ }),
+      ).toBeInTheDocument()
     })
 
     it('clicking → Backlog demotes the item and removes it from the view', async () => {

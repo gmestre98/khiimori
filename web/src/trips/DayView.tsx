@@ -334,12 +334,7 @@ function MoveToDayPicker({
       >
         Move
       </button>
-      <button
-        type="button"
-        className="plan-item-move-cancel"
-        onClick={onCancel}
-        disabled={busy}
-      >
+      <button type="button" className="plan-item-move-cancel" onClick={onCancel} disabled={busy}>
         Cancel
       </button>
       {error && (
@@ -690,10 +685,7 @@ function UntimedSection({
 
   if (items.length === 0) return null
   return (
-    <section
-      className="day-plan-section day-plan-section--untimed"
-      aria-label="Untimed activities"
-    >
+    <section className="day-plan-section day-plan-section--untimed" aria-label="Untimed activities">
       <h3 className="day-plan-section-title">Activities</h3>
       <ul className="plan-item-list">
         {items.map((item) => (
@@ -928,4 +920,3 @@ export function DayView() {
     </article>
   )
 }
-

@@ -153,7 +153,9 @@ describe('BacklogPage', () => {
       vi.mocked(api.fetchBacklog).mockResolvedValue([item])
       renderBacklogPage()
       await waitFor(() => expect(screen.getByText('See the Eiffel Tower')).toBeInTheDocument())
-      expect(screen.getByRole('button', { name: /Promote See the Eiffel Tower/ })).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: /Promote See the Eiffel Tower/ }),
+      ).toBeInTheDocument()
     })
 
     it('clicking Promote… shows the day picker', async () => {

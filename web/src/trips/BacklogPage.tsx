@@ -151,12 +151,7 @@ function PromotePicker({
       >
         Add to day
       </button>
-      <button
-        type="button"
-        className="backlog-promote-cancel"
-        onClick={onCancel}
-        disabled={busy}
-      >
+      <button type="button" className="backlog-promote-cancel" onClick={onCancel} disabled={busy}>
         Cancel
       </button>
       {error && (
