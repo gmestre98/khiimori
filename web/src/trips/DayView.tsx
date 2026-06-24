@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useParams } from 'react-router-dom'
 import {
   PlanItemValidationError,
@@ -44,7 +45,7 @@ function BottomSheet({
 
   if (!open) return null
 
-  return (
+  return createPortal(
     <div
       className="bottom-sheet-overlay"
       role="dialog"
@@ -61,7 +62,8 @@ function BottomSheet({
         </button>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
