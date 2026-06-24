@@ -210,6 +210,23 @@ describe('DayView', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('Could not add item.')
     })
 
+    it('clears the title input after a successful add', async () => {
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      vi.mocked(api.createPlanItem).mockResolvedValue(
+        makePlanItem({ id: 'new-1', title: 'Grab a coffee' }),
+      )
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+
+      const input = screen.getByLabelText('Title') as HTMLInputElement
+      await user.type(input, 'Grab a coffee')
+      await user.click(screen.getByRole('button', { name: 'Add' }))
+
+      await waitFor(() => expect(input.value).toBe(''))
+    })
+
     it('expands optional fields when More options is clicked', async () => {
       const user = userEvent.setup()
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
