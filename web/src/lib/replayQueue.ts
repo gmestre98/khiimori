@@ -198,8 +198,8 @@ export function startReplayOnReconnect(
       .then((results) => {
         if (results.length > 0) onReplay?.(results)
       })
-      .catch((err: ReplayError) => {
-        onError?.(err)
+      .catch((err: unknown) => {
+        if (err instanceof ReplayError) onError?.(err)
       })
   }
   window.addEventListener('online', _replayHandler)
