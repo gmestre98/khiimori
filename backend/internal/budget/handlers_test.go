@@ -28,6 +28,9 @@ type fakeBudgetStore struct {
 	gotDeleteID  string
 	gotDeleteTID string
 	deleteErr    error
+
+	listEntries []CostEntry
+	listErr     error
 }
 
 func (f *fakeBudgetStore) Upsert(_ context.Context, line SetBudgetLine) (BudgetLine, error) {
@@ -89,6 +92,10 @@ func (f *fakeBudgetStore) DeleteCostEntry(_ context.Context, entryID, tripID str
 	return f.deleteErr
 }
 
+func (f *fakeBudgetStore) ListCostEntries(_ context.Context, _ string) ([]CostEntry, error) {
+	return f.listEntries, f.listErr
+}
+
 // fakeAuthz allows or denies based on the allow field.
 type fakeAuthz struct {
 	allow bool
@@ -109,11 +116,26 @@ func authShim(userID string) httpx.Middleware {
 	}
 }
 
+// fakeCostReader returns a canned list of external costs.
+type fakeCostReader struct {
+	costs []ExternalCost
+	err   error
+}
+
+func (f fakeCostReader) GetTripCosts(_ context.Context, _ string) ([]ExternalCost, error) {
+	return f.costs, f.err
+}
+
 func newTestModule(store budgetStore, authz Authorizer) (*Module, *http.ServeMux) {
+	return newTestModuleWithReader(store, authz, fakeCostReader{})
+}
+
+func newTestModuleWithReader(store budgetStore, authz Authorizer, reader TripCostReader) (*Module, *http.ServeMux) {
 	m := &Module{
 		store:       store,
 		authz:       authz,
 		requireAuth: authShim("user-1"),
+		costReader:  reader,
 	}
 	mux := http.NewServeMux()
 	m.RegisterRoutes(mux)
@@ -347,4 +369,78 @@ func TestDeleteCostEntry_Unauthorized(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", rec.Code)
 	}
+}
+
+// ---- Roll-up unit tests ----
+
+func TestGetRollup_EmptyTrip(t *testing.T) {
+	t.Parallel()
+	store := &fakeBudgetStore{}
+	_, mux := newTestModule(store, fakeAuthz{allow: true})
+
+	req := httptest.NewRequest(http.MethodGet, "/trips/trip-1/budget/rollup", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var out RollupResult
+	if err := decodeJSON(rec, &out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if out.TripTotal != 0 {
+		t.Errorf("expected 0 trip total, got %f", out.TripTotal)
+	}
+}
+
+func TestGetRollup_MixedSources(t *testing.T) {
+	t.Parallel()
+	store := &fakeBudgetStore{
+		listEntries: []CostEntry{
+			{TripID: "trip-1", Category: CategoryFood, Amount: 30, DayID: "day-1"},
+			{TripID: "trip-1", Category: CategoryTransport, Amount: 20, DayID: ""},
+		},
+	}
+	reader := fakeCostReader{
+		costs: []ExternalCost{
+			{DayID: "", Category: CategoryStays, Amount: 100},
+			{DayID: "day-1", Category: CategoryActivities, Amount: 50},
+		},
+	}
+	_, mux := newTestModuleWithReader(store, fakeAuthz{allow: true}, reader)
+
+	req := httptest.NewRequest(http.MethodGet, "/trips/trip-1/budget/rollup", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var out RollupResult
+	if err := decodeJSON(rec, &out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	// 100 (stay) + 50 (activity) + 30 (food entry) + 20 (transport entry) = 200
+	if out.TripTotal != 200 {
+		t.Errorf("trip_total: got %f, want 200", out.TripTotal)
+	}
+	if out.ByCategory["Stays"] != 100 {
+		t.Errorf("Stays: got %f, want 100", out.ByCategory["Stays"])
+	}
+	if out.ByCategory["Food"] != 30 {
+		t.Errorf("Food: got %f, want 30", out.ByCategory["Food"])
+	}
+	// day-1 has activity (50) + food entry (30) = 80
+	if out.ByDay["day-1"] != 80 {
+		t.Errorf("day-1 total: got %f, want 80", out.ByDay["day-1"])
+	}
+	// transport entry is trip-level (DayID == ""), so not in ByDay
+	if _, ok := out.ByDay[""]; ok {
+		t.Errorf("empty day key should not appear in ByDay")
+	}
+}
+
+func decodeJSON(rec *httptest.ResponseRecorder, v any) error {
+	return json.NewDecoder(rec.Body).Decode(v)
 }
