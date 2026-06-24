@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   PlanItemValidationError,
@@ -99,9 +99,12 @@ function PlanItemForm({ initialFields, submitLabel, onSubmit, onCancel, error }:
   const [expanded, setExpanded] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const titleRef = useRef<HTMLInputElement>(null)
+  const optionalId = useId()
 
+  // Only auto-focus when opening the edit form (initialFields present); the
+  // permanently-visible quick-add form should not steal focus on page load.
   useEffect(() => {
-    titleRef.current?.focus()
+    if (initialFields) titleRef.current?.focus()
   }, [])
 
   function set(key: keyof PlanItemFormFields, value: string) {
@@ -159,13 +162,13 @@ function PlanItemForm({ initialFields, submitLabel, onSubmit, onCancel, error }:
         className="plan-item-form-toggle"
         onClick={() => setExpanded((x) => !x)}
         aria-expanded={expanded}
-        aria-controls="plan-item-form-optional"
+        aria-controls={optionalId}
       >
         {expanded ? 'Fewer options' : 'More options'}
       </button>
 
       {expanded && (
-        <div className="plan-item-form-optional" id="plan-item-form-optional">
+        <div className="plan-item-form-optional" id={optionalId}>
           <label className="plan-item-form-label">
             Type
             <input
