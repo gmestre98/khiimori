@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   PlanItemValidationError,
@@ -136,7 +136,7 @@ function PlanItemForm({
       return
     }
     if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(async () => {
+    const timerId = setTimeout(async () => {
       if (!fields.title.trim()) return
       setSaveStatus('saving')
       try {
@@ -146,12 +146,11 @@ function PlanItemForm({
         setSaveStatus('error')
       }
     }, AUTO_SAVE_DEBOUNCE_MS)
+    timerRef.current = timerId
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
+      clearTimeout(timerId)
     }
-    // fields is the only reactive dependency; onAutoSave is stable within an
-    // item's lifetime.
-  }, [fields]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fields, onAutoSave])
 
   async function retryAutoSave() {
     if (!onAutoSave) return
@@ -476,10 +475,13 @@ function PlanItemRow({
     }
   }
 
-  async function handleAutoSave(fields: PlanItemFormFields) {
-    const updated = await updatePlanItem(tripId, item.id, fieldsToInput(fields, item.day_id))
-    onUpdated(updated)
-  }
+  const handleAutoSave = useCallback(
+    async (fields: PlanItemFormFields) => {
+      const updated = await updatePlanItem(tripId, item.id, fieldsToInput(fields, item.day_id))
+      onUpdated(updated)
+    },
+    [tripId, item.id, item.day_id, onUpdated],
+  )
 
   async function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const newStatus = e.target.value
