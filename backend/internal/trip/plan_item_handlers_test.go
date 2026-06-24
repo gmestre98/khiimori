@@ -53,6 +53,8 @@ type fakePlanItemStore struct {
 	gotStatus       string
 	statusResult    PlanItem
 	statusErr       error
+
+	moveErr error
 }
 
 func (f *fakePlanItemStore) ListBacklog(_ context.Context, tripID string) ([]PlanItem, error) {
@@ -181,6 +183,9 @@ func (f *fakePlanItemStore) ReorderPlanItems(_ context.Context, tripID, dayID st
 }
 
 func (f *fakePlanItemStore) MovePlanItem(_ context.Context, tripID, itemID string, m MovePlanItemInput) (PlanItem, error) {
+	if f.moveErr != nil {
+		return PlanItem{}, f.moveErr
+	}
 	dayID := m.DayID
 	return PlanItem{ID: itemID, TripID: tripID, DayID: &dayID, Title: "item", SortOrder: 0, Status: "planned"}, nil
 }

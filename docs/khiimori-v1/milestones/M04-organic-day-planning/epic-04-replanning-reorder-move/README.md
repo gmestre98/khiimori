@@ -1,5 +1,7 @@
 # Epic M04.4 — Re-planning: reorder, move-between-days, statuses
 
+> **Status:** ✅ Done — All 4 ACs complete. S1 (reorder/ordering scheme), S2 (move-between-days), S3 (status transitions), S4 (replanning tests + combined replay idempotency) merged via separate PRs.
+
 > Milestone: [04 — Organic Day Planning](../README.md) · PRD refs: §5.3, §9.
 
 ## Description
@@ -20,7 +22,7 @@ are rendered in Epic 05 and replayed offline by Epic 06.
       places it sensibly in the target day's order — reusing the same row (PRD §5.3).
 - [x] Items can be marked **`done`, `skipped`, or `cancelled`** (transitions over the
       `idea | planned | done | skipped | cancelled` set) so the day records what happened (PRD §9).
-- [ ] Reorder, move, and status changes are **idempotent/queueable** for offline replay; unit +
+- [x] Reorder, move, and status changes are **idempotent/queueable** for offline replay; unit +
       integration tests cover reorder, move-between-days, and status transitions (PRD §7.6, §6).
 
 ## Implementation Details / Architecture
