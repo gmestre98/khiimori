@@ -8,11 +8,11 @@ Epics 03–04 (PRD §5.3). These make re-planning fast and tactile.
 Wire the re-planning gestures/controls to the Epic 03–04 operations.
 
 ## Acceptance criteria
-- [ ] **Drag-reorder** within a day calls the reorder operation (Epic 04 S1) and updates the view.
-- [ ] **Move-to-day** (drag or a "move to day" control) calls the move operation (Epic 04 S2).
-- [ ] **Promote/demote** between backlog and day calls Epic 03 S2.
-- [ ] **Status** controls mark items done/skipped/cancelled (Epic 04 S3) with the visual reflected.
-- [ ] Interactions work on web and are usable on mobile (touch drag or equivalent control).
+- [x] **Drag-reorder** within a day calls the reorder operation (Epic 04 S1) and updates the view.
+- [x] **Move-to-day** (drag or a "move to day" control) calls the move operation (Epic 04 S2).
+- [x] **Promote/demote** between backlog and day calls Epic 03 S2.
+- [x] **Status** controls mark items done/skipped/cancelled (Epic 04 S3) with the visual reflected.
+- [x] Interactions work on web and are usable on mobile (touch drag or equivalent control).
 
 ## Constraints
 - Reflect the server-confirmed order/state (optimistic UI is fine but reconcile with the server/offline
