@@ -14,7 +14,7 @@ are rendered in Epic 05 and replayed offline by Epic 06.
 
 ## Acceptance Criteria
 
-- [ ] **Reorder** items within a day updates their `order`, keeping the loose/timed mix stable
+- [x] **Reorder** items within a day updates their `order`, keeping the loose/timed mix stable
       (PRD §5.3).
 - [ ] **Move an item to another day** changes its `day_id` (via drag or a "move to day" action) and
       places it sensibly in the target day's order — reusing the same row (PRD §5.3).
