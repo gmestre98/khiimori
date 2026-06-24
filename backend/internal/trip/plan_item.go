@@ -85,6 +85,28 @@ type MovePlanItemInput struct {
 	StartTime *string // optional; "HH:MM" — nil means keep existing
 }
 
+// planItemStatuses is the set of allowed plan-item lifecycle states (PRD §9).
+// v1 deliberately permits any transition between them — there is no rigid state
+// machine (PRD §7.0); only membership in this set is enforced. The same set is
+// declared as a CHECK constraint on trip.plan_items.status as a backstop.
+var planItemStatuses = map[string]struct{}{
+	"idea":      {},
+	"planned":   {},
+	"done":      {},
+	"skipped":   {},
+	"cancelled": {},
+}
+
+// validatePlanItemStatus returns a client-safe error when status is not one of
+// the allowed lifecycle states. It enforces membership only — any value in the
+// set is accepted regardless of the item's current status (no transition graph).
+func validatePlanItemStatus(status string) error {
+	if _, ok := planItemStatuses[status]; !ok {
+		return errors.New("status must be one of idea, planned, done, skipped, cancelled")
+	}
+	return nil
+}
+
 // validatePlanItemFields checks the client-supplied plan-item fields. It
 // returns a client-safe error describing the first problem found.
 func validatePlanItemFields(title string, itemType, startTime, duration, location, link *string) error {

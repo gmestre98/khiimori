@@ -47,6 +47,12 @@ type fakePlanItemStore struct {
 	gotReorderIDs    []string
 	reorderResult    []PlanItem
 	reorderErr       error
+
+	gotStatusTripID string
+	gotStatusItemID string
+	gotStatus       string
+	statusResult    PlanItem
+	statusErr       error
 }
 
 func (f *fakePlanItemStore) ListBacklog(_ context.Context, tripID string) ([]PlanItem, error) {
@@ -177,6 +183,19 @@ func (f *fakePlanItemStore) ReorderPlanItems(_ context.Context, tripID, dayID st
 func (f *fakePlanItemStore) MovePlanItem(_ context.Context, tripID, itemID string, m MovePlanItemInput) (PlanItem, error) {
 	dayID := m.DayID
 	return PlanItem{ID: itemID, TripID: tripID, DayID: &dayID, Title: "item", SortOrder: 0, Status: "planned"}, nil
+}
+
+func (f *fakePlanItemStore) SetPlanItemStatus(_ context.Context, tripID, itemID, status string) (PlanItem, error) {
+	f.gotStatusTripID = tripID
+	f.gotStatusItemID = itemID
+	f.gotStatus = status
+	if f.statusErr != nil {
+		return PlanItem{}, f.statusErr
+	}
+	if f.statusResult.ID != "" {
+		return f.statusResult, nil
+	}
+	return PlanItem{ID: itemID, TripID: tripID, Title: "item", SortOrder: 0, Status: status}, nil
 }
 
 // newPlanItemModule constructs a Module wired to a trip store and plan-item store.
@@ -1212,6 +1231,181 @@ func TestHandleReorderPlanItemsUnauthorized(t *testing.T) {
 		t.Fatalf("status = %d, want 404 (presence oracle protection)", rec.Code)
 	}
 	if pi.gotReorderDayID != "" {
+		t.Error("store should not be called for an unauthorized request")
+	}
+}
+
+// setStatusPlanItemReq builds a POST /trips/{id}/plan-items/{itemID}/status request.
+func setStatusPlanItemReq(tripID, itemID, userID, body string) *http.Request {
+	req := httptest.NewRequest(http.MethodPost, TripsPath+"/"+tripID+"/plan-items/"+itemID+"/status", strings.NewReader(body))
+	req.SetPathValue("id", tripID)
+	req.SetPathValue("itemID", itemID)
+	return withPrincipal(req, userID)
+}
+
+// TestHandleSetPlanItemStatusEachValue asserts that every value in the allowed
+// lifecycle set is accepted, forwarded to the store, and echoed back (no rigid
+// transition graph — any value is reachable from the default "planned").
+func TestHandleSetPlanItemStatusEachValue(t *testing.T) {
+	t.Parallel()
+
+	for _, status := range []string{"idea", "planned", "done", "skipped", "cancelled"} {
+		status := status
+		t.Run(status, func(t *testing.T) {
+			t.Parallel()
+
+			pi := &fakePlanItemStore{}
+			m := newPlanItemModule(&fakeTripStore{}, pi)
+
+			body := `{"status":"` + status + `"}`
+			rec := httptest.NewRecorder()
+			m.handleSetPlanItemStatus(rec, setStatusPlanItemReq("trip-1", "item-5", "owner-1", body))
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+			}
+			if pi.gotStatusTripID != "trip-1" {
+				t.Errorf("store trip_id = %q, want trip-1", pi.gotStatusTripID)
+			}
+			if pi.gotStatusItemID != "item-5" {
+				t.Errorf("store item_id = %q, want item-5", pi.gotStatusItemID)
+			}
+			if pi.gotStatus != status {
+				t.Errorf("store status = %q, want %q", pi.gotStatus, status)
+			}
+
+			var resp planItemResponse
+			if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if resp.Status != status {
+				t.Errorf("response status = %q, want %q", resp.Status, status)
+			}
+		})
+	}
+}
+
+// TestHandleSetPlanItemStatusRejectsInvalid asserts a value outside the allowed
+// set is 400 and the store is not called.
+func TestHandleSetPlanItemStatusRejectsInvalid(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleSetPlanItemStatus(rec, setStatusPlanItemReq("trip-1", "item-1", "owner-1", `{"status":"archived"}`))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotStatusItemID != "" {
+		t.Error("store should not be called for an invalid status")
+	}
+}
+
+// TestHandleSetPlanItemStatusRejectsEmpty asserts a missing/empty status is 400
+// and the store is not called.
+func TestHandleSetPlanItemStatusRejectsEmpty(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleSetPlanItemStatus(rec, setStatusPlanItemReq("trip-1", "item-1", "owner-1", `{}`))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	if pi.gotStatusItemID != "" {
+		t.Error("store should not be called for an empty status")
+	}
+}
+
+// TestHandleSetPlanItemStatusIdempotent asserts replaying the same status twice
+// both return 200 with the same status (converges for Epic 06 offline replay).
+func TestHandleSetPlanItemStatusIdempotent(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	for i := 0; i < 2; i++ {
+		rec := httptest.NewRecorder()
+		m.handleSetPlanItemStatus(rec, setStatusPlanItemReq("trip-1", "item-9", "owner-1", `{"status":"done"}`))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("replay %d: status = %d, want 200", i+1, rec.Code)
+		}
+		var resp planItemResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("replay %d: decode response: %v", i+1, err)
+		}
+		if resp.Status != "done" {
+			t.Errorf("replay %d: status = %q, want done", i+1, resp.Status)
+		}
+	}
+}
+
+// TestHandleSetPlanItemStatusNotFound asserts the store returning
+// errPlanItemNotFound is surfaced as 404.
+func TestHandleSetPlanItemStatusNotFound(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{statusErr: errPlanItemNotFound}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleSetPlanItemStatus(rec, setStatusPlanItemReq("trip-1", "gone", "owner-1", `{"status":"done"}`))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
+
+// TestHandleSetPlanItemStatusUnauthenticated asserts a missing session is 401.
+func TestHandleSetPlanItemStatusUnauthenticated(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	req := httptest.NewRequest(http.MethodPost, TripsPath+"/trip-1/plan-items/item-1/status", strings.NewReader(`{"status":"done"}`))
+	req.SetPathValue("id", "trip-1")
+	req.SetPathValue("itemID", "item-1")
+	rec := httptest.NewRecorder()
+	m.handleSetPlanItemStatus(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+	if pi.gotStatusItemID != "" {
+		t.Error("store should not be called for an unauthenticated request")
+	}
+}
+
+// TestHandleSetPlanItemStatusUnauthorized asserts a denied Authorizer is 404
+// (presence oracle protection) and the store is not called.
+func TestHandleSetPlanItemStatusUnauthorized(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := &Module{
+		store:       &fakeTripStore{},
+		stays:       &fakeStayStore{},
+		planItems:   pi,
+		requireAuth: func(h http.Handler) http.Handler { return h },
+		authz:       denyAllAuthorizer{},
+		now:         func() time.Time { return fixedNow },
+	}
+
+	rec := httptest.NewRecorder()
+	m.handleSetPlanItemStatus(rec, setStatusPlanItemReq("trip-1", "item-1", "other-user", `{"status":"done"}`))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 (presence oracle protection)", rec.Code)
+	}
+	if pi.gotStatusItemID != "" {
 		t.Error("store should not be called for an unauthorized request")
 	}
 }
