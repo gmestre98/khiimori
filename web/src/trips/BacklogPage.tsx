@@ -128,9 +128,7 @@ export function BacklogPage() {
           {error}
         </p>
       )}
-      {items !== null && items.length === 0 && (
-        <p className="backlog-empty">No ideas yet.</p>
-      )}
+      {items !== null && items.length === 0 && <p className="backlog-empty">No ideas yet.</p>}
       {items !== null && items.length > 0 && (
         <ul className="backlog-list">
           {items.map((item) => (
