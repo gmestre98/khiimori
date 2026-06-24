@@ -112,6 +112,7 @@ function PromotePicker({
       onPromoted(item.id)
     } catch {
       setError('Could not promote item.')
+    } finally {
       setBusy(false)
     }
   }
