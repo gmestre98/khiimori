@@ -143,8 +143,8 @@ func TestMovePlanItemIdempotentIntegration(t *testing.T) {
 
 	srv := newModule(t)
 	tripID := createTripForPlanItemTest(t, srv)
-	day1ID := getDayID(t, srv, tripID, "2026-09-07")
-	day2ID := getDayID(t, srv, tripID, "2026-09-08")
+	day1ID := getDayID(t, srv, tripID, "2026-09-06")
+	day2ID := getDayID(t, srv, tripID, "2026-09-07")
 
 	pi := createPlanItem(t, srv, tripID, fmt.Sprintf(`{"title":"Walk","day_id":%q}`, day1ID))
 	moveBody := fmt.Sprintf(`{"day_id":%q}`, day2ID)
