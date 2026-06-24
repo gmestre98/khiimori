@@ -16,6 +16,7 @@ type budgetStore interface {
 	CreateCostEntry(ctx context.Context, e CreateCostEntry) (CostEntry, error)
 	UpdateCostEntry(ctx context.Context, e UpdateCostEntry) (CostEntry, error)
 	DeleteCostEntry(ctx context.Context, entryID, tripID string) error
+	ListCostEntries(ctx context.Context, tripID string) ([]CostEntry, error)
 }
 
 // pgxBudgetStore is the Postgres-backed budget store.
@@ -104,4 +105,32 @@ func (s *pgxBudgetStore) DeleteCostEntry(ctx context.Context, entryID, tripID st
 		return ErrCostEntryNotFound
 	}
 	return nil
+}
+
+// ListCostEntries returns all cost entries for tripID ordered by created_at.
+func (s *pgxBudgetStore) ListCostEntries(ctx context.Context, tripID string) ([]CostEntry, error) {
+	const q = `
+		SELECT id::text, trip_id::text,
+		       COALESCE(day_id::text, ''), COALESCE(plan_item_id::text, ''),
+		       category, amount, note, created_at
+		FROM budget.cost_entries
+		WHERE trip_id = $1::uuid
+		ORDER BY created_at`
+
+	rows, err := s.pool.Query(ctx, q, tripID)
+	if err != nil {
+		return nil, fmt.Errorf("budget: list cost entries: %w", err)
+	}
+	defer rows.Close()
+
+	var out []CostEntry
+	for rows.Next() {
+		var e CostEntry
+		if err := rows.Scan(&e.ID, &e.TripID, &e.DayID, &e.PlanItemID,
+			&e.Category, &e.Amount, &e.Note, &e.CreatedAt); err != nil {
+			return nil, fmt.Errorf("budget: scan cost entry: %w", err)
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
 }

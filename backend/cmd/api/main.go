@@ -12,6 +12,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -191,7 +192,7 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config) http.H
 	modules := []httpx.RouteRegistrar{
 		authModule,
 		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships(), tripAuthz),
-		budget.New(pool, authModule.RequireAuth, tripOwnerAuthzAdapter{tripAuthz}),
+		budget.New(pool, authModule.RequireAuth, tripOwnerAuthzAdapter{tripAuthz}, tripCostReaderAdapter{pool: pool}),
 		journal.New(),
 		sharing.New(),
 		geo.New(),
@@ -221,6 +222,96 @@ type tripOwnerAuthzAdapter struct {
 
 func (a tripOwnerAuthzAdapter) CanWrite(ctx context.Context, userID, tripID string) (bool, error) {
 	return a.inner.Can(ctx, userID, trip.ActionWrite, tripID)
+}
+
+// tripCostReaderAdapter implements budget.TripCostReader by querying trip.stays
+// and trip.plan_items directly. It lives in the composition root (not in the
+// budget module) so the budget module never imports trip — the cross-module
+// boundary rule is preserved.
+//
+// Category mapping:
+//
+//	stay         → Stays
+//	plan item type "transport"   → Transport
+//	plan item type "food"        → Food
+//	plan item type "activity"    → Activities
+//	plan item type "stay"/"hotel"→ Stays
+//	everything else              → Other
+type tripCostReaderAdapter struct {
+	pool *pgxpool.Pool
+}
+
+func (a tripCostReaderAdapter) GetTripCosts(ctx context.Context, tripID string) ([]budget.ExternalCost, error) {
+	var out []budget.ExternalCost
+
+	// --- Stays → CategoryStays, trip-level (no day) ---
+	stayRows, err := a.pool.Query(ctx,
+		`SELECT COALESCE(cost, 0) FROM trip.stays WHERE trip_id = $1::uuid AND cost IS NOT NULL AND cost > 0`,
+		tripID)
+	if err != nil {
+		return nil, fmt.Errorf("tripCostReader: query stays: %w", err)
+	}
+	defer stayRows.Close()
+	for stayRows.Next() {
+		var amount float64
+		if err := stayRows.Scan(&amount); err != nil {
+			return nil, fmt.Errorf("tripCostReader: scan stay: %w", err)
+		}
+		out = append(out, budget.ExternalCost{
+			DayID:    "", // trip-level — stays span multiple days
+			Category: budget.CategoryStays,
+			Amount:   amount,
+		})
+	}
+	if err := stayRows.Err(); err != nil {
+		return nil, fmt.Errorf("tripCostReader: stays rows: %w", err)
+	}
+
+	// --- Plan items → category mapped from type field ---
+	itemRows, err := a.pool.Query(ctx,
+		`SELECT COALESCE(day_id::text, ''), COALESCE(type, ''), COALESCE(cost, 0)
+		 FROM trip.plan_items
+		 WHERE trip_id = $1::uuid AND cost IS NOT NULL AND cost > 0`,
+		tripID)
+	if err != nil {
+		return nil, fmt.Errorf("tripCostReader: query plan items: %w", err)
+	}
+	defer itemRows.Close()
+	for itemRows.Next() {
+		var dayID, itemType string
+		var amount float64
+		if err := itemRows.Scan(&dayID, &itemType, &amount); err != nil {
+			return nil, fmt.Errorf("tripCostReader: scan plan item: %w", err)
+		}
+		out = append(out, budget.ExternalCost{
+			DayID:    dayID,
+			Category: planItemCategory(itemType),
+			Amount:   amount,
+		})
+	}
+	if err := itemRows.Err(); err != nil {
+		return nil, fmt.Errorf("tripCostReader: plan item rows: %w", err)
+	}
+
+	return out, nil
+}
+
+// planItemCategory maps a plan item's type string to one of the five fixed
+// budget categories. The mapping is intentionally permissive — any unrecognised
+// type falls through to Other.
+func planItemCategory(itemType string) budget.Category {
+	switch itemType {
+	case "transport", "flight", "train", "bus", "car", "ferry":
+		return budget.CategoryTransport
+	case "food", "restaurant", "cafe", "meal", "drink":
+		return budget.CategoryFood
+	case "activity", "tour", "sightseeing", "museum", "entertainment":
+		return budget.CategoryActivities
+	case "stay", "hotel", "accommodation", "hostel", "airbnb":
+		return budget.CategoryStays
+	default:
+		return budget.CategoryOther
+	}
 }
 
 // debugTriggerError deliberately returns a 500 so the error-rate metric spikes

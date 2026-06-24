@@ -14,17 +14,19 @@ type Module struct {
 	store       budgetStore
 	authz       Authorizer
 	requireAuth httpx.Middleware
+	costReader  TripCostReader
 }
 
 // New constructs the budget module wired to the database pool, auth middleware,
-// and authorizer. The Authorizer is a consumer-side interface; the composition
-// root passes trip.NewOwnerOnlyAuthorizer (adapted) so the budget module never
-// imports the trip module.
-func New(pool *pgxpool.Pool, requireAuth httpx.Middleware, authz Authorizer) *Module {
+// authorizer, and trip cost reader. The Authorizer and TripCostReader are
+// consumer-side interfaces; the composition root passes concrete adapters so
+// the budget module never imports trip or sharing.
+func New(pool *pgxpool.Pool, requireAuth httpx.Middleware, authz Authorizer, costReader TripCostReader) *Module {
 	return &Module{
 		store:       &pgxBudgetStore{pool: pool},
 		authz:       authz,
 		requireAuth: requireAuth,
+		costReader:  costReader,
 	}
 }
 
@@ -45,6 +47,10 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 		m.requireAuth(http.HandlerFunc(m.handleUpdateCostEntry)))
 	mux.Handle("DELETE /trips/{tripID}/cost-entries/{entryID}",
 		m.requireAuth(http.HandlerFunc(m.handleDeleteCostEntry)))
+
+	// Roll-up: GET /trips/{tripID}/budget/rollup
+	mux.Handle("GET /trips/{tripID}/budget/rollup",
+		m.requireAuth(http.HandlerFunc(m.handleGetRollup)))
 }
 
 // Compile-time check that *Module implements the route-mounting contract.
