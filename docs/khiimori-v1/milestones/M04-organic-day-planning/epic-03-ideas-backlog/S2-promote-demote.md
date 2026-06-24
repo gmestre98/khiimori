@@ -9,12 +9,12 @@ core.
 Implement promote and demote operations on a plan item.
 
 ## Acceptance criteria
-- [ ] **Promote** sets `day_id` (to a day in the trip) and optionally `start_time`, moving the item from
+- [x] **Promote** sets `day_id` (to a day in the trip) and optionally `start_time`, moving the item from
   backlog to that day — same row.
-- [ ] **Demote** clears `day_id` (back to backlog), preserving the item — same row.
-- [ ] Both operations are **authorized** (M03 `Authorizer`) and **idempotent/queueable** for offline
+- [x] **Demote** clears `day_id` (back to backlog), preserving the item — same row.
+- [x] Both operations are **authorized** (M03 `Authorizer`) and **idempotent/queueable** for offline
   replay (Epic 06).
-- [ ] A unit test covers promote and demote round-trips.
+- [x] A unit test covers promote and demote round-trips.
 
 ## Constraints
 - Promote/demote are pure `day_id` (and optional `start_time`) changes — never create/delete-and-recreate
