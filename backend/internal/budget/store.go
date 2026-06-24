@@ -2,15 +2,20 @@ package budget
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// budgetStore is the persistence surface for budget lines. The concrete
-// pgxBudgetStore implements it; unit tests supply a fake.
+// budgetStore is the persistence surface for budget lines and cost entries.
+// The concrete pgxBudgetStore implements it; unit tests supply a fake.
 type budgetStore interface {
 	Upsert(ctx context.Context, line SetBudgetLine) (BudgetLine, error)
+	CreateCostEntry(ctx context.Context, e CreateCostEntry) (CostEntry, error)
+	UpdateCostEntry(ctx context.Context, e UpdateCostEntry) (CostEntry, error)
+	DeleteCostEntry(ctx context.Context, entryID, tripID string) error
 }
 
 // pgxBudgetStore is the Postgres-backed budget store.
@@ -40,4 +45,63 @@ func (s *pgxBudgetStore) Upsert(ctx context.Context, line SetBudgetLine) (Budget
 		return BudgetLine{}, fmt.Errorf("budget: upsert: %w", err)
 	}
 	return bl, nil
+}
+
+// CreateCostEntry inserts a new cost entry row.
+func (s *pgxBudgetStore) CreateCostEntry(ctx context.Context, e CreateCostEntry) (CostEntry, error) {
+	const q = `
+		INSERT INTO budget.cost_entries (trip_id, day_id, plan_item_id, category, amount, note)
+		VALUES ($1::uuid, NULLIF($2, '')::uuid, NULLIF($3, '')::uuid, $4, $5, $6)
+		RETURNING id::text, trip_id::text,
+		          COALESCE(day_id::text, ''), COALESCE(plan_item_id::text, ''),
+		          category, amount, note, created_at`
+
+	var out CostEntry
+	err := s.pool.QueryRow(ctx, q,
+		e.TripID, e.DayID, e.PlanItemID, string(e.Category), e.Amount, e.Note,
+	).Scan(&out.ID, &out.TripID, &out.DayID, &out.PlanItemID,
+		&out.Category, &out.Amount, &out.Note, &out.CreatedAt)
+	if err != nil {
+		return CostEntry{}, fmt.Errorf("budget: create cost entry: %w", err)
+	}
+	return out, nil
+}
+
+// UpdateCostEntry edits the mutable fields of an existing cost entry.
+// Returns ErrCostEntryNotFound when no row matches (id, trip_id).
+func (s *pgxBudgetStore) UpdateCostEntry(ctx context.Context, e UpdateCostEntry) (CostEntry, error) {
+	const q = `
+		UPDATE budget.cost_entries
+		SET category = $3, amount = $4, note = $5
+		WHERE id = $1::uuid AND trip_id = $2::uuid
+		RETURNING id::text, trip_id::text,
+		          COALESCE(day_id::text, ''), COALESCE(plan_item_id::text, ''),
+		          category, amount, note, created_at`
+
+	var out CostEntry
+	err := s.pool.QueryRow(ctx, q,
+		e.ID, e.TripID, string(e.Category), e.Amount, e.Note,
+	).Scan(&out.ID, &out.TripID, &out.DayID, &out.PlanItemID,
+		&out.Category, &out.Amount, &out.Note, &out.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return CostEntry{}, ErrCostEntryNotFound
+	}
+	if err != nil {
+		return CostEntry{}, fmt.Errorf("budget: update cost entry: %w", err)
+	}
+	return out, nil
+}
+
+// DeleteCostEntry removes a cost entry by id scoped to tripID.
+// Returns ErrCostEntryNotFound when no matching row exists.
+func (s *pgxBudgetStore) DeleteCostEntry(ctx context.Context, entryID, tripID string) error {
+	const q = `DELETE FROM budget.cost_entries WHERE id = $1::uuid AND trip_id = $2::uuid`
+	tag, err := s.pool.Exec(ctx, q, entryID, tripID)
+	if err != nil {
+		return fmt.Errorf("budget: delete cost entry: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCostEntryNotFound
+	}
+	return nil
 }

@@ -29,6 +29,10 @@ var validCategories = map[Category]struct{}{
 // set.
 var ErrInvalidCategory = errors.New("budget: invalid category")
 
+// ErrCostEntryNotFound is returned when a cost entry lookup by id + trip_id
+// finds no matching row.
+var ErrCostEntryNotFound = errors.New("budget: cost entry not found")
+
 // validateCategory returns ErrInvalidCategory when c is not in the fixed set.
 func validateCategory(c Category) error {
 	if _, ok := validCategories[c]; !ok {
