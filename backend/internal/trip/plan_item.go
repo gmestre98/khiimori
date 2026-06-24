@@ -76,6 +76,15 @@ type PromotePlanItemInput struct {
 	StartTime *string // optional; "HH:MM"
 }
 
+// MovePlanItemInput is the validated input to move an item to a different day
+// within the same trip. DayID is required. StartTime is optional: when non-nil
+// it replaces the item's existing start_time; when nil the existing start_time
+// is preserved (a timed item stays timed on the new day).
+type MovePlanItemInput struct {
+	DayID     string
+	StartTime *string // optional; "HH:MM" — nil means keep existing
+}
+
 // validatePlanItemFields checks the client-supplied plan-item fields. It
 // returns a client-safe error describing the first problem found.
 func validatePlanItemFields(title string, itemType, startTime, duration, location, link *string) error {
