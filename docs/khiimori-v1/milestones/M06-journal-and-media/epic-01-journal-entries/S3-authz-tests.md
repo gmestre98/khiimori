@@ -9,12 +9,12 @@ capture (PRD §7.6).
 Wire journal entries through the trip `Authorizer` and add the test suite.
 
 ## Acceptance criteria
-- [ ] All journal read/write paths call the trip `Authorizer` (M03 Epic 04 shim, later Milestone 08) —
+- [x] All journal read/write paths call the trip `Authorizer` (M03 Epic 04 shim, later Milestone 08) —
   only owner + invited members may access; unauthorized → 403/404.
-- [ ] Integration tests (M01.3 harness) cover one-per-day enforcement, optional fields, and `author_id`
+- [x] Integration tests (M01.3 harness) cover one-per-day enforcement, optional fields, and `author_id`
   capture.
-- [ ] A test covers an unauthorized user being denied read/write of an entry.
-- [ ] Tests assert author is the session user (supports an Editor companion journaling on a shared trip).
+- [x] A test covers an unauthorized user being denied read/write of an entry.
+- [x] Tests assert author is the session user (supports an Editor companion journaling on a shared trip).
 
 ## Constraints
 - Reuse the trip `Authorizer`; do not inline access rules (PRD §5.9).
