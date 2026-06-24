@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   PlanItemValidationError,
@@ -98,14 +98,7 @@ function PlanItemForm({ initialFields, submitLabel, onSubmit, onCancel, error }:
   const [fields, setFields] = useState<PlanItemFormFields>(initialFields ?? emptyFields())
   const [expanded, setExpanded] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const titleRef = useRef<HTMLInputElement>(null)
   const optionalId = useId()
-
-  // Only auto-focus when opening the edit form (initialFields present); the
-  // permanently-visible quick-add form should not steal focus on page load.
-  useEffect(() => {
-    if (initialFields) titleRef.current?.focus()
-  }, [])
 
   function set(key: keyof PlanItemFormFields, value: string) {
     setFields((prev) => ({ ...prev, [key]: value }))
@@ -126,7 +119,6 @@ function PlanItemForm({ initialFields, submitLabel, onSubmit, onCancel, error }:
     <form className="plan-item-form" onSubmit={handleSubmit} aria-label="Plan item form">
       <div className="plan-item-form-row">
         <input
-          ref={titleRef}
           className="plan-item-form-title"
           type="text"
           placeholder="Add activity…"
@@ -135,6 +127,7 @@ function PlanItemForm({ initialFields, submitLabel, onSubmit, onCancel, error }:
           required
           aria-label="Title"
           disabled={submitting}
+          autoFocus={!!initialFields}
         />
         <button
           type="submit"
@@ -480,11 +473,6 @@ function BacklogLink({ tripId }: { tripId: string }) {
 function PlanningSection({ day, tripId }: { day: Day; tripId: string }) {
   const [items, setItems] = useState<PlanItem[]>(day.plan_items)
 
-  // Keep items in sync when the parent re-fetches (e.g. navigation).
-  useEffect(() => {
-    setItems(day.plan_items)
-  }, [day.plan_items])
-
   const timed = items.filter((item) => item.start_time != null)
   const untimed = items.filter((item) => item.start_time == null)
 
@@ -606,7 +594,7 @@ export function DayView() {
           layout in assets/02-day-plan-map.svg (PRD §4.2). */}
       <div className="day-slots">
         {day && tripId ? (
-          <PlanningSection day={day} tripId={tripId} />
+          <PlanningSection key={day.id} day={day} tripId={tripId} />
         ) : (
           <section
             className="day-slot day-slot-planning"
