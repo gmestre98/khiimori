@@ -105,7 +105,7 @@ func TestUpsertEntry_Create(t *testing.T) {
 	if err != nil {
 		t.Fatalf("put: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("want 200, got %d", resp.StatusCode)
 	}
@@ -135,7 +135,7 @@ func TestUpsertEntry_Idempotent(t *testing.T) {
 		if err != nil {
 			t.Fatalf("put: %v", err)
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	}
 	if len(store.entries) != 1 {
 		t.Errorf("expected 1 entry, got %d", len(store.entries))
@@ -152,14 +152,14 @@ func TestUpsertEntry_Update(t *testing.T) {
 		"body":   json.RawMessage(`{"text":"first"}`),
 		"rating": rating,
 	})
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	rating2 := 5
 	resp2, _ := putJSON(srv, "/trips/trip-1/days/day-3/journal", map[string]any{
 		"body":   json.RawMessage(`{"text":"updated"}`),
 		"rating": rating2,
 	})
-	defer resp2.Body.Close()
+	defer func() { _ = resp2.Body.Close() }()
 
 	var out journalEntryResponse
 	if err := json.NewDecoder(resp2.Body).Decode(&out); err != nil {
@@ -183,7 +183,7 @@ func TestUpsertEntry_OptionalFields(t *testing.T) {
 		"mood":    mood,
 		"rating":  rating,
 	})
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var out journalEntryResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
@@ -209,7 +209,7 @@ func TestUpsertEntry_InvalidRating(t *testing.T) {
 	resp, _ := putJSON(srv, "/trips/trip-1/days/day-5/journal", map[string]any{
 		"rating": bad,
 	})
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("want 400, got %d", resp.StatusCode)
 	}
@@ -223,10 +223,10 @@ func TestGetEntry_Found(t *testing.T) {
 	putResp, _ := putJSON(srv, "/trips/trip-1/days/day-6/journal", map[string]any{
 		"body": json.RawMessage(`{"text":"hello"}`),
 	})
-	putResp.Body.Close()
+	_ = putResp.Body.Close()
 
 	resp, _ := getJSON(srv, "/trips/trip-1/days/day-6/journal")
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("want 200, got %d", resp.StatusCode)
 	}
@@ -238,7 +238,7 @@ func TestGetEntry_NotFound(t *testing.T) {
 	srv := newTestServer(t, store, allowAuthz{})
 
 	resp, _ := getJSON(srv, "/trips/trip-1/days/no-entry/journal")
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("want 404, got %d", resp.StatusCode)
 	}
@@ -251,7 +251,7 @@ func TestUpsertEntry_Unauthorized(t *testing.T) {
 	srv := newTestServer(t, store, denyAuthz{})
 
 	resp, _ := putJSON(srv, "/trips/trip-1/days/day-7/journal", map[string]any{})
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("want 404 (not found to avoid leaking), got %d", resp.StatusCode)
 	}
