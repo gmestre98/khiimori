@@ -276,36 +276,6 @@ func TestPackageCompiles(t *testing.T) {
 
 // --- photo upload tests ---
 
-func uploadPhoto(srv *httptest.Server, path string, body []byte, contentType, caption string) (*http.Response, error) {
-	var buf bytes.Buffer
-	mw := multipart.NewWriter(&buf)
-
-	part, err := mw.CreateFormFile("photo", "test.jpg")
-	if err != nil {
-		return nil, err
-	}
-	if _, err := part.Write(body); err != nil {
-		return nil, err
-	}
-	if caption != "" {
-		if err := mw.WriteField("caption", caption); err != nil {
-			return nil, err
-		}
-	}
-	_ = mw.Close()
-
-	req, err := http.NewRequest(http.MethodPost, srv.URL+path, &buf)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", mw.FormDataContentType())
-	// Override the part's Content-Type since CreateFormFile defaults to application/octet-stream.
-	// In real usage the client sets the file's Content-Type; for the test we patch the multipart header.
-	// Instead, we use a helper that sets the Content-Type on the form part directly.
-	_ = contentType // contentType is set in the part header below via the alternate helper
-	return http.DefaultClient.Do(req)
-}
-
 // uploadPhotoWithType creates a multipart form with the given MIME type on the photo part.
 func uploadPhotoWithType(srv *httptest.Server, path string, body []byte, mimeType, caption string) (*http.Response, error) {
 	var buf bytes.Buffer
