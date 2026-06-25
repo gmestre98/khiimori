@@ -8,11 +8,11 @@ with a clear message (PRD §5.5, §11.4). This is a **cost guardrail**, not a UI
 Enforce the per-trip 1 GB cap in the upload pipeline, before storing.
 
 ## Acceptance criteria
-- [ ] The upload pipeline (Epic 02 S3 seam) checks per-trip usage (S1) **before** `MediaStore.Put`; an
+- [x] The upload pipeline (Epic 02 S3 seam) checks per-trip usage (S1) **before** `MediaStore.Put`; an
   upload that would exceed 1 GB is **rejected** without storing.
-- [ ] The rejection returns a **clear message** the UI can surface (Epic 04).
-- [ ] The check is **server-side** and cannot be bypassed by a crafted client request.
-- [ ] A unit test covers under-cap (allowed), at-cap boundary, and over-cap (rejected, nothing stored).
+- [x] The rejection returns a **clear message** the UI can surface (Epic 04).
+- [x] The check is **server-side** and cannot be bypassed by a crafted client request.
+- [x] A unit test covers under-cap (allowed), at-cap boundary, and over-cap (rejected, nothing stored).
 
 ## Constraints
 - Enforce before persisting the object and the `Photo` row (no partial writes on rejection).

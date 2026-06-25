@@ -9,11 +9,11 @@ for async appears (no Pub/Sub until justified, PRD §7.0, §7.8).
 Generate resized/thumbnail variants in the upload pipeline and store them via `MediaStore`.
 
 ## Acceptance criteria
-- [ ] On upload, one or more **resized/thumbnail variants** are generated and stored via `MediaStore`
+- [x] On upload, one or more **resized/thumbnail variants** are generated and stored via `MediaStore`
   (S2/Epic 02), with their URLs associated to the `Photo`.
-- [ ] Thumbnail generation is **inline** in the upload path (no async queue/Pub/Sub in v1).
-- [ ] List/grid reads can return the **light variant** URL rather than the original.
-- [ ] A unit test covers variant generation (dimensions/size reduced) with the image step faked or run on
+- [x] Thumbnail generation is **inline** in the upload path (no async queue/Pub/Sub in v1).
+- [x] List/grid reads can return the **light variant** URL rather than the original.
+- [x] A unit test covers variant generation (dimensions/size reduced) with the image step faked or run on
   a small fixture.
 
 ## Constraints
