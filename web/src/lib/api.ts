@@ -740,6 +740,79 @@ export async function upsertJournalEntry(
   return parseJournalEntry((await res.json()) as RawJournalEntry)
 }
 
+// --- Photos (M06.4 S2) ---------------------------------------------------------
+
+// Photo is the wire shape of a single attached photo.
+export interface Photo {
+  id: string
+  journal_entry_id: string
+  storage_url: string
+  thumbnail_url: string
+  caption: string
+  size_bytes: number
+  created_at: string
+}
+
+// PhotoCapExceededError is thrown when the server rejects an upload because the
+// trip's 1 GB photo quota has been reached (413 quota_exceeded).
+export class PhotoCapExceededError extends Error {
+  serverMessage: string
+  constructor(serverMessage: string) {
+    super(serverMessage)
+    this.name = 'PhotoCapExceededError'
+    this.serverMessage = serverMessage
+  }
+}
+
+// listPhotos loads all photos attached to a day's journal entry (GET …/photos).
+// Returns an empty array when the day has no entry yet (404 entry_not_found).
+export async function listPhotos(
+  tripId: string,
+  dayId: string,
+  signal?: AbortSignal,
+): Promise<Photo[]> {
+  const res = await apiFetch(`/trips/${tripId}/days/${dayId}/journal/photos`, { signal })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 404) return [] // no entry yet — no photos
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as Photo[]
+}
+
+// uploadPhoto posts a photo file (multipart/form-data) and returns the new Photo.
+// Throws PhotoCapExceededError when the trip's 1 GB quota is exceeded (413).
+export async function uploadPhoto(
+  tripId: string,
+  dayId: string,
+  file: File,
+  caption?: string,
+): Promise<Photo> {
+  const form = new FormData()
+  form.append('photo', file)
+  if (caption) form.append('caption', caption)
+  const res = await apiFetch(`/trips/${tripId}/days/${dayId}/journal/photos`, {
+    method: 'POST',
+    body: form,
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 413 || res.status === 422) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    const msg = body?.error?.message ?? 'Upload failed'
+    if (res.status === 413) throw new PhotoCapExceededError(msg)
+    throw new Error(msg)
+  }
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as Photo
+}
+
+// deletePhoto removes a photo from the day's entry (DELETE …/photos/:photoId).
+export async function deletePhoto(tripId: string, dayId: string, photoId: string): Promise<void> {
+  const res = await apiFetch(`/trips/${tripId}/days/${dayId}/journal/photos/${photoId}`, {
+    method: 'DELETE',
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+}
+
 // datesInRange returns YYYY-MM-DD strings for every calendar date in [start, end],
 // derived client-side from the trip's start_date and end_date strings. Matches the
 // server's day generation so the shell can navigate without an extra API call.

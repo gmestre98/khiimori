@@ -1946,3 +1946,187 @@
   color: var(--text-secondary, #6b7280);
   font-style: italic;
 }
+
+/* ── Photo grid (M06.4 S2) ────────────────────────────────────────────────── */
+
+.photo-grid-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.photo-cap-error {
+  font-size: 13px;
+  color: #cf222e;
+  background: #fff0f0;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 0;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 6px;
+}
+
+.photo-thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-muted, #f3f4f6);
+}
+
+.photo-thumb-btn {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.photo-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-thumb-caption {
+  display: none; /* shown in lightbox; title attr provides tooltip here */
+}
+
+.photo-thumb-delete {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.photo-thumb:hover .photo-thumb-delete,
+.photo-thumb:focus-within .photo-thumb-delete {
+  opacity: 1;
+}
+
+.photo-thumb--uploading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-thumb-progress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.photo-upload-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border, #d1d5db);
+  border-top-color: var(--accent, #6366f1);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+.photo-upload-error {
+  font-size: 11px;
+  color: #cf222e;
+  text-align: center;
+  padding: 4px;
+}
+
+.photo-file-input {
+  display: none;
+}
+
+.photo-attach-btn {
+  align-self: flex-start;
+  font: inherit;
+  font-size: 13px;
+  color: var(--accent, #6366f1);
+  background: none;
+  border: 1px dashed var(--accent, #6366f1);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.photo-attach-btn:hover {
+  background: color-mix(in srgb, var(--accent, #6366f1) 8%, transparent);
+}
+
+/* Photo lightbox */
+
+.photo-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.photo-lightbox {
+  position: relative;
+  max-width: min(90vw, 960px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.photo-lightbox-close {
+  position: absolute;
+  top: -36px;
+  right: 0;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.photo-lightbox-img {
+  max-width: 100%;
+  max-height: 80vh;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.photo-lightbox-caption {
+  color: #e5e7eb;
+  font-size: 14px;
+  margin: 0;
+  text-align: center;
+}

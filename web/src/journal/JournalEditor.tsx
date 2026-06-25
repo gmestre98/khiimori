@@ -7,6 +7,7 @@ import {
   type JournalEntry,
   type JournalEntryInput,
 } from '../lib/api'
+import { PhotoGrid } from './PhotoGrid'
 
 const DEBOUNCE_MS = 800
 
@@ -219,6 +220,22 @@ export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditor
       )}
 
       {readOnly && !entry && <p className="journal-empty">No journal entry for this day.</p>}
+
+      <PhotoGrid
+        tripId={tripId}
+        dayId={dayId}
+        readOnly={readOnly}
+        onBeforeUpload={
+          readOnly
+            ? undefined
+            : async () => {
+                // Ensure an entry row exists before the server accepts a photo.
+                if (!entry) {
+                  await save({ body, rating, weather, mood })
+                }
+              }
+        }
+      />
     </div>
   )
 }
