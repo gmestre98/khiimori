@@ -13,7 +13,14 @@ export interface FormFieldProps {
   className?: string
 }
 
-export function FormField({ label, htmlFor, hint, error, children, className = '' }: FormFieldProps) {
+export function FormField({
+  label,
+  htmlFor,
+  hint,
+  error,
+  children,
+  className = '',
+}: FormFieldProps) {
   const errorId = error && htmlFor ? `${htmlFor}-error` : undefined
   const hintId = hint && htmlFor ? `${htmlFor}-hint` : undefined
 
