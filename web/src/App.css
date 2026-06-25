@@ -2062,6 +2062,13 @@
   padding: 4px;
 }
 
+.photo-upload-queued {
+  font-size: 10px;
+  color: var(--text-secondary, #6b7280);
+  text-align: center;
+  padding: 4px;
+}
+
 .photo-file-input {
   display: none;
 }

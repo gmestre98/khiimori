@@ -114,6 +114,20 @@ interface DeleteCostEntryPayload {
   entryId: string
 }
 
+// Journal payload shapes (M06.4 S4).
+interface UpsertJournalEntryPayload {
+  tripId: string
+  dayId: string
+  input: api.JournalEntryInput
+}
+
+interface UploadPhotoPayload {
+  tripId: string
+  dayId: string
+  file: File
+  caption?: string
+}
+
 // isPermanentFailure returns true for HTTP status codes that indicate the server
 // definitively rejected the mutation (not a transient issue). 401 is treated as
 // permanent so an expired session doesn't block the queue forever; re-auth and
@@ -188,6 +202,16 @@ async function dispatch(m: QueuedMutation): Promise<void> {
     case 'deleteCostEntry': {
       const { tripId, entryId } = p as unknown as DeleteCostEntryPayload
       await api.deleteCostEntry(tripId, entryId)
+      return
+    }
+    case 'upsertJournalEntry': {
+      const { tripId, dayId, input } = p as unknown as UpsertJournalEntryPayload
+      await api.upsertJournalEntry(tripId, dayId, input)
+      return
+    }
+    case 'uploadPhoto': {
+      const { tripId, dayId, file, caption } = p as unknown as UploadPhotoPayload
+      await api.uploadPhoto(tripId, dayId, file, caption)
       return
     }
     default: {
