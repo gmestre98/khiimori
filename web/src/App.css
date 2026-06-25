@@ -645,6 +645,89 @@
   margin: 0;
 }
 
+/* ── Day map — pin correlation (M07.4) ──────────────────────────────────────── */
+
+.day-map-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.day-map-pins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.day-map-pin {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #4f7942;
+  background: transparent;
+  color: #4f7942;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.day-map-pin:hover {
+  background: rgba(79, 121, 66, 0.12);
+}
+
+.day-map-pin--selected {
+  background: #4f7942;
+  color: #fff;
+}
+
+.plan-item-pin-badge {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid #4f7942;
+  background: transparent;
+  color: #4f7942;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.plan-item-pin-badge:hover {
+  background: rgba(79, 121, 66, 0.12);
+}
+
+.plan-item-pin-badge--selected {
+  background: #4f7942;
+  color: #fff;
+}
+
+.plan-item--selected {
+  border-color: #4f7942;
+  box-shadow: 0 0 0 2px rgba(79, 121, 66, 0.2);
+}
+
+.stay-item--selected {
+  border-color: #4f7942;
+  box-shadow: 0 0 0 2px rgba(79, 121, 66, 0.2);
+}
+
+.stay-item-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* ── Plan item rows (M04.5 S1–S3) ──────────────────────────────────────────── */
 
 .day-plan-section {

@@ -1,16 +1,9 @@
 import { useEffect, useState } from 'react'
 import { fetchDayRoute, staticMapUrl, UnauthorizedError, type Day, type LatLng } from '../lib/api'
+import { collectLocatedItems } from './locatedItems'
 
-// DayMapImage renders the static map <img> once waypoints are resolved.
-function DayMapImage({ waypoints, label }: { waypoints: LatLng[]; label: string }) {
-  const url = staticMapUrl(waypoints, { size: '600x300', scale: 2 })
-  if (!url) return null
-  return <img src={url} alt={label} className="day-map-img" width={600} height={300} />
-}
-
-// Builds an ordered list of location strings from a day: stay first, then plan
-// items sorted by sort_order. Empty strings are included — the server skips
-// them when geocoding (Epic 02 S3).
+// collectLocations builds the raw location string list passed to fetchDayRoute,
+// including empty strings for location-less items (the server skips them).
 function collectLocations(day: Day): string[] {
   return [
     ...(day.stays ?? []).map((s) => s.location ?? ''),
@@ -20,11 +13,30 @@ function collectLocations(day: Day): string[] {
   ]
 }
 
+// DayMapImage renders the static map <img> once waypoints are resolved.
+function DayMapImage({ waypoints, label }: { waypoints: LatLng[]; label: string }) {
+  const url = staticMapUrl(waypoints, { size: '600x300', scale: 2 })
+  if (!url) return null
+  return <img src={url} alt={label} className="day-map-img" width={600} height={300} />
+}
+
 // DayMap fetches route waypoints for the day and renders the static map image.
 // Items without a location are silently excluded by the geo proxy.
 // Exported as the default so React.lazy can load it on demand.
-export default function DayMap({ day }: { day: Day }) {
+//
+// selectedId / onSelect wire the shared selection state (Epic 04 S1): clicking
+// a pin in the legend updates selectedId; PlanningSection highlights the item.
+export default function DayMap({
+  day,
+  selectedId,
+  onSelect,
+}: {
+  day: Day
+  selectedId: string | null
+  onSelect: (id: string | null) => void
+}) {
   const locations = collectLocations(day)
+  const locatedItems = collectLocatedItems(day)
   const hasAnyLocation = locations.some((l) => l !== '')
 
   // When no item has a location we know immediately the map is empty — skip the
@@ -69,5 +81,30 @@ export default function DayMap({ day }: { day: Day }) {
     return <p className="day-map-empty">No located stops for this day.</p>
   }
 
-  return <DayMapImage waypoints={waypoints} label={`Map for ${day.date}`} />
+  return (
+    <div className="day-map-container">
+      <DayMapImage waypoints={waypoints} label={`Map for ${day.date}`} />
+      {locatedItems.length > 0 && (
+        <nav className="day-map-pins" aria-label="Map pins">
+          {locatedItems.map((item, i) => (
+            <button
+              key={item.id}
+              type="button"
+              className={[
+                'day-map-pin',
+                selectedId === item.id ? 'day-map-pin--selected' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              aria-label={`Pin ${i + 1}: ${item.label}`}
+              aria-pressed={selectedId === item.id}
+              onClick={() => onSelect(selectedId === item.id ? null : item.id)}
+            >
+              {i + 1}
+            </button>
+          ))}
+        </nav>
+      )}
+    </div>
+  )
 }
