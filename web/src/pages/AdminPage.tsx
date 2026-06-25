@@ -15,16 +15,10 @@ export function AdminPage() {
         <h2>Admin Backoffice</h2>
         <p className="admin-subtitle">Signed in as {user?.email}</p>
         <nav className="admin-nav">
-          <Link
-            to="/admin/users"
-            className={location.pathname === '/admin/users' ? 'active' : ''}
-          >
+          <Link to="/admin/users" className={location.pathname === '/admin/users' ? 'active' : ''}>
             Users
           </Link>
-          <Link
-            to="/admin/trips"
-            className={location.pathname === '/admin/trips' ? 'active' : ''}
-          >
+          <Link to="/admin/trips" className={location.pathname === '/admin/trips' ? 'active' : ''}>
             Trips
           </Link>
           <Link to="/">← Back to app</Link>

@@ -1066,7 +1066,11 @@ export async function deactivateUser(userID: string): Promise<void> {
 }
 
 // adminGrantAccess grants a user access to a trip via the admin endpoint.
-export async function adminGrantAccess(tripID: string, userID: string, role: string): Promise<void> {
+export async function adminGrantAccess(
+  tripID: string,
+  userID: string,
+  role: string,
+): Promise<void> {
   const res = await apiFetch(`/admin/trips/${tripID}/members`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
