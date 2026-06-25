@@ -137,6 +137,12 @@ type Config struct {
 	// startup; the geo proxy endpoints fail at call time when unset. Set via the
 	// MAPS_API_KEY env var.
 	MapsAPIKey string
+
+	// ResendAPIKey is the API key for the Resend transactional email service
+	// (M08.3 S2). It lives only in Secret Manager and is injected as a Cloud Run
+	// env var. Optional at startup; invitation send calls fail at call time when
+	// unset. Set via the RESEND_API_KEY env var.
+	ResendAPIKey string
 }
 
 // Load reads configuration from the environment and returns an error if any
@@ -259,6 +265,10 @@ func Load() (Config, error) {
 	// Optional: server-side restricted Maps API key for the geo proxy. The
 	// service boots without it; geo proxy endpoints fail at call time when unset.
 	cfg.MapsAPIKey = strings.TrimSpace(os.Getenv("MAPS_API_KEY"))
+
+	// Optional: Resend transactional email API key (M08.3 S2). The service boots
+	// without it; invitation send calls fail at call time when unset.
+	cfg.ResendAPIKey = strings.TrimSpace(os.Getenv("RESEND_API_KEY"))
 
 	return cfg, nil
 }
