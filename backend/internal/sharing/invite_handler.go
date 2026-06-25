@@ -3,7 +3,6 @@ package sharing
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -161,6 +160,3 @@ func (m *Module) resolveTripAndInviter(ctx context.Context, tripID, userID strin
 	}
 	return tripName, inviterName
 }
-
-// ErrTripNotFound is returned when a trip is not found.
-var ErrTripNotFound = errors.New("sharing: trip not found")
