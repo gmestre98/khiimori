@@ -92,6 +92,7 @@ func (p profilePatch) validate() error {
 // than a hardcoded literal, so it stays correct if currency ever becomes
 // editable.
 type profileResponse struct {
+	ID              string `json:"id"`
 	Name            string `json:"name"`
 	Email           string `json:"email"`
 	Avatar          string `json:"avatar"`
@@ -104,6 +105,7 @@ type profileResponse struct {
 // the theme out of the prefs JSONB.
 func newProfileResponse(u User) profileResponse {
 	return profileResponse{
+		ID:              u.ID,
 		Name:            u.Name,
 		Email:           u.Email,
 		Avatar:          u.Avatar,

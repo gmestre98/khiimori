@@ -102,6 +102,7 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
 // Profile is the wire shape of GET /me (Epic 04). default_currency is read-only
 // (always EUR in v1); the rest are editable via updateProfile (S5).
 export interface Profile {
+  id: string
   name: string
   email: string
   avatar: string
@@ -830,6 +831,109 @@ export async function fetchTripUsage(tripId: string, signal?: AbortSignal): Prom
   if (res.status === 401) throw new UnauthorizedError()
   if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
   return (await res.json()) as TripUsage
+}
+
+// --- Sharing (M08.4) --------------------------------------------------------
+
+// TripRole is the role a member holds on a trip.
+export type TripRole = 'owner' | 'editor' | 'viewer'
+
+// TripMember is a single membership returned by GET /trips/:id/memberships.
+export interface TripMember {
+  id: string
+  trip_id: string
+  user_id: string
+  role: TripRole
+}
+
+// TripInvitation is a single invitation returned by GET /trips/:id/invitations.
+export interface TripInvitation {
+  id: string
+  trip_id: string
+  email: string
+  role: TripRole
+  status: 'sent' | 'accepted' | 'revoked'
+}
+
+// SharingData bundles the members and invitations for the sharing surface.
+export interface SharingData {
+  members: TripMember[]
+  invitations: TripInvitation[]
+}
+
+// fetchSharingData loads the members and invitations for a trip. Throws
+// UnauthorizedError on 401; non-owners get an empty invitations array (403).
+export async function fetchSharingData(tripId: string, signal?: AbortSignal): Promise<SharingData> {
+  const [membersRes, invitationsRes] = await Promise.all([
+    apiFetch(`/trips/${tripId}/memberships`, { signal }),
+    apiFetch(`/trips/${tripId}/invitations`, { signal }),
+  ])
+  if (membersRes.status === 401) throw new UnauthorizedError()
+  if (!membersRes.ok) throw new Error(`API returned HTTP ${membersRes.status}`)
+
+  const membersBody = (await membersRes.json()) as { members: TripMember[] }
+
+  if (invitationsRes.status === 401) throw new UnauthorizedError()
+  // Non-owners get 403 on invitations — return empty list gracefully.
+  let invitations: TripInvitation[] = []
+  if (invitationsRes.ok) {
+    const invBody = (await invitationsRes.json()) as { invitations: TripInvitation[] }
+    invitations = invBody.invitations ?? []
+  }
+
+  return {
+    members: membersBody.members ?? [],
+    invitations,
+  }
+}
+
+// sendInvitation calls POST /trips/:id/invitations. Throws UnauthorizedError on
+// 401 and a generic Error on other failures.
+export async function sendInvitation(
+  tripId: string,
+  email: string,
+  role: 'editor' | 'viewer',
+): Promise<TripInvitation> {
+  const res = await apiFetch(`/trips/${tripId}/invitations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, role }),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new Error(body?.error?.message ?? `API returned HTTP ${res.status}`)
+  }
+  return (await res.json()) as TripInvitation
+}
+
+// revokeInvitation calls DELETE /trips/:id/invitations/:invitationId.
+export async function revokeInvitation(tripId: string, invitationId: string): Promise<void> {
+  const res = await apiFetch(`/trips/${tripId}/invitations/${invitationId}`, { method: 'DELETE' })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+}
+
+// changeMemberRole calls PATCH /trips/:id/memberships/:userId.
+export async function changeMemberRole(
+  tripId: string,
+  userId: string,
+  role: 'editor' | 'viewer',
+): Promise<void> {
+  const res = await apiFetch(`/trips/${tripId}/memberships/${userId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role }),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+}
+
+// revokeMember calls DELETE /trips/:id/memberships/:userId.
+export async function revokeMember(tripId: string, userId: string): Promise<void> {
+  const res = await apiFetch(`/trips/${tripId}/memberships/${userId}`, { method: 'DELETE' })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
 }
 
 // datesInRange returns YYYY-MM-DD strings for every calendar date in [start, end],

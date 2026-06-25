@@ -104,7 +104,7 @@ func TestProfileReadReturnsOwnProfile(t *testing.T) {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
 	want := profileResponse{
-		Name: "Ann", Email: "ann@example.com", Avatar: "https://pic",
+		ID: "user-1", Name: "Ann", Email: "ann@example.com", Avatar: "https://pic",
 		HomeBase: "Lisbon", Theme: "dark", DefaultCurrency: "EUR",
 	}
 	if body != want {
@@ -159,7 +159,7 @@ func TestProfileEditUpdatesProvidedFields(t *testing.T) {
 		t.Fatalf("decode: %v", err)
 	}
 	want := profileResponse{
-		Name: "Ann B.", Email: "ann@example.com", Avatar: "https://pic",
+		ID: "user-1", Name: "Ann B.", Email: "ann@example.com", Avatar: "https://pic",
 		HomeBase: "Lisbon", Theme: "dark", DefaultCurrency: "EUR",
 	}
 	if got != want {

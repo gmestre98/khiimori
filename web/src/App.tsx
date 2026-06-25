@@ -9,6 +9,7 @@ import { TripShellRoute } from './trips/TripShell'
 import { DayView } from './trips/DayView'
 import { BacklogPage } from './trips/BacklogPage'
 import { TripBudgetPage } from './trips/TripBudgetPage'
+import { TripSharingPage } from './trips/TripSharingPage'
 
 // App is the milestone-02 shell and route table. Public route: /signin. Gated
 // routes (everything under RequireAuth) require a valid session and redirect
@@ -33,6 +34,7 @@ function App() {
               <Route path="days/:date" element={<DayView />} />
               <Route path="backlog" element={<BacklogPage />} />
               <Route path="budget" element={<TripBudgetPage />} />
+              <Route path="sharing" element={<TripSharingPage />} />
             </Route>
           </Route>
           {/* Unknown paths fall back to home, which gates to sign-in if anonymous. */}

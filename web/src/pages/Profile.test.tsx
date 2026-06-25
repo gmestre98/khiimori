@@ -5,6 +5,7 @@ import { Profile } from './Profile'
 import { AuthContext, type AuthContextValue } from '../auth/AuthContext'
 
 const user = {
+  id: 'user-ann',
   name: 'Ann',
   email: 'ann@example.com',
   avatar: 'https://pic',

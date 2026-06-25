@@ -73,6 +73,8 @@ func (m *Module) InvitationsService() *Invitations { return m.invitations }
 // RegisterRoutes mounts the sharing module's HTTP routes onto mux.
 func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	if m.requireAuth != nil {
+		mux.Handle("GET "+MembershipsListPath, m.requireAuth(http.HandlerFunc(m.handleListMemberships)))
+		mux.Handle("GET "+InvitationsListPath, m.requireAuth(http.HandlerFunc(m.handleListInvitations)))
 		mux.Handle("POST "+InvitationsPath, m.requireAuth(http.HandlerFunc(m.handleCreateInvitation)))
 		mux.Handle("DELETE "+InvitationItemPath, m.requireAuth(http.HandlerFunc(m.handleRevokeInvitation)))
 		mux.Handle("POST "+AcceptInvitePath, m.requireAuth(http.HandlerFunc(m.handleAcceptInvitation)))

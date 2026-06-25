@@ -85,7 +85,10 @@ function TripShell() {
   // If no day segment is matched and we're not on a named child route (e.g.
   // backlog), redirect to today's day (or nearest boundary).
   const isAtRoot =
-    !dateParam && !location.pathname.endsWith('/backlog') && !location.pathname.endsWith('/budget')
+    !dateParam &&
+    !location.pathname.endsWith('/backlog') &&
+    !location.pathname.endsWith('/budget') &&
+    !location.pathname.endsWith('/sharing')
   if (isAtRoot) {
     const today = todayStr()
     const target = clampDate(today, trip.start_date, trip.end_date)
@@ -113,6 +116,14 @@ function TripShell() {
           aria-label={`Budget for ${trip.name}`}
         >
           Budget
+        </Link>
+        <Link
+          to={`/trips/${trip.id}/sharing`}
+          state={{ trip }}
+          className="trip-shell-sharing-link"
+          aria-label={`Sharing for ${trip.name}`}
+        >
+          Sharing
         </Link>
         <Link
           to={`/trips/${trip.id}/edit`}
