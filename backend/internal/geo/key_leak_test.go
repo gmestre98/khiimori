@@ -70,7 +70,7 @@ func TestKeyNeverLeaksInGeocodeResponse(t *testing.T) {
 		t.Parallel()
 		p, srv := newSentinelProvider(t)
 		defer srv.Close()
-		m := New(p, noopMiddleware)
+		m := New(p, nil, noopMiddleware)
 
 		req := httptest.NewRequest(http.MethodGet, "/geo/geocode?location=Paris", nil)
 		w := httptest.NewRecorder()
@@ -87,7 +87,7 @@ func TestKeyNeverLeaksInGeocodeResponse(t *testing.T) {
 		// Use a provider that always returns an error containing the sentinel
 		// to verify the handler strips it before writing the response.
 		badProvider := &errorMapProvider{msg: "upstream error: key=" + sentinel}
-		m := New(badProvider, noopMiddleware)
+		m := New(badProvider, nil, noopMiddleware)
 
 		req := httptest.NewRequest(http.MethodGet, "/geo/geocode?location=Paris", nil)
 		w := httptest.NewRecorder()
@@ -107,7 +107,7 @@ func TestKeyNeverLeaksInStaticMapResponse(t *testing.T) {
 
 	p, srv := newSentinelProvider(t)
 	defer srv.Close()
-	m := New(p, noopMiddleware)
+	m := New(p, nil, noopMiddleware)
 
 	req := httptest.NewRequest(http.MethodGet,
 		"/geo/static-map?size=300x150&markers=1.0,2.0", nil)
@@ -127,7 +127,7 @@ func TestKeyNeverLeaksInRouteHintsResponse(t *testing.T) {
 
 	p, srv := newSentinelProvider(t)
 	defer srv.Close()
-	m := New(p, noopMiddleware)
+	m := New(p, nil, noopMiddleware)
 
 	body := `{"waypoints":[{"lat":1,"lng":2}]}`
 	req := httptest.NewRequest(http.MethodPost, "/geo/route-hints",
@@ -156,7 +156,7 @@ func TestProviderInterfaceCannotReturnKey(t *testing.T) {
 	// construction unless the handler erroneously logs it. This test confirms the
 	// handler's generic error message path strips provider error strings.
 	badProvider := &errorMapProvider{msg: "geocode failed: url contains key=" + sentinel}
-	m := New(badProvider, noopMiddleware)
+	m := New(badProvider, nil, noopMiddleware)
 
 	req := httptest.NewRequest(http.MethodGet, "/geo/geocode?location=Paris", nil)
 	w := httptest.NewRecorder()
