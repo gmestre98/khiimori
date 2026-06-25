@@ -9,12 +9,12 @@ account.
 Implement accepting an invitation: claim by token/email and create the membership.
 
 ## Acceptance criteria
-- [ ] An accept flow (token-based, completed when the invitee is signed in) verifies the invite and that
+- [x] An accept flow (token-based, completed when the invitee is signed in) verifies the invite and that
   the **signed-in user's verified email matches** the invitation email.
-- [ ] On success it creates a `TripMembership` (Epic 01) with the invited role and sets the invitation
+- [x] On success it creates a `TripMembership` (Epic 01) with the invited role and sets the invitation
   `status = accepted` — in **one transaction**.
-- [ ] An already-accepted, revoked, or mismatched invite is rejected clearly.
-- [ ] A unit/integration test covers accept → membership and the mismatch/expired cases.
+- [x] An already-accepted, revoked, or mismatched invite is rejected clearly.
+- [x] A unit/integration test covers accept → membership and the mismatch/expired cases.
 
 ## Constraints
 - Match on the **verified Google email** (Milestone 02) — do not trust a client-supplied email.

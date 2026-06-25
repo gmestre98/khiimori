@@ -1,5 +1,7 @@
 # Epic M08.3 — Email invitations (lifecycle, accept, revoke)
 
+> **Status:** ✅ Done — all 5 ACs complete across 5 stories ([#346](https://github.com/gmestre98/khiimori/pull/346), [#347](https://github.com/gmestre98/khiimori/pull/347), [#348](https://github.com/gmestre98/khiimori/pull/348), [#349](https://github.com/gmestre98/khiimori/pull/349), [#350](https://github.com/gmestre98/khiimori/pull/350)). Schema + migration, Resend email sender, create-and-send endpoint, atomic accept flow, change-role/revoke endpoints, and full invitation lifecycle integration tests.
+
 > Milestone: [08 — Sharing & Backoffice](../README.md) · PRD refs: §5.9, §8.1, §9, §11.1.
 
 ## Description
@@ -14,15 +16,15 @@ taking effect immediately (via Epic 02).
 
 ## Acceptance Criteria
 
-- [ ] A migration adds `Invitation(id, trip_id, email, role, status, token)` to `sharing.*` per
+- [x] A migration adds `Invitation(id, trip_id, email, role, status, token)` to `sharing.*` per
       PRD §9; role ∈ `Editor | Viewer` (no per-section permissions in v1) (PRD §7.7, §11.1).
-- [ ] An Owner can **invite by email + role**; an invite is **sent via transactional email** with a
+- [x] An Owner can **invite by email + role**; an invite is **sent via transactional email** with a
       token and has a lifecycle (`status`: sent → accepted) (PRD §5.9, §8.1).
-- [ ] On the invitee's **Google sign-in (Milestone 02)**, a **matching email claims the invitation**
+- [x] On the invitee's **Google sign-in (Milestone 02)**, a **matching email claims the invitation**
       and **creates a `TripMembership`** (Epic 01) transactionally (PRD §5.9, §9).
-- [ ] An Owner can **change a member's role** or **revoke** an invitation/membership; revocation
+- [x] An Owner can **change a member's role** or **revoke** an invitation/membership; revocation
       removes visibility/edit ability immediately (via Epic 02) (PRD §5.9).
-- [ ] Unit + integration tests cover invite → accept → membership, role change, and revoke (PRD §7.6).
+- [x] Unit + integration tests cover invite → accept → membership, role change, and revoke (PRD §7.6).
 
 ## Implementation Details / Architecture
 

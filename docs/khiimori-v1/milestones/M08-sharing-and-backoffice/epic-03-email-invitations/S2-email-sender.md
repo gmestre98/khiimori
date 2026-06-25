@@ -8,12 +8,12 @@ the provider can be swapped; the secret lives in Secret Manager (PRD §8.1, §6)
 Define an `EmailSender` interface and a transactional-email implementation.
 
 ## Acceptance criteria
-- [ ] An `EmailSender` interface exposes sending a templated invite email (recipient, trip, role, accept
+- [x] An `EmailSender` interface exposes sending a templated invite email (recipient, trip, role, accept
   link).
-- [ ] A transactional-email implementation backs it, with the API key from **Secret Manager** (M01.4),
+- [x] A transactional-email implementation backs it, with the API key from **Secret Manager** (M01.4),
   never logged.
-- [ ] Callers depend on the interface (provider swappable, PRD §7.0).
-- [ ] A unit test exercises the interface with a faked sender (no live email).
+- [x] Callers depend on the interface (provider swappable, PRD §7.0).
+- [x] A unit test exercises the interface with a faked sender (no live email).
 
 ## Constraints
 - A transactional-email provider/SDK is a likely dependency — **confirm the provider and library with the
