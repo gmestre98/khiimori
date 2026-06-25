@@ -1,5 +1,6 @@
 import './App.css'
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { ThemeProvider } from './design/ThemeProvider'
 import { Home } from './pages/Home'
 import { Profile } from './pages/Profile'
 import { AdminPage, AdminHome } from './pages/AdminPage'
@@ -21,7 +22,7 @@ import { TripSharingPage } from './trips/TripSharingPage'
 // to where they were headed. The profile screen is added under the gate in S5.
 function App() {
   return (
-    <>
+    <ThemeProvider>
       <PostLoginRedirect />
       <main className="app-shell">
         <h1>Khiimori</h1>
@@ -54,7 +55,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-    </>
+    </ThemeProvider>
   )
 }
 
