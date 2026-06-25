@@ -760,4 +760,108 @@ describe('DayView', () => {
       )
     })
   })
+
+  describe('pin↔item correlation (M07.4 S2)', () => {
+    it('plan item with location shows a numbered pin badge', async () => {
+      const item = makePlanItem({ id: 'i1', title: 'Eiffel Tower', location: 'Paris' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Eiffel Tower')).toBeInTheDocument())
+      expect(screen.getByRole('button', { name: /Map pin 1 for Eiffel Tower/ })).toBeInTheDocument()
+    })
+
+    it('plan item without location has no pin badge', async () => {
+      const item = makePlanItem({ id: 'i1', title: 'No location item' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('No location item')).toBeInTheDocument())
+      expect(
+        screen.queryByRole('button', { name: /Map pin \d+ for No location item/ }),
+      ).not.toBeInTheDocument()
+    })
+
+    it('clicking a pin badge selects the item (adds --selected class)', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ id: 'i1', title: 'Eiffel Tower', location: 'Paris' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Eiffel Tower')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Map pin 1 for Eiffel Tower/ }))
+
+      const itemLi = screen.getByLabelText('Eiffel Tower').closest('li')
+      expect(itemLi).toHaveClass('plan-item--selected')
+    })
+
+    it('clicking an already-selected pin badge deselects the item', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ id: 'i1', title: 'Eiffel Tower', location: 'Paris' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Eiffel Tower')).toBeInTheDocument())
+
+      const pinBtn = screen.getByRole('button', { name: /Map pin 1 for Eiffel Tower/ })
+      await user.click(pinBtn)
+      await user.click(pinBtn)
+
+      const itemLi = screen.getByLabelText('Eiffel Tower').closest('li')
+      expect(itemLi).not.toHaveClass('plan-item--selected')
+    })
+
+    it('selecting one item deselects the previous selection', async () => {
+      const user = userEvent.setup()
+      const items = [
+        makePlanItem({ id: 'i1', title: 'Eiffel Tower', location: 'Paris', sort_order: 0 }),
+        makePlanItem({ id: 'i2', title: 'Louvre', location: 'Louvre, Paris', sort_order: 1 }),
+      ]
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Eiffel Tower')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Map pin 1 for Eiffel Tower/ }))
+      await user.click(screen.getByRole('button', { name: /Map pin 2 for Louvre/ }))
+
+      const eiffelLi = screen.getByLabelText('Eiffel Tower').closest('li')
+      const louvreLi = screen.getByLabelText('Louvre').closest('li')
+      expect(eiffelLi).not.toHaveClass('plan-item--selected')
+      expect(louvreLi).toHaveClass('plan-item--selected')
+    })
+
+    it('two located items get sequential pin numbers (robust to reordering)', async () => {
+      const items = [
+        makePlanItem({ id: 'i1', title: 'Stop A', location: 'Loc A', sort_order: 0 }),
+        makePlanItem({ id: 'i2', title: 'Stop B', location: 'Loc B', sort_order: 1 }),
+      ]
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Stop A')).toBeInTheDocument())
+
+      expect(screen.getByRole('button', { name: /Map pin 1 for Stop A/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Map pin 2 for Stop B/ })).toBeInTheDocument()
+    })
+
+    it('stay with location shows a numbered pin badge', async () => {
+      const stay = makeStay({ id: 'stay-1', name: 'Hotel Paris', location: 'Paris' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ stays: [stay] }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Hotel Paris')).toBeInTheDocument())
+      expect(screen.getByRole('button', { name: /Map pin 1 for Hotel Paris/ })).toBeInTheDocument()
+    })
+
+    it('location-less item alongside located item does not get a pin badge', async () => {
+      const items = [
+        makePlanItem({ id: 'i1', title: 'No location', sort_order: 0 }),
+        makePlanItem({ id: 'i2', title: 'Located', location: 'Paris', sort_order: 1 }),
+      ]
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('No location')).toBeInTheDocument())
+
+      expect(
+        screen.queryByRole('button', { name: /Map pin \d+ for No location/ }),
+      ).not.toBeInTheDocument()
+      // Located item still gets pin 1 (location-less item is skipped in numbering)
+      expect(screen.getByRole('button', { name: /Map pin 1 for Located/ })).toBeInTheDocument()
+    })
+  })
 })
