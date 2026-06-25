@@ -60,8 +60,6 @@ function PhotoThumb({
   onDelete: () => void
   readOnly: boolean
 }) {
-  const [deleting, setDeleting] = useState(false)
-
   const src = photo.thumbnail_url || photo.storage_url
 
   return (
@@ -80,11 +78,7 @@ function PhotoThumb({
           type="button"
           className="photo-thumb-delete"
           aria-label="Delete photo"
-          disabled={deleting}
-          onClick={async () => {
-            setDeleting(true)
-            onDelete()
-          }}
+          onClick={onDelete}
         >
           ✕
         </button>
@@ -104,7 +98,7 @@ interface UploadItem {
 interface PhotoGridProps {
   tripId: string
   dayId: string
-  /** Called after a successful upload so JournalEditor can ensure the entry exists. */
+  /** Called before each upload so JournalEditor can ensure the entry row exists first. */
   onBeforeUpload?: () => Promise<void>
   readOnly?: boolean
 }
