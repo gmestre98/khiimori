@@ -3,8 +3,9 @@ package sharing
 import (
 	"net/http"
 
-	"github.com/gmestre98/khiimori/backend/internal/platform/httpx"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/gmestre98/khiimori/backend/internal/platform/httpx"
 )
 
 // Module is the sharing module's public surface. It satisfies httpx.RouteRegistrar
