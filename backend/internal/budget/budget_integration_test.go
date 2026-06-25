@@ -101,9 +101,8 @@ func newIntegrationServer(t *testing.T, ownerID string) *httptest.Server {
 // alwaysAllowAuthz always grants write access (tests pre-wire the correct tripID).
 type alwaysAllowAuthz struct{}
 
-func (alwaysAllowAuthz) CanWrite(_ context.Context, _, _ string) (bool, error) {
-	return true, nil
-}
+func (alwaysAllowAuthz) CanRead(_ context.Context, _, _ string) (bool, error)  { return true, nil }
+func (alwaysAllowAuthz) CanWrite(_ context.Context, _, _ string) (bool, error) { return true, nil }
 
 // insertTrip inserts a minimal trip row and returns the trip id.
 func insertTrip(t *testing.T, ownerID string) string {

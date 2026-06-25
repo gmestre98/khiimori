@@ -2,14 +2,15 @@ package budget
 
 import "context"
 
-// Authorizer answers whether a given user may write budget data for a trip.
+// Authorizer answers whether a given user may read or write budget data for a trip.
 // The budget module declares this interface (consumer-side) so it never imports
-// the trip module — the composition root hands in trip.NewOwnerOnlyAuthorizer.
-// Milestone 08's membership-based implementation is a drop-in replacement with
-// no caller changes required.
+// the trip or sharing modules — the composition root passes a concrete adapter.
 type Authorizer interface {
-	// CanWrite returns (true, nil) when userID may set budget lines for tripID,
-	// and (false, nil) when they may not. Infrastructure failures return
-	// (false, non-nil error).
+	// CanRead returns (true, nil) when userID may read budget data for tripID
+	// (Owner, Editor, and Viewer). Infrastructure failures return (false, non-nil error).
+	CanRead(ctx context.Context, userID, tripID string) (bool, error)
+
+	// CanWrite returns (true, nil) when userID may set budget lines and cost entries
+	// for tripID (Owner and Editor only). Infrastructure failures return (false, non-nil error).
 	CanWrite(ctx context.Context, userID, tripID string) (bool, error)
 }

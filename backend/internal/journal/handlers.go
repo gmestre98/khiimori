@@ -59,10 +59,24 @@ func entryToResponse(e JournalEntry) journalEntryResponse {
 	}
 }
 
-// checkAccess asks the Authorizer whether userID may access journal data for tripID.
+// checkReadAccess asks the Authorizer whether userID may read journal data for tripID.
 // Returns 404 on denial and 500 on infrastructure error.
-func (m *Module) checkAccess(ctx context.Context, userID, tripID string) error {
-	ok, err := m.authz.CanAccess(ctx, userID, tripID)
+func (m *Module) checkReadAccess(ctx context.Context, userID, tripID string) error {
+	ok, err := m.authz.CanRead(ctx, userID, tripID)
+	if err != nil {
+		platformlog.FromContext(ctx).Error("journal: authz check failed", "err", err.Error())
+		return httpx.NewAPIError(http.StatusInternalServerError, "internal_error", "internal error")
+	}
+	if !ok {
+		return httpx.NewAPIError(http.StatusNotFound, "trip_not_found", "trip not found")
+	}
+	return nil
+}
+
+// checkWriteAccess asks the Authorizer whether userID may write journal data for tripID.
+// Returns 404 on denial and 500 on infrastructure error.
+func (m *Module) checkWriteAccess(ctx context.Context, userID, tripID string) error {
+	ok, err := m.authz.CanWrite(ctx, userID, tripID)
 	if err != nil {
 		platformlog.FromContext(ctx).Error("journal: authz check failed", "err", err.Error())
 		return httpx.NewAPIError(http.StatusInternalServerError, "internal_error", "internal error")
@@ -84,7 +98,7 @@ func (m *Module) handleUpsertEntry(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusUnauthorized, "unauthorized", "unauthorized"))
 		return
 	}
-	if err := m.checkAccess(r.Context(), principal.UserID, tripID); err != nil {
+	if err := m.checkWriteAccess(r.Context(), principal.UserID, tripID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -135,7 +149,7 @@ func (m *Module) handleGetEntry(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusUnauthorized, "unauthorized", "unauthorized"))
 		return
 	}
-	if err := m.checkAccess(r.Context(), principal.UserID, tripID); err != nil {
+	if err := m.checkReadAccess(r.Context(), principal.UserID, tripID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -204,7 +218,7 @@ func (m *Module) handleUploadPhoto(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusUnauthorized, "unauthorized", "unauthorized"))
 		return
 	}
-	if err := m.checkAccess(r.Context(), principal.UserID, tripID); err != nil {
+	if err := m.checkWriteAccess(r.Context(), principal.UserID, tripID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -325,7 +339,7 @@ func (m *Module) handleGetUsage(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusUnauthorized, "unauthorized", "unauthorized"))
 		return
 	}
-	if err := m.checkAccess(r.Context(), principal.UserID, tripID); err != nil {
+	if err := m.checkReadAccess(r.Context(), principal.UserID, tripID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -357,7 +371,7 @@ func (m *Module) handleDeletePhoto(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusUnauthorized, "unauthorized", "unauthorized"))
 		return
 	}
-	if err := m.checkAccess(r.Context(), principal.UserID, tripID); err != nil {
+	if err := m.checkWriteAccess(r.Context(), principal.UserID, tripID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -396,7 +410,7 @@ func (m *Module) handleListPhotos(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusUnauthorized, "unauthorized", "unauthorized"))
 		return
 	}
-	if err := m.checkAccess(r.Context(), principal.UserID, tripID); err != nil {
+	if err := m.checkReadAccess(r.Context(), principal.UserID, tripID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}

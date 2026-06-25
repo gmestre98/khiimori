@@ -18,7 +18,7 @@ func (m *Module) handleGetRollup(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusUnauthorized, "unauthorized", "unauthorized"))
 		return
 	}
-	if err := m.checkAccess(r.Context(), principal.UserID, tripID); err != nil {
+	if err := m.checkReadAccess(r.Context(), principal.UserID, tripID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
