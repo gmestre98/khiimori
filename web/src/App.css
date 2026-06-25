@@ -1970,13 +1970,13 @@
   transition: color 0.1s;
 }
 
-/* Star rating colour is a status indicator — sanctioned accent-adjacent case */
+/* Star rating colour is a status indicator — uses --color-rating token */
 .journal-star--active {
-  color: #f59e0b;
+  color: var(--color-rating);
 }
 
 .journal-star:hover:not(:disabled) {
-  color: #f59e0b;
+  color: var(--color-rating);
 }
 
 .journal-star:disabled {
@@ -2296,7 +2296,7 @@
 }
 
 .usage-bar-fill--warn {
-  background: #f59e0b;
+  background: var(--color-rating);
 }
 
 .usage-bar-fill--cap {
