@@ -176,6 +176,18 @@ describe('staticMapUrl', () => {
     const params = new URLSearchParams(url.split('?')[1])
     expect(params.getAll('path')).toHaveLength(0)
   })
+
+  // S3: indicative route styling — route polyline carries weight and colour.
+  it('route path carries weight and colour style prefix', () => {
+    const wps = [
+      { lat: 1.0, lng: 2.0 },
+      { lat: 3.0, lng: 4.0 },
+    ]
+    const url = staticMapUrl(wps)!
+    const decoded = decodeURIComponent(url)
+    expect(decoded).toContain('weight:')
+    expect(decoded).toContain('color:')
+  })
 })
 
 describe('fetchDayRoute', () => {

@@ -883,6 +883,11 @@ export async function fetchDayRoute(
 // accent). Must be a Google Static Maps colour literal (name or 0xRRGGBB).
 const MARKER_COLOR = '0x4F7942'
 
+// ROUTE_COLOR / PATH_WEIGHT style the indicative route polyline — softer than
+// the pins for visual hierarchy. The alpha suffix (80) adds transparency.
+const ROUTE_COLOR = '0x4F794280'
+const PATH_WEIGHT = 3
+
 // staticMapUrl builds the URL for the GET /geo/static-map endpoint. The server
 // proxies the request to Google Static Maps and embeds the API key — no key is
 // ever sent to the client. Returns null when there are no waypoints to display.
@@ -899,7 +904,11 @@ export function staticMapUrl(
     params.append('markers', `size:mid|color:${MARKER_COLOR}|${wp.lat},${wp.lng}`)
   }
   if (waypoints.length > 1) {
-    for (const wp of waypoints) {
+    // The first path entry carries the style prefix; subsequent entries are
+    // plain coordinates. All connected items produce the indicative route.
+    const [first, ...rest] = waypoints
+    params.append('path', `weight:${PATH_WEIGHT}|color:${ROUTE_COLOR}|${first.lat},${first.lng}`)
+    for (const wp of rest) {
       params.append('path', `${wp.lat},${wp.lng}`)
     }
   }

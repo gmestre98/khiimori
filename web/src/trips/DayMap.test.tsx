@@ -152,3 +152,93 @@ describe('DayMap', () => {
     })
   })
 })
+
+// S3: indicative route & location-less omission
+describe('DayMap — route and omission (S3)', () => {
+  beforeEach(() => {
+    vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
+    vi.mocked(api.staticMapUrl).mockReturnValue(null)
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.resetAllMocks()
+  })
+
+  it('passes location-less items as empty strings so the server can skip them', async () => {
+    vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
+    render(
+      <DayMap
+        day={makeDay({
+          plan_items: [
+            {
+              id: 'i1',
+              trip_id: 'trip-1',
+              day_id: 'day-1',
+              title: 'No location item',
+              sort_order: 0,
+              status: 'planned',
+              // location intentionally absent
+            },
+            {
+              id: 'i2',
+              trip_id: 'trip-1',
+              day_id: 'day-1',
+              title: 'Located item',
+              location: 'Paris',
+              sort_order: 1,
+              status: 'planned',
+            },
+          ],
+        })}
+      />,
+    )
+    await waitFor(() => {
+      expect(api.fetchDayRoute).toHaveBeenCalledWith(
+        // location-less item passes '' (server skips it); located item passes its value
+        ['', 'Paris'],
+        expect.any(AbortSignal),
+      )
+    })
+  })
+
+  it('shows empty state when all returned waypoints are empty (all items unresolvable)', async () => {
+    vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
+    render(
+      <DayMap
+        day={makeDay({
+          stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Fake Town' }],
+        })}
+      />,
+    )
+    await waitFor(() => {
+      expect(screen.getByText('No located stops for this day.')).toBeTruthy()
+    })
+  })
+
+  it('renders map when at least one waypoint resolved (mixed day)', async () => {
+    const waypoints = [{ lat: 48.8566, lng: 2.3522 }]
+    vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints })
+    vi.mocked(api.staticMapUrl).mockReturnValue('http://localhost:8080/geo/static-map?markers=...')
+    render(
+      <DayMap
+        day={makeDay({
+          stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Paris' }],
+          plan_items: [
+            {
+              id: 'i1',
+              trip_id: 'trip-1',
+              day_id: 'day-1',
+              title: 'No location item',
+              sort_order: 0,
+              status: 'planned',
+            },
+          ],
+        })}
+      />,
+    )
+    await waitFor(() => {
+      expect(screen.getByRole('img', { name: 'Map for 2026-06-01' })).toBeTruthy()
+    })
+  })
+})
