@@ -1,5 +1,7 @@
 # Milestone 07 — Maps
 
+> **Status:** ✅ Done — All 4 epics complete. 16 ACs met across PRs [#319](https://github.com/gmestre98/khiimori/pull/319) [#320](https://github.com/gmestre98/khiimori/pull/320) [#321](https://github.com/gmestre98/khiimori/pull/321) [#322](https://github.com/gmestre98/khiimori/pull/322) [#323](https://github.com/gmestre98/khiimori/pull/323) [#325](https://github.com/gmestre98/khiimori/pull/325) [#326](https://github.com/gmestre98/khiimori/pull/326) [#327](https://github.com/gmestre98/khiimori/pull/327) [#328](https://github.com/gmestre98/khiimori/pull/328) [#329](https://github.com/gmestre98/khiimori/pull/329) [#330](https://github.com/gmestre98/khiimori/pull/330) [#332](https://github.com/gmestre98/khiimori/pull/332) [#333](https://github.com/gmestre98/khiimori/pull/333) [#334](https://github.com/gmestre98/khiimori/pull/334). Per-day map with ordered pins and indicative route, server-side geocoding with 30-day DB cache, key-never-leaks proxy, and two-way pin↔item correlation — all verified.
+
 > A per-day map of stays, activities, and transport as pins in itinerary order, with two-way
 > pin↔item highlighting — built on Google Maps Platform behind a cost-protecting Geo proxy that
 > never ships a key to the client.
