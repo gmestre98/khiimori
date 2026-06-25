@@ -2,6 +2,7 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/gmestre98/khiimori/backend/internal/platform/authn"
@@ -56,7 +57,7 @@ func (m *Module) handleAdminDeactivateUser(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := m.repo.Deactivate(r.Context(), userID); err != nil {
-		if err == errUserNotFound {
+		if errors.Is(err, errUserNotFound) {
 			httpx.WriteError(w, r, httpx.NewAPIError(
 				http.StatusNotFound, "not_found", "user not found"))
 			return
