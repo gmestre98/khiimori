@@ -105,11 +105,13 @@ func (s *fakeStore) DeletePhotoForTrip(_ context.Context, photoID, _ string) (Ph
 
 type allowAuthz struct{}
 
-func (allowAuthz) CanAccess(_ context.Context, _, _ string) (bool, error) { return true, nil }
+func (allowAuthz) CanRead(_ context.Context, _, _ string) (bool, error)  { return true, nil }
+func (allowAuthz) CanWrite(_ context.Context, _, _ string) (bool, error) { return true, nil }
 
 type denyAuthz struct{}
 
-func (denyAuthz) CanAccess(_ context.Context, _, _ string) (bool, error) { return false, nil }
+func (denyAuthz) CanRead(_ context.Context, _, _ string) (bool, error)  { return false, nil }
+func (denyAuthz) CanWrite(_ context.Context, _, _ string) (bool, error) { return false, nil }
 
 func newTestModule(store journalStore, authz Authorizer) *Module {
 	requireAuth := func(next http.Handler) http.Handler {

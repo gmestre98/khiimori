@@ -147,7 +147,10 @@ func newIntegrationServerWithUser(t *testing.T, callerID, ownerID string) *httpt
 // alwaysAllowIntegrationAuthz grants every access check (tests pre-wire the correct tripID).
 type alwaysAllowIntegrationAuthz struct{}
 
-func (alwaysAllowIntegrationAuthz) CanAccess(_ context.Context, _, _ string) (bool, error) {
+func (alwaysAllowIntegrationAuthz) CanRead(_ context.Context, _, _ string) (bool, error) {
+	return true, nil
+}
+func (alwaysAllowIntegrationAuthz) CanWrite(_ context.Context, _, _ string) (bool, error) {
 	return true, nil
 }
 
@@ -157,7 +160,15 @@ type membershipAuthz struct {
 	ownerID string
 }
 
-func (a *membershipAuthz) CanAccess(ctx context.Context, userID, tripID string) (bool, error) {
+func (a *membershipAuthz) CanRead(ctx context.Context, userID, tripID string) (bool, error) {
+	return a.canAccess(ctx, userID, tripID)
+}
+
+func (a *membershipAuthz) CanWrite(ctx context.Context, userID, tripID string) (bool, error) {
+	return a.canAccess(ctx, userID, tripID)
+}
+
+func (a *membershipAuthz) canAccess(ctx context.Context, userID, tripID string) (bool, error) {
 	const q = `SELECT 1 FROM sharing.trip_memberships
 	           WHERE trip_id = $1::uuid AND user_id = $2::uuid AND role = 'owner'`
 	var dummy int

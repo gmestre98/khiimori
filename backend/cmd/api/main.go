@@ -246,24 +246,27 @@ func (a membershipAuthzAdapter) Can(ctx context.Context, userID string, action t
 }
 
 // membershipJournalAuthzAdapter adapts *sharing.MembershipAuthorizer to journal.Authorizer.
-// The journal Authorizer has a single CanAccess method covering both reads and
-// writes, so we gate on "write" (Owner/Editor) to avoid granting Viewers write
-// access. Viewer read access can be separated once the journal.Authorizer
-// interface is split in S4.
+// CanRead allows Owner/Editor/Viewer; CanWrite allows Owner/Editor only.
 type membershipJournalAuthzAdapter struct {
 	inner *sharing.MembershipAuthorizer
 }
 
-func (a membershipJournalAuthzAdapter) CanAccess(ctx context.Context, userID, tripID string) (bool, error) {
+func (a membershipJournalAuthzAdapter) CanRead(ctx context.Context, userID, tripID string) (bool, error) {
+	return a.inner.Can(ctx, userID, string(trip.ActionRead), tripID)
+}
+
+func (a membershipJournalAuthzAdapter) CanWrite(ctx context.Context, userID, tripID string) (bool, error) {
 	return a.inner.Can(ctx, userID, string(trip.ActionWrite), tripID)
 }
 
 // membershipBudgetAuthzAdapter adapts *sharing.MembershipAuthorizer to budget.Authorizer.
-// The budget module declares its own Authorizer interface (consumer-side) so it
-// never imports the trip module — this adapter lives in the composition root
-// where both modules are visible.
+// CanRead allows Owner/Editor/Viewer; CanWrite allows Owner/Editor only.
 type membershipBudgetAuthzAdapter struct {
 	inner *sharing.MembershipAuthorizer
+}
+
+func (a membershipBudgetAuthzAdapter) CanRead(ctx context.Context, userID, tripID string) (bool, error) {
+	return a.inner.Can(ctx, userID, string(trip.ActionRead), tripID)
 }
 
 func (a membershipBudgetAuthzAdapter) CanWrite(ctx context.Context, userID, tripID string) (bool, error) {

@@ -46,9 +46,23 @@ func lineToResponse(bl BudgetLine) budgetLineResponse {
 	}
 }
 
-// checkAccess asks the Authorizer whether userID may write budget data for tripID.
+// checkReadAccess asks the Authorizer whether userID may read budget data for tripID.
 // Returns a 404 on denial (to avoid leaking trip existence) and 500 on infrastructure error.
-func (m *Module) checkAccess(ctx context.Context, userID, tripID string) error {
+func (m *Module) checkReadAccess(ctx context.Context, userID, tripID string) error {
+	ok, err := m.authz.CanRead(ctx, userID, tripID)
+	if err != nil {
+		platformlog.FromContext(ctx).Error("budget: authz check failed", "err", err.Error())
+		return httpx.NewAPIError(http.StatusInternalServerError, "internal_error", "internal error")
+	}
+	if !ok {
+		return httpx.NewAPIError(http.StatusNotFound, "trip_not_found", "trip not found")
+	}
+	return nil
+}
+
+// checkWriteAccess asks the Authorizer whether userID may write budget data for tripID.
+// Returns a 404 on denial (to avoid leaking trip existence) and 500 on infrastructure error.
+func (m *Module) checkWriteAccess(ctx context.Context, userID, tripID string) error {
 	ok, err := m.authz.CanWrite(ctx, userID, tripID)
 	if err != nil {
 		platformlog.FromContext(ctx).Error("budget: authz check failed", "err", err.Error())
@@ -70,7 +84,7 @@ func (m *Module) handleSetTripBudgetLine(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := m.checkAccess(r.Context(), principal.UserID, tripID); err != nil {
+	if err := m.checkWriteAccess(r.Context(), principal.UserID, tripID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -113,7 +127,7 @@ func (m *Module) handleSetDayBudgetLine(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := m.checkAccess(r.Context(), principal.UserID, tripID); err != nil {
+	if err := m.checkWriteAccess(r.Context(), principal.UserID, tripID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}

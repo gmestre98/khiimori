@@ -52,7 +52,7 @@ func (m *Module) handleCreateCostEntry(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusUnauthorized, "unauthorized", "unauthorized"))
 		return
 	}
-	if err := m.checkAccess(r.Context(), principal.UserID, tripID); err != nil {
+	if err := m.checkWriteAccess(r.Context(), principal.UserID, tripID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -94,7 +94,7 @@ func (m *Module) handleUpdateCostEntry(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusUnauthorized, "unauthorized", "unauthorized"))
 		return
 	}
-	if err := m.checkAccess(r.Context(), principal.UserID, tripID); err != nil {
+	if err := m.checkWriteAccess(r.Context(), principal.UserID, tripID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -139,7 +139,7 @@ func (m *Module) handleDeleteCostEntry(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusUnauthorized, "unauthorized", "unauthorized"))
 		return
 	}
-	if err := m.checkAccess(r.Context(), principal.UserID, tripID); err != nil {
+	if err := m.checkWriteAccess(r.Context(), principal.UserID, tripID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}

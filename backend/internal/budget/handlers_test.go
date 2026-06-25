@@ -106,9 +106,8 @@ type fakeAuthz struct {
 	err   error
 }
 
-func (f fakeAuthz) CanWrite(_ context.Context, _, _ string) (bool, error) {
-	return f.allow, f.err
-}
+func (f fakeAuthz) CanRead(_ context.Context, _, _ string) (bool, error)  { return f.allow, f.err }
+func (f fakeAuthz) CanWrite(_ context.Context, _, _ string) (bool, error) { return f.allow, f.err }
 
 // authShim injects a fixed principal so handler tests run without a session store.
 func authShim(userID string) httpx.Middleware {
