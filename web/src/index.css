@@ -1,4 +1,5 @@
 @import './design/tokens.css';
+@import './design/utilities.css';
 
 /*
  * Global base styles. All colour/type/spacing values reference tokens from
