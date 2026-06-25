@@ -9,14 +9,14 @@ plan/budget/journal; Viewer = read-only) (PRD §3, §5.9).
 Implement a membership/role-based `Authorizer` satisfying the existing interface.
 
 ## Acceptance criteria
-- [ ] The `Authorizer` answers "may user U perform action A on trip T?" using the user's `TripMembership`
+- [x] The `Authorizer` answers "may user U perform action A on trip T?" using the user's `TripMembership`
   role (reads from Epic 01 S2).
-- [ ] Capability resolution matches PRD §3: **Owner** (full control + sharing), **Editor** (edit
+- [x] Capability resolution matches PRD §3: **Owner** (full control + sharing), **Editor** (edit
   plan/budget/journal), **Viewer** (read-only); a non-member is denied.
-- [ ] It implements the **same interface** Milestone 03 defined, so it is a drop-in replacement for the
+- [x] It implements the **same interface** Milestone 03 defined, so it is a drop-in replacement for the
   owner-only shim (PRD §7.0).
-- [ ] Deny-by-default for any action not explicitly granted.
-- [ ] A unit test covers each role against representative read/write/manage actions.
+- [x] Deny-by-default for any action not explicitly granted.
+- [x] A unit test covers each role against representative read/write/manage actions.
 
 ## Constraints
 - Implement the existing interface exactly (no signature changes) so callers need no edits.

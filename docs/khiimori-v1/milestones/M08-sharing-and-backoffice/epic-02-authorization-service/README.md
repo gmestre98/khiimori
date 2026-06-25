@@ -1,5 +1,7 @@
 # Epic M08.2 — Authorization service (single `Authorizer`)
 
+> **Status:** ✅ Done — all 5 ACs complete across PRs [#339](https://github.com/gmestre98/khiimori/pull/339), [#340](https://github.com/gmestre98/khiimori/pull/340), [#341](https://github.com/gmestre98/khiimori/pull/341), [#342](https://github.com/gmestre98/khiimori/pull/342), [#343](https://github.com/gmestre98/khiimori/pull/343). `sharing.MembershipAuthorizer` implements roles per PRD §3, replaces the owner-only shim, enforces 404 on denial with immediate revocation, and is covered by cross-module integration tests across Trip/Budget/Journal.
+
 > Milestone: [08 — Sharing & Backoffice](../README.md) · PRD refs: §5.9, §6, §7.0, §7.1, §7.7.
 
 ## Description
@@ -14,17 +16,17 @@ authorization is decided — the auditable chokepoint the whole system depends o
 
 ## Acceptance Criteria
 
-- [ ] The **`Authorizer` interface** is implemented against `TripMembership`/roles (Epic 01),
+- [x] The **`Authorizer` interface** is implemented against `TripMembership`/roles (Epic 01),
       resolving capabilities per PRD §3 (Owner = full + sharing; Editor = edit plan/budget/journal;
       Viewer = read-only) (PRD §3, §5.9).
-- [ ] **Every trip-scoped request** in Milestones 03–07 is authorized **server-side** through this
+- [x] **Every trip-scoped request** in Milestones 03–07 is authorized **server-side** through this
       interface before reading/writing; it **drop-in replaces** Milestone 03's owner-only shim
       (PRD §5.9, §7.0).
-- [ ] **Unauthorized** access yields **`403`/`404`** (not data); **no endpoint relies on client-side
+- [x] **Unauthorized** access yields **`403`/`404`** (not data); **no endpoint relies on client-side
       checks** (PRD §5.9, §6).
-- [ ] **Revocation takes effect immediately** — a revoked member loses visibility/edit ability on the
+- [x] **Revocation takes effect immediately** — a revoked member loses visibility/edit ability on the
       next request (PRD §5.9).
-- [ ] Unit + integration tests cover role enforcement **across modules** (Owner/Editor/Viewer/
+- [x] Unit + integration tests cover role enforcement **across modules** (Owner/Editor/Viewer/
       non-member) — authorization is safety-critical and gets thorough coverage (PRD §7.6, §7.7).
 
 ## Implementation Details / Architecture

@@ -9,13 +9,13 @@ server-side through the single `Authorizer` (PRD §5.9). Milestones 05–07 alre
 Ensure Budget, Journal, and Geo trip-scoped endpoints authorize through the `Authorizer`.
 
 ## Acceptance criteria
-- [ ] Budget (Milestone 05), Journal (Milestone 06), and Geo (Milestone 07) trip-scoped endpoints call the
+- [x] Budget (Milestone 05), Journal (Milestone 06), and Geo (Milestone 07) trip-scoped endpoints call the
   single `Authorizer` before reading/writing.
-- [ ] Each module depends on the **`Authorizer` interface**, not on querying memberships directly (PRD
+- [x] Each module depends on the **`Authorizer` interface**, not on querying memberships directly (PRD
   §7.1).
-- [ ] An audit/checklist confirms **no trip-scoped endpoint** bypasses the `Authorizer` (input to
+- [x] An audit/checklist confirms **no trip-scoped endpoint** bypasses the `Authorizer` (input to
   Milestone 10's security review).
-- [ ] A test per module confirms an unauthorized user is denied (403/404).
+- [x] A test per module confirms an unauthorized user is denied (403/404).
 
 ## Constraints
 - Modules consume the interface only — the chokepoint stays auditable (PRD §7.1).

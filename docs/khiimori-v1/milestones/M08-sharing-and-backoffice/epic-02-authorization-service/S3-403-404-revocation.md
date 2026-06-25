@@ -8,12 +8,12 @@ Unauthorized access yields **`403`/`404`** (not data), no endpoint relies on cli
 Ensure consistent 403/404 behaviour and immediate effect of revocation.
 
 ## Acceptance criteria
-- [ ] Unauthorized trip-scoped requests return **`403`/`404`** (not data), per the documented rule (avoid
+- [x] Unauthorized trip-scoped requests return **`403`/`404`** (not data), per the documented rule (avoid
   leaking existence where appropriate).
-- [ ] After a membership is **revoked** (Epic 01 / Epic 03), the next request from that user is denied —
+- [x] After a membership is **revoked** (Epic 01 / Epic 03), the next request from that user is denied —
   no stale-cache window that grants access.
-- [ ] A **role downgrade** (e.g. Editor → Viewer) takes effect on the next request (writes denied).
-- [ ] A unit/integration test covers revoke-then-denied and downgrade-then-readonly.
+- [x] A **role downgrade** (e.g. Editor → Viewer) takes effect on the next request (writes denied).
+- [x] A unit/integration test covers revoke-then-denied and downgrade-then-readonly.
 
 ## Constraints
 - The `Authorizer` reads current membership state per request (no long-lived authz cache that defeats

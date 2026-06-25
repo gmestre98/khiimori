@@ -8,13 +8,13 @@ with no caller changes (PRD §7.0). This is the mechanical swap the seam was des
 Wire the membership `Authorizer` as the implementation used everywhere the shim was.
 
 ## Acceptance criteria
-- [ ] The composition/wiring provides the membership `Authorizer` (S1) wherever the owner-only shim was
+- [x] The composition/wiring provides the membership `Authorizer` (S1) wherever the owner-only shim was
   injected.
-- [ ] Trip endpoints (Milestone 03) and any other current consumers now use the real `Authorizer` with **no
+- [x] Trip endpoints (Milestone 03) and any other current consumers now use the real `Authorizer` with **no
   caller code changes**.
-- [ ] Milestone 03's authorization tests (owner allowed / non-owner denied) **still pass** unchanged
+- [x] Milestone 03's authorization tests (owner allowed / non-owner denied) **still pass** unchanged
   (behaviour-level).
-- [ ] Editor/Viewer behaviours now resolve correctly where previously only owner was allowed.
+- [x] Editor/Viewer behaviours now resolve correctly where previously only owner was allowed.
 
 ## Constraints
 - No interface/signature changes — only the injected implementation changes (PRD §7.0).
