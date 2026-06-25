@@ -165,4 +165,3 @@ func TestEditorSeesSharedTrip(t *testing.T) {
 		t.Errorf("editor listing: got %v, want [%s]", trips, trip.ID)
 	}
 }
-
