@@ -20,6 +20,9 @@ type Module struct {
 	emailSender EmailSender
 	// requireAuth is the auth middleware injected by the composition root.
 	requireAuth httpx.Middleware
+	// requireAdmin is the admin middleware injected by the composition root.
+	// When set, admin trip-membership endpoints are mounted.
+	requireAdmin httpx.Middleware
 	// webAppURL is the base URL for the accept link in invitation emails.
 	webAppURL string
 	// tripNames and inviterNames resolve display names for the invite email;
@@ -35,9 +38,11 @@ type Module struct {
 
 // Options groups optional fields for New.
 type Options struct {
-	Authz        invitationAuthorizer
-	EmailSender  EmailSender
-	RequireAuth  httpx.Middleware
+	Authz       invitationAuthorizer
+	EmailSender EmailSender
+	RequireAuth httpx.Middleware
+	// RequireAdmin gates the admin trip-membership endpoints.
+	RequireAdmin httpx.Middleware
 	WebAppURL    string
 	TripNames    tripNameReader
 	InviterNames inviterNameReader
@@ -54,6 +59,7 @@ func New(pool *pgxpool.Pool, opts Options) *Module {
 		authz:        opts.Authz,
 		emailSender:  opts.EmailSender,
 		requireAuth:  opts.RequireAuth,
+		requireAdmin: opts.RequireAdmin,
 		webAppURL:    opts.WebAppURL,
 		tripNames:    opts.TripNames,
 		inviterNames: opts.InviterNames,
@@ -80,6 +86,11 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 		mux.Handle("POST "+AcceptInvitePath, m.requireAuth(http.HandlerFunc(m.handleAcceptInvitation)))
 		mux.Handle("PATCH "+MembershipPath, m.requireAuth(http.HandlerFunc(m.handleChangeRole)))
 		mux.Handle("DELETE "+MembershipPath, m.requireAuth(http.HandlerFunc(m.handleRevokeMembership)))
+	}
+	if m.requireAdmin != nil {
+		mux.Handle("POST "+AdminTripMembersPath, m.requireAdmin(http.HandlerFunc(m.handleAdminGrantAccess)))
+		mux.Handle("PATCH "+AdminTripMemberPath, m.requireAdmin(http.HandlerFunc(m.handleAdminChangeRole)))
+		mux.Handle("DELETE "+AdminTripMemberPath, m.requireAdmin(http.HandlerFunc(m.handleAdminRevokeAccess)))
 	}
 }
 

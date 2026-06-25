@@ -218,6 +218,7 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 			Authz:        tripAuthz,
 			EmailSender:  sharing.NewResendSender(cfg.ResendAPIKey, "Khiimori <noreply@mail.khiimori.app>"),
 			RequireAuth:  authModule.RequireAuth,
+			RequireAdmin: authModule.RequireAdmin,
 			WebAppURL:    cfg.WebAppURL,
 			TripNames:    &pgxTripNameReader{pool: pool},
 			InviterNames: &pgxUserNameReader{pool: pool},
