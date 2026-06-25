@@ -863,10 +863,7 @@ export interface SharingData {
 
 // fetchSharingData loads the members and invitations for a trip. Throws
 // UnauthorizedError on 401; non-owners get an empty invitations array (403).
-export async function fetchSharingData(
-  tripId: string,
-  signal?: AbortSignal,
-): Promise<SharingData> {
+export async function fetchSharingData(tripId: string, signal?: AbortSignal): Promise<SharingData> {
   const [membersRes, invitationsRes] = await Promise.all([
     apiFetch(`/trips/${tripId}/memberships`, { signal }),
     apiFetch(`/trips/${tripId}/invitations`, { signal }),

@@ -122,7 +122,9 @@ beforeEach(() => {
 describe('TripSharingPage', () => {
   it('shows the Sharing heading', async () => {
     renderPage()
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Sharing' })).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Sharing' })).toBeInTheDocument(),
+    )
   })
 
   it('lists current members', async () => {
