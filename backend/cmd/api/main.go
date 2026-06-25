@@ -215,7 +215,7 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 		budget.New(pool, authModule.RequireAuth, tripOwnerAuthzAdapter{tripAuthz}, tripCostReaderAdapter{pool: pool}),
 		journal.New(pool, authModule.RequireAuth, tripOwnerJournalAuthzAdapter{tripAuthz}, mediaStore),
 		sharing.New(),
-		geo.New(),
+		geo.New(buildGeoProvider(cfg.MapsAPIKey), authModule.RequireAuth),
 	}
 	for _, m := range modules {
 		m.RegisterRoutes(mux)
@@ -352,4 +352,22 @@ func debugTriggerError(w http.ResponseWriter, r *http.Request) {
 		"debug_error_trigger",
 		"deliberate error for alert verification (M01.7 S5)",
 	))
+}
+
+// buildGeoProvider constructs the server-side MapProvider from the Maps API key.
+// Returns nil when the key is empty — the geo module handles the nil case by
+// returning 503 on proxy requests, so the service boots without a key (optional
+// at startup per config.MapsAPIKey).
+func buildGeoProvider(mapsAPIKey string) geo.MapProvider {
+	if mapsAPIKey == "" {
+		return nil
+	}
+	p, err := geo.NewGoogleProvider(mapsAPIKey)
+	if err != nil {
+		// Key was non-empty but invalid (should not happen in practice since
+		// NewGoogleProvider only rejects empty keys). Return nil to keep the
+		// service alive; the geo endpoints will 503 until the key is fixed.
+		return nil
+	}
+	return p
 }

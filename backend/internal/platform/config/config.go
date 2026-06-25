@@ -130,6 +130,13 @@ type Config struct {
 	// injects the bucket name as an env var (MEDIA_BUCKET_NAME). Set via the
 	// MEDIA_BUCKET_NAME env var.
 	MediaBucketName string
+
+	// MapsAPIKey is the server-side restricted Google Maps API key used by the
+	// geo proxy (M07.1 S3). It lives only in Secret Manager and is injected as a
+	// Cloud Run env var — it is never shipped to browser clients. Optional at
+	// startup; the geo proxy endpoints fail at call time when unset. Set via the
+	// MAPS_API_KEY env var.
+	MapsAPIKey string
 }
 
 // Load reads configuration from the environment and returns an error if any
@@ -248,6 +255,10 @@ func Load() (Config, error) {
 	// Optional: Cloud Storage bucket for journal photos. The service boots
 	// without it; photo endpoints fail at call time when unset.
 	cfg.MediaBucketName = strings.TrimSpace(os.Getenv("MEDIA_BUCKET_NAME"))
+
+	// Optional: server-side restricted Maps API key for the geo proxy. The
+	// service boots without it; geo proxy endpoints fail at call time when unset.
+	cfg.MapsAPIKey = strings.TrimSpace(os.Getenv("MAPS_API_KEY"))
 
 	return cfg, nil
 }
