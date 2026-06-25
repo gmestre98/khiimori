@@ -36,7 +36,7 @@ export function UsageBar({ tripId, refreshKey = 0 }: UsageBarProps) {
 
   return (
     <div
-      className={`usage-bar-wrap${nearCap ? ' usage-bar-wrap--warn' : ''}${atCap ? ' usage-bar-wrap--cap' : ''}`}
+      className={`usage-bar-wrap${atCap ? ' usage-bar-wrap--cap' : nearCap ? ' usage-bar-wrap--warn' : ''}`}
       aria-label={`Photo storage: ${formatBytes(usage.used_bytes)} of ${formatBytes(usage.cap_bytes)} used`}
     >
       <div className="usage-bar-label">
@@ -67,7 +67,7 @@ export function UsageBar({ tripId, refreshKey = 0 }: UsageBarProps) {
         aria-valuemax={100}
       >
         <div
-          className={`usage-bar-fill${nearCap ? ' usage-bar-fill--warn' : ''}${atCap ? ' usage-bar-fill--cap' : ''}`}
+          className={`usage-bar-fill${atCap ? ' usage-bar-fill--cap' : nearCap ? ' usage-bar-fill--warn' : ''}`}
           style={{ width: `${pct}%` }}
         />
       </div>
