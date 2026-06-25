@@ -1,0 +1,219 @@
+/*
+ * Design tokens — M09.1 (design system foundation).
+ *
+ * Structure:
+ *   1. Primitive color scale  — raw values, not used directly in components
+ *   2. Semantic color tokens  — meaningful names that components consume
+ *   3. Accent tokens          — single configurable accent (status/budget/pins only)
+ *   4. Typography tokens      — font families and size scale
+ *   5. Spacing tokens         — size scale (4-px base grid)
+ *   6. Border-radius tokens
+ *   7. Shadow tokens
+ *
+ * Re-skinning: edit the primitive scale + semantic mappings below.
+ * The accent colour is intentionally a single token — apply only to:
+ *   • status badges / indicators
+ *   • budget bars (progress fills)
+ *   • map pins
+ * See docs/khiimori-v1/milestones/M09-design-system-and-mobile-pwa/epic-01-design-tokens-theming/
+ */
+
+/* ── 1. Primitive color scale ──────────────────────────────────────────────── */
+:root {
+  --color-black: #0a0a0a;
+  --color-gray-950: #111111;
+  --color-gray-900: #1a1a1a;
+  --color-gray-800: #2d2d2d;
+  --color-gray-700: #404040;
+  --color-gray-600: #525252;
+  --color-gray-500: #737373;
+  --color-gray-400: #a3a3a3;
+  --color-gray-300: #d4d4d4;
+  --color-gray-200: #e5e5e5;
+  --color-gray-150: #ededed;
+  --color-gray-100: #f5f5f5;
+  --color-gray-50: #fafafa;
+  --color-white: #ffffff;
+
+  /* Status primitives — fixed regardless of theme */
+  --color-success: #16a34a;
+  --color-success-bg: #f0fdf4;
+  --color-warning: #b45309;
+  --color-warning-bg: #fffbeb;
+  --color-error: #dc2626;
+  --color-error-bg: #fef2f2;
+  --color-error-border: #fecaca;
+  /* Rating (star) indicator — amber, fixed across themes */
+  --color-rating: #f59e0b;
+}
+
+/* ── 2. Semantic color tokens (light mode) ─────────────────────────────────── */
+:root {
+  --bg: var(--color-white);
+  --bg-muted: var(--color-gray-50);
+  --surface: var(--color-white);
+  --surface-muted: var(--color-gray-100);
+  --surface-hover: var(--color-gray-150);
+  --text-h: var(--color-black);
+  --text: var(--color-gray-600);
+  --text-secondary: var(--color-gray-500);
+  --muted: var(--color-gray-500);
+  --text-muted: var(--color-gray-400);
+  --border: var(--color-gray-200);
+  --border-faint: var(--color-gray-100);
+
+  /* Status semantics */
+  --success: var(--color-success);
+  --warning: var(--color-warning);
+  --danger: var(--color-error);
+  --error: var(--color-error);
+}
+
+/* Dark mode semantic overrides */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: var(--color-gray-950);
+    --bg-muted: var(--color-gray-900);
+    --surface: var(--color-gray-900);
+    --surface-muted: var(--color-gray-800);
+    --surface-hover: var(--color-gray-700);
+    --text-h: var(--color-white);
+    --text: var(--color-gray-400);
+    --text-secondary: var(--color-gray-500);
+    --muted: var(--color-gray-500);
+    --text-muted: var(--color-gray-600);
+    --border: var(--color-gray-800);
+    --border-faint: var(--color-gray-900);
+  }
+}
+
+/* Explicit light/dark overrides (from user preference, applied by ThemeProvider) */
+[data-theme='light'] {
+  --bg: var(--color-white);
+  --bg-muted: var(--color-gray-50);
+  --surface: var(--color-white);
+  --surface-muted: var(--color-gray-100);
+  --surface-hover: var(--color-gray-150);
+  --text-h: var(--color-black);
+  --text: var(--color-gray-600);
+  --text-secondary: var(--color-gray-500);
+  --muted: var(--color-gray-500);
+  --text-muted: var(--color-gray-400);
+  --border: var(--color-gray-200);
+  --border-faint: var(--color-gray-100);
+}
+
+[data-theme='dark'] {
+  --bg: var(--color-gray-950);
+  --bg-muted: var(--color-gray-900);
+  --surface: var(--color-gray-900);
+  --surface-muted: var(--color-gray-800);
+  --surface-hover: var(--color-gray-700);
+  --text-h: var(--color-white);
+  --text: var(--color-gray-400);
+  --text-secondary: var(--color-gray-500);
+  --muted: var(--color-gray-500);
+  --text-muted: var(--color-gray-600);
+  --border: var(--color-gray-800);
+  --border-faint: var(--color-gray-900);
+}
+
+/* ── 3. Accent tokens — SINGLE accent, used only for status/budget/pins ────── */
+/*
+ * The accent is intentionally minimal. Feature code must not add accent usage
+ * outside the three sanctioned cases. Utility classes .accent-text / .accent-bg
+ * make sanctioned usage the easy path; raw hex use elsewhere is a red flag.
+ */
+:root {
+  /* Accent primitive — edit this one value to re-skin the whole accent system */
+  --color-accent-base: #1a1a1a; /* near-black; switch to e.g. #2563eb for a colour accent */
+
+  --accent: var(--color-accent-base);
+  --accent-bg: color-mix(in srgb, var(--color-accent-base) 8%, transparent);
+  --accent-border: color-mix(in srgb, var(--color-accent-base) 30%, transparent);
+  --accent-hover: color-mix(in srgb, var(--color-accent-base) 6%, transparent);
+  --accent-subtle: color-mix(in srgb, var(--color-accent-base) 5%, var(--bg));
+
+  /* Accent text on a dark/accent background */
+  --accent-on: var(--color-white);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-accent-base: #e5e5e5; /* near-white accent on dark backgrounds */
+    --accent-on: var(--color-black);
+  }
+}
+
+[data-theme='light'] {
+  --color-accent-base: #1a1a1a;
+  --accent-on: var(--color-white);
+}
+
+[data-theme='dark'] {
+  --color-accent-base: #e5e5e5;
+  --accent-on: var(--color-black);
+}
+
+/* ── 4. Typography tokens ──────────────────────────────────────────────────── */
+:root {
+  --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, Consolas, monospace;
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-4xl: 36px;
+  --text-6xl: 56px;
+
+  --leading-tight: 118%;
+  --leading-normal: 145%;
+
+  --tracking-tight: -0.04em;
+  --tracking-wide: 0.05em;
+  --tracking-wider: 0.08em;
+}
+
+/* ── 5. Spacing tokens (4-px base grid) ───────────────────────────────────── */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+}
+
+/* ── 6. Border-radius tokens ───────────────────────────────────────────────── */
+:root {
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+}
+
+/* ── 7. Shadow tokens ──────────────────────────────────────────────────────── */
+:root {
+  --shadow-sm: rgba(0, 0, 0, 0.06) 0 1px 3px;
+  --shadow-md: rgba(0, 0, 0, 0.1) 0 4px 12px;
+  --shadow-lg: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --shadow-sm: rgba(0, 0, 0, 0.25) 0 1px 3px;
+    --shadow-md: rgba(0, 0, 0, 0.4) 0 4px 12px;
+    --shadow-lg: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+  }
+}
