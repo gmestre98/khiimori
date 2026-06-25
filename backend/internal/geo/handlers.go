@@ -12,7 +12,7 @@ import (
 // The Maps API key is never included in the response — only the resolved LatLng
 // is returned to the client.
 func (m *Module) handleGeocode(w http.ResponseWriter, r *http.Request) {
-	if m.provider == nil {
+	if m.geocoder == nil {
 		http.Error(w, "geo proxy not configured", http.StatusServiceUnavailable)
 		return
 	}
@@ -23,7 +23,7 @@ func (m *Module) handleGeocode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	coords, err := m.provider.Geocode(r.Context(), location)
+	coords, err := m.geocoder.Geocode(r.Context(), location)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, "location not found", http.StatusNotFound)

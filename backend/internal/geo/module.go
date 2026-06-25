@@ -10,15 +10,25 @@ import (
 // so cmd/api can mount the module's routes without reaching into its internals.
 type Module struct {
 	provider    MapProvider
+	geocoder    Geocoder // may be a caching wrapper around provider (Epic 02 S2)
 	requireAuth httpx.Middleware
 }
 
 // New constructs the geo module. provider is the server-side map proxy; it must
 // be non-nil for the geocode and route-hints endpoints to function (they return
 // 503 when it is nil). requireAuth gates all geo endpoints behind authentication.
-func New(provider MapProvider, requireAuth httpx.Middleware) *Module {
+//
+// geocoder, when non-nil, is used for geocoding instead of provider directly —
+// this allows a caching layer (Epic 02 S2) to be injected without changing the
+// handler. When nil, provider is used as the geocoder.
+func New(provider MapProvider, geocoder Geocoder, requireAuth httpx.Middleware) *Module {
+	gc := geocoder
+	if gc == nil {
+		gc = provider
+	}
 	return &Module{
 		provider:    provider,
+		geocoder:    gc,
 		requireAuth: requireAuth,
 	}
 }

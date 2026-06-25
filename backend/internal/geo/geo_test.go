@@ -12,7 +12,7 @@ func noopMiddleware(next http.Handler) http.Handler { return next }
 
 func TestNewReturnsModule(t *testing.T) {
 	t.Parallel()
-	m := New(nil, noopMiddleware)
+	m := New(nil, nil, noopMiddleware)
 	if m == nil {
 		t.Fatal("New() returned nil")
 	}
@@ -25,7 +25,7 @@ func TestModuleImplementsRouteRegistrar(t *testing.T) {
 
 func TestRegisterRoutesMountsRoutes(t *testing.T) {
 	t.Parallel()
-	m := New(nil, noopMiddleware)
+	m := New(nil, nil, noopMiddleware)
 	mux := http.NewServeMux()
 	m.RegisterRoutes(mux)
 }

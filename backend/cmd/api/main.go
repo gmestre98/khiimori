@@ -215,7 +215,7 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 		budget.New(pool, authModule.RequireAuth, tripOwnerAuthzAdapter{tripAuthz}, tripCostReaderAdapter{pool: pool}),
 		journal.New(pool, authModule.RequireAuth, tripOwnerJournalAuthzAdapter{tripAuthz}, mediaStore),
 		sharing.New(),
-		geo.New(buildGeoProvider(cfg.MapsAPIKey), authModule.RequireAuth),
+		geo.New(buildGeoProvider(cfg.MapsAPIKey), nil, authModule.RequireAuth),
 	}
 	for _, m := range modules {
 		m.RegisterRoutes(mux)

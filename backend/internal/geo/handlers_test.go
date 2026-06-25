@@ -11,7 +11,7 @@ import (
 
 func TestHandleGeocodeNoProvider(t *testing.T) {
 	t.Parallel()
-	m := New(nil, noopMiddleware)
+	m := New(nil, nil, noopMiddleware)
 	req := httptest.NewRequest(http.MethodGet, "/geo/geocode?location=Paris", nil)
 	w := httptest.NewRecorder()
 	m.handleGeocode(w, req)
@@ -22,7 +22,7 @@ func TestHandleGeocodeNoProvider(t *testing.T) {
 
 func TestHandleGeocodeMissingLocation(t *testing.T) {
 	t.Parallel()
-	m := New(&fakeMapProvider{}, noopMiddleware)
+	m := New(&fakeMapProvider{}, nil, noopMiddleware)
 	req := httptest.NewRequest(http.MethodGet, "/geo/geocode", nil)
 	w := httptest.NewRecorder()
 	m.handleGeocode(w, req)
@@ -34,7 +34,7 @@ func TestHandleGeocodeMissingLocation(t *testing.T) {
 func TestHandleGeocodeNotFound(t *testing.T) {
 	t.Parallel()
 	p := &fakeMapProvider{fakeGeocoder: fakeGeocoder{err: ErrNotFound}}
-	m := New(p, noopMiddleware)
+	m := New(p, nil, noopMiddleware)
 	req := httptest.NewRequest(http.MethodGet, "/geo/geocode?location=nowhere", nil)
 	w := httptest.NewRecorder()
 	m.handleGeocode(w, req)
@@ -46,7 +46,7 @@ func TestHandleGeocodeNotFound(t *testing.T) {
 func TestHandleGeocodeSuccess(t *testing.T) {
 	t.Parallel()
 	p := &fakeMapProvider{fakeGeocoder: fakeGeocoder{result: LatLng{Lat: 48.8566, Lng: 2.3522}}}
-	m := New(p, noopMiddleware)
+	m := New(p, nil, noopMiddleware)
 	req := httptest.NewRequest(http.MethodGet, "/geo/geocode?location=Paris", nil)
 	w := httptest.NewRecorder()
 	m.handleGeocode(w, req)
@@ -59,9 +59,29 @@ func TestHandleGeocodeSuccess(t *testing.T) {
 	}
 }
 
+// TestHandleGeocodeUsesInjectedGeocoder verifies that the module calls the
+// injected Geocoder (not the MapProvider) so a caching layer can slot in.
+func TestHandleGeocodeUsesInjectedGeocoder(t *testing.T) {
+	t.Parallel()
+	// Provider returns wrong result; injected geocoder returns the right one.
+	wrong := &fakeMapProvider{fakeGeocoder: fakeGeocoder{result: LatLng{Lat: 0, Lng: 0}}}
+	right := &fakeGeocoder{result: LatLng{Lat: 51.5074, Lng: -0.1278}}
+	m := New(wrong, right, noopMiddleware)
+	req := httptest.NewRequest(http.MethodGet, "/geo/geocode?location=London", nil)
+	w := httptest.NewRecorder()
+	m.handleGeocode(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "51.5074") {
+		t.Errorf("expected injected geocoder result in body, got: %s", body)
+	}
+}
+
 func TestHandleRouteHintsNoProvider(t *testing.T) {
 	t.Parallel()
-	m := New(nil, noopMiddleware)
+	m := New(nil, nil, noopMiddleware)
 	req := httptest.NewRequest(http.MethodPost, "/geo/route-hints",
 		strings.NewReader(`{"waypoints":[]}`))
 	w := httptest.NewRecorder()
@@ -73,7 +93,7 @@ func TestHandleRouteHintsNoProvider(t *testing.T) {
 
 func TestHandleRouteHintsSuccess(t *testing.T) {
 	t.Parallel()
-	m := New(&fakeMapProvider{}, noopMiddleware)
+	m := New(&fakeMapProvider{}, nil, noopMiddleware)
 	body := `{"waypoints":[{"lat":1,"lng":2},{"lat":3,"lng":4}]}`
 	req := httptest.NewRequest(http.MethodPost, "/geo/route-hints", strings.NewReader(body))
 	w := httptest.NewRecorder()
@@ -89,7 +109,7 @@ func TestHandleRouteHintsSuccess(t *testing.T) {
 
 func TestHandleStaticMapNoProvider(t *testing.T) {
 	t.Parallel()
-	m := New(nil, noopMiddleware)
+	m := New(nil, nil, noopMiddleware)
 	req := httptest.NewRequest(http.MethodGet, "/geo/static-map", nil)
 	w := httptest.NewRecorder()
 	m.handleStaticMap(w, req)
@@ -100,7 +120,7 @@ func TestHandleStaticMapNoProvider(t *testing.T) {
 
 func TestHandleStaticMapSuccess(t *testing.T) {
 	t.Parallel()
-	m := New(&fakeMapProvider{}, noopMiddleware)
+	m := New(&fakeMapProvider{}, nil, noopMiddleware)
 	req := httptest.NewRequest(http.MethodGet,
 		"/geo/static-map?size=600x300&markers=48.8566,2.3522", nil)
 	w := httptest.NewRecorder()
