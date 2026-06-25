@@ -195,10 +195,7 @@ export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditor
       />
 
       {!readOnly && saveStatus !== 'idle' && (
-        <p
-          className={`journal-save-status journal-save-status--${saveStatus}`}
-          aria-live="polite"
-        >
+        <p className={`journal-save-status journal-save-status--${saveStatus}`} aria-live="polite">
           {saveStatus === 'saving' && 'Saving…'}
           {saveStatus === 'saved' && 'Saved'}
           {saveStatus === 'error' && (
@@ -216,9 +213,7 @@ export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditor
         </p>
       )}
 
-      {readOnly && !entry && (
-        <p className="journal-empty">No journal entry for this day.</p>
-      )}
+      {readOnly && !entry && <p className="journal-empty">No journal entry for this day.</p>}
     </div>
   )
 }
