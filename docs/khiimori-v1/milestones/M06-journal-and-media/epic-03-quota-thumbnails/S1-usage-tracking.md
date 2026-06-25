@@ -8,12 +8,12 @@ that the cap check (S2) and the warn UI (S4) rely on (PRD §5.5, §11.4).
 Implement per-trip photo usage accounting.
 
 ## Acceptance criteria
-- [ ] Stored photo byte sizes are tracked per trip (e.g. a size column on `Photo` and/or a per-trip
+- [x] Stored photo byte sizes are tracked per trip (e.g. a size column on `Photo` and/or a per-trip
   aggregate), updated on add.
-- [ ] A usage value per trip is computable/readable (total bytes used vs. the 1 GB cap).
-- [ ] Usage accounting accounts for **all variants** that count toward the cap (decide and document
+- [x] A usage value per trip is computable/readable (total bytes used vs. the 1 GB cap).
+- [x] Usage accounting accounts for **all variants** that count toward the cap (decide and document
   whether thumbnails count — originals always do).
-- [ ] A unit test covers usage incrementing on add.
+- [x] A unit test covers usage incrementing on add.
 
 ## Constraints
 - Accounting must be reliable enough to enforce a hard cap server-side (S2) — not an estimate that can

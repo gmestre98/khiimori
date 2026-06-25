@@ -1,5 +1,7 @@
 # Epic M06.3 — Storage quota (1 GB/trip) & server-side thumbnails
 
+> **Status:** ✅ Done — PRs [#303](https://github.com/gmestre98/khiimori/pull/303) [#304](https://github.com/gmestre98/khiimori/pull/304) [#305](https://github.com/gmestre98/khiimori/pull/305) [#306](https://github.com/gmestre98/khiimori/pull/306) [#307](https://github.com/gmestre98/khiimori/pull/307) · 5/5 ACs · Per-trip 1 GB cap enforced server-side, usage exposed via GET endpoint, thumbnails generated inline on upload, full integration test coverage.
+
 > Milestone: [06 — Journal & Media](../README.md) · PRD refs: §5.5, §8.1, §8.4, §8.6, §11.4.
 
 ## Description
@@ -14,15 +16,15 @@ mitigations: a predictable cap and reduced egress.
 
 ## Acceptance Criteria
 
-- [ ] **Per-trip photo usage is tracked**, and the **1 GB cap is enforced server-side before
+- [x] **Per-trip photo usage is tracked**, and the **1 GB cap is enforced server-side before
       persisting**: uploads beyond the cap are **rejected with a clear message** (PRD §5.5, §11.4).
-- [ ] A **usage figure per trip** is exposed for the UI to display and **warn as the cap approaches**
+- [x] A **usage figure per trip** is exposed for the UI to display and **warn as the cap approaches**
       (PRD §5.5).
-- [ ] **Server-side resized/thumbnail variants** are generated on upload so list/grid views serve
+- [x] **Server-side resized/thumbnail variants** are generated on upload so list/grid views serve
       light versions, mitigating photo egress (PRD §5.5, §8.4 #3).
-- [ ] Thumbnailing is done **inline** unless a measured need for async appears (no Pub/Sub until
+- [x] Thumbnailing is done **inline** unless a measured need for async appears (no Pub/Sub until
       justified, PRD §7.0, §7.8).
-- [ ] Unit + integration tests cover cap enforcement (under/at/over), usage accounting on
+- [x] Unit + integration tests cover cap enforcement (under/at/over), usage accounting on
       add/delete, and thumbnail generation (PRD §7.6).
 
 ## Implementation Details / Architecture

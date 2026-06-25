@@ -8,11 +8,11 @@ The UI **shows per-trip usage and warns as the cap approaches** (PRD §5.5), and
 Expose per-trip usage for the UI and decrement usage on photo deletion.
 
 ## Acceptance criteria
-- [ ] An endpoint exposes **per-trip usage** (used bytes / cap, and a near-cap indication) for the UI
+- [x] An endpoint exposes **per-trip usage** (used bytes / cap, and a near-cap indication) for the UI
   (Epic 04) to display and warn.
-- [ ] Deleting a photo removes its object(s) via `MediaStore` and **decrements** the trip's usage.
-- [ ] Usage stays accurate across add/delete cycles (no drift).
-- [ ] A unit test covers delete decrementing usage and the exposed usage value.
+- [x] Deleting a photo removes its object(s) via `MediaStore` and **decrements** the trip's usage.
+- [x] Usage stays accurate across add/delete cycles (no drift).
+- [x] A unit test covers delete decrementing usage and the exposed usage value.
 
 ## Constraints
 - Deletion removes the original and any variants and adjusts usage atomically with the row delete.
