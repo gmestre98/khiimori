@@ -1,5 +1,7 @@
 # Epic M08.5 — Admin backoffice
 
+> **Status:** ✅ Done — all 4 ACs complete across 4 stories (PRs [#355](https://github.com/gmestre98/khiimori/pull/355), [#356](https://github.com/gmestre98/khiimori/pull/356), [#357](https://github.com/gmestre98/khiimori/pull/357), [#358](https://github.com/gmestre98/khiimori/pull/358)). Admin gating (server-side `is_admin`), list users/trips, grant/revoke/change-role, deactivate user, and integration tests all merged to main.
+
 > Milestone: [08 — Sharing & Backoffice](../README.md) · PRD refs: §5.9, §6, §7.2.
 
 ## Description
@@ -13,13 +15,13 @@ a distinct route/area, server-side enforced, not a public self-serve admin produ
 
 ## Acceptance Criteria
 
-- [ ] An **`is_admin` user** (from Milestone 02) can access a **separate, minimal backoffice**; the
+- [x] An **`is_admin` user** (from Milestone 02) can access a **separate, minimal backoffice**; the
       gate is enforced **server-side** (PRD §5.9).
-- [ ] The admin can **list users** and **list trips**, **grant/revoke trip access and change roles**
+- [x] The admin can **list users** and **list trips**, **grant/revoke trip access and change roles**
       (via Epics 01–02), and **deactivate users** (PRD §5.9).
-- [ ] **Non-admins cannot reach the backoffice** — both the route and its endpoints reject
+- [x] **Non-admins cannot reach the backoffice** — both the route and its endpoints reject
       non-admins server-side (PRD §5.9, §6).
-- [ ] Unit + integration tests cover admin access control (admin allowed, non-admin denied) and the
+- [x] Unit + integration tests cover admin access control (admin allowed, non-admin denied) and the
       grant/revoke/deactivate operations (PRD §7.6).
 
 ## Implementation Details / Architecture

@@ -8,12 +8,12 @@ deactivate operations (PRD §7.6). Admin gating is safety-relevant.
 Add tests for admin gating and the admin operations.
 
 ## Acceptance criteria
-- [ ] Tests assert **non-admins cannot reach the backoffice** — both the route and its endpoints reject
+- [x] Tests assert **non-admins cannot reach the backoffice** — both the route and its endpoints reject
   non-admins server-side (`403`).
-- [ ] Tests assert an `is_admin` user **can** reach the backoffice and perform the reads/actions.
-- [ ] Integration tests cover **grant/revoke**, **change role**, and **deactivate user** (including that a
+- [x] Tests assert an `is_admin` user **can** reach the backoffice and perform the reads/actions.
+- [x] Integration tests cover **grant/revoke**, **change role**, and **deactivate user** (including that a
   deactivated user is blocked from auth).
-- [ ] Tests run against the real gating + membership/auth implementations (M01.3 harness, Milestone 02
+- [x] Tests run against the real gating + membership/auth implementations (M01.3 harness, Milestone 02
   sessions).
 
 ## Constraints
