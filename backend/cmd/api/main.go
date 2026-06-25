@@ -208,12 +208,12 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 	// boundary. The sharing membership writer is handed to trip the same way, so
 	// trip writes the Owner membership transactionally without importing sharing.
 	authModule := auth.New(cfg, pool)
-	tripAuthz := trip.NewOwnerOnlyAuthorizer(pool)
+	tripAuthz := sharing.NewMembershipAuthorizer(pool)
 	modules := []httpx.RouteRegistrar{
 		authModule,
-		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships(pool), tripAuthz),
-		budget.New(pool, authModule.RequireAuth, tripOwnerAuthzAdapter{tripAuthz}, tripCostReaderAdapter{pool: pool}),
-		journal.New(pool, authModule.RequireAuth, tripOwnerJournalAuthzAdapter{tripAuthz}, mediaStore),
+		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships(pool), membershipAuthzAdapter{tripAuthz}),
+		budget.New(pool, authModule.RequireAuth, membershipBudgetAuthzAdapter{tripAuthz}, tripCostReaderAdapter{pool: pool}),
+		journal.New(pool, authModule.RequireAuth, membershipJournalAuthzAdapter{tripAuthz}, mediaStore),
 		sharing.New(pool),
 		func() httpx.RouteRegistrar {
 			geoProvider := buildGeoProvider(cfg.MapsAPIKey)
@@ -235,25 +235,39 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 	return mux
 }
 
-// tripOwnerJournalAuthzAdapter adapts *trip.OwnerOnlyAuthorizer to journal.Authorizer.
-type tripOwnerJournalAuthzAdapter struct {
-	inner *trip.OwnerOnlyAuthorizer
+// membershipAuthzAdapter adapts *sharing.MembershipAuthorizer to trip.Authorizer.
+// It translates trip.Action to the string action the MembershipAuthorizer expects.
+type membershipAuthzAdapter struct {
+	inner *sharing.MembershipAuthorizer
 }
 
-func (a tripOwnerJournalAuthzAdapter) CanAccess(ctx context.Context, userID, tripID string) (bool, error) {
-	return a.inner.Can(ctx, userID, trip.ActionRead, tripID)
+func (a membershipAuthzAdapter) Can(ctx context.Context, userID string, action trip.Action, tripID string) (bool, error) {
+	return a.inner.Can(ctx, userID, string(action), tripID)
 }
 
-// tripOwnerAuthzAdapter adapts *trip.OwnerOnlyAuthorizer to budget.Authorizer.
+// membershipJournalAuthzAdapter adapts *sharing.MembershipAuthorizer to journal.Authorizer.
+// The journal Authorizer has a single CanAccess method covering both reads and
+// writes, so we gate on "write" (Owner/Editor) to avoid granting Viewers write
+// access. Viewer read access can be separated once the journal.Authorizer
+// interface is split in S4.
+type membershipJournalAuthzAdapter struct {
+	inner *sharing.MembershipAuthorizer
+}
+
+func (a membershipJournalAuthzAdapter) CanAccess(ctx context.Context, userID, tripID string) (bool, error) {
+	return a.inner.Can(ctx, userID, string(trip.ActionWrite), tripID)
+}
+
+// membershipBudgetAuthzAdapter adapts *sharing.MembershipAuthorizer to budget.Authorizer.
 // The budget module declares its own Authorizer interface (consumer-side) so it
 // never imports the trip module — this adapter lives in the composition root
 // where both modules are visible.
-type tripOwnerAuthzAdapter struct {
-	inner *trip.OwnerOnlyAuthorizer
+type membershipBudgetAuthzAdapter struct {
+	inner *sharing.MembershipAuthorizer
 }
 
-func (a tripOwnerAuthzAdapter) CanWrite(ctx context.Context, userID, tripID string) (bool, error) {
-	return a.inner.Can(ctx, userID, trip.ActionWrite, tripID)
+func (a membershipBudgetAuthzAdapter) CanWrite(ctx context.Context, userID, tripID string) (bool, error) {
+	return a.inner.Can(ctx, userID, string(trip.ActionWrite), tripID)
 }
 
 // tripCostReaderAdapter implements budget.TripCostReader by querying trip.stays
