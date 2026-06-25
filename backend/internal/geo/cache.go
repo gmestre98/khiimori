@@ -67,13 +67,13 @@ func (c *cachedGeocoder) lookup(ctx context.Context, location string) (LatLng, b
 func (c *cachedGeocoder) store(ctx context.Context, location string, ll LatLng) error {
 	_, err := c.pool.Exec(ctx,
 		`INSERT INTO geo.geocode_cache (location, lat, lng, cached_at, expires_at)
-		 VALUES ($1, $2, $3, now(), now() + $4::interval)
+		 VALUES ($1, $2, $3, now(), now() + ($4 * interval '1 second'))
 		 ON CONFLICT (location) DO UPDATE
 		   SET lat = EXCLUDED.lat,
 		       lng = EXCLUDED.lng,
 		       cached_at = now(),
-		       expires_at = now() + $4::interval`,
-		location, ll.Lat, ll.Lng, geocodeCacheTTL.String(),
+		       expires_at = now() + ($4 * interval '1 second')`,
+		location, ll.Lat, ll.Lng, geocodeCacheTTL.Seconds(),
 	)
 	return err
 }
