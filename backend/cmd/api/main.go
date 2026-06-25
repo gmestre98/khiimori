@@ -246,14 +246,16 @@ func (a membershipAuthzAdapter) Can(ctx context.Context, userID string, action t
 }
 
 // membershipJournalAuthzAdapter adapts *sharing.MembershipAuthorizer to journal.Authorizer.
-// Journal access requires at minimum read permission (both reads and writes go
-// through "read" here since the journal module controls write guards internally).
+// The journal Authorizer has a single CanAccess method covering both reads and
+// writes, so we gate on "write" (Owner/Editor) to avoid granting Viewers write
+// access. Viewer read access can be separated once the journal.Authorizer
+// interface is split in S4.
 type membershipJournalAuthzAdapter struct {
 	inner *sharing.MembershipAuthorizer
 }
 
 func (a membershipJournalAuthzAdapter) CanAccess(ctx context.Context, userID, tripID string) (bool, error) {
-	return a.inner.Can(ctx, userID, string(trip.ActionRead), tripID)
+	return a.inner.Can(ctx, userID, string(trip.ActionWrite), tripID)
 }
 
 // membershipBudgetAuthzAdapter adapts *sharing.MembershipAuthorizer to budget.Authorizer.
