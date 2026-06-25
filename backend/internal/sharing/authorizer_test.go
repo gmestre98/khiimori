@@ -23,22 +23,6 @@ func (f *fakeMemberships) RoleForUser(_ context.Context, _, userID string) (Role
 	return role, nil
 }
 
-// membershipSource is the narrow reader interface MembershipAuthorizer uses
-// internally (same signature as Memberships.RoleForUser).
-type membershipSource interface {
-	RoleForUser(ctx context.Context, tripID, userID string) (Role, error)
-}
-
-// newTestAuthorizer builds a MembershipAuthorizer driven by a fake membership source.
-func newTestAuthorizer(roles map[string]Role) *MembershipAuthorizer {
-	return &MembershipAuthorizer{memberships: &Memberships{pool: nil}}
-}
-
-// Since MembershipAuthorizer embeds *Memberships which needs a pool, we test
-// roleAllows and the Can logic by injecting through a custom membershipsReader
-// interface. We test roleAllows directly as a package-level function, and test
-// Can indirectly through a struct that exposes the reader seam.
-
 // membershipAuthzReader is the injectable seam for testing Can without a DB.
 type membershipAuthzReader interface {
 	RoleForUser(ctx context.Context, tripID, userID string) (Role, error)
