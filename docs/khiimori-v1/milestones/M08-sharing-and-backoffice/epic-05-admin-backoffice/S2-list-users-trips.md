@@ -8,11 +8,11 @@ backoffice.
 Implement admin endpoints and UI to list users and trips.
 
 ## Acceptance criteria
-- [ ] An admin endpoint lists **users** (id, email, name, `is_admin`, active/disabled state) with basic
+- [x] An admin endpoint lists **users** (id, email, name, `is_admin`, active/disabled state) with basic
   paging/search if needed.
-- [ ] An admin endpoint lists **trips** (id, name, owner, dates, status) across all users.
-- [ ] Both are gated by `is_admin` (S1) server-side.
-- [ ] The backoffice UI renders both lists; a unit test covers the gated reads.
+- [x] An admin endpoint lists **trips** (id, name, owner, dates, status) across all users.
+- [x] Both are gated by `is_admin` (S1) server-side.
+- [x] The backoffice UI renders both lists; a unit test covers the gated reads.
 
 ## Constraints
 - Keep it minimal (PRD §5.9) — lists, not analytics/dashboards.
