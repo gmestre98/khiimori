@@ -2,8 +2,10 @@ import './App.css'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Home } from './pages/Home'
 import { Profile } from './pages/Profile'
+import { AdminPage, AdminHome } from './pages/AdminPage'
 import { SignIn } from './auth/SignIn'
 import { PostLoginRedirect, RequireAuth } from './auth/RequireAuth'
+import { RequireAdmin } from './auth/RequireAdmin'
 import { TripFormPage } from './trips/TripFormPage'
 import { TripShellRoute } from './trips/TripShell'
 import { DayView } from './trips/DayView'
@@ -35,6 +37,13 @@ function App() {
               <Route path="backlog" element={<BacklogPage />} />
               <Route path="budget" element={<TripBudgetPage />} />
               <Route path="sharing" element={<TripSharingPage />} />
+            </Route>
+          </Route>
+          {/* Admin backoffice — gated by RequireAdmin (is_admin check, UX layer;
+              server-side enforcement is authoritative per PRD §5.9). */}
+          <Route element={<RequireAdmin />}>
+            <Route path="/admin" element={<AdminPage />}>
+              <Route index element={<AdminHome />} />
             </Route>
           </Route>
           {/* Unknown paths fall back to home, which gates to sign-in if anonymous. */}

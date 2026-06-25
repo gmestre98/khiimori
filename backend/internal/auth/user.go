@@ -22,4 +22,7 @@ type User struct {
 	// IsAdmin gates Milestone 08's backoffice. Set only by the non-public
 	// bootstrap path (S4); false for everyone else.
 	IsAdmin bool
+	// Active is false when an admin has deactivated the user (M08.5 S3). A
+	// deactivated user cannot sign in or use an existing session.
+	Active bool
 }

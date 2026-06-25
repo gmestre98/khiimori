@@ -31,6 +31,7 @@ const ownerProfile: api.Profile = {
   home_base: '',
   theme: 'light',
   default_currency: 'EUR',
+  is_admin: false,
 }
 
 const viewerProfile: api.Profile = {
@@ -41,6 +42,7 @@ const viewerProfile: api.Profile = {
   home_base: '',
   theme: 'light',
   default_currency: 'EUR',
+  is_admin: false,
 }
 
 const mockSharingData: api.SharingData = {

@@ -2,9 +2,11 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -33,6 +35,12 @@ type userRepo interface {
 	// returning sign-in (an upsert on the unique google_sub), refreshing the
 	// identity fields without ever creating a duplicate.
 	Save(ctx context.Context, in provisionParams) (User, error)
+	// IsActive reports whether the user exists and has active=true. Used by
+	// RequireAuth to reject deactivated users on every request (M08.5 S3).
+	IsActive(ctx context.Context, id string) (bool, error)
+	// Deactivate sets active=false on the user row, blocking further
+	// authentication (M08.5 S3). Returns errUserNotFound if the id is unknown.
+	Deactivate(ctx context.Context, id string) error
 }
 
 // Provisioner turns a verified identity into a persisted user. It is the seam
@@ -79,7 +87,7 @@ type pgxUserRepo struct {
 
 // saveColumns is the column list returned by Save, in scan order. Centralised so
 // the INSERT and the row scan can't drift apart.
-const saveColumns = `id::text, google_sub, email, name, avatar, home_base, default_currency, prefs, is_admin`
+const saveColumns = `id::text, google_sub, email, name, avatar, home_base, default_currency, prefs, is_admin, active`
 
 // Save upserts a user keyed on the unique google_sub: it inserts on first
 // sign-in and, on a returning sign-in, resolves the existing row and refreshes
@@ -115,7 +123,7 @@ func (r *pgxUserRepo) Save(ctx context.Context, in provisionParams) (User, error
 	var u User
 	err := r.pool.QueryRow(ctx, query, in.GoogleSub, in.Email, in.Name, in.Avatar, in.IsAdmin).Scan(
 		&u.ID, &u.GoogleSub, &u.Email, &u.Name, &u.Avatar,
-		&u.HomeBase, &u.DefaultCurrency, &u.Prefs, &u.IsAdmin,
+		&u.HomeBase, &u.DefaultCurrency, &u.Prefs, &u.IsAdmin, &u.Active,
 	)
 	if err != nil {
 		// Wrap with a fixed message; the identity fields (incl. email) must not
@@ -123,4 +131,32 @@ func (r *pgxUserRepo) Save(ctx context.Context, in provisionParams) (User, error
 		return User{}, fmt.Errorf("auth: save user: %w", err)
 	}
 	return u, nil
+}
+
+// IsActive reports whether the user with the given id exists and has active=true.
+// Missing users return false, nil — they are treated as inactive.
+func (r *pgxUserRepo) IsActive(ctx context.Context, id string) (bool, error) {
+	var active bool
+	err := r.pool.QueryRow(ctx, `SELECT active FROM auth.users WHERE id = $1::uuid`, id).Scan(&active)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("auth: is active: %w", err)
+	}
+	return active, nil
+}
+
+// Deactivate sets active=false on the user row with the given id. Returns
+// errUserNotFound when no such row exists.
+func (r *pgxUserRepo) Deactivate(ctx context.Context, id string) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE auth.users SET active = false, updated_at = now() WHERE id = $1::uuid`, id)
+	if err != nil {
+		return fmt.Errorf("auth: deactivate user: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return errUserNotFound
+	}
+	return nil
 }

@@ -19,6 +19,9 @@ func (e errUserRepo) Save(context.Context, provisionParams) (User, error) {
 	return User{}, e.err
 }
 
+func (e errUserRepo) IsActive(context.Context, string) (bool, error) { return true, nil }
+func (e errUserRepo) Deactivate(context.Context, string) error       { return nil }
+
 // newProvisioningModule builds a configured Module that provisions through the
 // real completeSignIn seam, backed by the given repo and a fakeProvider that
 // returns a fixed identity on Exchange.
@@ -78,6 +81,9 @@ func (f *fakeUserRepo) Save(_ context.Context, in provisionParams) (User, error)
 	f.bySub[in.GoogleSub] = u
 	return u, nil
 }
+
+func (f *fakeUserRepo) IsActive(_ context.Context, _ string) (bool, error) { return true, nil }
+func (f *fakeUserRepo) Deactivate(_ context.Context, _ string) error       { return nil }
 
 // TestProvisionCreatesUserWithDefaults: a first-time identity produces a user
 // carrying the identity fields plus the server-set defaults (EUR currency,
