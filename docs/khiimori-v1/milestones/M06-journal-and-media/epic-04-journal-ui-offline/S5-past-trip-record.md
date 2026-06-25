@@ -8,12 +8,12 @@ photos stay readable.
 Ensure journals/photos on past (and archived) trips remain accessible read-only as appropriate.
 
 ## Acceptance criteria
-- [ ] Journals and photos on **past trips** (Past bucket from Milestone 03) remain **accessible** in the
+- [x] Journals and photos on **past trips** (Past bucket from Milestone 03) remain **accessible** in the
   UI.
-- [ ] Access still passes the trip `Authorizer` (owner + invited members only).
-- [ ] The past-trip journal view is read-friendly (a record), consistent with the editor for current
+- [x] Access still passes the trip `Authorizer` (owner + invited members only).
+- [x] The past-trip journal view is read-friendly (a record), consistent with the editor for current
   trips.
-- [ ] Archived trips' journals are reachable from the archived/past context.
+- [x] Archived trips' journals are reachable from the archived/past context.
 
 ## Constraints
 - No special data handling needed — past is derived from dates (Milestone 03); this is a UI/access
