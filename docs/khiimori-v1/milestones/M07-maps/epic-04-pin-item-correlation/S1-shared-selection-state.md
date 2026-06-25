@@ -8,12 +8,12 @@ each other (PRD §5.6). Pins and items correlate by a stable id (`PlanItem`/`Sta
 Introduce a shared selection state correlating pins and itinerary items by id.
 
 ## Acceptance criteria
-- [ ] A shared selection state holds the currently highlighted entity id, accessible to both the map
+- [x] A shared selection state holds the currently highlighted entity id, accessible to both the map
   (Epic 03) and the day list (Milestone 04).
-- [ ] Pins and items are correlated by a **stable identifier** (`PlanItem`/`Stay` id), robust to
+- [x] Pins and items are correlated by a **stable identifier** (`PlanItem`/`Stay` id), robust to
   reordering and promote/demote (Milestone 04).
-- [ ] Setting the selection from either side updates the shared state.
-- [ ] Location-less items (no pin) are handled (selectable in the list, simply no pin to highlight).
+- [x] Setting the selection from either side updates the shared state.
+- [x] Location-less items (no pin) are handled (selectable in the list, simply no pin to highlight).
 
 ## Constraints
 - Correlate by id, not by index/position (so reordering doesn't break the link).
