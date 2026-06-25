@@ -588,6 +588,51 @@ func TestIntegration_ListPhotos_ReturnsAttached(t *testing.T) {
 	}
 }
 
+// newIntegrationServerWithCap constructs an integration server with a custom quota cap.
+func newIntegrationServerWithCap(t *testing.T, ownerID string, cap int64) (*httptest.Server, *fakeMediaStore) {
+	t.Helper()
+	if testPool == nil {
+		t.Skip("DATABASE_URL_TEST not set; skipping journal integration test")
+	}
+	ctx := context.Background()
+	_, err := testPool.Exec(ctx,
+		`TRUNCATE journal.photos, journal.journal_entries, trip.days, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
+	if err != nil {
+		t.Fatalf("truncating tables: %v", err)
+	}
+
+	requireAuth := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := authn.WithPrincipal(r.Context(), authn.Principal{UserID: ownerID})
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+
+	ms := newFakeMediaStore()
+	mod := New(testPool, requireAuth, alwaysAllowIntegrationAuthz{}, ms)
+	mod.quotaCap = cap
+	mux := http.NewServeMux()
+	mod.RegisterRoutes(mux)
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv, ms
+}
+
+// getUsageIntegration calls GET /trips/{tripID}/usage and returns the response.
+func getUsageIntegration(srv *httptest.Server, tripID string) (*http.Response, error) {
+	return http.Get(srv.URL + fmt.Sprintf("/trips/%s/usage", tripID))
+}
+
+// deletePhotoIntegration calls DELETE /trips/{tripID}/days/{dayID}/journal/photos/{photoID}.
+func deletePhotoIntegration(srv *httptest.Server, tripID, dayID, photoID string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodDelete,
+		srv.URL+fmt.Sprintf("/trips/%s/days/%s/journal/photos/%s", tripID, dayID, photoID), nil)
+	if err != nil {
+		return nil, err
+	}
+	return http.DefaultClient.Do(req)
+}
+
 // TestIntegration_UploadPhoto_NoEntry verifies 404 when entry doesn't exist.
 func TestIntegration_UploadPhoto_NoEntry(t *testing.T) {
 	ownerID := freshOwnerID(t)
@@ -603,5 +648,218 @@ func TestIntegration_UploadPhoto_NoEntry(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("want 404, got %d", resp.StatusCode)
+	}
+}
+
+// --- M06.3 quota and thumbnail integration tests ---
+
+// TestIntegration_Cap_UnderCap_Allowed verifies upload succeeds when below the cap.
+func TestIntegration_Cap_UnderCap_Allowed(t *testing.T) {
+	ownerID := freshOwnerID(t)
+	const cap = 10 << 10 // 10 KB cap for this test
+	srv, _ := newIntegrationServerWithCap(t, ownerID, cap)
+	tripID := insertTrip(t, ownerID)
+	dayID := insertDay(t, tripID)
+
+	putResp, _ := putEntry(srv, tripID, dayID, map[string]any{})
+	_ = putResp.Body.Close()
+
+	img := bytes.Repeat([]byte("X"), 512) // 512 bytes < 10 KB cap
+	resp, err := uploadPhotoIntegration(srv, tripID, dayID, img, "image/jpeg", "")
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusCreated {
+		t.Errorf("want 201, got %d", resp.StatusCode)
+	}
+}
+
+// TestIntegration_Cap_OverCap_Rejected verifies an over-cap upload is rejected with 413
+// and nothing is stored (no row, no usage change).
+func TestIntegration_Cap_OverCap_Rejected(t *testing.T) {
+	ownerID := freshOwnerID(t)
+	const cap = 512 // 512-byte cap
+	srv, ms := newIntegrationServerWithCap(t, ownerID, cap)
+	tripID := insertTrip(t, ownerID)
+	dayID := insertDay(t, tripID)
+
+	putResp, _ := putEntry(srv, tripID, dayID, map[string]any{})
+	_ = putResp.Body.Close()
+
+	img := bytes.Repeat([]byte("X"), 600) // 600 bytes > 512-byte cap
+	resp, err := uploadPhotoIntegration(srv, tripID, dayID, img, "image/jpeg", "")
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Errorf("want 413, got %d", resp.StatusCode)
+	}
+
+	// No object stored.
+	if len(ms.objects) != 0 {
+		t.Errorf("expected 0 objects stored on over-cap rejection, got %d", len(ms.objects))
+	}
+
+	// No row in DB.
+	var count int
+	if err := testPool.QueryRow(context.Background(),
+		`SELECT COUNT(*) FROM journal.photos`).Scan(&count); err != nil {
+		t.Fatalf("count photos: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected 0 photo rows on over-cap rejection, got %d", count)
+	}
+
+	// Usage unchanged at 0.
+	usageResp, err := getUsageIntegration(srv, tripID)
+	if err != nil {
+		t.Fatalf("get usage: %v", err)
+	}
+	defer func() { _ = usageResp.Body.Close() }()
+	var usage usageResponse
+	if err := json.NewDecoder(usageResp.Body).Decode(&usage); err != nil {
+		t.Fatalf("decode usage: %v", err)
+	}
+	if usage.UsedBytes != 0 {
+		t.Errorf("usage: got %d, want 0 after rejected upload", usage.UsedBytes)
+	}
+}
+
+// TestIntegration_Usage_IncrementOnAdd verifies TripUsageBytes increases after upload.
+func TestIntegration_Usage_IncrementOnAdd(t *testing.T) {
+	ownerID := freshOwnerID(t)
+	srv, _ := newIntegrationServerWithCap(t, ownerID, DefaultQuotaCap)
+	tripID := insertTrip(t, ownerID)
+	dayID := insertDay(t, tripID)
+
+	putResp, _ := putEntry(srv, tripID, dayID, map[string]any{})
+	_ = putResp.Body.Close()
+
+	imgSize := 1024
+	img := bytes.Repeat([]byte("X"), imgSize)
+	uploadResp, err := uploadPhotoIntegration(srv, tripID, dayID, img, "image/jpeg", "")
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	_ = uploadResp.Body.Close()
+	if uploadResp.StatusCode != http.StatusCreated {
+		t.Fatalf("want 201, got %d", uploadResp.StatusCode)
+	}
+
+	usageResp, err := getUsageIntegration(srv, tripID)
+	if err != nil {
+		t.Fatalf("get usage: %v", err)
+	}
+	defer func() { _ = usageResp.Body.Close() }()
+	var usage usageResponse
+	if err := json.NewDecoder(usageResp.Body).Decode(&usage); err != nil {
+		t.Fatalf("decode usage: %v", err)
+	}
+	if usage.UsedBytes != int64(imgSize) {
+		t.Errorf("usage: got %d, want %d", usage.UsedBytes, imgSize)
+	}
+}
+
+// TestIntegration_Usage_DecrementOnDelete verifies usage decrements after photo deletion.
+func TestIntegration_Usage_DecrementOnDelete(t *testing.T) {
+	ownerID := freshOwnerID(t)
+	srv, _ := newIntegrationServerWithCap(t, ownerID, DefaultQuotaCap)
+	tripID := insertTrip(t, ownerID)
+	dayID := insertDay(t, tripID)
+
+	putResp, _ := putEntry(srv, tripID, dayID, map[string]any{})
+	_ = putResp.Body.Close()
+
+	img := bytes.Repeat([]byte("X"), 1024)
+	uploadResp, err := uploadPhotoIntegration(srv, tripID, dayID, img, "image/jpeg", "")
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	var uploaded photoResponse
+	if err := json.NewDecoder(uploadResp.Body).Decode(&uploaded); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	_ = uploadResp.Body.Close()
+
+	// Usage should be 1024.
+	usageResp1, _ := getUsageIntegration(srv, tripID)
+	var usage1 usageResponse
+	if err := json.NewDecoder(usageResp1.Body).Decode(&usage1); err != nil {
+		t.Fatalf("decode usage before delete: %v", err)
+	}
+	_ = usageResp1.Body.Close()
+	if usage1.UsedBytes != 1024 {
+		t.Fatalf("before delete usage: got %d, want 1024", usage1.UsedBytes)
+	}
+
+	// Delete the photo.
+	delResp, err := deletePhotoIntegration(srv, tripID, dayID, uploaded.ID)
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	_ = delResp.Body.Close()
+	if delResp.StatusCode != http.StatusNoContent {
+		t.Fatalf("want 204, got %d", delResp.StatusCode)
+	}
+
+	// Usage should now be 0.
+	usageResp2, _ := getUsageIntegration(srv, tripID)
+	var usage2 usageResponse
+	if err := json.NewDecoder(usageResp2.Body).Decode(&usage2); err != nil {
+		t.Fatalf("decode usage after delete: %v", err)
+	}
+	_ = usageResp2.Body.Close()
+	if usage2.UsedBytes != 0 {
+		t.Errorf("after delete usage: got %d, want 0", usage2.UsedBytes)
+	}
+}
+
+// TestIntegration_Thumbnail_Generated verifies a real JPEG upload produces a thumbnail_url.
+func TestIntegration_Thumbnail_Generated(t *testing.T) {
+	ownerID := freshOwnerID(t)
+	srv, ms := newIntegrationServerWithCap(t, ownerID, DefaultQuotaCap)
+	tripID := insertTrip(t, ownerID)
+	dayID := insertDay(t, tripID)
+
+	putResp, _ := putEntry(srv, tripID, dayID, map[string]any{})
+	_ = putResp.Body.Close()
+
+	// Use a real JPEG so thumbnail generation can decode it.
+	realJPEG := makeTestJPEG(t, 640, 480)
+	uploadResp, err := uploadPhotoIntegration(srv, tripID, dayID, realJPEG, "image/jpeg", "")
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	var uploaded photoResponse
+	if err := json.NewDecoder(uploadResp.Body).Decode(&uploaded); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	_ = uploadResp.Body.Close()
+	if uploadResp.StatusCode != http.StatusCreated {
+		t.Fatalf("want 201, got %d", uploadResp.StatusCode)
+	}
+
+	// thumbnail_url should be populated.
+	if uploaded.ThumbnailURL == "" {
+		t.Error("thumbnail_url is empty: expected thumbnail to be generated")
+	}
+
+	// Two objects should exist: original + thumbnail.
+	if len(ms.objects) != 2 {
+		t.Errorf("expected 2 objects (original + thumbnail), got %d", len(ms.objects))
+	}
+
+	// thumbnail_url should be stored in DB.
+	var thumbURL string
+	err = testPool.QueryRow(context.Background(),
+		`SELECT COALESCE(thumbnail_url, '') FROM journal.photos WHERE id = $1::uuid`,
+		uploaded.ID).Scan(&thumbURL)
+	if err != nil {
+		t.Fatalf("query thumbnail_url: %v", err)
+	}
+	if thumbURL == "" {
+		t.Error("thumbnail_url not persisted in DB")
 	}
 }
