@@ -9,12 +9,12 @@ An **indicative route** is drawn between pins in order (using Epic 02's route hi
 Draw the indicative route and handle location-less items.
 
 ## Acceptance criteria
-- [ ] An **indicative route** is drawn between the day's pins in itinerary order, using Epic 02 S3 route
+- [x] An **indicative route** is drawn between the day's pins in itinerary order, using Epic 02 S3 route
   hints.
-- [ ] Items/stays **without a location are omitted** from the map (no broken pins), and the route connects
+- [x] Items/stays **without a location are omitted** from the map (no broken pins), and the route connects
   only located items.
-- [ ] When a day has zero located items, the map degrades gracefully (e.g. neutral empty state).
-- [ ] UI behaviour is verified for mixed located/location-less days.
+- [x] When a day has zero located items, the map degrades gracefully (e.g. neutral empty state).
+- [x] UI behaviour is verified for mixed located/location-less days.
 
 ## Constraints
 - Route is **indicative** only (not turn-by-turn) — minimal (PRD §7.0).
