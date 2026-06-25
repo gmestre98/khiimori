@@ -8,12 +8,12 @@ adds the table in the `sharing.*` schema.
 Add a migration for the `Invitation` table.
 
 ## Acceptance criteria
-- [ ] A migration creates `Invitation(id, trip_id, email, role, status, token)` in `sharing.*` with a FK to
+- [x] A migration creates `Invitation(id, trip_id, email, role, status, token)` in `sharing.*` with a FK to
   `trip.Trip`.
-- [ ] `role` is constrained to **Editor | Viewer** (no Owner invites; no per-section permissions in v1,
+- [x] `role` is constrained to **Editor | Viewer** (no Owner invites; no per-section permissions in v1,
   PRD §11.1).
-- [ ] `token` is unique and unguessable; `status` tracks `sent → accepted` (and revoked).
-- [ ] The migration applies cleanly via the M01.3 runner.
+- [x] `token` is unique and unguessable; `status` tracks `sent → accepted` (and revoked).
+- [x] The migration applies cleanly via the M01.3 runner.
 
 ## Constraints
 - Follow M01.3 conventions; place in `sharing.*` alongside `TripMembership`.

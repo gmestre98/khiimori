@@ -9,12 +9,12 @@ membership, role change, and revoke (PRD §7.6).
 Implement change-role/revoke for invites & memberships and add the invitation test suite.
 
 ## Acceptance criteria
-- [ ] An Owner can **change a member's role** (Editor↔Viewer) and **revoke** a membership or a pending
+- [x] An Owner can **change a member's role** (Editor↔Viewer) and **revoke** a membership or a pending
   invitation.
-- [ ] Revocation removes access **immediately** (next request denied, via Epic 02 S3).
-- [ ] Integration tests cover **invite → accept → membership**, **role change**, and **revoke** (pending
+- [x] Revocation removes access **immediately** (next request denied, via Epic 02 S3).
+- [x] Integration tests cover **invite → accept → membership**, **role change**, and **revoke** (pending
   and accepted).
-- [ ] A test covers that only an Owner can change roles/revoke.
+- [x] A test covers that only an Owner can change roles/revoke.
 
 ## Constraints
 - Reuse Epic 01 lifecycle ops and Epic 02 enforcement; do not add a parallel path.
