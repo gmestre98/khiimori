@@ -68,7 +68,7 @@ func (m *Module) handleAdminListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]userResp, len(users))
 	for i, u := range users {
-		out[i] = userResp{ID: u.ID, Email: u.Email, Name: u.Name, IsAdmin: u.IsAdmin, Active: u.Active}
+		out[i] = userResp(u)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -98,10 +98,7 @@ func (m *Module) handleAdminListTrips(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]tripResp, len(trips))
 	for i, t := range trips {
-		out[i] = tripResp{
-			ID: t.ID, Name: t.Name, OwnerID: t.OwnerID, OwnerEmail: t.OwnerEmail,
-			StartDate: t.StartDate, EndDate: t.EndDate, Status: t.Status,
-		}
+		out[i] = tripResp(t)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
