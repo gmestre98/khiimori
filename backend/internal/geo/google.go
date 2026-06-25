@@ -54,7 +54,7 @@ func (g *googleProvider) Geocode(ctx context.Context, location string) (LatLng, 
 	if err != nil {
 		return LatLng{}, fmt.Errorf("geo: geocode request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return LatLng{}, fmt.Errorf("geo: geocode API status %d", resp.StatusCode)
