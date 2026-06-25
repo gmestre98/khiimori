@@ -211,10 +211,10 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 	tripAuthz := trip.NewOwnerOnlyAuthorizer(pool)
 	modules := []httpx.RouteRegistrar{
 		authModule,
-		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships(), tripAuthz),
+		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships(pool), tripAuthz),
 		budget.New(pool, authModule.RequireAuth, tripOwnerAuthzAdapter{tripAuthz}, tripCostReaderAdapter{pool: pool}),
 		journal.New(pool, authModule.RequireAuth, tripOwnerJournalAuthzAdapter{tripAuthz}, mediaStore),
-		sharing.New(),
+		sharing.New(pool),
 		func() httpx.RouteRegistrar {
 			geoProvider := buildGeoProvider(cfg.MapsAPIKey)
 			return geo.New(geoProvider, geo.BuildGeocoder(pool, geoProvider), authModule.RequireAuth)
