@@ -1,7 +1,9 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -85,10 +87,7 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("PATCH "+ProfilePath, m.RequireAuth(http.HandlerFunc(m.handleProfileUpdate)))
 
 	// Admin backoffice (M08.5) — gated by RequireAdmin (is_admin, server-side).
-	mux.Handle("GET "+AdminPath, m.RequireAdmin(http.HandlerFunc(m.handleAdminInfo)))
-	mux.Handle("GET "+AdminUsersPath, m.RequireAdmin(http.HandlerFunc(m.handleAdminListUsers)))
-	mux.Handle("GET "+AdminTripsPath, m.RequireAdmin(http.HandlerFunc(m.handleAdminListTrips)))
-	mux.Handle("POST "+DeactivateUserPath, m.RequireAdmin(http.HandlerFunc(m.handleAdminDeactivateUser)))
+	m.mountAdminRoutes(mux, m.RequireAdmin)
 }
 
 // completeSignIn finishes a verified sign-in: it provisions the user (Epic 02) —
@@ -138,6 +137,38 @@ func (m *Module) failSignIn(w http.ResponseWriter, r *http.Request, status int, 
 		return
 	}
 	httpx.WriteError(w, r, httpx.NewAPIError(status, code, message))
+}
+
+// mountAdminRoutes registers the admin HTTP handlers onto mux, gated by the
+// supplied middleware. The default (called by RegisterRoutes) uses RequireAdmin;
+// tests may supply a shim for integration testing without a real HMAC session.
+func (m *Module) mountAdminRoutes(mux *http.ServeMux, gate httpx.Middleware) {
+	mux.Handle("GET "+AdminPath, gate(http.HandlerFunc(m.handleAdminInfo)))
+	mux.Handle("GET "+AdminUsersPath, gate(http.HandlerFunc(m.handleAdminListUsers)))
+	mux.Handle("GET "+AdminTripsPath, gate(http.HandlerFunc(m.handleAdminListTrips)))
+	mux.Handle("POST "+DeactivateUserPath, gate(http.HandlerFunc(m.handleAdminDeactivateUser)))
+}
+
+// RegisterAdminRoutes mounts the admin backoffice routes with a caller-supplied
+// gate middleware. Intended for integration tests that need to substitute a test
+// shim for the full HMAC-session RequireAdmin.
+func (m *Module) RegisterAdminRoutes(mux *http.ServeMux, gate httpx.Middleware) {
+	m.mountAdminRoutes(mux, gate)
+}
+
+// IssueSessionCookie mints a valid session cookie for userID and returns it.
+// It is intended only for integration tests that need to authenticate without
+// going through the full OAuth flow.
+func (m *Module) IssueSessionCookie(userID string) (*http.Cookie, error) {
+	rec := httptest.NewRecorder()
+	if err := m.sessions.issue(rec, userID); err != nil {
+		return nil, err
+	}
+	cookies := rec.Result().Cookies()
+	if len(cookies) == 0 {
+		return nil, errors.New("auth: issue produced no cookie")
+	}
+	return cookies[0], nil
 }
 
 // Compile-time check that *Module implements the route-mounting contract.
