@@ -54,12 +54,15 @@ export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditor
   const [loadError, setLoadError] = useState<{ dayId: string; msg: string } | null>(null)
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const isFirstLoad = useRef(true)
+  // loadedDayId tracks which dayId's data is currently in state. The auto-save
+  // effect only fires when loadedDayId === dayId, preventing stale-state saves
+  // during a day-change (avoids synchronous setState in the fetch effect).
+  const [loadedDayId, setLoadedDayId] = useState<string | null>(null)
+  const loaded = loadedDayId === dayId
 
   // Load existing entry on mount / when dayId changes.
   useEffect(() => {
     const controller = new AbortController()
-    isFirstLoad.current = true
 
     fetchJournalEntry(tripId, dayId, controller.signal)
       .then((e) => {
@@ -68,7 +71,7 @@ export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditor
         setRating(e.rating)
         setWeather(e.weather)
         setMood(e.mood)
-        isFirstLoad.current = false
+        setLoadedDayId(dayId)
       })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === 'AbortError') return
@@ -80,7 +83,7 @@ export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditor
           setRating(null)
           setWeather('')
           setMood('')
-          isFirstLoad.current = false
+          setLoadedDayId(dayId)
           return
         }
         setLoadError({ dayId, msg: 'Could not load journal.' })
@@ -106,9 +109,11 @@ export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditor
     [tripId, dayId],
   )
 
-  // Auto-save whenever body/rating/weather/mood change (skip first load).
+  // Auto-save whenever body/rating/weather/mood change. `loaded` (derived from
+  // loadedDayId === dayId) ensures this never fires with stale values from the
+  // previous day — the auto-save is gated on the current fetch having resolved.
   useEffect(() => {
-    if (isFirstLoad.current) return
+    if (!loaded) return
     if (readOnly) return
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
@@ -117,7 +122,7 @@ export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditor
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [body, rating, weather, mood, save, readOnly])
+  }, [body, rating, weather, mood, save, readOnly, loaded])
 
   const error = loadError?.dayId === dayId ? loadError.msg : null
 

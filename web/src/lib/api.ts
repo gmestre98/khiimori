@@ -672,6 +672,36 @@ export class JournalEntryNotFoundError extends Error {
   }
 }
 
+// RawJournalEntry is the shape the server sends; body is a JSONB envelope.
+type RawJournalEntry = {
+  id: string
+  day_id: string
+  author_id: string
+  body: { text?: string } | string
+  rating?: number | null
+  weather?: string
+  mood?: string
+  created_at: string
+  updated_at: string
+}
+
+// parseJournalEntry normalises the server's raw response into the client-facing
+// JournalEntry shape. Centralised here so fetchJournalEntry and
+// upsertJournalEntry don't duplicate the body-envelope logic.
+function parseJournalEntry(raw: RawJournalEntry): JournalEntry {
+  return {
+    id: raw.id,
+    day_id: raw.day_id,
+    author_id: raw.author_id,
+    body: typeof raw.body === 'string' ? raw.body : (raw.body?.text ?? ''),
+    rating: raw.rating ?? null,
+    weather: raw.weather ?? '',
+    mood: raw.mood ?? '',
+    created_at: raw.created_at,
+    updated_at: raw.updated_at,
+  }
+}
+
 // fetchJournalEntry loads the journal entry for a day. Throws
 // JournalEntryNotFoundError when none exists yet (404), UnauthorizedError on
 // 401, and a generic Error otherwise.
@@ -684,28 +714,7 @@ export async function fetchJournalEntry(
   if (res.status === 401) throw new UnauthorizedError()
   if (res.status === 404) throw new JournalEntryNotFoundError()
   if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
-  const raw = (await res.json()) as {
-    id: string
-    day_id: string
-    author_id: string
-    body: { text?: string } | string
-    rating?: number | null
-    weather?: string
-    mood?: string
-    created_at: string
-    updated_at: string
-  }
-  return {
-    id: raw.id,
-    day_id: raw.day_id,
-    author_id: raw.author_id,
-    body: typeof raw.body === 'string' ? raw.body : (raw.body?.text ?? ''),
-    rating: raw.rating ?? null,
-    weather: raw.weather ?? '',
-    mood: raw.mood ?? '',
-    created_at: raw.created_at,
-    updated_at: raw.updated_at,
-  }
+  return parseJournalEntry((await res.json()) as RawJournalEntry)
 }
 
 // upsertJournalEntry idempotently creates or updates the day's journal entry.
@@ -728,28 +737,7 @@ export async function upsertJournalEntry(
   })
   if (res.status === 401) throw new UnauthorizedError()
   if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
-  const raw = (await res.json()) as {
-    id: string
-    day_id: string
-    author_id: string
-    body: { text?: string } | string
-    rating?: number | null
-    weather?: string
-    mood?: string
-    created_at: string
-    updated_at: string
-  }
-  return {
-    id: raw.id,
-    day_id: raw.day_id,
-    author_id: raw.author_id,
-    body: typeof raw.body === 'string' ? raw.body : (raw.body?.text ?? ''),
-    rating: raw.rating ?? null,
-    weather: raw.weather ?? '',
-    mood: raw.mood ?? '',
-    created_at: raw.created_at,
-    updated_at: raw.updated_at,
-  }
+  return parseJournalEntry((await res.json()) as RawJournalEntry)
 }
 
 // datesInRange returns YYYY-MM-DD strings for every calendar date in [start, end],
