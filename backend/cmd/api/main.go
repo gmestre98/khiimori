@@ -214,7 +214,14 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships(pool), membershipAuthzAdapter{tripAuthz}),
 		budget.New(pool, authModule.RequireAuth, membershipBudgetAuthzAdapter{tripAuthz}, tripCostReaderAdapter{pool: pool}),
 		journal.New(pool, authModule.RequireAuth, membershipJournalAuthzAdapter{tripAuthz}, mediaStore),
-		sharing.New(pool),
+		sharing.New(pool, sharing.Options{
+			Authz:        tripAuthz,
+			EmailSender:  sharing.NewResendSender(cfg.ResendAPIKey, "Khiimori <noreply@mail.khiimori.app>"),
+			RequireAuth:  authModule.RequireAuth,
+			WebAppURL:    cfg.WebAppURL,
+			TripNames:    &pgxTripNameReader{pool: pool},
+			InviterNames: &pgxUserNameReader{pool: pool},
+		}),
 		func() httpx.RouteRegistrar {
 			geoProvider := buildGeoProvider(cfg.MapsAPIKey)
 			return geo.New(geoProvider, geo.BuildGeocoder(pool, geoProvider), authModule.RequireAuth)
@@ -372,6 +379,34 @@ func debugTriggerError(w http.ResponseWriter, r *http.Request) {
 		"debug_error_trigger",
 		"deliberate error for alert verification (M01.7 S5)",
 	))
+}
+
+// pgxTripNameReader resolves a trip's display name from trip.trips for use in
+// invitation emails. It lives in the composition root so the sharing module
+// never imports the trip module.
+type pgxTripNameReader struct{ pool *pgxpool.Pool }
+
+func (r *pgxTripNameReader) NameByID(ctx context.Context, tripID string) (string, error) {
+	var name string
+	err := r.pool.QueryRow(ctx, `SELECT name FROM trip.trips WHERE id = $1::uuid`, tripID).Scan(&name)
+	if err != nil {
+		return "", fmt.Errorf("trip name by id: %w", err)
+	}
+	return name, nil
+}
+
+// pgxUserNameReader resolves a user's display name from auth.users for use in
+// invitation emails. It lives in the composition root so the sharing module
+// never imports the auth module.
+type pgxUserNameReader struct{ pool *pgxpool.Pool }
+
+func (r *pgxUserNameReader) NameByID(ctx context.Context, userID string) (string, error) {
+	var name string
+	err := r.pool.QueryRow(ctx, `SELECT name FROM auth.users WHERE id = $1::uuid`, userID).Scan(&name)
+	if err != nil {
+		return "", fmt.Errorf("user name by id: %w", err)
+	}
+	return name, nil
 }
 
 // buildGeoProvider constructs the server-side MapProvider from the Maps API key.
