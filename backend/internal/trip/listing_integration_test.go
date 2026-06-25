@@ -24,7 +24,7 @@ func addMembership(t *testing.T, tripID, userID, role string) {
 	t.Helper()
 	_, err := testPool.Exec(context.Background(),
 		`INSERT INTO sharing.trip_memberships (trip_id, user_id, role)
-		 VALUES ($1::uuid, $2::uuid, $3::sharing.trip_role)`,
+		 VALUES ($1::uuid, $2::uuid, $3)`,
 		tripID, userID, role)
 	if err != nil {
 		t.Fatalf("addMembership: %v", err)
