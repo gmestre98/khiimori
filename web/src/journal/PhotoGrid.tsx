@@ -149,6 +149,10 @@ export function PhotoGrid({
       setUploads((prev) => [...prev, item])
 
       try {
+        // onBeforeUpload runs before the online check so the journal entry
+        // upsert (if any) is enqueued with a lower seq than the photo upload.
+        // The replay queue is sequential and sorted by seq, so the entry is
+        // guaranteed to exist on the server before the photo upload replays.
         if (onBeforeUpload) await onBeforeUpload()
         if (!online) {
           // Offline: queue the binary upload; File is structured-cloneable so
