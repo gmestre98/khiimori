@@ -1803,3 +1803,146 @@
     grid-template-columns: 6rem 1fr auto;
   }
 }
+
+/* ── Journal editor (M06.4 S1) ────────────────────────────────────────────── */
+
+.journal-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.journal-editor-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.journal-meta-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.journal-meta-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary, #6b7280);
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.journal-rating {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.journal-rating-stars {
+  display: flex;
+  gap: 2px;
+}
+
+.journal-star {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  color: var(--border, #d1d5db);
+  padding: 0 2px;
+  line-height: 1;
+  transition: color 0.1s;
+}
+
+.journal-star--active {
+  color: #f59e0b;
+}
+
+.journal-star:hover:not(:disabled) {
+  color: #f59e0b;
+}
+
+.journal-star:disabled {
+  cursor: default;
+}
+
+.journal-select {
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 6px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 6px;
+  background: var(--bg, #fff);
+  color: var(--text-h, #111827);
+}
+
+.journal-body {
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 10px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 8px;
+  background: var(--bg, #fff);
+  color: var(--text-h, #111827);
+  resize: vertical;
+  min-height: 120px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.journal-body:focus {
+  outline: 2px solid var(--accent, #6366f1);
+  outline-offset: 1px;
+}
+
+.journal-body:disabled {
+  background: var(--bg-muted, #f9fafb);
+  cursor: default;
+}
+
+.journal-save-status {
+  font-size: 12px;
+  margin: 0;
+}
+
+.journal-save-status--saving {
+  color: var(--text-secondary, #6b7280);
+}
+
+.journal-save-status--saved {
+  color: #1a7f37;
+}
+
+.journal-save-status--error {
+  color: #cf222e;
+}
+
+.journal-save-retry {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  text-decoration: underline;
+  font: inherit;
+  font-size: inherit;
+  padding: 0;
+}
+
+.journal-editor-error {
+  color: #cf222e;
+  font-size: 13px;
+}
+
+.journal-empty {
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+  font-style: italic;
+}

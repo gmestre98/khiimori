@@ -640,6 +640,106 @@ export async function fetchBudgetRollup(
   return (await res.json()) as BudgetRollup
 }
 
+// --- Journal entries (M06.4 S1) ------------------------------------------------
+
+// JournalEntry is the wire shape of a single day's journal entry.
+export interface JournalEntry {
+  id: string
+  day_id: string
+  author_id: string
+  body: string // plain text; stored server-side as {"text":"..."} JSONB
+  rating: number | null
+  weather: string
+  mood: string
+  created_at: string
+  updated_at: string
+}
+
+// JournalEntryInput is the editable payload for upserting a day's entry.
+export interface JournalEntryInput {
+  body?: string
+  rating?: number | null
+  weather?: string
+  mood?: string
+}
+
+// JournalEntryNotFoundError is returned by fetchJournalEntry when the day has
+// no entry yet (404 entry_not_found).
+export class JournalEntryNotFoundError extends Error {
+  constructor() {
+    super('journal entry not found')
+    this.name = 'JournalEntryNotFoundError'
+  }
+}
+
+// RawJournalEntry is the shape the server sends; body is a JSONB envelope.
+type RawJournalEntry = {
+  id: string
+  day_id: string
+  author_id: string
+  body: { text?: string } | string
+  rating?: number | null
+  weather?: string
+  mood?: string
+  created_at: string
+  updated_at: string
+}
+
+// parseJournalEntry normalises the server's raw response into the client-facing
+// JournalEntry shape. Centralised here so fetchJournalEntry and
+// upsertJournalEntry don't duplicate the body-envelope logic.
+function parseJournalEntry(raw: RawJournalEntry): JournalEntry {
+  return {
+    id: raw.id,
+    day_id: raw.day_id,
+    author_id: raw.author_id,
+    body: typeof raw.body === 'string' ? raw.body : (raw.body?.text ?? ''),
+    rating: raw.rating ?? null,
+    weather: raw.weather ?? '',
+    mood: raw.mood ?? '',
+    created_at: raw.created_at,
+    updated_at: raw.updated_at,
+  }
+}
+
+// fetchJournalEntry loads the journal entry for a day. Throws
+// JournalEntryNotFoundError when none exists yet (404), UnauthorizedError on
+// 401, and a generic Error otherwise.
+export async function fetchJournalEntry(
+  tripId: string,
+  dayId: string,
+  signal?: AbortSignal,
+): Promise<JournalEntry> {
+  const res = await apiFetch(`/trips/${tripId}/days/${dayId}/journal`, { signal })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 404) throw new JournalEntryNotFoundError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return parseJournalEntry((await res.json()) as RawJournalEntry)
+}
+
+// upsertJournalEntry idempotently creates or updates the day's journal entry.
+// Returns the saved entry. Throws UnauthorizedError on 401.
+export async function upsertJournalEntry(
+  tripId: string,
+  dayId: string,
+  input: JournalEntryInput,
+): Promise<JournalEntry> {
+  const body = {
+    body: { text: input.body ?? '' },
+    rating: input.rating ?? null,
+    weather: input.weather ?? '',
+    mood: input.mood ?? '',
+  }
+  const res = await apiFetch(`/trips/${tripId}/days/${dayId}/journal`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return parseJournalEntry((await res.json()) as RawJournalEntry)
+}
+
 // datesInRange returns YYYY-MM-DD strings for every calendar date in [start, end],
 // derived client-side from the trip's start_date and end_date strings. Matches the
 // server's day generation so the shell can navigate without an extra API call.
