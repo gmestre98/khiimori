@@ -3,8 +3,8 @@ package auth
 import (
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -157,18 +157,22 @@ func (m *Module) RegisterAdminRoutes(mux *http.ServeMux, gate httpx.Middleware) 
 }
 
 // IssueSessionCookie mints a valid session cookie for userID and returns it.
-// It is intended only for integration tests that need to authenticate without
-// going through the full OAuth flow.
+// Intended for integration tests that need to authenticate without the OAuth flow.
 func (m *Module) IssueSessionCookie(userID string) (*http.Cookie, error) {
-	rec := httptest.NewRecorder()
-	if err := m.sessions.issue(rec, userID); err != nil {
-		return nil, err
+	if !m.sessions.configured() {
+		return nil, errors.New("auth: session signing key not configured")
 	}
-	cookies := rec.Result().Cookies()
-	if len(cookies) == 0 {
-		return nil, errors.New("auth: issue produced no cookie")
-	}
-	return cookies[0], nil
+	now := time.Now()
+	value := m.sessions.sign(userID, now, now.Add(m.sessions.ttl))
+	return &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    value,
+		Path:     sessionCookiePath,
+		MaxAge:   int(m.sessions.ttl.Seconds()),
+		HttpOnly: true,
+		Secure:   m.sessions.secure,
+		SameSite: m.sessions.sameSite(),
+	}, nil
 }
 
 // Compile-time check that *Module implements the route-mounting contract.
