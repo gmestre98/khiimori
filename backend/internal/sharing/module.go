@@ -26,6 +26,11 @@ type Module struct {
 	// nil when not wired (falls back to empty strings in the email).
 	tripNames    tripNameReader
 	inviterNames inviterNameReader
+	// userEmails resolves the signed-in user's verified email for invitation
+	// acceptance. Nil when not wired; accept handler returns 500.
+	userEmails userEmailReader
+	// pool is needed for the accept handler's transaction.
+	pool *pgxpool.Pool
 }
 
 // Options groups optional fields for New.
@@ -36,6 +41,7 @@ type Options struct {
 	WebAppURL    string
 	TripNames    tripNameReader
 	InviterNames inviterNameReader
+	UserEmails   userEmailReader
 }
 
 // New constructs the sharing module with its Memberships service.
@@ -51,6 +57,8 @@ func New(pool *pgxpool.Pool, opts Options) *Module {
 		webAppURL:    opts.WebAppURL,
 		tripNames:    opts.TripNames,
 		inviterNames: opts.InviterNames,
+		userEmails:   opts.UserEmails,
+		pool:         pool,
 	}
 }
 
@@ -66,6 +74,7 @@ func (m *Module) InvitationsService() *Invitations { return m.invitations }
 func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	if m.requireAuth != nil {
 		mux.Handle("POST "+InvitationsPath, m.requireAuth(http.HandlerFunc(m.handleCreateInvitation)))
+		mux.Handle("POST "+AcceptInvitePath, m.requireAuth(http.HandlerFunc(m.handleAcceptInvitation)))
 	}
 }
 
