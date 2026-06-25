@@ -1135,11 +1135,20 @@ function BudgetSlot({ tripId, day }: { tripId: string; day: Day }) {
 }
 
 // JournalSlot renders the per-day journal editor (M06.4 S1).
-function JournalSlot({ tripId, dayId }: { tripId: string; dayId: string }) {
+// readOnly is true for past trips so the entry is shown as a permanent record.
+function JournalSlot({
+  tripId,
+  dayId,
+  readOnly,
+}: {
+  tripId: string
+  dayId: string
+  readOnly: boolean
+}) {
   return (
     <section className="day-slot day-slot-journal" aria-label="Journal" data-slot="journal">
       <h2 className="day-slot-title">Journal</h2>
-      <JournalEditor tripId={tripId} dayId={dayId} />
+      <JournalEditor tripId={tripId} dayId={dayId} readOnly={readOnly} />
     </section>
   )
 }
@@ -1160,6 +1169,9 @@ function MapSlot() {
 // slots for Budget (M05), Journal (M06), and Map (M07).
 export function DayView() {
   const { tripId, date } = useParams<{ tripId: string; date: string }>()
+  const { trip } = useTripShell()
+  // A trip is "past" when its end date is before today; journals become read-only.
+  const isPast = trip.end_date < new Date().toISOString().slice(0, 10)
 
   const [day, setDay] = useState<Day | null>(null)
   // fetchError is scoped to a date so stale errors from a previous date are
@@ -1236,7 +1248,7 @@ export function DayView() {
           </section>
         )}
         {day && tripId ? (
-          <JournalSlot tripId={tripId} dayId={day.id} />
+          <JournalSlot tripId={tripId} dayId={day.id} readOnly={isPast} />
         ) : (
           <section className="day-slot day-slot-journal" aria-label="Journal" data-slot="journal">
             <h2 className="day-slot-title">Journal</h2>
