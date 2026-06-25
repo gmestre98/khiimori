@@ -1,9 +1,29 @@
 package geo
 
-import "testing"
+import (
+	"net/http"
+	"testing"
 
-// TestPackageCompiles is a placeholder so the package is independently testable.
-// Real tests arrive with the domain logic in later epics.
-func TestPackageCompiles(t *testing.T) {
+	"github.com/gmestre98/khiimori/backend/internal/platform/httpx"
+)
+
+func TestNewReturnsModule(t *testing.T) {
 	t.Parallel()
+	m := New()
+	if m == nil {
+		t.Fatal("New() returned nil")
+	}
+}
+
+func TestModuleImplementsRouteRegistrar(t *testing.T) {
+	t.Parallel()
+	var _ httpx.RouteRegistrar = (*Module)(nil)
+}
+
+func TestRegisterRoutesMountsNoEndpoints(t *testing.T) {
+	t.Parallel()
+	m := New()
+	mux := http.NewServeMux()
+	// Should not panic; no endpoints registered yet (interface arrives in S2).
+	m.RegisterRoutes(mux)
 }
