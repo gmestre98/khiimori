@@ -48,29 +48,14 @@ func TestResendSender_Success(t *testing.T) {
 	defer srv.Close()
 
 	sender := &resendSender{
-		apiKey:     "test-key",
-		fromAddr:   "noreply@example.com",
-		httpClient: srv.Client(),
-	}
-	// Point to the fake server by swapping resendSendURL at test time is not
-	// feasible without making it a field. Use a local wrapper instead.
-	// We test via NewResendSender but override the URL with a monkey-patch-free
-	// approach: directly construct resendSender with the test server URL.
-	sender2 := &resendSender{
-		apiKey:     "test-key",
-		fromAddr:   "noreply@example.com",
-		httpClient: srv.Client(),
-	}
-	_ = sender // suppress unused warning; both sender and sender2 are identical here
-
-	// For the real test, we use sender2 with the actual request but route to srv.
-	// Since resendSendURL is a package-level const we test the SendInvite method
-	// directly via the httptest roundtrip by using a custom http.Client transport.
-	sender2.httpClient = &http.Client{
-		Transport: &rewriteTransport{base: http.DefaultTransport, target: srv.URL},
+		apiKey:   "test-key",
+		fromAddr: "noreply@example.com",
+		httpClient: &http.Client{
+			Transport: &rewriteTransport{base: http.DefaultTransport, target: srv.URL},
+		},
 	}
 
-	err := sender2.SendInvite(context.Background(), InviteEmailParams{
+	err := sender.SendInvite(context.Background(), InviteEmailParams{
 		ToEmail:     "friend@example.com",
 		TripName:    "Tokyo 2027",
 		InviterName: "Bob",
