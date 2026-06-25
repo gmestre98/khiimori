@@ -8,6 +8,7 @@ import {
   type JournalEntryInput,
 } from '../lib/api'
 import { PhotoGrid } from './PhotoGrid'
+import { UsageBar } from './UsageBar'
 
 const DEBOUNCE_MS = 800
 
@@ -53,6 +54,9 @@ export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditor
   // loadError is scoped to a dayId so stale errors from a previous day are not
   // shown when the user navigates to a new day (avoids synchronous setState reset).
   const [loadError, setLoadError] = useState<{ dayId: string; msg: string } | null>(null)
+  // usageRefreshKey is incremented whenever a photo is uploaded or deleted so
+  // UsageBar re-fetches the server's authoritative usage figure.
+  const [usageRefreshKey, setUsageRefreshKey] = useState(0)
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // loadedDayId tracks which dayId's data is currently in state. The auto-save
@@ -221,6 +225,8 @@ export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditor
 
       {readOnly && !entry && <p className="journal-empty">No journal entry for this day.</p>}
 
+      <UsageBar tripId={tripId} refreshKey={usageRefreshKey} />
+
       <PhotoGrid
         tripId={tripId}
         dayId={dayId}
@@ -235,6 +241,7 @@ export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditor
                 }
               }
         }
+        onPhotoChange={() => setUsageRefreshKey((k) => k + 1)}
       />
     </div>
   )

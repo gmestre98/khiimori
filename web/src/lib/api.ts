@@ -813,6 +813,25 @@ export async function deletePhoto(tripId: string, dayId: string, photoId: string
   if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
 }
 
+// --- Trip photo usage (M06.4 S3) -----------------------------------------------
+
+// TripUsage is the wire shape of GET /trips/:id/usage.
+export interface TripUsage {
+  used_bytes: number
+  cap_bytes: number
+  near_cap: boolean
+  used_pct: number
+}
+
+// fetchTripUsage loads the per-trip photo storage usage from GET /trips/:id/usage.
+// Throws UnauthorizedError on 401 and a generic Error otherwise.
+export async function fetchTripUsage(tripId: string, signal?: AbortSignal): Promise<TripUsage> {
+  const res = await apiFetch(`/trips/${tripId}/usage`, { signal })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as TripUsage
+}
+
 // datesInRange returns YYYY-MM-DD strings for every calendar date in [start, end],
 // derived client-side from the trip's start_date and end_date strings. Matches the
 // server's day generation so the shell can navigate without an extra API call.

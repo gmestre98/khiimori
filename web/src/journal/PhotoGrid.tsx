@@ -100,10 +100,18 @@ interface PhotoGridProps {
   dayId: string
   /** Called before each upload so JournalEditor can ensure the entry row exists first. */
   onBeforeUpload?: () => Promise<void>
+  /** Called after a successful upload or delete so the usage bar can refresh. */
+  onPhotoChange?: () => void
   readOnly?: boolean
 }
 
-export function PhotoGrid({ tripId, dayId, onBeforeUpload, readOnly = false }: PhotoGridProps) {
+export function PhotoGrid({
+  tripId,
+  dayId,
+  onBeforeUpload,
+  onPhotoChange,
+  readOnly = false,
+}: PhotoGridProps) {
   const [photos, setPhotos] = useState<Photo[]>([])
   const [uploads, setUploads] = useState<UploadItem[]>([])
   const [lightbox, setLightbox] = useState<Photo | null>(null)
@@ -142,6 +150,7 @@ export function PhotoGrid({ tripId, dayId, onBeforeUpload, readOnly = false }: P
         const photo = await uploadPhoto(tripId, dayId, file)
         setPhotos((prev) => [...prev, photo])
         setUploads((prev) => prev.filter((u) => u.id !== uploadId))
+        onPhotoChange?.()
       } catch (err) {
         if (err instanceof PhotoCapExceededError) {
           setCapError(err.serverMessage)
@@ -162,6 +171,7 @@ export function PhotoGrid({ tripId, dayId, onBeforeUpload, readOnly = false }: P
     setPhotos((prev) => prev.filter((p) => p.id !== photo.id))
     try {
       await deletePhoto(tripId, dayId, photo.id)
+      onPhotoChange?.()
     } catch {
       // Restore on failure.
       setPhotos((prev) => [...prev, photo])
