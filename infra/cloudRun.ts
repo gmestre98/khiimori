@@ -18,6 +18,7 @@ import {
 } from './secrets'
 import { maxInstances, minInstances } from './tunables'
 import { hostingUrl } from './hosting'
+import { mediaBucketName } from './storage'
 
 // A Secret Manager-backed env var: the container receives the secret's *value*
 // at runtime, sourced from the named secret's latest version — never a literal
@@ -127,6 +128,9 @@ export const service = new gcp.cloudrunv2.Service(
             // Session cookie signing key (M02.3 S4), auto-generated and stored in
             // Secret Manager by the infra; the app reads it from SESSION_SECRET.
             secretEnv('SESSION_SECRET', sessionSecret),
+            // GCS bucket for journal photo uploads (M06.x). The SA already has
+            // roles/storage.objectUser on this bucket (serviceAccount.ts).
+            { name: 'MEDIA_BUCKET_NAME', value: mediaBucketName },
           ],
           // Liveness: dependency-free /healthz — restart only if the process
           // itself wedges, never because a dependency is down.
