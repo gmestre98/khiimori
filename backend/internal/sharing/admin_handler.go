@@ -9,10 +9,10 @@ import (
 	platformlog "github.com/gmestre98/khiimori/backend/internal/platform/log"
 )
 
-// AdminTripMembersPath is the admin endpoint to grant access to a trip (M08.5 S3).
+// AdminTripMembersPath is the admin endpoint to grant access to a trip.
 const AdminTripMembersPath = "/admin/trips/{tripID}/members"
 
-// AdminTripMemberPath is the admin endpoint for a specific member in a trip (M08.5 S3).
+// AdminTripMemberPath is the admin endpoint for a specific member in a trip.
 // PATCH changes role; DELETE revokes access.
 const AdminTripMemberPath = "/admin/trips/{tripID}/members/{userID}"
 
@@ -22,9 +22,8 @@ type adminGrantRequest struct {
 	Role   string `json:"role"`
 }
 
-// handleAdminGrantAccess grants a user access to a trip. It reuses the
-// membership lifecycle (Memberships.Add) without requiring trip ownership —
-// the admin gating (RequireAdmin) is the authorization for this action (M08.5 S3).
+// handleAdminGrantAccess grants a user access to a trip without requiring trip
+// ownership — the admin gating (RequireAdmin) is the sole authorization check.
 func (m *Module) handleAdminGrantAccess(w http.ResponseWriter, r *http.Request) {
 	log := platformlog.FromContext(r.Context())
 	tripID := r.PathValue("tripID")
@@ -58,10 +57,7 @@ func (m *Module) handleAdminGrantAccess(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusCreated)
-	_, _ = w.Write([]byte(`{"status":"granted"}`))
 }
 
 // handleAdminChangeRole changes a member's role within a trip. It reuses

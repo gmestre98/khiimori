@@ -21,7 +21,7 @@ type Module struct {
 	// requireAuth is the auth middleware injected by the composition root.
 	requireAuth httpx.Middleware
 	// requireAdmin is the admin middleware injected by the composition root.
-	// When set, admin trip-membership endpoints are mounted (M08.5 S3).
+	// When set, admin trip-membership endpoints are mounted.
 	requireAdmin httpx.Middleware
 	// webAppURL is the base URL for the accept link in invitation emails.
 	webAppURL string
@@ -38,10 +38,10 @@ type Module struct {
 
 // Options groups optional fields for New.
 type Options struct {
-	Authz        invitationAuthorizer
-	EmailSender  EmailSender
-	RequireAuth  httpx.Middleware
-	// RequireAdmin gates the admin trip-membership endpoints (M08.5 S3).
+	Authz       invitationAuthorizer
+	EmailSender EmailSender
+	RequireAuth httpx.Middleware
+	// RequireAdmin gates the admin trip-membership endpoints.
 	RequireAdmin httpx.Middleware
 	WebAppURL    string
 	TripNames    tripNameReader
