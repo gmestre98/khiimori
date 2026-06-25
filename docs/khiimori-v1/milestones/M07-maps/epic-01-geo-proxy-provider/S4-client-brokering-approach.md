@@ -10,13 +10,13 @@ Decide and document how the client renders maps without holding a privileged key
 brokering the frontend (Epic 03) needs.
 
 ## Acceptance criteria
-- [ ] A documented decision describes how the client renders the map: **proxied tiles/data** (preferred)
+- [x] A documented decision describes how the client renders the map: **proxied tiles/data** (preferred)
   or a **restricted referer-locked key** — defaulting to maximum key protection.
-- [ ] The backend provides the data/endpoints the frontend (Epic 03) needs to render pins + an indicative
+- [x] The backend provides the data/endpoints the frontend (Epic 03) needs to render pins + an indicative
   route without a privileged key.
-- [ ] If a referer-locked client key is used, it is the **restricted** key and the restriction is
+- [x] If a referer-locked client key is used, it is the **restricted** key and the restriction is
   documented (and verified in Milestone 10).
-- [ ] The approach keeps the proxy/cost protections intact (no path that bypasses the proxy for billable
+- [x] The approach keeps the proxy/cost protections intact (no path that bypasses the proxy for billable
   calls).
 
 ## Constraints

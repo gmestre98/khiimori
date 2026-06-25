@@ -1,5 +1,7 @@
 # Epic M07.1 — Geo proxy & `MapProvider` interface
 
+> **Status:** ✅ Done — PRs [#319](https://github.com/gmestre98/khiimori/pull/319) [#320](https://github.com/gmestre98/khiimori/pull/320) [#321](https://github.com/gmestre98/khiimori/pull/321) [#322](https://github.com/gmestre98/khiimori/pull/322) [#323](https://github.com/gmestre98/khiimori/pull/323) · 5 ACs verified · Static Maps proxy approach chosen (no client key)
+
 > Milestone: [07 — Maps](../README.md) · PRD refs: §5.6, §6, §7.0, §7.1, §8.5.
 
 ## Description
@@ -14,17 +16,17 @@ mitigation: the "leaked key → surprise bill" path is designed out.
 
 ## Acceptance Criteria
 
-- [ ] A **`geo` module** with a `geo.*` schema exposes a **`MapProvider`/`Geocoder` interface**
+- [x] A **`geo` module** with a `geo.*` schema exposes a **`MapProvider`/`Geocoder` interface**
       wrapping Google Maps Platform (PRD §7.0, §7.1).
-- [ ] **All Maps calls go through the backend proxy**; the **Maps API key is never shipped to the
+- [x] **All Maps calls go through the backend proxy**; the **Maps API key is never shipped to the
       client** — it lives only in Secret Manager (from Milestone 01) (PRD §5.6, §6, §8.5).
-- [ ] If any client-side Maps SDK use is unavoidable, it uses a **restricted, referer-locked key or
+- [x] If any client-side Maps SDK use is unavoidable, it uses a **restricted, referer-locked key or
       proxied tiles** — the chosen approach is documented, defaulting to maximum key protection
-      (PRD §8.5).
-- [ ] The proxy relies on the Maps key being **restricted** with **hard quota caps + billing alert**
+      (PRD §8.5). *(Decision: Static Maps proxy — no client key at all; documented in `doc.go`.)*
+- [x] The proxy relies on the Maps key being **restricted** with **hard quota caps + billing alert**
       (set in Milestone 01) so it stays within the **free monthly allowance** at expected usage
       (PRD §8.1, §8.5).
-- [ ] Unit + integration tests prove **the key never leaks** to client-visible responses and the
+- [x] Unit + integration tests prove **the key never leaks** to client-visible responses and the
       proxy boundary holds (provider faked) (PRD §7.6).
 
 ## Implementation Details / Architecture

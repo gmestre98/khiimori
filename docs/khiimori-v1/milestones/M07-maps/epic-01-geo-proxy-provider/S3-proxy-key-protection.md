@@ -10,12 +10,12 @@ Implement the proxy endpoints that broker Maps operations server-side, holding t
 backend.
 
 ## Acceptance criteria
-- [ ] The `geo` module exposes proxy endpoints (geocode, route hints, and any map-data brokering) that the
+- [x] The `geo` module exposes proxy endpoints (geocode, route hints, and any map-data brokering) that the
   client calls — the client never calls Google directly.
-- [ ] The **restricted Maps API key** is loaded from **Secret Manager** (M01.4) and used only server-side;
+- [x] The **restricted Maps API key** is loaded from **Secret Manager** (M01.4) and used only server-side;
   it never appears in client-visible responses, logs, or errors.
-- [ ] The proxy enforces that no privileged key is embedded in anything returned to the client.
-- [ ] The proxy relies on the key being **restricted** with **quota caps + billing alert** from Milestone
+- [x] The proxy enforces that no privileged key is embedded in anything returned to the client.
+- [x] The proxy relies on the key being **restricted** with **quota caps + billing alert** from Milestone
   01 (referenced, not re-created here).
 
 ## Constraints
