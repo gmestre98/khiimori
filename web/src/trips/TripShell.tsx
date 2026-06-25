@@ -84,7 +84,8 @@ function TripShell() {
 
   // If no day segment is matched and we're not on a named child route (e.g.
   // backlog), redirect to today's day (or nearest boundary).
-  const isAtRoot = !dateParam && !location.pathname.endsWith('/backlog')
+  const isAtRoot =
+    !dateParam && !location.pathname.endsWith('/backlog') && !location.pathname.endsWith('/budget')
   if (isAtRoot) {
     const today = todayStr()
     const target = clampDate(today, trip.start_date, trip.end_date)
