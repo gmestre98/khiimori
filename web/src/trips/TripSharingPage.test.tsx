@@ -186,4 +186,53 @@ describe('TripSharingPage', () => {
     await user.click(screen.getByRole('button', { name: 'Revoke' }))
     await waitFor(() => expect(api.revokeMember).toHaveBeenCalledWith('trip-1', 'user-viewer'))
   })
+
+  it('owner can change a member role via the dropdown', async () => {
+    const user = userEvent.setup()
+    renderPage(ownerProfile)
+    await waitFor(() => expect(screen.getByText('user-viewer')).toBeInTheDocument())
+
+    const select = screen.getByRole('combobox', { name: /Change role for user-viewer/i })
+    await user.selectOptions(select, 'editor')
+
+    await waitFor(() =>
+      expect(api.changeMemberRole).toHaveBeenCalledWith('trip-1', 'user-viewer', 'editor'),
+    )
+  })
+
+  it('revoke-member modal can be cancelled', async () => {
+    const user = userEvent.setup()
+    renderPage(ownerProfile)
+    await waitFor(() => expect(screen.getByText('user-viewer')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: /Revoke access for user-viewer/i }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(api.revokeMember).not.toHaveBeenCalled()
+  })
+
+  it('owner can revoke a pending invitation', async () => {
+    const user = userEvent.setup()
+    renderPage(ownerProfile)
+    await waitFor(() => expect(screen.getByText('friend@example.com')).toBeInTheDocument())
+
+    await user.click(
+      screen.getByRole('button', { name: /Revoke invitation for friend@example.com/i }),
+    )
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Revoke' }))
+    await waitFor(() => expect(api.revokeInvitation).toHaveBeenCalledWith('trip-1', 'inv-1'))
+  })
+
+  it('non-owner cannot see revoke or role-change controls', async () => {
+    renderPage(viewerProfile)
+    await waitFor(() => expect(screen.getByText('user-owner')).toBeInTheDocument())
+
+    expect(screen.queryByRole('button', { name: /Revoke/i })).not.toBeInTheDocument()
+    // The DayNav select is present in TripShell; ensure no role-change select exists.
+    expect(screen.queryByRole('combobox', { name: /Change role/i })).not.toBeInTheDocument()
+  })
 })
