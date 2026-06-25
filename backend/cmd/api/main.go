@@ -221,6 +221,7 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 			WebAppURL:    cfg.WebAppURL,
 			TripNames:    &pgxTripNameReader{pool: pool},
 			InviterNames: &pgxUserNameReader{pool: pool},
+			UserEmails:   &pgxUserEmailReader{pool: pool},
 		}),
 		func() httpx.RouteRegistrar {
 			geoProvider := buildGeoProvider(cfg.MapsAPIKey)
@@ -407,6 +408,20 @@ func (r *pgxUserNameReader) NameByID(ctx context.Context, userID string) (string
 		return "", fmt.Errorf("user name by id: %w", err)
 	}
 	return name, nil
+}
+
+// pgxUserEmailReader resolves a user's verified email from auth.users for the
+// invitation accept flow. Lives in the composition root to keep sharing decoupled
+// from the auth module.
+type pgxUserEmailReader struct{ pool *pgxpool.Pool }
+
+func (r *pgxUserEmailReader) EmailByID(ctx context.Context, userID string) (string, error) {
+	var email string
+	err := r.pool.QueryRow(ctx, `SELECT email FROM auth.users WHERE id = $1::uuid`, userID).Scan(&email)
+	if err != nil {
+		return "", fmt.Errorf("user email by id: %w", err)
+	}
+	return email, nil
 }
 
 // buildGeoProvider constructs the server-side MapProvider from the Maps API key.
