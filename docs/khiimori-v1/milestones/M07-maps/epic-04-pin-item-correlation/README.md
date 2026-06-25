@@ -1,5 +1,7 @@
 # Epic M07.4 — Two-way pin↔item correlation (frontend)
 
+> **Status:** ✅ Done — [PR #332](https://github.com/gmestre98/khiimori/pull/332) (S1), [PR #333](https://github.com/gmestre98/khiimori/pull/333) (S2). All 3 ACs met: tapping a pin highlights the matching item, selecting an item highlights its pin, correlation is robust to location-less items and reordering with UI tests for both directions.
+
 > Milestone: [07 — Maps](../README.md) · PRD refs: §5.6, §5.10, §7.2.
 
 ## Description
@@ -12,10 +14,10 @@ the day, not just a picture. Builds directly on the per-day rendering from Epic 
 
 ## Acceptance Criteria
 
-- [ ] **Tapping a pin highlights the matching itinerary item** (scrolls to / emphasises it)
+- [x] **Tapping a pin highlights the matching itinerary item** (scrolls to / emphasises it)
       (PRD §5.6).
-- [ ] **Selecting an itinerary item highlights its pin** on the map (two-way) (PRD §5.6).
-- [ ] Correlation is robust to location-less items (which have no pin) and to itinerary reordering
+- [x] **Selecting an itinerary item highlights its pin** on the map (two-way) (PRD §5.6).
+- [x] Correlation is robust to location-less items (which have no pin) and to itinerary reordering
       from Milestone 04; UI tests cover both directions of highlighting (PRD §5.6, §7.6).
 
 ## Implementation Details / Architecture

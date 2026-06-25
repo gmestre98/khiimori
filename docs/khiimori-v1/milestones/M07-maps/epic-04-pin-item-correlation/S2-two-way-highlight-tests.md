@@ -9,10 +9,10 @@ location-less items.
 Implement two-way highlighting on top of the shared selection state and test it.
 
 ## Acceptance criteria
-- [ ] **Tapping a pin** highlights (scrolls to / emphasises) the matching itinerary item.
-- [ ] **Selecting an itinerary item** highlights its pin on the map.
-- [ ] Highlighting uses restrained accent colour consistent with the theme (PRD §5.10).
-- [ ] UI tests cover both directions, plus robustness to **reordering** and **location-less** items (no
+- [x] **Tapping a pin** highlights (scrolls to / emphasises) the matching itinerary item.
+- [x] **Selecting an itinerary item** highlights its pin on the map.
+- [x] Highlighting uses restrained accent colour consistent with the theme (PRD §5.10).
+- [x] UI tests cover both directions, plus robustness to **reordering** and **location-less** items (no
   pin to highlight, no crash).
 
 ## Constraints
