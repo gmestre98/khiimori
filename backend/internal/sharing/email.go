@@ -104,7 +104,7 @@ func (s *resendSender) SendInvite(ctx context.Context, p InviteEmailParams) erro
 	if err != nil {
 		return fmt.Errorf("sharing: email sender: send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, resp.Body)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
