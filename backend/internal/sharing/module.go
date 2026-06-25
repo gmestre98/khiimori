@@ -12,20 +12,62 @@ import (
 // so cmd/api can mount the module's routes without reaching into its internals.
 type Module struct {
 	memberships *Memberships
+	invitations *Invitations
+	// invCreate is the seam used by the invite handler; defaults to invitations.
+	// Tests may supply a fake to avoid a real DB pool.
+	invCreate   invitationCreator
+	authz       invitationAuthorizer
+	emailSender EmailSender
+	// requireAuth is the auth middleware injected by the composition root.
+	requireAuth httpx.Middleware
+	// webAppURL is the base URL for the accept link in invitation emails.
+	webAppURL string
+	// tripNames and inviterNames resolve display names for the invite email;
+	// nil when not wired (falls back to empty strings in the email).
+	tripNames    tripNameReader
+	inviterNames inviterNameReader
+}
+
+// Options groups optional fields for New.
+type Options struct {
+	Authz        invitationAuthorizer
+	EmailSender  EmailSender
+	RequireAuth  httpx.Middleware
+	WebAppURL    string
+	TripNames    tripNameReader
+	InviterNames inviterNameReader
 }
 
 // New constructs the sharing module with its Memberships service.
-func New(pool *pgxpool.Pool) *Module {
-	return &Module{memberships: NewMemberships(pool)}
+func New(pool *pgxpool.Pool, opts Options) *Module {
+	inv := NewInvitations(pool)
+	return &Module{
+		memberships:  NewMemberships(pool),
+		invitations:  inv,
+		invCreate:    inv,
+		authz:        opts.Authz,
+		emailSender:  opts.EmailSender,
+		requireAuth:  opts.RequireAuth,
+		webAppURL:    opts.WebAppURL,
+		tripNames:    opts.TripNames,
+		inviterNames: opts.InviterNames,
+	}
 }
 
-// Memberships exposes the membership lifecycle for use by other modules (e.g.
-// the trip module's composition root needs CreateOwner).
+// MembershipsService exposes the membership lifecycle for use by other modules
+// (e.g. the trip module's composition root needs CreateOwner).
 func (m *Module) MembershipsService() *Memberships { return m.memberships }
 
-// RegisterRoutes mounts the sharing module's HTTP routes onto mux. The module has no
-// endpoints yet; handlers arrive in later milestones.
-func (m *Module) RegisterRoutes(mux *http.ServeMux) {}
+// InvitationsService exposes the invitation store for use by the accept handler
+// and tests.
+func (m *Module) InvitationsService() *Invitations { return m.invitations }
+
+// RegisterRoutes mounts the sharing module's HTTP routes onto mux.
+func (m *Module) RegisterRoutes(mux *http.ServeMux) {
+	if m.requireAuth != nil {
+		mux.Handle("POST "+InvitationsPath, m.requireAuth(http.HandlerFunc(m.handleCreateInvitation)))
+	}
+}
 
 // Compile-time check that *Module implements the route-mounting contract.
 var _ httpx.RouteRegistrar = (*Module)(nil)
