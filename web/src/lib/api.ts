@@ -879,6 +879,10 @@ export async function fetchDayRoute(
   return (await res.json()) as DayRouteResponse
 }
 
+// MARKER_COLOR is the accent colour used for itinerary pins (PRD §5.10 restrained
+// accent). Must be a Google Static Maps colour literal (name or 0xRRGGBB).
+const MARKER_COLOR = '0x4F7942'
+
 // staticMapUrl builds the URL for the GET /geo/static-map endpoint. The server
 // proxies the request to Google Static Maps and embeds the API key — no key is
 // ever sent to the client. Returns null when there are no waypoints to display.
@@ -891,7 +895,8 @@ export function staticMapUrl(
   if (opts?.size) params.set('size', opts.size)
   if (opts?.scale === 2) params.set('scale', '2')
   for (const wp of waypoints) {
-    params.append('markers', `${wp.lat},${wp.lng}`)
+    // Prefix with size and color style so all pins share the accent colour.
+    params.append('markers', `size:mid|color:${MARKER_COLOR}|${wp.lat},${wp.lng}`)
   }
   if (waypoints.length > 1) {
     for (const wp of waypoints) {
