@@ -9,12 +9,12 @@ view.
 Build a reusable map component that loads via the proxy and lazy-loads.
 
 ## Acceptance criteria
-- [ ] A map component renders using data/tiles brokered by the **Geo proxy** (Epic 01 S4 approach); it
+- [x] A map component renders using data/tiles brokered by the **Geo proxy** (Epic 01 S4 approach); it
   holds **no privileged Maps key**.
-- [ ] The map is **lazy-loaded** (loaded when the day view needs it), not on initial app load (PRD §6,
+- [x] The map is **lazy-loaded** (loaded when the day view needs it), not on initial app load (PRD §6,
   §8.4 #2).
-- [ ] The component fits the day view layout and is responsive (web + mobile).
-- [ ] Loading/error states are handled (map unavailable degrades gracefully).
+- [x] The component fits the day view layout and is responsive (web + mobile).
+- [x] Loading/error states are handled (map unavailable degrades gracefully).
 
 ## Constraints
 - No client-side privileged key (PRD §8.5) — follow Epic 01 S4's documented brokering approach.

@@ -1,5 +1,7 @@
 # Epic M07.3 — Per-day map rendering (frontend)
 
+> **Status:** ✅ Done — [S1 #328](https://github.com/gmestre98/khiimori/pull/328), [S2 #329](https://github.com/gmestre98/khiimori/pull/329), [S3 #330](https://github.com/gmestre98/khiimori/pull/330). All 4 ACs met; 201 tests green.
+
 > Milestone: [07 — Maps](../README.md) · PRD refs: §5.6, §5.10, §7.2, §8.4.
 
 ## Description
@@ -13,13 +15,13 @@ data/tiles come from the **Geo proxy** — the client never holds a Maps key.
 
 ## Acceptance Criteria
 
-- [ ] The day view renders a **map with pins** for that day's `Stay` and located `PlanItem`s in
+- [x] The day view renders a **map with pins** for that day's `Stay` and located `PlanItem`s in
       **itinerary order** (PRD §5.6).
-- [ ] An **indicative route** is drawn between the pins in order, using the route hints from Epic 02
+- [x] An **indicative route** is drawn between the pins in order, using the route hints from Epic 02
       (PRD §5.6).
-- [ ] Items/stays **without a location are omitted** from the map gracefully (no broken pins)
+- [x] Items/stays **without a location are omitted** from the map gracefully (no broken pins)
       (PRD §5.6, Milestone 04).
-- [ ] The client obtains all map data/tiles via the **Geo proxy** and holds **no Maps key**; the map
+- [x] The client obtains all map data/tiles via the **Geo proxy** and holds **no Maps key**; the map
       is mobile-first, responsive, and **lazy-loaded** to protect performance and cost (PRD §5.6,
       §8.4, §5.10, §7.2).
 
