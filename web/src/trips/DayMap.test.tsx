@@ -26,6 +26,10 @@ function makeDay(overrides?: Partial<Day>): Day {
   }
 }
 
+function renderDayMap(day: Day) {
+  return render(<DayMap day={day} selectedId={null} onSelect={vi.fn()} />)
+}
+
 describe('DayMap', () => {
   beforeEach(() => {
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
@@ -39,18 +43,16 @@ describe('DayMap', () => {
 
   it('shows loading while fetching waypoints', () => {
     vi.mocked(api.fetchDayRoute).mockReturnValue(new Promise(() => {}))
-    render(
-      <DayMap
-        day={makeDay({
-          stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Paris' }],
-        })}
-      />,
+    renderDayMap(
+      makeDay({
+        stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Paris' }],
+      }),
     )
     expect(screen.getByText('Loading map…')).toBeTruthy()
   })
 
   it('shows empty state when no located items', async () => {
-    render(<DayMap day={makeDay()} />)
+    renderDayMap(makeDay())
     await waitFor(() => {
       expect(screen.getByText('No located stops for this day.')).toBeTruthy()
     })
@@ -59,12 +61,10 @@ describe('DayMap', () => {
 
   it('shows empty state when all waypoints unresolvable', async () => {
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
-    render(
-      <DayMap
-        day={makeDay({
-          stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Nowhere' }],
-        })}
-      />,
+    renderDayMap(
+      makeDay({
+        stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Nowhere' }],
+      }),
     )
     await waitFor(() => {
       expect(screen.getByText('No located stops for this day.')).toBeTruthy()
@@ -78,23 +78,21 @@ describe('DayMap', () => {
     ]
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints })
     vi.mocked(api.staticMapUrl).mockReturnValue('http://localhost:8080/geo/static-map?markers=...')
-    render(
-      <DayMap
-        day={makeDay({
-          stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Paris' }],
-          plan_items: [
-            {
-              id: 'i1',
-              trip_id: 'trip-1',
-              day_id: 'day-1',
-              title: 'Eiffel Tower',
-              location: 'Eiffel Tower, Paris',
-              sort_order: 0,
-              status: 'planned',
-            },
-          ],
-        })}
-      />,
+    renderDayMap(
+      makeDay({
+        stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Paris' }],
+        plan_items: [
+          {
+            id: 'i1',
+            trip_id: 'trip-1',
+            day_id: 'day-1',
+            title: 'Eiffel Tower',
+            location: 'Eiffel Tower, Paris',
+            sort_order: 0,
+            status: 'planned',
+          },
+        ],
+      }),
     )
     await waitFor(() => {
       expect(screen.getByRole('img', { name: 'Map for 2026-06-01' })).toBeTruthy()
@@ -103,12 +101,10 @@ describe('DayMap', () => {
 
   it('shows error state when fetchDayRoute rejects', async () => {
     vi.mocked(api.fetchDayRoute).mockRejectedValue(new Error('network'))
-    render(
-      <DayMap
-        day={makeDay({
-          stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Paris' }],
-        })}
-      />,
+    renderDayMap(
+      makeDay({
+        stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Paris' }],
+      }),
     )
     await waitFor(() => {
       expect(screen.getByText('Map unavailable.')).toBeTruthy()
@@ -117,32 +113,30 @@ describe('DayMap', () => {
 
   it('passes locations in itinerary order (stay first, then plan items by sort_order)', async () => {
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
-    render(
-      <DayMap
-        day={makeDay({
-          stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Stay loc' }],
-          plan_items: [
-            {
-              id: 'i2',
-              trip_id: 'trip-1',
-              day_id: 'day-1',
-              title: 'Item B',
-              location: 'Loc B',
-              sort_order: 1,
-              status: 'planned',
-            },
-            {
-              id: 'i1',
-              trip_id: 'trip-1',
-              day_id: 'day-1',
-              title: 'Item A',
-              location: 'Loc A',
-              sort_order: 0,
-              status: 'planned',
-            },
-          ],
-        })}
-      />,
+    renderDayMap(
+      makeDay({
+        stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Stay loc' }],
+        plan_items: [
+          {
+            id: 'i2',
+            trip_id: 'trip-1',
+            day_id: 'day-1',
+            title: 'Item B',
+            location: 'Loc B',
+            sort_order: 1,
+            status: 'planned',
+          },
+          {
+            id: 'i1',
+            trip_id: 'trip-1',
+            day_id: 'day-1',
+            title: 'Item A',
+            location: 'Loc A',
+            sort_order: 0,
+            status: 'planned',
+          },
+        ],
+      }),
     )
     await waitFor(() => {
       expect(api.fetchDayRoute).toHaveBeenCalledWith(
@@ -167,31 +161,29 @@ describe('DayMap — route and omission (S3)', () => {
 
   it('passes location-less items as empty strings so the server can skip them', async () => {
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
-    render(
-      <DayMap
-        day={makeDay({
-          plan_items: [
-            {
-              id: 'i1',
-              trip_id: 'trip-1',
-              day_id: 'day-1',
-              title: 'No location item',
-              sort_order: 0,
-              status: 'planned',
-              // location intentionally absent
-            },
-            {
-              id: 'i2',
-              trip_id: 'trip-1',
-              day_id: 'day-1',
-              title: 'Located item',
-              location: 'Paris',
-              sort_order: 1,
-              status: 'planned',
-            },
-          ],
-        })}
-      />,
+    renderDayMap(
+      makeDay({
+        plan_items: [
+          {
+            id: 'i1',
+            trip_id: 'trip-1',
+            day_id: 'day-1',
+            title: 'No location item',
+            sort_order: 0,
+            status: 'planned',
+            // location intentionally absent
+          },
+          {
+            id: 'i2',
+            trip_id: 'trip-1',
+            day_id: 'day-1',
+            title: 'Located item',
+            location: 'Paris',
+            sort_order: 1,
+            status: 'planned',
+          },
+        ],
+      }),
     )
     await waitFor(() => {
       expect(api.fetchDayRoute).toHaveBeenCalledWith(
@@ -204,12 +196,10 @@ describe('DayMap — route and omission (S3)', () => {
 
   it('shows empty state when all returned waypoints are empty (all items unresolvable)', async () => {
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
-    render(
-      <DayMap
-        day={makeDay({
-          stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Fake Town' }],
-        })}
-      />,
+    renderDayMap(
+      makeDay({
+        stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Fake Town' }],
+      }),
     )
     await waitFor(() => {
       expect(screen.getByText('No located stops for this day.')).toBeTruthy()
@@ -220,22 +210,20 @@ describe('DayMap — route and omission (S3)', () => {
     const waypoints = [{ lat: 48.8566, lng: 2.3522 }]
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints })
     vi.mocked(api.staticMapUrl).mockReturnValue('http://localhost:8080/geo/static-map?markers=...')
-    render(
-      <DayMap
-        day={makeDay({
-          stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Paris' }],
-          plan_items: [
-            {
-              id: 'i1',
-              trip_id: 'trip-1',
-              day_id: 'day-1',
-              title: 'No location item',
-              sort_order: 0,
-              status: 'planned',
-            },
-          ],
-        })}
-      />,
+    renderDayMap(
+      makeDay({
+        stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Paris' }],
+        plan_items: [
+          {
+            id: 'i1',
+            trip_id: 'trip-1',
+            day_id: 'day-1',
+            title: 'No location item',
+            sort_order: 0,
+            status: 'planned',
+          },
+        ],
+      }),
     )
     await waitFor(() => {
       expect(screen.getByRole('img', { name: 'Map for 2026-06-01' })).toBeTruthy()
