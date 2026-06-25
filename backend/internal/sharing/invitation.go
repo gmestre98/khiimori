@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -122,7 +123,7 @@ func (inv *Invitations) ForTrip(ctx context.Context, tripID string) ([]Invitatio
 // match the invitation's email exactly (case-insensitive). Returns
 // ErrEmailMismatch on a mismatch and ErrInvitationAlreadyClaimed if the
 // invitation is not in 'sent' state.
-func (inv *Invitations) AcceptInTx(ctx context.Context, tx pgx.Tx, token, userID, userEmail string, mb *Memberships) (Invitation, error) {
+func (inv *Invitations) AcceptInTx(ctx context.Context, tx pgx.Tx, token, userID, userEmail string) (Invitation, error) {
 	// Lock the invitation row for update to prevent concurrent accepts.
 	const lockQuery = `
 		SELECT id::text, trip_id::text, email, role, status, token
@@ -200,20 +201,5 @@ func (inv *Invitations) RevokeInvitation(ctx context.Context, invitationID strin
 
 // emailsEqual compares two email addresses case-insensitively.
 func emailsEqual(a, b string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		ca, cb := a[i], b[i]
-		if ca >= 'A' && ca <= 'Z' {
-			ca += 'a' - 'A'
-		}
-		if cb >= 'A' && cb <= 'Z' {
-			cb += 'a' - 'A'
-		}
-		if ca != cb {
-			return false
-		}
-	}
-	return true
+	return strings.EqualFold(a, b)
 }
