@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // googleProvider implements MapProvider by calling the Google Maps REST APIs
@@ -95,6 +97,59 @@ func (g *googleProvider) RouteHints(_ context.Context, waypoints []LatLng) ([]La
 	out := make([]LatLng, len(waypoints))
 	copy(out, waypoints)
 	return out, nil
+}
+
+// StaticMap fetches a Google Static Maps PNG image with the given markers and
+// path polyline and returns the raw image bytes. The Maps API key is embedded
+// in the request and never included in the returned bytes.
+func (g *googleProvider) StaticMap(ctx context.Context, params StaticMapParams) ([]byte, error) {
+	u := g.baseURL + "/maps/api/staticmap"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("geo: building static-map request: %w", err)
+	}
+
+	q := url.Values{}
+	size := params.Size
+	if size == "" {
+		size = "600x300"
+	}
+	q.Set("size", size)
+
+	scale := params.Scale
+	if scale < 1 {
+		scale = 1
+	}
+	q.Set("scale", fmt.Sprintf("%d", scale))
+
+	for _, m := range params.Markers {
+		q.Add("markers", fmt.Sprintf("%f,%f", m.Lat, m.Lng))
+	}
+	if len(params.Path) > 1 {
+		var pts []string
+		for _, p := range params.Path {
+			pts = append(pts, fmt.Sprintf("%f,%f", p.Lat, p.Lng))
+		}
+		q.Set("path", strings.Join(pts, "|"))
+	}
+	q.Set("key", g.apiKey)
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := g.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("geo: static-map request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("geo: static-map API status %d", resp.StatusCode)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("geo: reading static-map response: %w", err)
+	}
+	return data, nil
 }
 
 // Compile-time checks that *googleProvider satisfies both interfaces.

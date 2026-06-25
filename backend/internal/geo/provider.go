@@ -16,9 +16,22 @@ type Geocoder interface {
 	Geocode(ctx context.Context, location string) (LatLng, error)
 }
 
-// MapProvider wraps geocoding and route-hint operations needed by the day-map
-// feature (Epics 03–04). All operations are proxied server-side so no Maps key
-// is ever shipped to the client.
+// StaticMapParams describes the content of a static map image returned by
+// MapProvider.StaticMap. The image will be rendered by the client as-is (PNG).
+type StaticMapParams struct {
+	// Size is the image dimensions, e.g. "600x300".
+	Size string
+	// Markers is the ordered list of pin positions in itinerary order.
+	Markers []LatLng
+	// Path is the ordered list of waypoints for the indicative route polyline.
+	Path []LatLng
+	// Scale is the pixel density multiplier (1 or 2); defaults to 1.
+	Scale int
+}
+
+// MapProvider wraps geocoding, route-hint, and static-map operations needed by
+// the day-map feature (Epics 03–04). All operations are proxied server-side so
+// no Maps key is ever shipped to the client.
 type MapProvider interface {
 	Geocoder
 
@@ -26,4 +39,9 @@ type MapProvider interface {
 	// an indicative route between itinerary pins. Waypoints with no location are
 	// omitted by the caller before calling this method.
 	RouteHints(ctx context.Context, waypoints []LatLng) ([]LatLng, error)
+
+	// StaticMap returns the raw PNG bytes of a Google Static Maps image with
+	// the given markers and path. The Maps API key is embedded server-side and
+	// never returned to the caller alongside the image bytes.
+	StaticMap(ctx context.Context, params StaticMapParams) ([]byte, error)
 }
