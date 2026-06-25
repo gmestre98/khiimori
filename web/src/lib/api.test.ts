@@ -7,6 +7,9 @@ import {
   promotePlanItem,
   demotePlanItem,
   setPlanItemStatus,
+  staticMapUrl,
+  fetchDayRoute,
+  UnauthorizedError,
 } from './api'
 
 afterEach(() => {
@@ -131,8 +134,6 @@ describe('setPlanItemStatus', () => {
 })
 
 // --- M07.3 S2: staticMapUrl pins in itinerary order with accent colour -------
-
-import { staticMapUrl, fetchDayRoute, UnauthorizedError } from './api'
 
 describe('staticMapUrl', () => {
   it('returns null for empty waypoints', () => {
