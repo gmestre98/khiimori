@@ -114,6 +114,83 @@ func (m *Memberships) RevokeInTx(ctx context.Context, tx pgx.Tx, tripID, userID 
 	return nil
 }
 
+// Membership is a single row from sharing.trip_memberships.
+type Membership struct {
+	ID     string
+	TripID string
+	UserID string
+	Role   Role
+}
+
+// RoleForUser returns the role that userID holds on tripID, or
+// ErrMembershipNotFound if no such membership exists.
+func (m *Memberships) RoleForUser(ctx context.Context, tripID, userID string) (Role, error) {
+	const query = `
+		SELECT role
+		FROM   sharing.trip_memberships
+		WHERE  trip_id = $1::uuid AND user_id = $2::uuid`
+	var role string
+	err := m.pool.QueryRow(ctx, query, tripID, userID).Scan(&role)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrMembershipNotFound
+		}
+		return "", fmt.Errorf("sharing: role for user: %w", err)
+	}
+	return Role(role), nil
+}
+
+// MembershipsForUser returns all memberships for userID — the trips they belong
+// to and at which role. Used by the trips listing to scope visible trips.
+func (m *Memberships) MembershipsForUser(ctx context.Context, userID string) ([]Membership, error) {
+	const query = `
+		SELECT id::text, trip_id::text, user_id::text, role
+		FROM   sharing.trip_memberships
+		WHERE  user_id = $1::uuid
+		ORDER BY created_at`
+	rows, err := m.pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("sharing: memberships for user: %w", err)
+	}
+	defer rows.Close()
+	return scanMemberships(rows)
+}
+
+// MembershipsForTrip returns all memberships for tripID — the members and their
+// roles. Used by the sharing UI and admin module.
+func (m *Memberships) MembershipsForTrip(ctx context.Context, tripID string) ([]Membership, error) {
+	const query = `
+		SELECT id::text, trip_id::text, user_id::text, role
+		FROM   sharing.trip_memberships
+		WHERE  trip_id = $1::uuid
+		ORDER BY created_at`
+	rows, err := m.pool.Query(ctx, query, tripID)
+	if err != nil {
+		return nil, fmt.Errorf("sharing: memberships for trip: %w", err)
+	}
+	defer rows.Close()
+	return scanMemberships(rows)
+}
+
+func scanMemberships(rows interface {
+	Next() bool
+	Scan(...any) error
+	Err() error
+}) ([]Membership, error) {
+	var out []Membership
+	for rows.Next() {
+		var mb Membership
+		if err := rows.Scan(&mb.ID, &mb.TripID, &mb.UserID, &mb.Role); err != nil {
+			return nil, fmt.Errorf("sharing: scan membership: %w", err)
+		}
+		out = append(out, mb)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("sharing: memberships rows: %w", err)
+	}
+	return out, nil
+}
+
 // isUniqueViolation reports whether err is a PostgreSQL unique-violation (23505).
 func isUniqueViolation(err error) bool {
 	// pgx wraps constraint violations as *pgconn.PgError with Code "23505".
