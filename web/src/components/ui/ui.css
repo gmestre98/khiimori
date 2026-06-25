@@ -82,3 +82,148 @@
   font-size: var(--text-sm);
   color: var(--error);
 }
+
+/* ── List section & rows ────────────────────────────────────────────────────── */
+
+.list-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.list-section-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.list-section-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.list-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+}
+
+.list-row--selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-bg);
+}
+
+.list-row--interactive {
+  cursor: pointer;
+  user-select: none;
+}
+
+.list-row--interactive:hover {
+  background: var(--surface-hover);
+}
+
+.list-row--interactive:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ── Sheet / bottom drawer ──────────────────────────────────────────────────── */
+
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+}
+
+.sheet {
+  position: relative;
+  width: 100%;
+  max-height: 85dvh;
+  background: var(--surface);
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  padding: var(--space-5) var(--space-4) var(--space-8);
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  animation: sheet-slide-up 0.22s ease-out;
+}
+
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--border);
+  margin: 0 auto var(--space-3);
+}
+
+.sheet-close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  background: none;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: var(--space-1) 6px;
+  border-radius: var(--radius-sm);
+}
+
+.sheet-close:hover {
+  background: var(--surface-hover);
+}
+
+.sheet-close:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ── Progress bar ───────────────────────────────────────────────────────────── */
+
+.progress-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.progress-bar-caption {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.progress-bar-track {
+  height: 6px;
+  background: var(--surface-muted);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+/*
+ * Fill uses the accent token — budget bars are a sanctioned accent use case
+ * (see tokens.css §3). Do not use accent outside the three sanctioned cases.
+ */
+.progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+  transition: width 0.3s ease;
+}
+
+.progress-bar-fill--over {
+  background: var(--error);
+}
+
+.progress-bar-fill--warning {
+  background: var(--color-rating);
+}
