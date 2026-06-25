@@ -8,12 +8,12 @@ The proxy provides **ordered route hints** for a day's pins so the map can draw 
 Expose ordered route hints for a day's pins and add the epic's test suite.
 
 ## Acceptance criteria
-- [ ] Given a day's ordered, located items (geocoded), the proxy returns **route hints** between the pins
+- [x] Given a day's ordered, located items (geocoded), the proxy returns **route hints** between the pins
   in itinerary order for an indicative route.
-- [ ] The route output is suitable for the frontend (Epic 03) to render an indicative path.
-- [ ] Integration tests cover **cache hit/miss** (S2) and **ordered-route** output (correct ordering,
+- [x] The route output is suitable for the frontend (Epic 03) to render an indicative path.
+- [x] Integration tests cover **cache hit/miss** (S2) and **ordered-route** output (correct ordering,
   location-less items excluded).
-- [ ] Tests use a faked provider (no live Google calls).
+- [x] Tests use a faked provider (no live Google calls).
 
 ## Constraints
 - Keep v1 to an **indicative** route (not turn-by-turn) — minimal (PRD §7.0).
