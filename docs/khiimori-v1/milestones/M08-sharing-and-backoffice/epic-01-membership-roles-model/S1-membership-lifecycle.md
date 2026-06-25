@@ -9,12 +9,12 @@ on it. Roles are **Owner | Editor | Viewer** (PRD §3).
 Implement add, change-role, and revoke operations for trip memberships.
 
 ## Acceptance criteria
-- [ ] The `sharing` module exposes **add membership**, **change role**, and **revoke/remove** for a
+- [x] The `sharing` module exposes **add membership**, **change role**, and **revoke/remove** for a
   `(trip, user)` with role ∈ `Owner | Editor | Viewer`.
-- [ ] Operations are **transactional** so access changes can't leave orphaned/over-shared data (PRD §7.7).
-- [ ] If the `sharing.*` schema / `TripMembership` table from Milestone 03 needs extension (e.g. a status
+- [x] Operations are **transactional** so access changes can't leave orphaned/over-shared data (PRD §7.7).
+- [x] If the `sharing.*` schema / `TripMembership` table from Milestone 03 needs extension (e.g. a status
   or timestamps), a migration adds it without a data redesign.
-- [ ] A unit test covers add, change-role, and revoke.
+- [x] A unit test covers add, change-role, and revoke.
 
 ## Constraints
 - Build on the existing `sharing.*` `TripMembership` table (Milestone 03 S2) — extend, don't recreate.
