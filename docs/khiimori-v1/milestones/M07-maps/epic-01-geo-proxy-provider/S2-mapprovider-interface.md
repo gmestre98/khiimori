@@ -9,13 +9,13 @@ implementation scaffold.
 Define the `MapProvider`/`Geocoder` interface and a Google implementation scaffold built from config.
 
 ## Acceptance criteria
-- [ ] A `Geocoder` interface exposes `Geocode(location) → coords` and the `MapProvider` exposes route
+- [x] A `Geocoder` interface exposes `Geocode(location) → coords` and the `MapProvider` exposes route
   hints for ordered pins (the operations Epics 02–04 need).
-- [ ] A Google implementation scaffold is constructed from config (no live calls yet) and sits behind the
+- [x] A Google implementation scaffold is constructed from config (no live calls yet) and sits behind the
   interface (callers depend on the interface).
-- [ ] The interface is documented so Epic 02 (caching) and the frontend (Epics 03–04) consume a stable
+- [x] The interface is documented so Epic 02 (caching) and the frontend (Epics 03–04) consume a stable
   contract.
-- [ ] A unit test asserts the interface is satisfied by the scaffold (provider faked).
+- [x] A unit test asserts the interface is satisfied by the scaffold (provider faked).
 
 ## Constraints
 - A Google Maps client library is a likely dependency — **confirm with the author before adding it**

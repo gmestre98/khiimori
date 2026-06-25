@@ -9,11 +9,11 @@ module and schema.
 Scaffold the `geo` module and a `geo.*` schema migration.
 
 ## Acceptance criteria
-- [ ] The `geo` module skeleton exists (mounted in the service per M01.2's route mounting), with its
+- [x] The `geo` module skeleton exists (mounted in the service per M01.2's route mounting), with its
   package boundary respected (M01.1 boundaries).
-- [ ] A migration creates the **`geo`** schema (initially for the geocode cache used in Epic 02).
-- [ ] The module exposes no Maps functionality yet beyond the placeholder — interface in S2.
-- [ ] The migration applies cleanly via the M01.3 runner.
+- [x] A migration creates the **`geo`** schema (initially for the geocode cache used in Epic 02).
+- [x] The module exposes no Maps functionality yet beyond the placeholder — interface in S2.
+- [x] The migration applies cleanly via the M01.3 runner.
 
 ## Constraints
 - Follow M01.1 module-boundary and M01.3 migration conventions.
