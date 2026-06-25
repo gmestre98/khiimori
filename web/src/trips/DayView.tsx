@@ -21,6 +21,7 @@ import {
   type PlanItemInput,
   type Stay,
 } from '../lib/api'
+import { JournalEditor } from '../journal/JournalEditor'
 import { DayBudgetEditor } from './BudgetEditor'
 import { FastAddCost } from './FastAddCost'
 import { DayRollup } from './RollupDisplay'
@@ -1133,12 +1134,12 @@ function BudgetSlot({ tripId, day }: { tripId: string; day: Day }) {
   )
 }
 
-// JournalSlot is the stable mount point Milestone 06 fills with journal entries.
-function JournalSlot() {
+// JournalSlot renders the per-day journal editor (M06.4 S1).
+function JournalSlot({ tripId, dayId }: { tripId: string; dayId: string }) {
   return (
     <section className="day-slot day-slot-journal" aria-label="Journal" data-slot="journal">
       <h2 className="day-slot-title">Journal</h2>
-      <p className="day-slot-placeholder">Journal entries coming in Milestone 06</p>
+      <JournalEditor tripId={tripId} dayId={dayId} />
     </section>
   )
 }
@@ -1234,7 +1235,13 @@ export function DayView() {
             <h2 className="day-slot-title">Budget</h2>
           </section>
         )}
-        <JournalSlot />
+        {day && tripId ? (
+          <JournalSlot tripId={tripId} dayId={day.id} />
+        ) : (
+          <section className="day-slot day-slot-journal" aria-label="Journal" data-slot="journal">
+            <h2 className="day-slot-title">Journal</h2>
+          </section>
+        )}
         <MapSlot />
       </div>
     </article>
