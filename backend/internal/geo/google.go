@@ -20,10 +20,17 @@ type googleProvider struct {
 	baseURL    string // overridable in tests to point at a fake server
 }
 
-// newGoogleProvider constructs a googleProvider. apiKey must be non-empty; it
+// NewGoogleProvider constructs a googleProvider. apiKey must be non-empty; it
 // is the server-side restricted Maps API key from Secret Manager. An empty key
 // is rejected here so callers get an early, clear error rather than a cryptic
 // 403 from Google.
+//
+// httpClient may be nil; a default http.Client is used in that case. Pass a
+// custom client only in tests (e.g. an httptest server client).
+func NewGoogleProvider(apiKey string) (*googleProvider, error) {
+	return newGoogleProvider(apiKey, nil)
+}
+
 func newGoogleProvider(apiKey string, httpClient *http.Client) (*googleProvider, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("geo: Maps API key must not be empty")

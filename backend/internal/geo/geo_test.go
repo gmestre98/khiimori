@@ -7,9 +7,12 @@ import (
 	"github.com/gmestre98/khiimori/backend/internal/platform/httpx"
 )
 
+// noopMiddleware is a pass-through auth middleware for unit tests.
+func noopMiddleware(next http.Handler) http.Handler { return next }
+
 func TestNewReturnsModule(t *testing.T) {
 	t.Parallel()
-	m := New()
+	m := New(nil, noopMiddleware)
 	if m == nil {
 		t.Fatal("New() returned nil")
 	}
@@ -20,10 +23,9 @@ func TestModuleImplementsRouteRegistrar(t *testing.T) {
 	var _ httpx.RouteRegistrar = (*Module)(nil)
 }
 
-func TestRegisterRoutesMountsNoEndpoints(t *testing.T) {
+func TestRegisterRoutesMountsRoutes(t *testing.T) {
 	t.Parallel()
-	m := New()
+	m := New(nil, noopMiddleware)
 	mux := http.NewServeMux()
-	// Should not panic; no endpoints registered yet (interface arrives in S2).
 	m.RegisterRoutes(mux)
 }
