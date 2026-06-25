@@ -9,11 +9,11 @@ over-shared data — the PRD's stated reason for a relational DB in safety-criti
 Add integration tests for membership lifecycle and referential integrity.
 
 ## Acceptance criteria
-- [ ] Integration tests (M01.3 harness) cover **add**, **change role**, and **revoke**.
-- [ ] A test asserts referential integrity: deleting a trip/user does not leave orphaned memberships
+- [x] Integration tests (M01.3 harness) cover **add**, **change role**, and **revoke**.
+- [x] A test asserts referential integrity: deleting a trip/user does not leave orphaned memberships
   (FK/cascade behaviour as designed).
-- [ ] A test asserts transactional behaviour (a failed multi-step change rolls back).
-- [ ] Tests confirm the Owner row from Milestone 03 integrates with the lifecycle.
+- [x] A test asserts transactional behaviour (a failed multi-step change rolls back).
+- [x] Tests confirm the Owner row from Milestone 03 integrates with the lifecycle.
 
 ## Constraints
 - Reuse the M01.3 integration harness; hermetic state.

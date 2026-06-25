@@ -2,6 +2,8 @@
 
 > Milestone: [08 — Sharing & Backoffice](../README.md) · PRD refs: §3, §5.9, §7.7, §9.
 
+> **Status:** ✅ Done — all 4 ACs complete across 3 PRs ([#335](https://github.com/gmestre98/khiimori/pull/335), [#336](https://github.com/gmestre98/khiimori/pull/336), [#337](https://github.com/gmestre98/khiimori/pull/337)). Migration widens role CHECK; lifecycle (add/change/revoke) and reads (RoleForUser/MembershipsForUser/MembershipsForTrip) implemented; 8 integration tests cover lifecycle, Owner-row integration, referential integrity, and transactional rollback.
+
 ## Description
 
 Establish the `sharing` module and `sharing.*` schema and own the **full `TripMembership`
@@ -14,15 +16,15 @@ transactional updates keep access changes from leaving orphaned or over-shared d
 
 ## Acceptance Criteria
 
-- [ ] A migration creates the **`sharing.*`** schema with `TripMembership(id, trip_id, user_id,
+- [x] A migration creates the **`sharing.*`** schema with `TripMembership(id, trip_id, user_id,
       role)` where role ∈ `Owner | Editor | Viewer`, using **foreign keys** to trip/user (PRD §7.7,
       §9).
-- [ ] The module owns the **membership lifecycle**: add, **change role**, and **revoke/remove**, all
+- [x] The module owns the **membership lifecycle**: add, **change role**, and **revoke/remove**, all
       **transactional** so access changes can't leave orphaned or over-shared data (PRD §5.9, §7.7).
-- [ ] Membership **reads** are exposed for Epic 02 (authorization) and Milestone 03's listing
+- [x] Membership **reads** are exposed for Epic 02 (authorization) and Milestone 03's listing
       ("which trips can user U see"); the `Owner` row created by Milestone 03 is recognised here
       (PRD §5.9).
-- [ ] Unit + integration tests cover add/change/revoke and referential integrity (PRD §7.6).
+- [x] Unit + integration tests cover add/change/revoke and referential integrity (PRD §7.6).
 
 ## Implementation Details / Architecture
 
