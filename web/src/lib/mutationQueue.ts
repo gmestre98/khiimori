@@ -11,8 +11,7 @@ const DB_VERSION = 1
 const STORE_NAME = 'mutations'
 
 // MutationKind enumerates every write intent the app can queue.
-// Planning mutations cover Epics 02–05; Journal mutations will extend this
-// union in Milestone 06 without changing the queue schema.
+// Planning mutations cover Epics 02–05; Journal mutations extend this in M06.4.
 export type MutationKind =
   | 'createPlanItem'
   | 'updatePlanItem'
@@ -26,6 +25,8 @@ export type MutationKind =
   | 'createCostEntry'
   | 'updateCostEntry'
   | 'deleteCostEntry'
+  | 'upsertJournalEntry'
+  | 'uploadPhoto'
 
 // QueuedMutation is the persisted record shape. It is designed to be
 // replayed verbatim: kind + payload carry enough data to reconstruct the

@@ -7,6 +7,8 @@ import {
   type JournalEntry,
   type JournalEntryInput,
 } from '../lib/api'
+import { enqueue } from '../lib/mutationQueue'
+import { useIsOnline } from '../lib/useIsOnline'
 import { PhotoGrid } from './PhotoGrid'
 import { UsageBar } from './UsageBar'
 
@@ -45,6 +47,7 @@ interface JournalEditorProps {
 }
 
 export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditorProps) {
+  const online = useIsOnline()
   const [entry, setEntry] = useState<JournalEntry | null>(null)
   const [body, setBody] = useState('')
   const [rating, setRating] = useState<number | null>(null)
@@ -104,6 +107,12 @@ export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditor
     async (input: JournalEntryInput) => {
       setSaveStatus('saving')
       try {
+        if (!online) {
+          // Offline: queue as an idempotent write; replay on reconnect.
+          await enqueue('upsertJournalEntry', { tripId, dayId, input })
+          setSaveStatus('saved')
+          return
+        }
         const saved = await upsertJournalEntry(tripId, dayId, input)
         setEntry(saved)
         setSaveStatus('saved')
@@ -111,7 +120,7 @@ export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditor
         setSaveStatus('error')
       }
     },
-    [tripId, dayId],
+    [tripId, dayId, online],
   )
 
   // Auto-save whenever body/rating/weather/mood change. `loaded` (derived from
@@ -207,7 +216,7 @@ export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditor
       {!readOnly && saveStatus !== 'idle' && (
         <p className={`journal-save-status journal-save-status--${saveStatus}`} aria-live="polite">
           {saveStatus === 'saving' && 'Saving…'}
-          {saveStatus === 'saved' && 'Saved'}
+          {saveStatus === 'saved' && (!online ? 'Queued — will sync when online' : 'Saved')}
           {saveStatus === 'error' && (
             <>
               Could not save.{' '}

@@ -7,6 +7,8 @@ import {
   uploadPhoto,
   type Photo,
 } from '../lib/api'
+import { enqueue } from '../lib/mutationQueue'
+import { useIsOnline } from '../lib/useIsOnline'
 
 // PhotoLightbox renders a single photo full-screen with caption.
 function PhotoLightbox({ photo, onClose }: { photo: Photo; onClose: () => void }) {
@@ -91,7 +93,7 @@ interface UploadItem {
   id: string // client-generated temporary id
   file: File
   caption: string
-  progress: 'uploading' | 'done' | 'error'
+  progress: 'uploading' | 'queued' | 'done' | 'error'
   errorMsg?: string
 }
 
@@ -112,6 +114,7 @@ export function PhotoGrid({
   onPhotoChange,
   readOnly = false,
 }: PhotoGridProps) {
+  const online = useIsOnline()
   const [photos, setPhotos] = useState<Photo[]>([])
   const [uploads, setUploads] = useState<UploadItem[]>([])
   const [lightbox, setLightbox] = useState<Photo | null>(null)
@@ -147,6 +150,15 @@ export function PhotoGrid({
 
       try {
         if (onBeforeUpload) await onBeforeUpload()
+        if (!online) {
+          // Offline: queue the binary upload; File is structured-cloneable so
+          // it persists in IndexedDB and replays when connectivity returns.
+          await enqueue('uploadPhoto', { tripId, dayId, file })
+          setUploads((prev) =>
+            prev.map((u) => (u.id === uploadId ? { ...u, progress: 'queued' } : u)),
+          )
+          continue
+        }
         const photo = await uploadPhoto(tripId, dayId, file)
         setPhotos((prev) => [...prev, photo])
         setUploads((prev) => prev.filter((u) => u.id !== uploadId))
@@ -202,9 +214,15 @@ export function PhotoGrid({
           {uploads.map((u) => (
             <div key={u.id} className="photo-thumb photo-thumb--uploading">
               <div className="photo-thumb-progress">
-                {u.progress === 'uploading' ? (
+                {u.progress === 'uploading' && (
                   <span className="photo-upload-spinner" aria-label="Uploading…" />
-                ) : (
+                )}
+                {u.progress === 'queued' && (
+                  <span className="photo-upload-queued" aria-live="polite">
+                    Queued
+                  </span>
+                )}
+                {u.progress === 'error' && (
                   <span className="photo-upload-error" aria-live="polite">
                     {u.errorMsg ?? 'Failed'}
                   </span>
