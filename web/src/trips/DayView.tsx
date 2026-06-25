@@ -686,10 +686,7 @@ function PlanItemRow({
         {pinNumber != null && onSelect && (
           <button
             type="button"
-            className={[
-              'plan-item-pin-badge',
-              isSelected ? 'plan-item-pin-badge--selected' : '',
-            ]
+            className={['plan-item-pin-badge', isSelected ? 'plan-item-pin-badge--selected' : '']
               .filter(Boolean)
               .join(' ')}
             aria-label={`Map pin ${pinNumber} for ${item.title}`}
@@ -881,7 +878,9 @@ function TimedSection({
             tripDates={tripDates}
             isSelected={selectedId === item.id}
             pinNumber={pinNumberForId?.(item.id)}
-            onSelect={onSelect ? () => onSelect(selectedId === item.id ? null : item.id) : undefined}
+            onSelect={
+              onSelect ? () => onSelect(selectedId === item.id ? null : item.id) : undefined
+            }
             onUpdated={onUpdated}
             onRemoved={onRemoved}
           />
@@ -993,7 +992,9 @@ function UntimedSection({
             draggable
             isSelected={selectedId === item.id}
             pinNumber={pinNumberForId?.(item.id)}
-            onSelect={onSelect ? () => onSelect(selectedId === item.id ? null : item.id) : undefined}
+            onSelect={
+              onSelect ? () => onSelect(selectedId === item.id ? null : item.id) : undefined
+            }
             onUpdated={onUpdated}
             onRemoved={onRemoved}
             onDragStart={handleDragStart}

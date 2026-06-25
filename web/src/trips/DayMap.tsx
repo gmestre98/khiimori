@@ -90,10 +90,7 @@ export default function DayMap({
             <button
               key={item.id}
               type="button"
-              className={[
-                'day-map-pin',
-                selectedId === item.id ? 'day-map-pin--selected' : '',
-              ]
+              className={['day-map-pin', selectedId === item.id ? 'day-map-pin--selected' : '']
                 .filter(Boolean)
                 .join(' ')}
               aria-label={`Pin ${i + 1}: ${item.label}`}
