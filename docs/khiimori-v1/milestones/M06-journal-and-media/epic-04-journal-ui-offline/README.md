@@ -1,5 +1,7 @@
 # Epic M06.4 — Journal UI & offline (frontend)
 
+> **Status:** ✅ Done — 5 stories, 5 ACs, PRs [#309](https://github.com/gmestre98/khiimori/pull/309) [#310](https://github.com/gmestre98/khiimori/pull/310) [#311](https://github.com/gmestre98/khiimori/pull/311) [#312](https://github.com/gmestre98/khiimori/pull/312) [#313](https://github.com/gmestre98/khiimori/pull/313). Journal editor with auto-save, photo grid with thumbnails/lightbox, usage bar with cap warning, offline queue/replay for text+photo, and read-only past-trip view.
+
 > Milestone: [06 — Journal & Media](../README.md) · PRD refs: §5.5, §6, §5.10, §7.2.
 
 ## Description
@@ -14,13 +16,13 @@ photo intents created offline sync when connectivity returns.
 
 ## Acceptance Criteria
 
-- [ ] A per-day **journal editor** edits body, rating, weather, and mood with **auto-save** (no
+- [x] A per-day **journal editor** edits body, rating, weather, and mood with **auto-save** (no
       explicit save), and **attaches photos** with optional captions (PRD §5.5).
-- [ ] The UI **shows per-trip photo usage and warns as the 1 GB cap approaches**, and surfaces the
+- [x] The UI **shows per-trip photo usage and warns as the 1 GB cap approaches**, and surfaces the
       server-side **rejection message** clearly when the cap is hit (PRD §5.5, Epic 03).
-- [ ] Journal text and **photo intents created/edited offline queue and sync** when back online,
+- [x] Journal text and **photo intents created/edited offline queue and sync** when back online,
       reusing the **shared offline mechanism from Milestone 04** (PRD §6).
-- [ ] **Past-trip journals remain accessible** as a permanent record (PRD §5.5).
+- [x] **Past-trip journals remain accessible** as a permanent record (PRD §5.5).
 - [ ] Surfaces are mobile-first and responsive (photos as the visual content), using Milestone 09
       components when available (PRD §5.10, §7.2).
 

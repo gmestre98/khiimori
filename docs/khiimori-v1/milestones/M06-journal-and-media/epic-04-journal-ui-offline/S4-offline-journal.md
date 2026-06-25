@@ -8,11 +8,11 @@ Journal text and **photo intents created/edited offline queue and sync** when ba
 Wire journal text and photo uploads into the shared offline queue/replay.
 
 ## Acceptance criteria
-- [ ] Journal **text** entries created/edited offline queue as idempotent writes and replay on reconnect
+- [x] Journal **text** entries created/edited offline queue as idempotent writes and replay on reconnect
   (Milestone 04 Epic 06 mechanism).
-- [ ] **Photo uploads** queue as **deferred binary uploads** that replay when online.
-- [ ] Behaviour is identical online and offline; sync state is surfaced subtly.
-- [ ] Replays are idempotent (no duplicate entries/photos) per the shared contract (Milestone 04 S4).
+- [x] **Photo uploads** queue as **deferred binary uploads** that replay when online.
+- [x] Behaviour is identical online and offline; sync state is surfaced subtly.
+- [x] Replays are idempotent (no duplicate entries/photos) per the shared contract (Milestone 04 S4).
 
 ## Constraints
 - **Reuse** Milestone 04's queue/replay contract verbatim — do not build a journal-specific queue
