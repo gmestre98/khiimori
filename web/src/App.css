@@ -626,6 +626,25 @@
   font-style: italic;
 }
 
+/* ── Day map (M07.3) ─────────────────────────────────────────────────────── */
+
+.day-map-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.day-map-loading,
+.day-map-error,
+.day-map-empty {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin: 0;
+}
+
 /* ── Plan item rows (M04.5 S1–S3) ──────────────────────────────────────────── */
 
 .day-plan-section {

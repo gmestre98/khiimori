@@ -847,3 +847,56 @@ export function datesInRange(startDate: string, endDate: string): string[] {
   }
   return dates
 }
+
+// --- Geo proxy (M07.3) -------------------------------------------------------
+
+// LatLng is a geographic coordinate pair returned by the geo proxy.
+export interface LatLng {
+  lat: number
+  lng: number
+}
+
+// DayRouteResponse is the wire shape of POST /geo/day-route.
+export interface DayRouteResponse {
+  waypoints: LatLng[]
+}
+
+// fetchDayRoute posts an ordered list of location strings to the geo proxy and
+// returns geocoded waypoints (locations without a resolvable address are
+// silently excluded by the server). Throws UnauthorizedError on 401.
+export async function fetchDayRoute(
+  locations: string[],
+  signal?: AbortSignal,
+): Promise<DayRouteResponse> {
+  const res = await apiFetch('/geo/day-route', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ locations }),
+    signal,
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`day-route failed: HTTP ${res.status}`)
+  return (await res.json()) as DayRouteResponse
+}
+
+// staticMapUrl builds the URL for the GET /geo/static-map endpoint. The server
+// proxies the request to Google Static Maps and embeds the API key — no key is
+// ever sent to the client. Returns null when there are no waypoints to display.
+export function staticMapUrl(
+  waypoints: LatLng[],
+  opts?: { size?: string; scale?: 1 | 2 },
+): string | null {
+  if (waypoints.length === 0) return null
+  const params = new URLSearchParams()
+  if (opts?.size) params.set('size', opts.size)
+  if (opts?.scale === 2) params.set('scale', '2')
+  for (const wp of waypoints) {
+    params.append('markers', `${wp.lat},${wp.lng}`)
+  }
+  if (waypoints.length > 1) {
+    for (const wp of waypoints) {
+      params.append('path', `${wp.lat},${wp.lng}`)
+    }
+  }
+  return apiUrl(`/geo/static-map?${params.toString()}`)
+}
