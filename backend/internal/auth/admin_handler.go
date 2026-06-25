@@ -43,6 +43,70 @@ func (m *Module) handleAdminInfo(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// AdminUsersPath is the admin endpoint to list all users (S2).
+const AdminUsersPath = "/admin/users"
+
+// AdminTripsPath is the admin endpoint to list all trips (S2).
+const AdminTripsPath = "/admin/trips"
+
+// handleAdminListUsers returns all users for the admin backoffice (M08.5 S2).
+func (m *Module) handleAdminListUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := m.repo.ListUsers(r.Context())
+	if err != nil {
+		platformlog.FromContext(r.Context()).Error("admin list users", "err", err.Error())
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusInternalServerError, "server_error", "could not list users"))
+		return
+	}
+
+	type userResp struct {
+		ID      string `json:"id"`
+		Email   string `json:"email"`
+		Name    string `json:"name"`
+		IsAdmin bool   `json:"is_admin"`
+		Active  bool   `json:"active"`
+	}
+	out := make([]userResp, len(users))
+	for i, u := range users {
+		out[i] = userResp(u)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(out)
+}
+
+// handleAdminListTrips returns all trips for the admin backoffice (M08.5 S2).
+func (m *Module) handleAdminListTrips(w http.ResponseWriter, r *http.Request) {
+	trips, err := m.repo.ListTrips(r.Context())
+	if err != nil {
+		platformlog.FromContext(r.Context()).Error("admin list trips", "err", err.Error())
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusInternalServerError, "server_error", "could not list trips"))
+		return
+	}
+
+	type tripResp struct {
+		ID         string `json:"id"`
+		Name       string `json:"name"`
+		OwnerID    string `json:"owner_id"`
+		OwnerEmail string `json:"owner_email"`
+		StartDate  string `json:"start_date"`
+		EndDate    string `json:"end_date"`
+		Status     string `json:"status"`
+	}
+	out := make([]tripResp, len(trips))
+	for i, t := range trips {
+		out[i] = tripResp(t)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(out)
+}
+
 // DeactivateUserPath is the admin endpoint to deactivate a user (S3).
 const DeactivateUserPath = "/admin/users/{userID}/deactivate"
 

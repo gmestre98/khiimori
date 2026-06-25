@@ -34,6 +34,14 @@ func (f *adminFakeRepo) UpdateProfile(_ context.Context, _ string, _ profilePatc
 	return f.user, nil
 }
 
+func (f *adminFakeRepo) ListUsers(_ context.Context) ([]AdminUserRow, error) {
+	return []AdminUserRow{{ID: f.user.ID, Email: f.user.Email, Name: f.user.Name, IsAdmin: f.user.IsAdmin, Active: f.active}}, nil
+}
+
+func (f *adminFakeRepo) ListTrips(_ context.Context) ([]AdminTripRow, error) {
+	return []AdminTripRow{}, nil
+}
+
 // adminModule builds a Module with sessions + a fake repo wired for admin tests.
 func adminModule(u User, active bool) *Module {
 	repo := &adminFakeRepo{user: u, active: active}
@@ -107,5 +115,59 @@ func TestRequireAdminDeniesAnonymous(t *testing.T) {
 	}
 	if ran {
 		t.Fatal("handler ran for anonymous request — must not")
+	}
+}
+
+// TestAdminListUsersReturnsJSON: GET /admin/users returns a JSON array for an admin.
+func TestAdminListUsersReturnsJSON(t *testing.T) {
+	t.Parallel()
+
+	m := adminModule(User{ID: "u1", Email: "admin@example.com", IsAdmin: true, Active: true}, true)
+
+	req := httptest.NewRequest(http.MethodGet, AdminUsersPath, nil)
+	req.AddCookie(sessionCookieFor(t, m.sessions, "u1"))
+	rec := httptest.NewRecorder()
+	m.RequireAdmin(http.HandlerFunc(m.handleAdminListUsers)).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("Content-Type = %q, want application/json", ct)
+	}
+}
+
+// TestAdminListTripsReturnsJSON: GET /admin/trips returns a JSON array for an admin.
+func TestAdminListTripsReturnsJSON(t *testing.T) {
+	t.Parallel()
+
+	m := adminModule(User{ID: "u1", IsAdmin: true, Active: true}, true)
+
+	req := httptest.NewRequest(http.MethodGet, AdminTripsPath, nil)
+	req.AddCookie(sessionCookieFor(t, m.sessions, "u1"))
+	rec := httptest.NewRecorder()
+	m.RequireAdmin(http.HandlerFunc(m.handleAdminListTrips)).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("Content-Type = %q, want application/json", ct)
+	}
+}
+
+// TestAdminListUsersDeniesNonAdmin: GET /admin/users returns 403 for non-admin.
+func TestAdminListUsersDeniesNonAdmin(t *testing.T) {
+	t.Parallel()
+
+	m := adminModule(User{ID: "u2", IsAdmin: false, Active: true}, true)
+
+	req := httptest.NewRequest(http.MethodGet, AdminUsersPath, nil)
+	req.AddCookie(sessionCookieFor(t, m.sessions, "u2"))
+	rec := httptest.NewRecorder()
+	m.RequireAdmin(http.HandlerFunc(m.handleAdminListUsers)).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403", rec.Code)
 	}
 }

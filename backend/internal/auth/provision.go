@@ -41,6 +41,31 @@ type userRepo interface {
 	// Deactivate sets active=false on the user row, blocking further
 	// authentication (M08.5 S3). Returns errUserNotFound if the id is unknown.
 	Deactivate(ctx context.Context, id string) error
+	// ListUsers returns all user rows for the admin backoffice (M08.5 S2).
+	ListUsers(ctx context.Context) ([]AdminUserRow, error)
+	// ListTrips returns all trips with owner email for the admin backoffice (M08.5 S2).
+	ListTrips(ctx context.Context) ([]AdminTripRow, error)
+}
+
+// AdminUserRow is the projection of an auth.users row for the admin list.
+type AdminUserRow struct {
+	ID      string
+	Email   string
+	Name    string
+	IsAdmin bool
+	Active  bool
+}
+
+// AdminTripRow is the projection of a trip.trips row for the admin list,
+// joined with the owner's email from auth.users.
+type AdminTripRow struct {
+	ID         string
+	Name       string
+	OwnerID    string
+	OwnerEmail string
+	StartDate  string
+	EndDate    string
+	Status     string
 }
 
 // Provisioner turns a verified identity into a persisted user. It is the seam
@@ -159,4 +184,56 @@ func (r *pgxUserRepo) Deactivate(ctx context.Context, id string) error {
 		return errUserNotFound
 	}
 	return nil
+}
+
+// ListUsers returns all user rows ordered by email for the admin backoffice.
+func (r *pgxUserRepo) ListUsers(ctx context.Context) ([]AdminUserRow, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id::text, email, name, is_admin, active FROM auth.users ORDER BY email`)
+	if err != nil {
+		return nil, fmt.Errorf("auth: list users: %w", err)
+	}
+	defer rows.Close()
+	var out []AdminUserRow
+	for rows.Next() {
+		var u AdminUserRow
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.IsAdmin, &u.Active); err != nil {
+			return nil, fmt.Errorf("auth: scan user row: %w", err)
+		}
+		out = append(out, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("auth: list users rows: %w", err)
+	}
+	return out, nil
+}
+
+// ListTrips returns all trips joined with the owner's email, ordered by created_at desc.
+// The join crosses schemas (trip.trips and auth.users); the admin scope crosses
+// user boundaries by design, and the endpoint is gated by RequireAdmin.
+func (r *pgxUserRepo) ListTrips(ctx context.Context) ([]AdminTripRow, error) {
+	const query = `
+		SELECT t.id::text, t.name, t.owner_id::text,
+		       COALESCE(u.email, ''), t.start_date::text, t.end_date::text, t.status
+		FROM   trip.trips t
+		LEFT JOIN auth.users u ON u.id = t.owner_id
+		ORDER BY t.created_at DESC`
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("auth: list trips: %w", err)
+	}
+	defer rows.Close()
+	var out []AdminTripRow
+	for rows.Next() {
+		var tr AdminTripRow
+		if err := rows.Scan(&tr.ID, &tr.Name, &tr.OwnerID, &tr.OwnerEmail,
+			&tr.StartDate, &tr.EndDate, &tr.Status); err != nil {
+			return nil, fmt.Errorf("auth: scan trip row: %w", err)
+		}
+		out = append(out, tr)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("auth: list trips rows: %w", err)
+	}
+	return out, nil
 }

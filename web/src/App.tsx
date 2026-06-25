@@ -3,6 +3,8 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { Home } from './pages/Home'
 import { Profile } from './pages/Profile'
 import { AdminPage, AdminHome } from './pages/AdminPage'
+import { AdminUsersPage } from './pages/AdminUsersPage'
+import { AdminTripsPage } from './pages/AdminTripsPage'
 import { SignIn } from './auth/SignIn'
 import { PostLoginRedirect, RequireAuth } from './auth/RequireAuth'
 import { RequireAdmin } from './auth/RequireAdmin'
@@ -44,6 +46,8 @@ function App() {
           <Route element={<RequireAdmin />}>
             <Route path="/admin" element={<AdminPage />}>
               <Route index element={<AdminHome />} />
+              <Route path="users" element={<AdminUsersPage />} />
+              <Route path="trips" element={<AdminTripsPage />} />
             </Route>
           </Route>
           {/* Unknown paths fall back to home, which gates to sign-in if anonymous. */}
