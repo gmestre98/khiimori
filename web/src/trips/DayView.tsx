@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useParams } from 'react-router-dom'
+import { collectLocatedItems } from './locatedItems'
 import {
   PlanItemValidationError,
   UnauthorizedError,
@@ -500,6 +501,9 @@ function PlanItemRow({
   day,
   tripDates,
   draggable: isDraggable,
+  isSelected,
+  pinNumber,
+  onSelect,
   onUpdated,
   onRemoved,
   onDragStart,
@@ -513,6 +517,9 @@ function PlanItemRow({
   day: Day
   tripDates: string[]
   draggable?: boolean
+  isSelected?: boolean
+  pinNumber?: number
+  onSelect?: () => void
   onUpdated: (updated: PlanItem) => void
   onRemoved: (itemId: string) => void
   onDragStart?: (e: React.DragEvent, itemId: string) => void
@@ -527,6 +534,14 @@ function PlanItemRow({
   const [showMovePicker, setShowMovePicker] = useState(false)
   const [statusBusy, setStatusBusy] = useState(false)
   const [demoteBusy, setDemoteBusy] = useState(false)
+  const rowRef = useRef<HTMLLIElement>(null)
+
+  // Scroll the row into view when it becomes selected via a pin tap.
+  useEffect(() => {
+    if (isSelected) {
+      rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [isSelected])
 
   const isDone = item.status === 'done'
   const isSkipped = item.status === 'skipped'
@@ -623,12 +638,14 @@ function PlanItemRow({
 
   return (
     <li
+      ref={rowRef}
       className={[
         'plan-item',
         isDone ? 'plan-item--done' : '',
         isSkipped ? 'plan-item--skipped' : '',
         isCancelled ? 'plan-item--cancelled' : '',
         isDraggable ? 'plan-item--draggable' : '',
+        isSelected ? 'plan-item--selected' : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -665,6 +682,19 @@ function PlanItemRow({
               ↓
             </button>
           </div>
+        )}
+        {pinNumber != null && onSelect && (
+          <button
+            type="button"
+            className={['plan-item-pin-badge', isSelected ? 'plan-item-pin-badge--selected' : '']
+              .filter(Boolean)
+              .join(' ')}
+            aria-label={`Map pin ${pinNumber} for ${item.title}`}
+            aria-pressed={isSelected}
+            onClick={onSelect}
+          >
+            {pinNumber}
+          </button>
         )}
         <button
           type="button"
@@ -818,6 +848,9 @@ function TimedSection({
   tripId,
   day,
   tripDates,
+  selectedId,
+  pinNumberForId,
+  onSelect,
   onUpdated,
   onRemoved,
 }: {
@@ -825,6 +858,9 @@ function TimedSection({
   tripId: string
   day: Day
   tripDates: string[]
+  selectedId?: string | null
+  pinNumberForId?: (id: string) => number | undefined
+  onSelect?: (id: string | null) => void
   onUpdated: (updated: PlanItem) => void
   onRemoved: (itemId: string) => void
 }) {
@@ -840,6 +876,11 @@ function TimedSection({
             tripId={tripId}
             day={day}
             tripDates={tripDates}
+            isSelected={selectedId === item.id}
+            pinNumber={pinNumberForId?.(item.id)}
+            onSelect={
+              onSelect ? () => onSelect(selectedId === item.id ? null : item.id) : undefined
+            }
             onUpdated={onUpdated}
             onRemoved={onRemoved}
           />
@@ -857,6 +898,9 @@ function UntimedSection({
   tripId,
   day,
   tripDates,
+  selectedId,
+  pinNumberForId,
+  onSelect,
   onUpdated,
   onRemoved,
   onReordered,
@@ -866,6 +910,9 @@ function UntimedSection({
   tripId: string
   day: Day
   tripDates: string[]
+  selectedId?: string | null
+  pinNumberForId?: (id: string) => number | undefined
+  onSelect?: (id: string | null) => void
   onUpdated: (updated: PlanItem) => void
   onRemoved: (itemId: string) => void
   onReordered: (newUntimed: PlanItem[]) => void
@@ -943,6 +990,11 @@ function UntimedSection({
             day={day}
             tripDates={tripDates}
             draggable
+            isSelected={selectedId === item.id}
+            pinNumber={pinNumberForId?.(item.id)}
+            onSelect={
+              onSelect ? () => onSelect(selectedId === item.id ? null : item.id) : undefined
+            }
             onUpdated={onUpdated}
             onRemoved={onRemoved}
             onDragStart={handleDragStart}
@@ -958,26 +1010,63 @@ function UntimedSection({
 }
 
 // StaysSection renders accommodation stays covering this day.
-function StaysSection({ stays }: { stays: Stay[] }) {
+function StaysSection({
+  stays,
+  selectedId,
+  pinNumberForId,
+  onSelect,
+}: {
+  stays: Stay[]
+  selectedId?: string | null
+  pinNumberForId?: (id: string) => number | undefined
+  onSelect?: (id: string | null) => void
+}) {
   if (stays.length === 0) return null
   return (
     <section className="day-stays-section" aria-label="Accommodation">
       <h3 className="day-stays-section-title">Staying</h3>
       <ul className="stay-list">
-        {stays.map((stay) => (
-          <li key={stay.id} className="stay-item">
-            <div className="stay-name">{stay.name}</div>
-            {stay.location && <div className="stay-location">{stay.location}</div>}
-            {stay.check_in && stay.check_out && (
-              <div
-                className="stay-dates"
-                aria-label={`Check in ${stay.check_in}, check out ${stay.check_out}`}
-              >
-                {stay.check_in} – {stay.check_out}
+        {stays.map((stay) => {
+          const pinNumber = pinNumberForId?.(stay.id)
+          const isSelected = selectedId === stay.id
+          return (
+            <li
+              key={stay.id}
+              className={['stay-item', isSelected ? 'stay-item--selected' : '']
+                .filter(Boolean)
+                .join(' ')}
+            >
+              <div className="stay-item-main">
+                {pinNumber != null && onSelect && (
+                  <button
+                    type="button"
+                    className={[
+                      'plan-item-pin-badge',
+                      isSelected ? 'plan-item-pin-badge--selected' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    aria-label={`Map pin ${pinNumber} for ${stay.name}`}
+                    aria-pressed={isSelected}
+                    onClick={() => onSelect(isSelected ? null : stay.id)}
+                  >
+                    {pinNumber}
+                  </button>
+                )}
+                <div className="stay-name">{stay.name}</div>
               </div>
-            )}
-          </li>
-        ))}
+              {stay.location && <div className="stay-location">{stay.location}</div>}
+              {stay.check_in && stay.check_out && (
+                <div
+                  className="stay-dates"
+                  aria-label={`Check in ${stay.check_in}, check out ${stay.check_out}`}
+                >
+                  {stay.check_in} – {stay.check_out}
+                </div>
+              )}
+            </li>
+          )
+        })}
       </ul>
     </section>
   )
@@ -1002,13 +1091,31 @@ function BacklogLink({ tripId }: { tripId: string }) {
 // stays, timed items, untimed items, quick-add form, and a link to the ideas
 // backlog. Re-planning affordances (reorder, move, demote, status) are wired
 // to the Epic 03–04 API operations.
-function PlanningSection({ day, tripId }: { day: Day; tripId: string }) {
+function PlanningSection({
+  day,
+  tripId,
+  selectedId,
+  onSelect,
+}: {
+  day: Day
+  tripId: string
+  selectedId: string | null
+  onSelect: (id: string | null) => void
+}) {
   const { trip } = useTripShell()
   const tripDates = datesInRange(trip.start_date, trip.end_date)
   const [items, setItems] = useState<PlanItem[]>(day.plan_items)
 
   const timed = items.filter((item) => item.start_time != null)
   const untimed = items.filter((item) => item.start_time == null)
+
+  // Build a lookup from item/stay id → pin number (1-based) using the same
+  // ordering as collectLocatedItems so badges match the map legend.
+  const locatedItems = collectLocatedItems({ ...day, plan_items: items })
+  const pinNumberForId = (id: string): number | undefined => {
+    const idx = locatedItems.findIndex((li) => li.id === id)
+    return idx >= 0 ? idx + 1 : undefined
+  }
 
   function handleAdded(item: PlanItem) {
     setItems((prev) => [...prev, item])
@@ -1029,12 +1136,20 @@ function PlanningSection({ day, tripId }: { day: Day; tripId: string }) {
   return (
     <section className="day-slot day-slot-planning" aria-label="Planning" data-slot="planning">
       <h2 className="day-slot-title">Plan</h2>
-      <StaysSection stays={day.stays} />
+      <StaysSection
+        stays={day.stays}
+        selectedId={selectedId}
+        pinNumberForId={pinNumberForId}
+        onSelect={onSelect}
+      />
       <TimedSection
         items={timed}
         tripId={tripId}
         day={day}
         tripDates={tripDates}
+        selectedId={selectedId}
+        pinNumberForId={pinNumberForId}
+        onSelect={onSelect}
         onUpdated={handleUpdated}
         onRemoved={handleRemoved}
       />
@@ -1044,6 +1159,9 @@ function PlanningSection({ day, tripId }: { day: Day; tripId: string }) {
         tripId={tripId}
         day={day}
         tripDates={tripDates}
+        selectedId={selectedId}
+        pinNumberForId={pinNumberForId}
+        onSelect={onSelect}
         onUpdated={handleUpdated}
         onRemoved={handleRemoved}
         onReordered={handleReordered}
@@ -1158,7 +1276,15 @@ function JournalSlot({
 // MapSlot lazily renders the per-day map. When `day` is not yet loaded the
 // placeholder shell is shown; once day data is available DayMap is loaded on
 // demand (lazy + Suspense) so the map bundle is not fetched on initial load.
-function MapSlot({ day }: { day: Day | null }) {
+function MapSlot({
+  day,
+  selectedId,
+  onSelect,
+}: {
+  day: Day | null
+  selectedId: string | null
+  onSelect: (id: string | null) => void
+}) {
   return (
     <section className="day-slot day-slot-map" aria-label="Map" data-slot="map">
       <h2 className="day-slot-title">Map</h2>
@@ -1170,7 +1296,7 @@ function MapSlot({ day }: { day: Day | null }) {
             </p>
           }
         >
-          <DayMap day={day} />
+          <DayMap day={day} selectedId={selectedId} onSelect={onSelect} />
         </Suspense>
       ) : (
         <p className="day-slot-placeholder">Map</p>
@@ -1193,6 +1319,9 @@ export function DayView() {
   // fetchError is scoped to a date so stale errors from a previous date are
   // not shown when the user navigates to a new day (avoids synchronous resets).
   const [fetchError, setFetchError] = useState<{ date: string; msg: string } | null>(null)
+  // selectedId holds the currently highlighted entity id, shared between the
+  // map pin legend and the planning list (Epic 04 S1).
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   // Derive loading: we are loading when neither a day result nor an error for
   // the current date param is available yet — no synchronous setState needed.
@@ -1246,7 +1375,13 @@ export function DayView() {
           layout in assets/02-day-plan-map.svg (PRD §4.2). */}
       <div className="day-slots">
         {day && tripId ? (
-          <PlanningSection key={day.id} day={day} tripId={tripId} />
+          <PlanningSection
+            key={day.id}
+            day={day}
+            tripId={tripId}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+          />
         ) : (
           <section
             className="day-slot day-slot-planning"
@@ -1270,7 +1405,7 @@ export function DayView() {
             <h2 className="day-slot-title">Journal</h2>
           </section>
         )}
-        <MapSlot day={day} />
+        <MapSlot day={day} selectedId={selectedId} onSelect={setSelectedId} />
       </div>
     </article>
   )
