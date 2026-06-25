@@ -8,11 +8,11 @@ A per-day **journal editor** edits body, rating, weather, and mood with **auto-s
 Build the per-day journal editor.
 
 ## Acceptance criteria
-- [ ] The editor edits the day's entry: free-text **body** plus optional **rating, weather, mood**
+- [x] The editor edits the day's entry: free-text **body** plus optional **rating, weather, mood**
   (Epic 01).
-- [ ] Text **auto-saves** with debouncing (no explicit save button); save state is surfaced subtly.
-- [ ] One entry per day is respected (the editor edits the existing entry or creates it).
-- [ ] The editor is responsive (web + mobile); Milestone 09 components when available.
+- [x] Text **auto-saves** with debouncing (no explicit save button); save state is surfaced subtly.
+- [x] One entry per day is respected (the editor edits the existing entry or creates it).
+- [ ] The editor is responsive (web + mobile); Milestone 09 components when available. *(deferred to M09)*
 
 ## Constraints
 - Saves go through the shared offline mutation layer (S4) so behaviour is identical online/offline.

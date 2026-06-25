@@ -1,5 +1,7 @@
 # Milestone 06 — Journal & Media
 
+> **Status:** ✅ Done — 4 epics, 18 ACs. PRs [#295](https://github.com/gmestre98/khiimori/pull/295)–[#297](https://github.com/gmestre98/khiimori/pull/297) (E01), [#299](https://github.com/gmestre98/khiimori/pull/299)–[#301](https://github.com/gmestre98/khiimori/pull/301) (E02), [#303](https://github.com/gmestre98/khiimori/pull/303)–[#307](https://github.com/gmestre98/khiimori/pull/307) (E03), [#309](https://github.com/gmestre98/khiimori/pull/309)–[#313](https://github.com/gmestre98/khiimori/pull/313) (E04). Journal entries with auto-save, photo upload + MediaStore, 1 GB/trip quota + thumbnails, and journal UI with offline queue. One AC deferred to M09 (mobile-first responsive surfaces with M09 components).
+
 > A fast daily journal with photos, offline-capable on mobile, with a 1 GB-per-trip photo cap and
 > server-side resizing to keep storage costs predictable. Past trips keep their journals as a
 > permanent record.
