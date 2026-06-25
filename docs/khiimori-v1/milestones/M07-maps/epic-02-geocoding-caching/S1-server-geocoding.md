@@ -8,10 +8,10 @@ Epic 01; the client never calls Google directly (PRD §5.6, §8.5).
 Implement server-side geocoding through the `Geocoder` interface.
 
 ## Acceptance criteria
-- [ ] A geocode operation turns a location string into coordinates via the Epic 01 `Geocoder`.
-- [ ] The operation is exposed through the proxy (client → proxy → provider), never client → Google.
-- [ ] Errors (not found, provider failure) are handled gracefully and surfaced without leaking the key.
-- [ ] A unit test covers geocoding via a faked provider.
+- [x] A geocode operation turns a location string into coordinates via the Epic 01 `Geocoder`.
+- [x] The operation is exposed through the proxy (client → proxy → provider), never client → Google.
+- [x] Errors (not found, provider failure) are handled gracefully and surfaced without leaking the key.
+- [x] A unit test covers geocoding via a faked provider.
 
 ## Constraints
 - Go through the proxy/provider interface (Epic 01); no direct client Google calls.

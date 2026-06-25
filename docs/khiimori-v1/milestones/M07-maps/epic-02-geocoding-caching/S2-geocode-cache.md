@@ -9,12 +9,12 @@ rarely moves.
 Add a persistent geocode cache in front of the provider call (S1).
 
 ## Acceptance criteria
-- [ ] Geocode results are stored in the `geo.*` schema keyed on the location string/identity and reused on
+- [x] Geocode results are stored in the `geo.*` schema keyed on the location string/identity and reused on
   repeat requests (a repeated location is **not** re-geocoded).
-- [ ] The cache persists across restarts and serves all users (a location is not user-specific).
-- [ ] A simple invalidation policy (TTL or manual refresh) is defined and documented (locations rarely
+- [x] The cache persists across restarts and serves all users (a location is not user-specific).
+- [x] A simple invalidation policy (TTL or manual refresh) is defined and documented (locations rarely
   move — keep it simple, PRD §7.0).
-- [ ] A unit/integration test covers cache **hit** (no provider call) and **miss** (provider called, then
+- [x] A unit/integration test covers cache **hit** (no provider call) and **miss** (provider called, then
   cached).
 
 ## Constraints

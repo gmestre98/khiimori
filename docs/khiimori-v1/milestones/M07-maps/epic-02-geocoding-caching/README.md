@@ -1,5 +1,7 @@
 # Epic M07.2 — Server-side geocoding & caching
 
+> **Status:** ✅ Done — PRs [#325](https://github.com/gmestre98/khiimori/pull/325) [#326](https://github.com/gmestre98/khiimori/pull/326) [#327](https://github.com/gmestre98/khiimori/pull/327) · 4 ACs verified · geocoder seam, DB cache, day-route endpoint
+
 > Milestone: [07 — Maps](../README.md) · PRD refs: §5.6, §7.7, §8.4 #2.
 
 ## Description
@@ -13,13 +15,13 @@ the map uses to draw an indicative route between the day's pins.
 
 ## Acceptance Criteria
 
-- [ ] **Geocoding** (location → coordinates) is performed **server-side** via the `Geocoder`
+- [x] **Geocoding** (location → coordinates) is performed **server-side** via the `Geocoder`
       interface from Epic 01; the client never calls Google directly (PRD §5.6, §8.5).
-- [ ] Geocode results are **cached** (in the `geo.*` schema) and reused across map loads to **limit
+- [x] Geocode results are **cached** (in the `geo.*` schema) and reused across map loads to **limit
       repeat billable calls** (PRD §8.4 #2).
-- [ ] The proxy provides **ordered route hints** for a day's pins so the map can draw an **indicative
+- [x] The proxy provides **ordered route hints** for a day's pins so the map can draw an **indicative
       route** (PRD §5.6).
-- [ ] Unit + integration tests cover cache hit/miss (a repeated location is not re-geocoded) and
+- [x] Unit + integration tests cover cache hit/miss (a repeated location is not re-geocoded) and
       ordered-route output (PRD §7.6).
 
 ## Implementation Details / Architecture
