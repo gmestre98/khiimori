@@ -86,6 +86,8 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 
 	// Admin backoffice (M08.5) — gated by RequireAdmin (is_admin, server-side).
 	mux.Handle("GET "+AdminPath, m.RequireAdmin(http.HandlerFunc(m.handleAdminInfo)))
+	mux.Handle("GET "+AdminUsersPath, m.RequireAdmin(http.HandlerFunc(m.handleAdminListUsers)))
+	mux.Handle("GET "+AdminTripsPath, m.RequireAdmin(http.HandlerFunc(m.handleAdminListTrips)))
 	mux.Handle("POST "+DeactivateUserPath, m.RequireAdmin(http.HandlerFunc(m.handleAdminDeactivateUser)))
 }
 
