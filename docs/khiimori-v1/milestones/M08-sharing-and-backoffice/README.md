@@ -1,5 +1,7 @@
 # Milestone 08 — Sharing & Backoffice
 
+> **Status:** ✅ Done — all 5 epics and 22 ACs complete (PRs #335–#359). Trip memberships & roles, email invitations, single-`Authorizer` trip authorization, sharing UI, and admin backoffice all merged and deployed.
+
 > Trip memberships and roles, email invitations, the **single server-side authorization authority**
 > that guards all trip data, and a minimal admin backoffice for users and trip access.
 >
