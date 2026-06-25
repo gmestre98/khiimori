@@ -27,11 +27,14 @@ func New(provider MapProvider, requireAuth httpx.Middleware) *Module {
 //
 //	GET  /geo/geocode              — proxy: resolve location → LatLng
 //	POST /geo/route-hints          — proxy: return ordered waypoints
+//	GET  /geo/static-map           — proxy: return a PNG map image (no client key)
 func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /geo/geocode",
 		m.requireAuth(http.HandlerFunc(m.handleGeocode)))
 	mux.Handle("POST /geo/route-hints",
 		m.requireAuth(http.HandlerFunc(m.handleRouteHints)))
+	mux.Handle("GET /geo/static-map",
+		m.requireAuth(http.HandlerFunc(m.handleStaticMap)))
 }
 
 // Compile-time check that *Module implements the route-mounting contract.

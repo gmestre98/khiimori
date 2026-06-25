@@ -87,6 +87,32 @@ func TestHandleRouteHintsSuccess(t *testing.T) {
 	}
 }
 
+func TestHandleStaticMapNoProvider(t *testing.T) {
+	t.Parallel()
+	m := New(nil, noopMiddleware)
+	req := httptest.NewRequest(http.MethodGet, "/geo/static-map", nil)
+	w := httptest.NewRecorder()
+	m.handleStaticMap(w, req)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected 503, got %d", w.Code)
+	}
+}
+
+func TestHandleStaticMapSuccess(t *testing.T) {
+	t.Parallel()
+	m := New(&fakeMapProvider{}, noopMiddleware)
+	req := httptest.NewRequest(http.MethodGet,
+		"/geo/static-map?size=600x300&markers=48.8566,2.3522", nil)
+	w := httptest.NewRecorder()
+	m.handleStaticMap(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "image/png" {
+		t.Errorf("expected image/png, got %q", ct)
+	}
+}
+
 // Ensure fakeMapProvider.RouteHints returns waypoints unchanged.
 func TestFakeMapProviderRouteHints(t *testing.T) {
 	t.Parallel()

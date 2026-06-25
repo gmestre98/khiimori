@@ -27,6 +27,10 @@ func (f *fakeMapProvider) RouteHints(_ context.Context, waypoints []LatLng) ([]L
 	return waypoints, nil
 }
 
+func (f *fakeMapProvider) StaticMap(_ context.Context, _ StaticMapParams) ([]byte, error) {
+	return []byte("fake-png"), nil
+}
+
 func TestInterfacesSatisfied(t *testing.T) {
 	t.Parallel()
 	var _ Geocoder = (*fakeGeocoder)(nil)
@@ -114,5 +118,35 @@ func TestGoogleProviderRouteHints(t *testing.T) {
 	}
 	if len(got) != 2 || got[0] != waypoints[0] || got[1] != waypoints[1] {
 		t.Errorf("unexpected route hints: %+v", got)
+	}
+}
+
+func TestGoogleProviderStaticMap(t *testing.T) {
+	t.Parallel()
+
+	pngBytes := []byte("\x89PNG\r\n\x1a\n") // minimal PNG header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Key must be in query; must not appear in response.
+		if r.URL.Query().Get("key") == "" {
+			http.Error(w, "missing key", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(pngBytes)
+	}))
+	defer srv.Close()
+
+	p, _ := newGoogleProvider("test-key", srv.Client())
+	p.baseURL = srv.URL
+
+	got, err := p.StaticMap(context.Background(), StaticMapParams{
+		Size:    "600x300",
+		Markers: []LatLng{{Lat: 48.8566, Lng: 2.3522}},
+	})
+	if err != nil {
+		t.Fatalf("StaticMap error: %v", err)
+	}
+	if string(got) != string(pngBytes) {
+		t.Errorf("unexpected image bytes")
 	}
 }
