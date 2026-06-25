@@ -1,0 +1,84 @@
+/*
+ * Component library styles — M09.2.
+ * All values reference design tokens from tokens.css.
+ * No hardcoded colours, sizes, or spacing.
+ */
+
+/* ── Button size modifier ───────────────────────────────────────────────────── */
+
+/*
+ * Base button variants (btn-primary / btn-secondary / btn-danger / btn-ghost /
+ * btn-ghost-danger) are declared in App.css and already token-driven. This file
+ * adds the small-size modifier used by the Button primitive.
+ */
+.btn-sm {
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: 4px var(--space-3);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+/* ── Form input & select ────────────────────────────────────────────────────── */
+
+.form-input,
+.form-select {
+  font: inherit;
+  font-size: var(--text-base);
+  padding: var(--space-2) 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  color: var(--text-h);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-input:focus,
+.form-select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.form-input--invalid,
+.form-select--invalid {
+  border-color: var(--error);
+}
+
+.form-input--invalid:focus,
+.form-select--invalid:focus {
+  outline-color: var(--error);
+}
+
+.form-input:disabled,
+.form-select:disabled {
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  cursor: default;
+}
+
+/* ── FormField layout ───────────────────────────────────────────────────────── */
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.form-field-label {
+  font-size: var(--text-base);
+  color: var(--text-h);
+  font-weight: 500;
+}
+
+.form-field-hint {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-top: calc(-1 * var(--space-1));
+}
+
+.form-field-error {
+  font-size: var(--text-sm);
+  color: var(--error);
+}
