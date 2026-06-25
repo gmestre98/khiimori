@@ -9,11 +9,11 @@ hardcoded values (PRD §5.10).
 Apply the user's theme preference and document the token system.
 
 ## Acceptance criteria
-- [ ] The app reads the user's **theme preference** (Milestone 02 profile) and applies it; a sensible
+- [x] The app reads the user's **theme preference** (Milestone 02 profile) and applies it; a sensible
   **default** is defined when none is set.
-- [ ] Changing the preference (via the profile screen, M02 Epic 05) updates the app's theme.
-- [ ] The tokens and the accent convention are **documented** (usage guide) so Epics 02–08 consume them.
-- [ ] The docs state the re-skinning process (edit tokens in one place).
+- [x] Changing the preference (via the profile screen, M02 Epic 05) updates the app's theme.
+- [x] The tokens and the accent convention are **documented** (usage guide) so Epics 02–08 consume them.
+- [x] The docs state the re-skinning process (edit tokens in one place).
 
 ## Constraints
 - Theme preference plumbing connects to Milestone 02's `prefs` — do not store it only in local state.

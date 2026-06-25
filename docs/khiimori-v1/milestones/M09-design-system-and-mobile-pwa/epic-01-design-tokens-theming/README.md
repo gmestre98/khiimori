@@ -1,5 +1,7 @@
 # Epic M09.1 — Design tokens & theming (black/white + accent)
 
+> **Status:** ✅ Done — PRs [#361](https://github.com/gmestre98/khiimori/pull/361), [#362](https://github.com/gmestre98/khiimori/pull/362), [#363](https://github.com/gmestre98/khiimori/pull/363). All 4 ACs complete across 3 stories. Token layer (`tokens.css`), B&W theme with single restrained accent (`utilities.css`, `TOKENS.md`), and user theme preference application (`ThemeProvider`) shipped.
+
 > Milestone: [09 — Design System & Mobile/PWA](../README.md) · PRD refs: §5.10, §7.0, §7.2.
 
 ## Description
@@ -14,13 +16,13 @@ every feature screen consume.
 
 ## Acceptance Criteria
 
-- [ ] **Design tokens** (colours, typography, spacing) implement the **black/white theme** with a
+- [x] **Design tokens** (colours, typography, spacing) implement the **black/white theme** with a
       **single accent** reserved for **status, budget bars, and map pins** (PRD §5.10).
-- [ ] Theming is **token-driven**: changing the palette/type in one place re-skins the app, so
+- [x] Theming is **token-driven**: changing the palette/type in one place re-skins the app, so
       post-v1 restyling is cheap (PRD §5.10 "designed to evolve", §7.2).
-- [ ] The theme respects the user's **theme preference** (from the Milestone 02 profile) where
+- [x] The theme respects the user's **theme preference** (from the Milestone 02 profile) where
       applicable, and a default is defined.
-- [ ] Tokens are **documented** so feature epics use them instead of hardcoded values (PRD §5.10).
+- [x] Tokens are **documented** so feature epics use them instead of hardcoded values (PRD §5.10).
 
 ## Implementation Details / Architecture
 

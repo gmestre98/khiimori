@@ -8,12 +8,12 @@ budget bars, and map pins (PRD §5.10). Re-skinning must be a token change.
 Define the black/white theme and the single-accent convention on top of the token layer.
 
 ## Acceptance criteria
-- [ ] The default theme renders **black & white** using the tokens (S1).
-- [ ] A **single accent** colour token exists, applied only to the sanctioned cases: **status, budget
+- [x] The default theme renders **black & white** using the tokens (S1).
+- [x] A **single accent** colour token exists, applied only to the sanctioned cases: **status, budget
   bars, map pins**.
-- [ ] Re-skinning (palette/typography) is achievable by editing tokens in one place (verify by swapping
+- [x] Re-skinning (palette/typography) is achievable by editing tokens in one place (verify by swapping
   the accent and confirming it flows through).
-- [ ] Accent is restrained by design — there is a clear convention/utility so feature code applies it only
+- [x] Accent is restrained by design — there is a clear convention/utility so feature code applies it only
   where sanctioned.
 
 ## Constraints
