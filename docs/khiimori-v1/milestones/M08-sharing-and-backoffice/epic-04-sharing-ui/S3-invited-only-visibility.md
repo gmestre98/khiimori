@@ -9,13 +9,13 @@ Verify and test that the Trips menu shows only authorized trips for invited user
 respects capabilities.
 
 ## Acceptance criteria
-- [ ] An invited Editor/Viewer sees the shared trip in their Trips menu (Milestone 03 scoped listing) and
+- [x] An invited Editor/Viewer sees the shared trip in their Trips menu (Milestone 03 scoped listing) and
   **not** trips they aren't a member of.
-- [ ] A Viewer sees read-only surfaces; an Editor sees edit affordances — but enforcement stays server-side
+- [x] A Viewer sees read-only surfaces; an Editor sees edit affordances — but enforcement stays server-side
   (Epic 02).
-- [ ] UI/integration tests cover: invited user sees only shared trips, role-appropriate affordances, and
+- [x] UI/integration tests cover: invited user sees only shared trips, role-appropriate affordances, and
   that revocation removes the trip from their menu.
-- [ ] The client never filters/authorizes trips itself — it renders the server-scoped listing.
+- [x] The client never filters/authorizes trips itself — it renders the server-scoped listing.
 
 ## Constraints
 - Rely on Milestone 03's scoped listing (server decides visibility) — do not client-filter.
