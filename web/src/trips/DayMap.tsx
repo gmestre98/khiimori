@@ -2,24 +2,10 @@ import { useEffect, useState } from 'react'
 import { fetchDayRoute, staticMapUrl, UnauthorizedError, type Day, type LatLng } from '../lib/api'
 
 // DayMapImage renders the static map <img> once waypoints are resolved.
-function DayMapImage({
-  waypoints,
-  label,
-}: {
-  waypoints: LatLng[]
-  label: string
-}) {
+function DayMapImage({ waypoints, label }: { waypoints: LatLng[]; label: string }) {
   const url = staticMapUrl(waypoints, { size: '600x300', scale: 2 })
   if (!url) return null
-  return (
-    <img
-      src={url}
-      alt={label}
-      className="day-map-img"
-      width={600}
-      height={300}
-    />
-  )
+  return <img src={url} alt={label} className="day-map-img" width={600} height={300} />
 }
 
 // Builds an ordered list of location strings from a day: stay first, then plan
