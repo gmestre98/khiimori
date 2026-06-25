@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useParams } from 'react-router-dom'
 import {
@@ -26,6 +26,8 @@ import { DayBudgetEditor } from './BudgetEditor'
 import { FastAddCost } from './FastAddCost'
 import { DayRollup } from './RollupDisplay'
 import { useTripShell } from './useTripShell'
+
+const DayMap = lazy(() => import('./DayMap'))
 
 // BottomSheet renders children in a bottom-anchored sliding panel on mobile
 // (viewport ≤ 640 px). On wider viewports the children render inline with no
@@ -1153,12 +1155,26 @@ function JournalSlot({
   )
 }
 
-// MapSlot is the stable mount point Milestone 07 fills with the day's map view.
-function MapSlot() {
+// MapSlot lazily renders the per-day map. When `day` is not yet loaded the
+// placeholder shell is shown; once day data is available DayMap is loaded on
+// demand (lazy + Suspense) so the map bundle is not fetched on initial load.
+function MapSlot({ day }: { day: Day | null }) {
   return (
     <section className="day-slot day-slot-map" aria-label="Map" data-slot="map">
       <h2 className="day-slot-title">Map</h2>
-      <p className="day-slot-placeholder">Map view coming in Milestone 07</p>
+      {day ? (
+        <Suspense
+          fallback={
+            <p className="day-map-loading" aria-busy="true">
+              Loading map…
+            </p>
+          }
+        >
+          <DayMap day={day} />
+        </Suspense>
+      ) : (
+        <p className="day-slot-placeholder">Map</p>
+      )}
     </section>
   )
 }
@@ -1254,7 +1270,7 @@ export function DayView() {
             <h2 className="day-slot-title">Journal</h2>
           </section>
         )}
-        <MapSlot />
+        <MapSlot day={day} />
       </div>
     </article>
   )

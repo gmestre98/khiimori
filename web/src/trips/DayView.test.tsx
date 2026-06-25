@@ -81,6 +81,7 @@ vi.mock('../lib/api', async (importOriginal) => {
     demotePlanItem: vi.fn(),
     movePlanItem: vi.fn(),
     reorderPlanItems: vi.fn(),
+    fetchDayRoute: vi.fn(),
   }
 })
 
@@ -109,6 +110,7 @@ beforeEach(() => {
     planned_by_category: {},
     planned_by_day: {},
   })
+  vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
 })
 
 afterEach(() => {
