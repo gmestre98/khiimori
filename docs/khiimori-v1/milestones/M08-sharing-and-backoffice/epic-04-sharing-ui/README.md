@@ -11,15 +11,17 @@ authorization-scoped listing). This is the user-facing front of Epics 01–03.
 
 **Estimated effort:** ~1–2 developer-days (one developer).
 
+> **Status:** ✅ Done — PRs [#352](https://github.com/gmestre98/khiimori/pull/352), [#353](https://github.com/gmestre98/khiimori/pull/353), [#354](https://github.com/gmestre98/khiimori/pull/354). All 4 ACs complete across 3 stories.
+
 ## Acceptance Criteria
 
-- [ ] An Owner can **invite by email + role** (Editor/Viewer) and see the invitation's status from
+- [x] An Owner can **invite by email + role** (Editor/Viewer) and see the invitation's status from
       the trip's sharing surface (PRD §5.9, §11.1).
-- [ ] The surface **lists current members and their roles**, and lets the Owner **change a role** or
+- [x] The surface **lists current members and their roles**, and lets the Owner **change a role** or
       **revoke access**, reflecting changes immediately (PRD §5.9).
-- [ ] Invited users see **only trips shared with them** in their Trips menu (rendered from Milestone
+- [x] Invited users see **only trips shared with them** in their Trips menu (rendered from Milestone
       03's authorization-scoped listing — the client never decides authorization) (PRD §5.9).
-- [ ] The surface is mobile-first and responsive, using Milestone 09 components when available
+- [x] The surface is mobile-first and responsive, using Milestone 09 components when available
       (PRD §5.10, §7.2).
 
 ## Implementation Details / Architecture

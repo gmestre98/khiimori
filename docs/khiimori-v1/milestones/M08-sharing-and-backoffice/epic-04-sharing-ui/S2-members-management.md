@@ -8,11 +8,11 @@ The sharing surface **lists current members and their roles**, and lets the Owne
 Build the members list with change-role and revoke controls.
 
 ## Acceptance criteria
-- [ ] The surface lists current members with their **roles** (from Epic 01 S2 reads).
-- [ ] An Owner can **change a member's role** (Editor↔Viewer) and **revoke** access; the list updates
+- [x] The surface lists current members with their **roles** (from Epic 01 S2 reads).
+- [x] An Owner can **change a member's role** (Editor↔Viewer) and **revoke** access; the list updates
   immediately.
-- [ ] Revoked members disappear from the list and lose access (Epic 02 enforces immediately).
-- [ ] Manage controls are visible only to a user with Owner capability (server still enforces).
+- [x] Revoked members disappear from the list and lose access (Epic 02 enforces immediately).
+- [x] Manage controls are visible only to a user with Owner capability (server still enforces).
 
 ## Constraints
 - Reflect server-confirmed state after each change; do not assume success client-side for authorization.
