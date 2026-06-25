@@ -876,6 +876,7 @@ export async function fetchSharingData(
 
   const membersBody = (await membersRes.json()) as { members: TripMember[] }
 
+  if (invitationsRes.status === 401) throw new UnauthorizedError()
   // Non-owners get 403 on invitations — return empty list gracefully.
   let invitations: TripInvitation[] = []
   if (invitationsRes.ok) {
