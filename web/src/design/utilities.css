@@ -1,0 +1,57 @@
+/*
+ * Design utility classes — M09.1-S2.
+ *
+ * These are thin wrappers around token values. Using them makes sanctioned
+ * accent usage the easy path and keeps raw token references out of
+ * feature-level CSS.
+ *
+ * Accent utilities — ONLY apply to the three sanctioned cases:
+ *   • status badges / indicators
+ *   • budget bars (progress fills)
+ *   • map pins
+ *
+ * For everything else, use semantic tokens (--text, --bg, --border) directly.
+ */
+
+/* Accent utilities */
+.u-accent-text {
+  color: var(--accent);
+}
+.u-accent-bg {
+  background: var(--accent);
+  color: var(--accent-on);
+}
+.u-accent-border {
+  border-color: var(--accent);
+}
+.u-accent-surface {
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+}
+
+/* Status utilities */
+.u-success {
+  color: var(--success);
+}
+.u-warning {
+  color: var(--warning);
+}
+.u-error {
+  color: var(--error);
+}
+
+/* Text utilities */
+.u-text-secondary {
+  color: var(--text-secondary);
+}
+.u-text-muted {
+  color: var(--text-muted);
+}
+
+/* Surface utilities */
+.u-surface {
+  background: var(--surface);
+}
+.u-surface-muted {
+  background: var(--surface-muted);
+}
