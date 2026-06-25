@@ -307,6 +307,85 @@ func (m *Module) handleUploadPhoto(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, photoToResponse(photo))
 }
 
+// usageResponse is the wire shape for the per-trip storage usage endpoint.
+type usageResponse struct {
+	UsedBytes int64   `json:"used_bytes"`
+	CapBytes  int64   `json:"cap_bytes"`
+	NearCap   bool    `json:"near_cap"`
+	UsedPct   float64 `json:"used_pct"`
+}
+
+// handleGetUsage handles GET /trips/{tripID}/usage.
+// Returns the trip's current photo storage usage relative to the 1 GB cap.
+func (m *Module) handleGetUsage(w http.ResponseWriter, r *http.Request) {
+	tripID := r.PathValue("tripID")
+
+	principal, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusUnauthorized, "unauthorized", "unauthorized"))
+		return
+	}
+	if err := m.checkAccess(r.Context(), principal.UserID, tripID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	used, err := m.store.TripUsageBytes(r.Context(), tripID)
+	if err != nil {
+		platformlog.FromContext(r.Context()).Error("journal: get usage", "err", err.Error())
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusInternalServerError, "internal_error", "internal error"))
+		return
+	}
+
+	usedPct := float64(used) / float64(m.quotaCap) * 100
+	writeJSON(w, http.StatusOK, usageResponse{
+		UsedBytes: used,
+		CapBytes:  m.quotaCap,
+		NearCap:   float64(used) >= nearCapFraction*float64(m.quotaCap),
+		UsedPct:   usedPct,
+	})
+}
+
+// handleDeletePhoto handles DELETE /trips/{tripID}/days/{dayID}/journal/photos/{photoID}.
+// Deletes the photo row and its objects (original + thumbnail) from MediaStore.
+func (m *Module) handleDeletePhoto(w http.ResponseWriter, r *http.Request) {
+	tripID := r.PathValue("tripID")
+	photoID := r.PathValue("photoID")
+
+	principal, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusUnauthorized, "unauthorized", "unauthorized"))
+		return
+	}
+	if err := m.checkAccess(r.Context(), principal.UserID, tripID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	deleted, err := m.store.DeletePhotoForTrip(r.Context(), photoID, tripID)
+	if errors.Is(err, ErrPhotoNotFound) {
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusNotFound, "photo_not_found", "photo not found"))
+		return
+	}
+	if err != nil {
+		platformlog.FromContext(r.Context()).Error("journal: delete photo", "err", err.Error())
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusInternalServerError, "internal_error", "internal error"))
+		return
+	}
+
+	// Best-effort object cleanup: row is already deleted; log but don't fail.
+	if err := m.media.Delete(r.Context(), deleted.StorageURL); err != nil {
+		platformlog.FromContext(r.Context()).Error("journal: delete original object", "err", err.Error())
+	}
+	if deleted.ThumbnailURL != "" {
+		if err := m.media.Delete(r.Context(), deleted.ThumbnailURL); err != nil {
+			platformlog.FromContext(r.Context()).Error("journal: delete thumbnail object", "err", err.Error())
+		}
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // handleListPhotos handles GET /trips/{tripID}/days/{dayID}/journal/photos.
 func (m *Module) handleListPhotos(w http.ResponseWriter, r *http.Request) {
 	tripID := r.PathValue("tripID")
