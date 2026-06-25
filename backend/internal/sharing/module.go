@@ -74,7 +74,10 @@ func (m *Module) InvitationsService() *Invitations { return m.invitations }
 func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	if m.requireAuth != nil {
 		mux.Handle("POST "+InvitationsPath, m.requireAuth(http.HandlerFunc(m.handleCreateInvitation)))
+		mux.Handle("DELETE "+InvitationItemPath, m.requireAuth(http.HandlerFunc(m.handleRevokeInvitation)))
 		mux.Handle("POST "+AcceptInvitePath, m.requireAuth(http.HandlerFunc(m.handleAcceptInvitation)))
+		mux.Handle("PATCH "+MembershipPath, m.requireAuth(http.HandlerFunc(m.handleChangeRole)))
+		mux.Handle("DELETE "+MembershipPath, m.requireAuth(http.HandlerFunc(m.handleRevokeMembership)))
 	}
 }
 
