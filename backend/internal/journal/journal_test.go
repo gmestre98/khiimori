@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -90,6 +91,16 @@ func (s *fakeStore) UpdatePhotoThumbnail(_ context.Context, photoID, thumbnailUR
 		}
 	}
 	return nil
+}
+
+func (s *fakeStore) DeletePhotoForTrip(_ context.Context, photoID, _ string) (Photo, error) {
+	for i, p := range s.photos {
+		if p.ID == photoID {
+			s.photos = append(s.photos[:i], s.photos[i+1:]...)
+			return p, nil
+		}
+	}
+	return Photo{}, ErrPhotoNotFound
 }
 
 type allowAuthz struct{}
@@ -545,6 +556,115 @@ func TestUploadPhoto_OverCap(t *testing.T) {
 	// Nothing should be stored.
 	if len(store.photos) != 0 {
 		t.Errorf("expected no photos stored on over-cap rejection, got %d", len(store.photos))
+	}
+}
+
+// --- usage exposure & delete tests ---
+
+// TestGetUsage_ReturnsUsedAndCap verifies the usage endpoint returns correct values.
+func TestGetUsage_ReturnsUsedAndCap(t *testing.T) {
+	t.Parallel()
+	store := newFakeStore()
+	store.usageByTripID["trip-1"] = 500
+	const cap = 1024
+	srv := newTestServerWithCap(t, store, allowAuthz{}, cap)
+
+	resp, err := http.Get(srv.URL + "/trips/trip-1/usage")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("want 200, got %d", resp.StatusCode)
+	}
+
+	var out usageResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if out.UsedBytes != 500 {
+		t.Errorf("used_bytes: got %d, want 500", out.UsedBytes)
+	}
+	if out.CapBytes != cap {
+		t.Errorf("cap_bytes: got %d, want %d", out.CapBytes, cap)
+	}
+	if out.NearCap {
+		t.Error("near_cap: should be false at 500/1024")
+	}
+}
+
+// TestGetUsage_NearCap verifies near_cap is true when usage exceeds 80%.
+func TestGetUsage_NearCap(t *testing.T) {
+	t.Parallel()
+	store := newFakeStore()
+	store.usageByTripID["trip-1"] = 850
+	const cap = 1000
+	srv := newTestServerWithCap(t, store, allowAuthz{}, cap)
+
+	resp, _ := http.Get(srv.URL + "/trips/trip-1/usage")
+	defer func() { _ = resp.Body.Close() }()
+
+	var out usageResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !out.NearCap {
+		t.Errorf("near_cap: expected true at %d/%d", out.UsedBytes, out.CapBytes)
+	}
+}
+
+// TestDeletePhoto_Success verifies a photo can be deleted and storage is cleaned up.
+func TestDeletePhoto_Success(t *testing.T) {
+	t.Parallel()
+	store := newFakeStore()
+	srv := newTestServer(t, store, allowAuthz{})
+
+	// Create entry and upload photo.
+	putResp, _ := putJSON(srv, "/trips/trip-1/days/day-A/journal", map[string]any{})
+	_ = putResp.Body.Close()
+
+	img := bytes.Repeat([]byte("X"), 512)
+	uploadResp, _ := uploadPhotoWithType(srv, "/trips/trip-1/days/day-A/journal/photos", img, "image/jpeg", "")
+	defer func() { _ = uploadResp.Body.Close() }()
+
+	var uploaded photoResponse
+	if err := json.NewDecoder(uploadResp.Body).Decode(&uploaded); err != nil {
+		t.Fatalf("decode upload: %v", err)
+	}
+
+	// Delete the photo.
+	delReq, _ := http.NewRequest(http.MethodDelete,
+		srv.URL+fmt.Sprintf("/trips/trip-1/days/day-A/journal/photos/%s", uploaded.ID), nil)
+	delResp, err := http.DefaultClient.Do(delReq)
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	_ = delResp.Body.Close()
+	if delResp.StatusCode != http.StatusNoContent {
+		t.Errorf("want 204, got %d", delResp.StatusCode)
+	}
+
+	// Photo should be gone.
+	if len(store.photos) != 0 {
+		t.Errorf("want 0 photos, got %d", len(store.photos))
+	}
+}
+
+// TestDeletePhoto_NotFound verifies 404 for a non-existent photo.
+func TestDeletePhoto_NotFound(t *testing.T) {
+	t.Parallel()
+	store := newFakeStore()
+	srv := newTestServer(t, store, allowAuthz{})
+
+	req, _ := http.NewRequest(http.MethodDelete,
+		srv.URL+"/trips/trip-1/days/day-A/journal/photos/non-existent", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("want 404, got %d", resp.StatusCode)
 	}
 }
 

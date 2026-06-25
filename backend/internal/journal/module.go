@@ -51,6 +51,16 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	// GET /trips/{tripID}/days/{dayID}/journal/photos
 	mux.Handle("GET /trips/{tripID}/days/{dayID}/journal/photos",
 		m.requireAuth(http.HandlerFunc(m.handleListPhotos)))
+
+	// Delete a specific photo:
+	// DELETE /trips/{tripID}/days/{dayID}/journal/photos/{photoID}
+	mux.Handle("DELETE /trips/{tripID}/days/{dayID}/journal/photos/{photoID}",
+		m.requireAuth(http.HandlerFunc(m.handleDeletePhoto)))
+
+	// Per-trip storage usage:
+	// GET /trips/{tripID}/usage
+	mux.Handle("GET /trips/{tripID}/usage",
+		m.requireAuth(http.HandlerFunc(m.handleGetUsage)))
 }
 
 // Compile-time check that *Module implements the route-mounting contract.

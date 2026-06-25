@@ -21,6 +21,10 @@ type journalStore interface {
 	TripUsageBytes(ctx context.Context, tripID string) (int64, error)
 	// UpdatePhotoThumbnail sets thumbnail_url on an existing photo row.
 	UpdatePhotoThumbnail(ctx context.Context, photoID, thumbnailURL string) error
+	// DeletePhotoForTrip atomically fetches and deletes the photo row, verifying
+	// it belongs to tripID. Returns ErrPhotoNotFound if the photo does not exist
+	// or does not belong to the trip.
+	DeletePhotoForTrip(ctx context.Context, photoID, tripID string) (Photo, error)
 }
 
 // pgxJournalStore is the Postgres-backed journal store.
@@ -158,6 +162,39 @@ func (s *pgxJournalStore) ListPhotos(ctx context.Context, journalEntryID string)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("journal: list photos rows: %w", err)
+	}
+	return out, nil
+}
+
+// DeletePhotoForTrip atomically verifies the photo belongs to tripID and deletes
+// the row. Returns the deleted Photo (with storage URLs for object cleanup) or
+// ErrPhotoNotFound if the photo does not exist or is in a different trip.
+func (s *pgxJournalStore) DeletePhotoForTrip(ctx context.Context, photoID, tripID string) (Photo, error) {
+	// CTE deletes the row only if it belongs to the trip (via journal_entries → trip.days).
+	const q = `
+		WITH target AS (
+			SELECT p.id
+			FROM journal.photos p
+			JOIN journal.journal_entries je ON je.id = p.journal_entry_id
+			JOIN trip.days d ON d.id = je.day_id
+			WHERE p.id = $1::uuid AND d.trip_id = $2::uuid
+		)
+		DELETE FROM journal.photos
+		WHERE id IN (SELECT id FROM target)
+		RETURNING id::text, journal_entry_id::text, storage_url,
+		          COALESCE(caption, ''), size_bytes, is_thumbnail,
+		          COALESCE(thumbnail_url, ''), created_at`
+
+	var out Photo
+	err := s.pool.QueryRow(ctx, q, photoID, tripID).Scan(
+		&out.ID, &out.JournalEntryID, &out.StorageURL, &out.Caption,
+		&out.SizeBytes, &out.IsThumbnail, &out.ThumbnailURL, &out.CreatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Photo{}, ErrPhotoNotFound
+	}
+	if err != nil {
+		return Photo{}, fmt.Errorf("journal: delete photo: %w", err)
 	}
 	return out, nil
 }

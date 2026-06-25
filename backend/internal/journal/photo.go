@@ -26,10 +26,11 @@ var ErrPhotoNotFound = errors.New("journal: photo not found")
 // ErrQuotaExceeded is returned when an upload would exceed the per-trip storage cap.
 var ErrQuotaExceeded = errors.New("journal: per-trip storage quota exceeded")
 
-// Upload validation limits.
+// Upload and quota limits.
 const (
 	maxUploadBytes  = 10 << 20 // 10 MB per photo
 	DefaultQuotaCap = 1 << 30  // 1 GB per trip (PRD §5.5, §11.4)
+	nearCapFraction = 0.80     // warn UI when usage exceeds 80% of cap
 )
 
 // allowedContentTypes lists MIME types accepted for upload.
