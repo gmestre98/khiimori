@@ -5,6 +5,7 @@ import (
 
 	"github.com/gmestre98/khiimori/backend/internal/platform/authn"
 	"github.com/gmestre98/khiimori/backend/internal/platform/httpx"
+	platformlog "github.com/gmestre98/khiimori/backend/internal/platform/log"
 )
 
 // RequireAuth is the auth middleware: it authenticates a request by its session
@@ -34,6 +35,24 @@ func (m *Module) RequireAuth(next http.Handler) http.Handler {
 				http.StatusUnauthorized, "auth_required", "authentication required"))
 			return
 		}
+
+		// Reject deactivated users — their sessions remain cryptographically valid
+		// but an admin has blocked them (M08.5 S3). One SELECT on the primary key.
+		if m.repo != nil {
+			active, err := m.repo.IsActive(r.Context(), userID)
+			if err != nil {
+				platformlog.FromContext(r.Context()).Error("checking user active", "err", err.Error())
+				httpx.WriteError(w, r, httpx.NewAPIError(
+					http.StatusInternalServerError, "server_error", "could not verify session"))
+				return
+			}
+			if !active {
+				httpx.WriteError(w, r, httpx.NewAPIError(
+					http.StatusUnauthorized, "auth_required", "authentication required"))
+				return
+			}
+		}
+
 		// Slide an aging-but-valid session forward so active use never hits a hard
 		// expiry mid-trip (S4). Best-effort; runs before the handler so the
 		// Set-Cookie lands on the response.
@@ -42,6 +61,32 @@ func (m *Module) RequireAuth(next http.Handler) http.Handler {
 		ctx := authn.WithPrincipal(r.Context(), authn.Principal{UserID: userID})
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// RequireAdmin wraps RequireAuth and additionally enforces that the signed-in
+// user has is_admin=true. Non-admins receive 403; anonymous users receive 401
+// from the inner RequireAuth. It is the gate for all /admin/* endpoints (M08.5).
+func (m *Module) RequireAdmin(next http.Handler) http.Handler {
+	return m.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p, ok := authn.FromContext(r.Context())
+		if !ok {
+			httpx.WriteError(w, r, httpx.NewAPIError(
+				http.StatusUnauthorized, "auth_required", "authentication required"))
+			return
+		}
+		user, err := m.users.GetByID(r.Context(), p.UserID)
+		if err != nil {
+			httpx.WriteError(w, r, httpx.NewAPIError(
+				http.StatusUnauthorized, "auth_required", "authentication required"))
+			return
+		}
+		if !user.IsAdmin {
+			httpx.WriteError(w, r, httpx.NewAPIError(
+				http.StatusForbidden, "forbidden", "admin access required"))
+			return
+		}
+		next.ServeHTTP(w, r)
+	}))
 }
 
 // Compile-time check that RequireAuth satisfies the shared middleware contract,

@@ -109,6 +109,7 @@ export interface Profile {
   home_base: string
   theme: string
   default_currency: string
+  is_admin: boolean
 }
 
 // fetchProfile loads the signed-in user's profile (GET /me). It throws
@@ -1017,4 +1018,82 @@ export function staticMapUrl(
     }
   }
   return apiUrl(`/geo/static-map?${params.toString()}`)
+}
+
+// --- Admin backoffice (M08.5) -----------------------------------------------
+
+// AdminUser is the wire shape of a user row in the admin list.
+export interface AdminUser {
+  id: string
+  email: string
+  name: string
+  is_admin: boolean
+  active: boolean
+}
+
+// AdminTrip is the wire shape of a trip row in the admin list.
+export interface AdminTrip {
+  id: string
+  name: string
+  owner_id: string
+  owner_email: string
+  start_date: string
+  end_date: string
+  status: string
+}
+
+// fetchAdminUsers lists all users from the admin backoffice endpoint.
+export async function fetchAdminUsers(): Promise<AdminUser[]> {
+  const res = await apiFetch('/admin/users')
+  if (res.status === 403) throw new Error('forbidden')
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as AdminUser[]
+}
+
+// fetchAdminTrips lists all trips from the admin backoffice endpoint.
+export async function fetchAdminTrips(): Promise<AdminTrip[]> {
+  const res = await apiFetch('/admin/trips')
+  if (res.status === 403) throw new Error('forbidden')
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as AdminTrip[]
+}
+
+// deactivateUser deactivates a user via the admin endpoint.
+export async function deactivateUser(userID: string): Promise<void> {
+  const res = await apiFetch(`/admin/users/${userID}/deactivate`, { method: 'POST' })
+  if (res.status === 403) throw new Error('forbidden')
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+}
+
+// adminGrantAccess grants a user access to a trip via the admin endpoint.
+export async function adminGrantAccess(
+  tripID: string,
+  userID: string,
+  role: string,
+): Promise<void> {
+  const res = await apiFetch(`/admin/trips/${tripID}/members`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userID, role }),
+  })
+  if (res.status === 403) throw new Error('forbidden')
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+}
+
+// adminRevokeAccess revokes a user's access to a trip via the admin endpoint.
+export async function adminRevokeAccess(tripID: string, userID: string): Promise<void> {
+  const res = await apiFetch(`/admin/trips/${tripID}/members/${userID}`, { method: 'DELETE' })
+  if (res.status === 403) throw new Error('forbidden')
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+}
+
+// adminChangeRole changes a member's role via the admin endpoint.
+export async function adminChangeRole(tripID: string, userID: string, role: string): Promise<void> {
+  const res = await apiFetch(`/admin/trips/${tripID}/members/${userID}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role }),
+  })
+  if (res.status === 403) throw new Error('forbidden')
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
 }

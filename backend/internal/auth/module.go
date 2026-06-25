@@ -25,6 +25,10 @@ type Module struct {
 	// users reads/updates the profile row for the profile endpoints (Epic 04). It
 	// is the same store the provisioner writes through.
 	users profileStore
+	// repo is the full user repo (superset of profileStore). Used by RequireAuth
+	// to check the active flag (M08.5) and by the admin handlers to list/deactivate
+	// users. nil in tests that only stub profileStore.
+	repo userRepo
 	// sessions issues and validates the authenticated session cookie (Epic 03):
 	// completeSignIn mints one, and the auth middleware validates it.
 	sessions *sessionManager
@@ -57,6 +61,7 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Module {
 		configured:  gcfg.ClientID != "" && gcfg.ClientSecret != "" && gcfg.RedirectURI != "",
 		provisioner: &Provisioner{repo: repo, adminEmail: cfg.AdminEmail},
 		users:       repo,
+		repo:        repo,
 		sessions:    newSessionManager([]byte(cfg.SessionSecret), secure, sessionTTL),
 		webAppURL:   cfg.WebAppURL,
 	}
@@ -78,6 +83,10 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	// session user's own row.
 	mux.Handle("GET "+ProfilePath, m.RequireAuth(http.HandlerFunc(m.handleProfileRead)))
 	mux.Handle("PATCH "+ProfilePath, m.RequireAuth(http.HandlerFunc(m.handleProfileUpdate)))
+
+	// Admin backoffice (M08.5) — gated by RequireAdmin (is_admin, server-side).
+	mux.Handle("GET "+AdminPath, m.RequireAdmin(http.HandlerFunc(m.handleAdminInfo)))
+	mux.Handle("POST "+DeactivateUserPath, m.RequireAdmin(http.HandlerFunc(m.handleAdminDeactivateUser)))
 }
 
 // completeSignIn finishes a verified sign-in: it provisions the user (Epic 02) —

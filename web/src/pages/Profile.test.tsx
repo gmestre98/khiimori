@@ -12,6 +12,7 @@ const user = {
   home_base: 'Lisbon',
   theme: 'system',
   default_currency: 'EUR',
+  is_admin: false,
 }
 
 function fakeAuth(overrides: Partial<AuthContextValue> = {}): AuthContextValue {

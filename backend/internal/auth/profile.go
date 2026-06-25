@@ -99,6 +99,7 @@ type profileResponse struct {
 	HomeBase        string `json:"home_base"`
 	Theme           string `json:"theme"`
 	DefaultCurrency string `json:"default_currency"`
+	IsAdmin         bool   `json:"is_admin"`
 }
 
 // newProfileResponse projects a User row into the profile wire shape, pulling
@@ -112,6 +113,7 @@ func newProfileResponse(u User) profileResponse {
 		HomeBase:        u.HomeBase,
 		Theme:           themeFromPrefs(u.Prefs),
 		DefaultCurrency: u.DefaultCurrency,
+		IsAdmin:         u.IsAdmin,
 	}
 }
 
@@ -225,7 +227,7 @@ func (r *pgxUserRepo) UpdateProfile(ctx context.Context, id string, p profilePat
 	var u User
 	err := r.pool.QueryRow(ctx, query, id, p.Name, p.Avatar, p.HomeBase, p.Theme).Scan(
 		&u.ID, &u.GoogleSub, &u.Email, &u.Name, &u.Avatar,
-		&u.HomeBase, &u.DefaultCurrency, &u.Prefs, &u.IsAdmin,
+		&u.HomeBase, &u.DefaultCurrency, &u.Prefs, &u.IsAdmin, &u.Active,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, errUserNotFound
@@ -245,7 +247,7 @@ func (r *pgxUserRepo) GetByID(ctx context.Context, id string) (User, error) {
 	var u User
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&u.ID, &u.GoogleSub, &u.Email, &u.Name, &u.Avatar,
-		&u.HomeBase, &u.DefaultCurrency, &u.Prefs, &u.IsAdmin,
+		&u.HomeBase, &u.DefaultCurrency, &u.Prefs, &u.IsAdmin, &u.Active,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, errUserNotFound
