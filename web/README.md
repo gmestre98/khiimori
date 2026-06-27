@@ -62,7 +62,12 @@ storage stays bounded to one trip — not the whole history. Reads that were nev
 screen's own "couldn't load" state (the worker returns a synthetic 503), never a crash, and an
 [`OfflineBanner`](src/components/layout/OfflineBanner.tsx) gives a clear offline indication.
 
-Update/version handling (S5) builds on this worker.
+**Update / version handling (S5).** When a new SW is detected `registerSW` immediately posts
+`SKIP_WAITING`; the new worker takes control, broadcasts `SW_ACTIVATED` to all tabs, and the app reloads
+(`controllerchange → window.location.reload()`). Effect: users get the fresh shell on the next full
+page-load after deploy. An in-flight session is never disrupted; there is no stale-forever risk because
+the old version caches are purged on `activate`. To ship a new shell version: bump `CACHE_VERSION` in
+`sw.js`.
 
 **Offline write queue (S4).** There is **one** offline write mechanism across Planning (M04), Journal
 (M06), and the PWA shell — it is not redefined here. Offline writes are persisted by
