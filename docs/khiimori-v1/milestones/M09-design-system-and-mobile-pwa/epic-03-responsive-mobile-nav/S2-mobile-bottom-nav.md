@@ -8,11 +8,11 @@ large tap targets (PRD §5.10). This directly enables fast spontaneous re-planni
 Implement the mobile bottom navigation and thumb-zone action placement.
 
 ## Acceptance criteria
-- [ ] A **bottom navigation** bar provides the app's primary mobile navigation (using Epic 02 nav
+- [x] A **bottom navigation** bar provides the app's primary mobile navigation (using Epic 02 nav
   primitives).
-- [ ] Primary actions are placed in **thumb-reachable zones** with large tap targets.
-- [ ] The bottom nav integrates with Milestone 03's navigation structure and the responsive system (S1).
-- [ ] On laptop, navigation uses the comfortable layout (no bottom nav forced where inappropriate).
+- [x] Primary actions are placed in **thumb-reachable zones** with large tap targets.
+- [x] The bottom nav integrates with Milestone 03's navigation structure and the responsive system (S1).
+- [x] On laptop, navigation uses the comfortable layout (no bottom nav forced where inappropriate).
 
 ## Constraints
 - Mobile-first interaction model (PRD §5.3, §5.10) — thumb reach is a primary concern.

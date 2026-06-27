@@ -2,6 +2,17 @@
 
 > Milestone: [09 — Design System & Mobile/PWA](../README.md) · PRD refs: §5.3, §5.10, §7.2.
 
+> **Status:** ✅ Done — all 4 epic ACs met across 3 story PRs
+> ([#372](https://github.com/gmestre98/khiimori/pull/372) S1 responsive layout system,
+> [#373](https://github.com/gmestre98/khiimori/pull/373) S2 mobile bottom nav & thumb zones,
+> [#374](https://github.com/gmestre98/khiimori/pull/374) S3 quick add/edit sheets).
+> One codebase now serves a comfortable laptop layout (persistent sidebar + centred content)
+> and a purpose-built mobile layout (fixed bottom nav in the thumb zone + floating primary
+> action), switched in CSS via `AppLayout`/breakpoints (`src/design/breakpoints.ts`). Quick
+> add/edit composes `QuickActionDialog` — a bottom Sheet on mobile, a centred modal on laptop,
+> both focus-trapped and keyboard-dismissible — ready for Milestone 04. See
+> [`web/src/components/layout/LAYOUT.md`](../../../../../web/src/components/layout/LAYOUT.md).
+
 ## Description
 
 Deliver **genuinely responsive** layouts: a comfortable laptop layout and a **purpose-built mobile
@@ -13,13 +24,13 @@ directly enables the "spontaneous changes are fast on mobile" requirement of Mil
 
 ## Acceptance Criteria
 
-- [ ] A **comfortable laptop layout** and a **purpose-built mobile layout** exist — the mobile layout
+- [x] A **comfortable laptop layout** and a **purpose-built mobile layout** exist — the mobile layout
       is **not a scaled-down desktop** (PRD §5.10).
-- [ ] The mobile layout uses **bottom navigation** and places **primary actions in thumb-reachable
+- [x] The mobile layout uses **bottom navigation** and places **primary actions in thumb-reachable
       zones** with large tap targets (PRD §5.10).
-- [ ] **Sheets/drawers** support quick add/edit interactions (enabling Milestone 04's low-friction
+- [x] **Sheets/drawers** support quick add/edit interactions (enabling Milestone 04's low-friction
       add/edit) (PRD §5.3, §5.10).
-- [ ] Layouts compose Epic 02's components and adapt across breakpoints without bespoke per-screen
+- [x] Layouts compose Epic 02's components and adapt across breakpoints without bespoke per-screen
       layout code (PRD §5.10, §7.2).
 
 ## Implementation Details / Architecture
