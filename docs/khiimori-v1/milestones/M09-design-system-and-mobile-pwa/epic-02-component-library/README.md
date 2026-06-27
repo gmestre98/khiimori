@@ -1,5 +1,7 @@
 # Epic M09.2 — Core component library
 
+> **Status:** ✅ Done — all 4 stories merged (PRs [#365](https://github.com/gmestre98/khiimori/pull/365), [#366](https://github.com/gmestre98/khiimori/pull/366), [#367](https://github.com/gmestre98/khiimori/pull/367), [#370](https://github.com/gmestre98/khiimori/pull/370)). 4 AC met, 74 unit tests, 10 primitives shipped.
+
 > Milestone: [09 — Design System & Mobile/PWA](../README.md) · PRD refs: §5.10, §7.0, §7.2.
 
 ## Description
@@ -13,13 +15,13 @@ from the start. The library favours a small footprint and easy theming over a he
 
 ## Acceptance Criteria
 
-- [ ] A **component library** provides the shared primitives — **buttons, lists, forms,
+- [x] A **component library** provides the shared primitives — **buttons, lists, forms,
       sheets/drawers, progress bars, navigation** — built on Epic 01's tokens (PRD §5.10).
-- [ ] Components are **documented** (usage + variants) so feature epics **reuse rather than
+- [x] Components are **documented** (usage + variants) so feature epics **reuse rather than
       re-implement** them (PRD §5.10).
-- [ ] Accessibility is **baked into the primitives** (focus states, semantic markup, labels) — the
+- [x] Accessibility is **baked into the primitives** (focus states, semantic markup, labels) — the
       foundation Epic 05 validates (PRD §5.10).
-- [ ] Components are **theme-driven** (consume tokens, no hardcoded colours) so re-skinning via Epic
+- [x] Components are **theme-driven** (consume tokens, no hardcoded colours) so re-skinning via Epic
       01 flows through automatically (PRD §5.10, §7.2).
 
 ## Implementation Details / Architecture

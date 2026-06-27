@@ -8,11 +8,11 @@ the mobile bottom navigation (Epic 03).
 Build the navigation primitives.
 
 ## Acceptance criteria
-- [ ] Navigation primitives support the app's top-level and in-trip navigation (e.g. nav bar, tabs/bottom
+- [x] Navigation primitives support the app's top-level and in-trip navigation (e.g. nav bar, tabs/bottom
   nav, day prev/next).
-- [ ] They are token-driven and accessible (keyboard navigable, clear focus, semantic landmarks).
-- [ ] They are responsive-ready so Epic 03 composes them into laptop and mobile layouts.
-- [ ] They align with Milestone 03's trip/day shell navigation structure.
+- [x] They are token-driven and accessible (keyboard navigable, clear focus, semantic landmarks).
+- [x] They are responsive-ready so Epic 03 composes them into laptop and mobile layouts.
+- [x] They align with Milestone 03's trip/day shell navigation structure.
 
 ## Constraints
 - Provide the bottom-nav primitive Epic 03 needs for mobile (thumb-reachable).

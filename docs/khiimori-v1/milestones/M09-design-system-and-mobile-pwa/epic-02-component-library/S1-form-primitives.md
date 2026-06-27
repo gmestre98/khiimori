@@ -8,11 +8,11 @@ accessibility baked in (PRD §5.10). These are reused by Milestones 02/03/08 for
 Build the form/input primitives (buttons, text inputs, selects, form layout).
 
 ## Acceptance criteria
-- [ ] Button variants (primary/secondary/destructive) and input controls (text, select, etc.) are
+- [x] Button variants (primary/secondary/destructive) and input controls (text, select, etc.) are
   implemented, **token-driven** (no hardcoded colours).
-- [ ] Form layout primitives support label/field/error patterns used across the app.
-- [ ] Accessibility is built in (focus states, labels, semantic markup).
-- [ ] Primitives are reusable (props-driven) and documented enough for feature epics to consume.
+- [x] Form layout primitives support label/field/error patterns used across the app.
+- [x] Accessibility is built in (focus states, labels, semantic markup).
+- [x] Primitives are reusable (props-driven) and documented enough for feature epics to consume.
 
 ## Constraints
 - Confirm any third-party component dependency with the author before adding it (project rule); prefer a
