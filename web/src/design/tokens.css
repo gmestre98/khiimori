@@ -203,11 +203,13 @@
   --radius-full: 9999px;
 }
 
-/* ── 7. Shadow tokens ──────────────────────────────────────────────────────── */
+/* ── 7. Shadow & overlay tokens ────────────────────────────────────────────── */
 :root {
   --shadow-sm: rgba(0, 0, 0, 0.06) 0 1px 3px;
   --shadow-md: rgba(0, 0, 0, 0.1) 0 4px 12px;
   --shadow-lg: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  /* Overlay scrim — used behind modals, sheets, and lightboxes */
+  --overlay-scrim: rgba(0, 0, 0, 0.4);
 }
 
 @media (prefers-color-scheme: dark) {
