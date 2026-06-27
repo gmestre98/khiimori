@@ -26,6 +26,11 @@ export async function registerServiceWorker(
   try {
     const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
 
+    // Record whether a controller already existed at registration time. If not,
+    // a subsequent controllerchange is just first-install (clients.claim()), not
+    // an update — we must not reload in that case.
+    const hadController = !!navigator.serviceWorker.controller
+
     // Detect an already-waiting worker (page refreshed while an update was
     // pending) and trigger the update immediately.
     if (reg.waiting) {
@@ -43,9 +48,10 @@ export async function registerServiceWorker(
       })
     })
 
-    // Reload when the new worker takes control so clients get the fresh shell.
+    // Reload when the new worker takes control — but only if there was already
+    // a prior controller (i.e. this is a real update, not a first install).
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      window.location.reload()
+      if (hadController) window.location.reload()
     })
 
     return reg

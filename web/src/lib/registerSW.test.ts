@@ -122,6 +122,43 @@ describe('update handling (S5)', () => {
     expect(worker.postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' })
   })
 
+  it('does NOT reload on first install (no prior controller)', async () => {
+    vi.stubEnv('PROD', true)
+    const reg = makeReg()
+    const ccListeners: (() => void)[] = []
+    const reload = vi.fn()
+    vi.stubGlobal('location', { ...window.location, reload })
+    setServiceWorker({
+      controller: null, // no prior controller → first install
+      register: vi.fn().mockResolvedValue(reg),
+      addEventListener: (t: string, fn: () => void) => {
+        if (t === 'controllerchange') ccListeners.push(fn)
+      },
+    })
+    await registerServiceWorker()
+    // Simulate controllerchange (first install / clients.claim()).
+    ccListeners.forEach((fn) => fn())
+    expect(reload).not.toHaveBeenCalled()
+  })
+
+  it('reloads on controllerchange when an update replaces an existing controller', async () => {
+    vi.stubEnv('PROD', true)
+    const reg = makeReg()
+    const ccListeners: (() => void)[] = []
+    const reload = vi.fn()
+    vi.stubGlobal('location', { ...window.location, reload })
+    setServiceWorker({
+      controller: { postMessage: vi.fn() } as unknown as ServiceWorker, // had prior controller
+      register: vi.fn().mockResolvedValue(reg),
+      addEventListener: (t: string, fn: () => void) => {
+        if (t === 'controllerchange') ccListeners.push(fn)
+      },
+    })
+    await registerServiceWorker()
+    ccListeners.forEach((fn) => fn())
+    expect(reload).toHaveBeenCalled()
+  })
+
   it('calls onUpdateReady before posting SKIP_WAITING', async () => {
     vi.stubEnv('PROD', true)
     const waiting = makeWorker('installed')
