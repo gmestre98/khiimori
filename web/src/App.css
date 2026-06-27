@@ -42,6 +42,13 @@
   min-height: 0;
 }
 
+/* Route-level lazy-loading fallback (M09.5 S2) */
+.route-loading {
+  padding: var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-base);
+}
+
 .tagline {
   color: var(--text);
 }
