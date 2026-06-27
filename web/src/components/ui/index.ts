@@ -16,6 +16,8 @@ export type { ListSectionProps, ListRowProps } from './ListSection'
 export { Sheet } from './Sheet'
 export type { SheetProps } from './Sheet'
 
+export { useFocusTrap } from './useFocusTrap'
+
 export { ProgressBar } from './ProgressBar'
 export type { ProgressBarProps, ProgressBarVariant } from './ProgressBar'
 

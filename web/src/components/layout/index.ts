@@ -9,4 +9,7 @@ export type { ThumbFabProps } from './ThumbFab'
 
 export { AuthenticatedLayout } from './AuthenticatedLayout'
 
+export { QuickActionDialog } from './QuickActionDialog'
+export type { QuickActionDialogProps } from './QuickActionDialog'
+
 export { PRIMARY_NAV_ITEMS } from './navItems'

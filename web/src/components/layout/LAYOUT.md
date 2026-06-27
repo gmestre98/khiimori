@@ -68,3 +68,26 @@ the same information architecture:
   on laptop, where primary actions sit inline in the content.
 
 To change the destinations, edit `PRIMARY_NAV_ITEMS` once — both navs update.
+
+## Quick add/edit (S3)
+
+`QuickActionDialog` is the responsive surface M04's low-friction plan-item/cost flows
+compose into. It keeps **capability parity** across layouts by switching only the
+presentation:
+
+- **Mobile** — the Epic 02 `Sheet` (bottom drawer), thumb-reachable and dismissible.
+- **Laptop** — a centred modal (`.modal` surface) equivalent.
+
+```tsx
+import { QuickActionDialog } from '../components/layout'
+
+const [open, setOpen] = useState(false)
+<QuickActionDialog open={open} onClose={() => setOpen(false)} title="Add plan item">
+  <PlanItemForm onDone={() => setOpen(false)} />
+</QuickActionDialog>
+```
+
+Both surfaces are accessible: focus is **trapped** while open (shared `useFocusTrap`
+hook, exported from `components/ui`), **Escape** and an overlay/backdrop click dismiss,
+and focus is **restored** to the trigger on close. The breakpoint choice uses
+`useIsLaptop()` (JS branch) since the two surfaces are different DOM, not a CSS restyle.
