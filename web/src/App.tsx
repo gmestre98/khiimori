@@ -30,12 +30,8 @@ const TripBudgetPage = lazy(() =>
 const TripSharingPage = lazy(() =>
   import('./trips/TripSharingPage').then((m) => ({ default: m.TripSharingPage })),
 )
-const AdminPage = lazy(() =>
-  import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })),
-)
-const AdminHome = lazy(() =>
-  import('./pages/AdminPage').then((m) => ({ default: m.AdminHome })),
-)
+const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
+const AdminHome = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminHome })))
 const AdminUsersPage = lazy(() =>
   import('./pages/AdminUsersPage').then((m) => ({ default: m.AdminUsersPage })),
 )
