@@ -21,8 +21,7 @@
  * write queue (S4) are layered on top; update/version handling is refined in S5.
  *
  * Versioning: bump CACHE_VERSION to invalidate the precache on the next
- * activate. `self.__SW_VERSION__` placeholder is reserved for S5's build-time
- * version injection.
+ * activate. Automated update/version handling is refined in S5.
  */
 
 const CACHE_VERSION = 'v1'
