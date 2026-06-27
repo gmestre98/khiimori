@@ -8,12 +8,12 @@ them, with accessibility baked into the primitives (PRD §5.10) — the foundati
 Document the component library and establish the accessibility baseline.
 
 ## Acceptance criteria
-- [ ] Each primitive (S1–S3) is **documented** with usage and variants (a simple component catalogue /
+- [x] Each primitive (S1–S3) is **documented** with usage and variants (a simple component catalogue /
   reference, not necessarily a heavy tool).
-- [ ] An **accessibility baseline** is stated and met by the primitives (focus states, labels, semantic
+- [x] An **accessibility baseline** is stated and met by the primitives (focus states, labels, semantic
   markup, contrast via tokens).
-- [ ] Feature epics have enough to **reuse** components without re-implementing (the docs are the contract).
-- [ ] A check/list confirms components consume tokens (no hardcoded theme values).
+- [x] Feature epics have enough to **reuse** components without re-implementing (the docs are the contract).
+- [x] A check/list confirms components consume tokens (no hardcoded theme values).
 
 ## Constraints
 - Keep the catalogue lightweight; confirm any docs tooling dependency with the author (project rule).

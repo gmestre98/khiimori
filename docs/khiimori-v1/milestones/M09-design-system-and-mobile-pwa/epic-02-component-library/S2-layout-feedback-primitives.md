@@ -8,11 +8,11 @@ the day view (Milestone 04 sheets), budget bars (Milestone 05), and photo usage 
 Build the layout/feedback primitives.
 
 ## Acceptance criteria
-- [ ] **List** primitives (rows, sections) support the trip/plan/journal lists.
-- [ ] **Sheet/drawer** primitives support quick add/edit on mobile (Milestone 04).
-- [ ] **Progress bar** primitives support budget bars and usage indicators, using the accent token where
+- [x] **List** primitives (rows, sections) support the trip/plan/journal lists.
+- [x] **Sheet/drawer** primitives support quick add/edit on mobile (Milestone 04).
+- [x] **Progress bar** primitives support budget bars and usage indicators, using the accent token where
   sanctioned (Milestone 05/06).
-- [ ] All are token-driven and accessible (focus, semantics).
+- [x] All are token-driven and accessible (focus, semantics).
 
 ## Constraints
 - Design sheets for thumb-reachable mobile use (Epic 03 will compose them into the mobile layout).
