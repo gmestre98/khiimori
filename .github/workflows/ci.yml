@@ -433,7 +433,7 @@ jobs:
       - name: Deploy to Firebase Hosting
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-        run: npx --yes firebase-tools@15 deploy --only hosting --project "${{ vars.GCP_PROJECT_ID }}" --non-interactive
+        run: npx --yes firebase-tools@15 deploy --only hosting --project "${{ vars.GCP_PROJECT_ID }}" --non-interactive --force
 
   pulumi-up:
     name: Reconcile infra (pulumi up, main)
