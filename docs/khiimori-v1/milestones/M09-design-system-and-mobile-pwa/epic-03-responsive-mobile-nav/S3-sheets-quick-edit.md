@@ -8,10 +8,10 @@
 Integrate sheets/drawers for quick add/edit into the responsive layout.
 
 ## Acceptance criteria
-- [ ] Sheets/drawers (Epic 02 S2) are composed into the mobile layout for quick add/edit flows.
-- [ ] They are thumb-reachable and dismissible, suitable for Milestone 04's plan-item/cost quick add.
-- [ ] On laptop, the equivalent affordance (modal/inline) is provided so capability parity holds.
-- [ ] The interaction is accessible (focus trapping, keyboard dismiss).
+- [x] Sheets/drawers (Epic 02 S2) are composed into the mobile layout for quick add/edit flows.
+- [x] They are thumb-reachable and dismissible, suitable for Milestone 04's plan-item/cost quick add.
+- [x] On laptop, the equivalent affordance (modal/inline) is provided so capability parity holds.
+- [x] The interaction is accessible (focus trapping, keyboard dismiss).
 
 ## Constraints
 - Reuse Epic 02's sheet primitive; this story is composition into layouts, not new primitives.

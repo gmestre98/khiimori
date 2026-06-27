@@ -10,11 +10,11 @@ Implement the responsive layout system (breakpoints + laptop/mobile layout struc
 library.
 
 ## Acceptance criteria
-- [ ] A breakpoint system distinguishes **laptop** and **mobile** layouts (and any tablet midpoint).
-- [ ] A comfortable **laptop layout** and a distinct **mobile layout** exist — the mobile layout is
+- [x] A breakpoint system distinguishes **laptop** and **mobile** layouts (and any tablet midpoint).
+- [x] A comfortable **laptop layout** and a distinct **mobile layout** exist — the mobile layout is
   purpose-built, not a shrunk desktop.
-- [ ] Layouts compose Epic 02 components and adapt without bespoke per-screen layout code.
-- [ ] The system aligns with Milestone 03's trip/day shell so feature screens slot in.
+- [x] Layouts compose Epic 02 components and adapt without bespoke per-screen layout code.
+- [x] The system aligns with Milestone 03's trip/day shell so feature screens slot in.
 
 ## Constraints
 - One codebase, responsive (PRD §7.2) — no separate mobile app.
