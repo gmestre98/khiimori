@@ -47,11 +47,22 @@ Registration is in [`src/lib/registerSW.ts`](src/lib/registerSW.ts), called from
 | Navigations (HTML)                 | network-first → cached `index.html` fallback | fresh shell online; SPA still boots offline              |
 | Hashed build assets (`/assets/*`)  | cache-first                                  | Vite fingerprints names, so cached entries are immutable |
 | Other same-origin static (icons …) | cache-first                                  | installed shell renders offline                          |
-| Cross-origin (API, tiles, fonts)   | not handled (network)                        | this worker owns only the static shell                   |
+| Current-trip API reads (S3)        | network-first → data cache fallback          | current trip is viewable offline, reconciles online      |
+| Other cross-origin (tiles, fonts)  | not handled (network)                        | this worker owns only the shell + current trip           |
 
 The shell is precached on `install`; old version caches are cleared on `activate`. The cache version
-(`CACHE_VERSION` in `sw.js`) is bumped to invalidate. Offline trip data (S3), the write queue (S4),
-and update/version handling (S5) build on this worker.
+(`CACHE_VERSION` in `sw.js`) is bumped to invalidate.
+
+**Offline current-trip viewing (S3).** When a trip screen is open, the app posts its trip id to the
+worker ([`src/lib/activeTripSync.ts`](src/lib/activeTripSync.ts)); the worker then network-first-caches
+that trip's reads (`/trips/<id>/…`) plus the small trips listing into a separate data cache. Offline,
+those reads are served from the cache so days, plan items, budget, and journal stay viewable; online,
+the network response refreshes the cache (reconciliation). Switching trips clears the data cache, so
+storage stays bounded to one trip — not the whole history. Reads that were never cached degrade to each
+screen's own "couldn't load" state (the worker returns a synthetic 503), never a crash, and an
+[`OfflineBanner`](src/components/layout/OfflineBanner.tsx) gives a clear offline indication.
+
+The write queue (S4) and update/version handling (S5) build on this worker.
 
 ## Testing
 
