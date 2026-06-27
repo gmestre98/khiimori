@@ -14,8 +14,9 @@ function readWidth(): number {
   return window.innerWidth
 }
 
-/** Returns the current named breakpoint, updating on resize. */
-export function useBreakpoint(): Breakpoint {
+// useViewportWidth tracks window.innerWidth, updating on resize. Both public
+// hooks derive from it so there is a single resize listener and no drift.
+function useViewportWidth(): number {
   const [width, setWidth] = useState<number>(readWidth)
 
   useEffect(() => {
@@ -27,20 +28,15 @@ export function useBreakpoint(): Breakpoint {
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  return breakpointForWidth(width)
+  return width
+}
+
+/** Returns the current named breakpoint, updating on resize. */
+export function useBreakpoint(): Breakpoint {
+  return breakpointForWidth(useViewportWidth())
 }
 
 /** Convenience: true when the current viewport uses the laptop layout. */
 export function useIsLaptop(): boolean {
-  const [width, setWidth] = useState<number>(readWidth)
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const onResize = () => setWidth(window.innerWidth)
-    window.addEventListener('resize', onResize)
-    onResize()
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
-
-  return isLaptopWidth(width)
+  return isLaptopWidth(useViewportWidth())
 }
