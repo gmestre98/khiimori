@@ -25,8 +25,23 @@
  * Other cross-origin requests (maps, fonts) and non-active-trip API calls are
  * left to the network. Update/version handling is refined in S5.
  *
+ * Update / version handling (M09.4 S5)
+ * ─────────────────────────────────────
+ * Policy: simple and correct — avoids the stale-forever trap without forcing
+ * mid-session disruption.
+ *
+ *   1. A new SW installs silently in the background (no skipWaiting on install).
+ *   2. When the app (via registerSW) detects a waiting worker it posts
+ *      SKIP_WAITING here; the new worker takes control immediately.
+ *   3. On activate the worker broadcasts SW_ACTIVATED so clients can reload and
+ *      pick up the fresh shell.
+ *   4. registerSW listens for controllerchange and reloads the page.
+ *
+ * Net effect: users get the update on the next full page load after deploy. An
+ * in-flight session is never swapped mid-use; there is no stale-forever risk
+ * because the app always reloads when a new controller takes over.
+ *
  * Versioning: bump CACHE_VERSION to invalidate the caches on the next activate.
- * Automated update/version handling is refined in S5.
  */
 
 const CACHE_VERSION = 'v1'
@@ -81,7 +96,9 @@ self.addEventListener('install', (event) => {
   )
 })
 
-// activate: drop caches from previous versions so old shells/data don't linger.
+// activate: drop stale caches and claim all clients so they get the new shell
+// immediately (without waiting for a full page reload per-client).
+// Broadcasts SW_ACTIVATED so the app can reload and pick up the new shell.
 self.addEventListener('activate', (event) => {
   const keep = new Set([CACHE_NAME, DATA_CACHE])
   event.waitUntil(
@@ -94,17 +111,29 @@ self.addEventListener('activate', (event) => {
             .map((key) => caches.delete(key)),
         ),
       )
-      .then(() => self.clients.claim()),
+      .then(() => self.clients.claim())
+      .then(() =>
+        self.clients
+          .matchAll({ type: 'window' })
+          .then((clients) =>
+            clients.forEach((c) => c.postMessage({ type: 'SW_ACTIVATED', version: CACHE_VERSION })),
+          ),
+      ),
   )
 })
 
-// The app tells the worker which trip is open so its reads can be cached for
-// offline viewing. The data cache is dropped only when a *different* trip
-// opens, keeping storage bounded to one trip (S3 AC) while preserving the
-// cached data after the user navigates away (so it's still there offline).
+// SKIP_WAITING: the app (registerSW) posts this when it detects a new worker
+// waiting. Calling skipWaiting() here makes the new SW take control of all
+// clients; they then receive SW_ACTIVATED via the activate handler above and
+// reload to pick up the fresh shell.
 self.addEventListener('message', (event) => {
   const data = event.data
-  if (!data || data.type !== 'SET_ACTIVE_TRIP') return
+  if (!data) return
+  if (data.type === 'SKIP_WAITING') {
+    self.skipWaiting()
+    return
+  }
+  if (data.type !== 'SET_ACTIVE_TRIP') return
   activeTripId = data.tripId
   if (activeTripId !== null && activeTripId !== cachedTripId) {
     cachedTripId = activeTripId
