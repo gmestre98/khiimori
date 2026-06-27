@@ -9,12 +9,13 @@ shell; it does not redefine the queue (Milestone 04 owns the semantics).
 Integrate Milestone 04's offline write queue with the service worker / PWA lifecycle.
 
 ## Acceptance criteria
-- [ ] The service worker (or app lifecycle it drives) **registers/serves** Milestone 04's write queue and
-  **triggers replay on reconnect** using the agreed queue contract (Milestone 04 S4).
-- [ ] Planning (Milestone 04) and Journal (Milestone 06) offline writes use this **single** coordinated
-  mechanism — no second queue.
-- [ ] Reconnect detection reliably triggers replay; the queue drains and data reconciles.
-- [ ] The integration is documented so Milestones 04/06 plug in against a stable contract.
+- [x] The app lifecycle **registers/serves** M04's write queue and **triggers replay on reconnect** via
+  `writeQueueCoordination.ts` (reuses M04's `startReplayOnReconnect` verbatim + cold-start drain).
+- [x] Planning (M04) and Journal (M06) offline writes use this **single** coordinated mechanism — no
+  second queue (`enqueue` → `replayQueue`).
+- [x] Reconnect detection reliably triggers replay; the queue drains and data reconciles. `SyncStatus`
+  confirms the outcome.
+- [x] Integration documented in `web/README.md` with the stable plug-in contract.
 
 ## Constraints
 - **Do not redefine** the queue/replay semantics — reuse Milestone 04's contract verbatim (PRD §7.0).

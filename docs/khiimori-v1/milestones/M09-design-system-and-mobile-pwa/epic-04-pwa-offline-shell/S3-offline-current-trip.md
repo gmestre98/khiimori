@@ -8,11 +8,12 @@ current trip's data without connectivity.
 Cache current-trip data so it is viewable offline.
 
 ## Acceptance criteria
-- [ ] The **current trip's** data (days, plan items, stays, budget figures, journal) is cached so it is
-  **viewable offline**.
-- [ ] Cached data is shown when offline and reconciles with the server when back online.
-- [ ] Caching is scoped sensibly (current trip, not the entire history) to respect storage.
-- [ ] Offline viewing degrades gracefully for data not cached (clear indication, no crash).
+- [x] The **current trip's** data (days, plan items, stays, budget figures, journal) is cached so it is
+  **viewable offline**. — SW data cache via `networkFirstData`; trip id synced by `activeTripSync.ts`.
+- [x] Cached data shown offline and reconciles with the server online (network-first refreshes cache).
+- [x] Caching scoped to the current trip — switching trips clears the data cache; storage bounded to one.
+- [x] Offline viewing degrades gracefully — uncached reads → synthetic 503 → screen error state;
+  `OfflineBanner` gives a clear offline indication; no crash.
 
 ## Constraints
 - Coordinate with the offline write queue (S4) so offline edits + cached reads are consistent.

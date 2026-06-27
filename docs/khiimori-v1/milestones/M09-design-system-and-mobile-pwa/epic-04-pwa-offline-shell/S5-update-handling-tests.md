@@ -9,12 +9,16 @@ version handling, and epic AC requires offline tests (install, offline shell loa
 Implement service-worker update/version handling and add the offline test suite.
 
 ## Acceptance criteria
-- [ ] A **versioning/update** strategy refreshes the cached shell when a new version deploys (no
-  stale-forever); the user gets the update on next launch/refresh per the documented policy.
-- [ ] Tests cover: **install** (installable + standalone), **offline shell load**, **offline current-trip
-  view** (S3), and **queued write replay on reconnect** (S4).
-- [ ] Tests simulate offline/online transitions in CI (no real network dependence).
-- [ ] A regression check ensures updates don't strand users on an old cached version.
+- [x] **Versioning/update strategy** refreshes the cached shell on deploy — no stale-forever. Policy:
+  `registerSW` detects waiting worker → posts `SKIP_WAITING` → SW activates → broadcasts `SW_ACTIVATED`
+  → `controllerchange` → page reload (update only, not first install).
+- [x] Tests cover: **install** (manifest.test.ts + SW contract), **offline shell load** (SW contract
+  guards), **offline current-trip view** (isCacheableRead suite), **queued write replay** (full
+  offline→enqueue→online→drain cycle).
+- [x] Tests simulate offline/online transitions in CI — stubbed `navigator.onLine` + dispatched `online`
+  event + fake-indexeddb; no real network.
+- [x] Regression check: `CACHE_VERSION` constant asserted in CI; stale-cache cleanup (keep set + filter)
+  verified by test.
 
 ## Constraints
 - Keep update handling simple but correct (avoid the classic stale-SW trap) (PRD §7.0).

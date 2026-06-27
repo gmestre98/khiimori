@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Khiimori — Design Reference (v1)</title>
+<style>
+/* ============================================================
+   KHIIMORI — DESIGN TOKENS
+   Single source of truth. Mirror these into your React theme
+   (CSS variables / Tailwind config). Minimal black & white with
+   a restrained teal accent; amber as a sparing secondary.
+   ============================================================ */
+:root{
+  /* ---- Brand & ink ---- */
+  --ink:#101113;            /* primary text / "black" */
+  --ink-2:#3a3d42;          /* secondary text */
+  --muted:#6b7076;          /* tertiary / meta text (AA on white) */
+  --faint:#9aa0a6;          /* disabled / hints */
+
+  /* ---- Surfaces ---- */
+  --bg:#ffffff;             /* app background */
+  --surface:#ffffff;        /* cards */
+  --surface-2:#f7f8f8;      /* subtle fills / inputs / rails */
+  --surface-3:#eef0f0;      /* map / image placeholders */
+
+  /* ---- Lines ---- */
+  --line:#e7e9ea;           /* hairlines */
+  --line-2:#dcdfe1;         /* stronger borders */
+  --line-strong:#101113;    /* full-contrast outline */
+
+  /* ---- Accent (teal) ---- */
+  --accent:#2f6f6a;         /* brand accent: status, progress, active */
+  --accent-press:#255854;
+  --accent-tint:#e7f0ef;    /* accent wash / selected bg */
+  --accent-tint-2:#d4e4e2;
+
+  /* ---- Secondary accent (amber) — use sparingly ---- */
+  --amber:#b06a2c;
+  --amber-tint:#f6ece1;
+
+  /* ---- Functional / status ---- */
+  --ok:#2f6f6a;             /* on-track / done (reuses teal) */
+  --warn:#b8852a;           /* near budget / caution */
+  --danger:#b3402e;         /* over budget / destructive */
+  --danger-tint:#f7e8e4;
+  --info:#3a6ea5;
+
+  /* ---- Category colors (budget / pins) — desaturated, B&W-friendly ---- */
+  --cat-stays:#2f6f6a;
+  --cat-transport:#3a6ea5;
+  --cat-food:#b06a2c;
+  --cat-activities:#6d5aa6;
+  --cat-other:#6b7076;
+
+  /* ---- Typography ---- */
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-num: "Inter", ui-monospace, "SF Mono", Menlo, monospace;
+  --t-display:28px;  --t-display-lh:34px;
+  --t-h1:22px;       --t-h1-lh:28px;
+  --t-h2:17px;       --t-h2-lh:24px;
+  --t-h3:14px;       --t-h3-lh:20px;
+  --t-body:14px;     --t-body-lh:21px;
+  --t-sm:12.5px;     --t-sm-lh:18px;
+  --t-xs:11px;       --t-xs-lh:15px;
+  --t-eyebrow:11px;             /* uppercase section labels */
+  --fw-reg:400; --fw-med:500; --fw-semi:600; --fw-bold:700;
+
+  /* ---- Spacing scale (4pt) ---- */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px;
+  --s7:32px; --s8:40px; --s9:48px; --s10:64px;
+
+  /* ---- Radius ---- */
+  --r-xs:6px; --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:22px; --r-pill:999px;
+
+  /* ---- Elevation (very restrained) ---- */
+  --shadow-1:0 1px 2px rgba(16,17,19,.04), 0 1px 1px rgba(16,17,19,.03);
+  --shadow-2:0 4px 14px rgba(16,17,19,.06), 0 1px 3px rgba(16,17,19,.05);
+  --shadow-3:0 12px 32px rgba(16,17,19,.12);
+
+  /* ---- Motion ---- */
+  --ease:cubic-bezier(.2,.7,.3,1);
+  --dur:160ms;
+}
+
+/* ============================================================
+   PAGE CHROME (reference page only — NOT part of the app)
+   ============================================================ */
+*{box-sizing:border-box}
+html{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{
+  margin:0;font-family:var(--font);color:var(--ink);
+  background:#eceef0;
+  line-height:1.5;
+}
+.page{max-width:1240px;margin:0 auto;padding:48px 24px 96px}
+.page-head{margin-bottom:40px}
+.page-head .kicker{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:var(--fw-semi)}
+.page-head h1{font-size:40px;line-height:1.1;margin:8px 0 10px;letter-spacing:-.02em}
+.page-head p{max-width:680px;color:var(--ink-2);font-size:15px;margin:0}
+.section{margin-top:64px}
+.section > h2.section-title{
+  font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+  font-weight:var(--fw-semi);margin:0 0 20px;padding-bottom:12px;border-bottom:1px solid #d9dcde;
+}
+.section-note{color:var(--muted);font-size:13px;margin:-8px 0 24px;max-width:720px}
+.swatch-grid,.spec-grid{display:grid;gap:16px}
+.swatch-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.swatch{background:#fff;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;box-shadow:var(--shadow-1)}
+.swatch .chip{height:64px}
+.swatch .meta{padding:10px 12px}
+.swatch .meta b{display:block;font-size:13px}
+.swatch .meta code{font-size:11px;color:var(--muted);font-family:var(--font-num)}
+
+.frame-label{display:flex;align-items:center;gap:10px;margin:0 0 16px;color:var(--ink-2);font-size:13px;font-weight:var(--fw-semi)}
+.frame-label .tag{font-size:10px;letter-spacing:.1em;text-transform:uppercase;background:var(--ink);color:#fff;padding:3px 8px;border-radius:var(--r-pill);font-weight:var(--fw-semi)}
+.frame-label .tag.alt{background:var(--accent)}
+
+/* device frames for the reference page */
+.laptop{
+  background:var(--ink);border-radius:16px;padding:10px 10px 0;box-shadow:var(--shadow-3);
+}
+.laptop .topbar{display:flex;align-items:center;gap:8px;padding:0 6px 10px}
+.laptop .dot{width:11px;height:11px;border-radius:50%;background:#3a3d42}
+.laptop .url{margin-left:14px;background:#26282b;color:#aeb3b7;font-size:11px;padding:5px 12px;border-radius:var(--r-pill);font-family:var(--font-num)}
+.laptop .viewport{background:var(--bg);border-radius:8px;overflow:hidden;height:680px}
+
+.phones{display:flex;gap:28px;flex-wrap:wrap}
+.phone{
+  width:300px;background:var(--ink);border-radius:40px;padding:12px;box-shadow:var(--shadow-3);flex:0 0 auto;
+}
+.phone .screen{background:var(--bg);border-radius:30px;overflow:hidden;height:620px;position:relative;display:flex;flex-direction:column}
+.phone .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:120px;height:26px;background:var(--ink);border-radius:0 0 16px 16px;z-index:30}
+
+/* ============================================================
+   APP STYLES — copy these into the build
+   ============================================================ */
+
+/* ---------- Layout: laptop app shell ---------- */
+.app{display:flex;height:100%;font-size:var(--t-body);color:var(--ink);background:var(--bg)}
+.sidebar{width:212px;flex:0 0 212px;background:var(--surface-2);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:20px 12px}
+.brand{display:flex;align-items:center;gap:9px;padding:4px 10px 18px}
+.brand .mark{width:26px;height:26px;border-radius:7px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:var(--fw-bold);font-size:14px}
+.brand .name{font-weight:var(--fw-bold);font-size:16px;letter-spacing:-.01em}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:var(--r-sm);color:var(--ink-2);text-decoration:none;font-size:13.5px;font-weight:var(--fw-med);transition:background var(--dur) var(--ease),color var(--dur)}
+.nav a .ic{width:18px;height:18px;flex:0 0 18px;opacity:.85}
+.nav a:hover{background:#eceeef;color:var(--ink)}
+.nav a.active{background:var(--accent-tint);color:var(--accent-press);font-weight:var(--fw-semi)}
+.nav a.active .ic{opacity:1}
+.nav .divider{height:1px;background:var(--line);margin:12px 8px}
+.sidebar .me{margin-top:auto;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r-sm)}
+.sidebar .me:hover{background:#eceeef}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;border-bottom:1px solid var(--line)}
+.topnav .crumbs{font-size:13px;color:var(--muted)}
+.topnav .crumbs b{color:var(--ink)}
+.content{padding:26px 28px;overflow:auto;flex:1}
+.content.narrow{max-width:980px}
+
+/* ---------- Typography helpers ---------- */
+.h1{font-size:var(--t-h1);line-height:var(--t-h1-lh);font-weight:var(--fw-bold);letter-spacing:-.01em;margin:0}
+.h2{font-size:var(--t-h2);line-height:var(--t-h2-lh);font-weight:var(--fw-semi);margin:0}
+.eyebrow{font-size:var(--t-eyebrow);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:var(--fw-semi)}
+.meta{color:var(--muted);font-size:var(--t-sm);line-height:var(--t-sm-lh)}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+/* ---------- Buttons ---------- */
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid transparent;border-radius:var(--r-pill);
+  font-family:inherit;font-size:13px;font-weight:var(--fw-semi);padding:8px 15px;cursor:pointer;
+  transition:background var(--dur) var(--ease),border-color var(--dur),transform var(--dur);white-space:nowrap;line-height:1}
+.btn:active{transform:translateY(.5px)}
+.btn-primary{background:var(--ink);color:#fff}
+.btn-primary:hover{background:#000}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-accent:hover{background:var(--accent-press)}
+.btn-ghost{background:transparent;color:var(--ink);border-color:var(--line-2)}
+.btn-ghost:hover{background:var(--surface-2)}
+.btn-quiet{background:transparent;color:var(--ink-2);padding:8px 10px}
+.btn-quiet:hover{background:var(--surface-2);color:var(--ink)}
+.btn-sm{padding:6px 11px;font-size:12px}
+.btn .ic{width:15px;height:15px}
+.icon-btn{width:34px;height:34px;border-radius:var(--r-sm);border:1px solid var(--line-2);background:#fff;display:grid;place-items:center;cursor:pointer;color:var(--ink-2)}
+.icon-btn:hover{background:var(--surface-2);color:var(--ink)}
+
+/* ---------- Tabs / segmented ---------- */
+.tabs{display:inline-flex;gap:4px;background:var(--surface-2);padding:4px;border-radius:var(--r-pill)}
+.tabs button{border:0;background:transparent;font-family:inherit;font-size:13px;font-weight:var(--fw-med);color:var(--muted);
+  padding:7px 16px;border-radius:var(--r-pill);cursor:pointer;transition:all var(--dur) var(--ease)}
+.tabs button.active{background:#fff;color:var(--ink);font-weight:var(--fw-semi);box-shadow:var(--shadow-1)}
+.tabs button:hover:not(.active){color:var(--ink)}
+
+/* ---------- Chips / badges ---------- */
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:var(--fw-semi);
+  padding:4px 10px;border-radius:var(--r-pill);background:var(--surface-2);color:var(--ink-2);white-space:nowrap}
+.chip.solid{background:var(--ink);color:#fff}
+.chip.accent{background:var(--accent-tint);color:var(--accent-press)}
+.chip.outline{background:#fff;border:1px solid var(--line-2);color:var(--ink-2)}
+.chip.dot::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.9}
+.badge{font-size:10.5px;font-weight:var(--fw-bold);letter-spacing:.04em;text-transform:uppercase;padding:3px 7px;border-radius:5px}
+.badge.ok{background:var(--accent-tint);color:var(--accent-press)}
+.badge.warn{background:var(--amber-tint);color:var(--warn)}
+.badge.danger{background:var(--danger-tint);color:var(--danger)}
+.badge.neutral{background:var(--surface-2);color:var(--muted)}
+
+/* ---------- Cards ---------- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--shadow-1)}
+.card.pad{padding:18px}
+.card.hover{transition:box-shadow var(--dur) var(--ease),border-color var(--dur),transform var(--dur);cursor:pointer}
+.card.hover:hover{box-shadow:var(--shadow-2);border-color:var(--line-2);transform:translateY(-1px)}
+.card-accent-l{position:relative;overflow:hidden}
+.card-accent-l::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent)}
+
+/* ---------- Avatars ---------- */
+.avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:var(--fw-semi);flex:0 0 auto}
+.avatar.sm{width:24px;height:24px;font-size:10px}
+.avatar.lg{width:40px;height:40px;font-size:14px}
+.avatar-stack{display:flex}
+.avatar-stack .avatar{box-shadow:0 0 0 2px #fff;margin-left:-8px}
+.avatar-stack .avatar:first-child{margin-left:0}
+
+/* ---------- Progress ---------- */
+.progress{height:8px;border-radius:var(--r-pill);background:var(--surface-3);overflow:hidden}
+.progress > span{display:block;height:100%;border-radius:var(--r-pill);background:var(--accent)}
+.progress.warn > span{background:var(--warn)}
+.progress.danger > span{background:var(--danger)}
+.progress.thin{height:6px}
+.progress.seg{display:flex;gap:2px;background:transparent}
+.progress.seg > i{display:block;height:100%;border-radius:2px}
+
+/* ---------- Inputs ---------- */
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12px;font-weight:var(--fw-semi);color:var(--ink-2)}
+.input{font-family:inherit;font-size:13.5px;color:var(--ink);background:var(--surface-2);
+  border:1px solid var(--line-2);border-radius:var(--r-sm);padding:10px 12px;width:100%;transition:border-color var(--dur),background var(--dur)}
+.input::placeholder{color:var(--faint)}
+.input:focus{outline:none;border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px var(--accent-tint)}
+
+/* ---------- Timeline (day plan) ---------- */
+.timeline{position:relative;padding-left:26px}
+.timeline::before{content:"";position:absolute;left:7px;top:8px;bottom:18px;width:2px;background:var(--line-2)}
+.tl-item{position:relative;margin-bottom:12px}
+.tl-item .node{position:absolute;left:-26px;top:16px;width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid var(--accent);box-shadow:0 0 0 3px #fff}
+.tl-item .node.amber{border-color:var(--amber)}
+.tl-item .node.idea{border-color:var(--line-2);border-style:dashed}
+
+/* ---------- Mobile primitives ---------- */
+.m-app{display:flex;flex-direction:column;height:100%;background:var(--bg)}
+.m-statusbar{height:40px;flex:0 0 40px}
+.m-header{padding:6px 18px 12px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.m-body{flex:1;overflow:auto;padding:0 16px 16px;-webkit-overflow-scrolling:touch}
+.m-tabbar{flex:0 0 64px;display:flex;align-items:center;justify-content:space-around;
+  border-top:1px solid var(--line);background:rgba(255,255,255,.96);backdrop-filter:blur(8px);padding-bottom:6px}
+.m-tab{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--faint);font-size:10px;font-weight:var(--fw-med);text-decoration:none;padding-top:8px;flex:1}
+.m-tab .ic{width:22px;height:22px}
+.m-tab.active{color:var(--accent)}
+.fab{position:absolute;right:16px;bottom:80px;width:52px;height:52px;border-radius:50%;background:var(--ink);color:#fff;
+  display:grid;place-items:center;box-shadow:var(--shadow-3);border:0;cursor:pointer;z-index:20}
+
+/* utility */
+.row{display:flex;align-items:center}
+.between{justify-content:space-between}
+.gap2{gap:8px}.gap3{gap:12px}.gap4{gap:16px}
+.wrap{flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+.mt1{margin-top:4px}.mt2{margin-top:8px}.mt3{margin-top:12px}.mt4{margin-top:16px}.mt5{margin-top:20px}.mt6{margin-top:24px}
+.mb2{margin-bottom:8px}.mb3{margin-bottom:12px}.mb4{margin-bottom:16px}
+.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+svg.ic{stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="page-head">
+    <div class="kicker">Khiimori · Travel Manager</div>
+    <h1>Design Reference — v1</h1>
+    <p>A refined, production-ready expression of the PRD's minimal black &amp; white aesthetic with a restrained teal accent. This single file is the source of truth for handoff: design tokens (CSS variables), a component library, and every key screen built for both laptop and mobile. Copy the <code>:root</code> tokens and <code>APP STYLES</code> block straight into the React build.</p>
+  </header>
+
+  <!-- ============ FOUNDATIONS ============ -->
+  <section class="section" id="foundations">
+    <h2 class="section-title">01 · Foundations — Color</h2>
+    <p class="section-note">Black &amp; white carry the interface. Teal (<code>--accent</code>) signals status, progress, and the active state. Amber is a sparing secondary. Category colors are desaturated so the UI stays calm.</p>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="chip" style="background:var(--ink)"></div><div class="meta"><b>Ink</b><code>#101113</code></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--muted)"></div><div class="meta"><b>Muted</b><code>#6b7076</code></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--surface-2);border-bottom:1px solid var(--line)"></div><div class="meta"><b>Surface-2</b><code>#f7f8f8</code></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--accent)"></div><div class="meta"><b>Accent</b><code>#2f6f6a</code></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--accent-tint)"></div><div class="meta"><b>Accent tint</b><code>#e7f0ef</code></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--amber)"></div><div class="meta"><b>Amber</b><code>#b06a2c</code></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--warn)"></div><div class="meta"><b>Warn</b><code>#b8852a</code></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--danger)"></div><div class="meta"><b>Danger</b><code>#b3402e</code></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--cat-transport)"></div><div class="meta"><b>Cat·Transport</b><code>#3a6ea5</code></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--cat-activities)"></div><div class="meta"><b>Cat·Activities</b><code>#6d5aa6</code></div></div>
+    </div>
+  </section>
+
+  <!-- ============ TYPE & SPACING ============ -->
+  <section class="section" id="type">
+    <h2 class="section-title">02 · Foundations — Type, Spacing &amp; Radius</h2>
+    <div class="spec-grid" style="grid-template-columns:1.4fr 1fr;align-items:start">
+      <div class="card pad">
+        <div style="font-size:var(--t-display);line-height:var(--t-display-lh);font-weight:var(--fw-bold);letter-spacing:-.02em">Display · 28 / 700</div>
+        <div class="h1 mt3">Heading 1 · 22 / 700</div>
+        <div class="h2 mt3">Heading 2 · 17 / 600</div>
+        <div class="mt3" style="font-size:var(--t-body)">Body · 14 / 400 — the workhorse size for plan items, journal text, and forms. Comfortable line-height (1.5) keeps dense day views readable.</div>
+        <div class="meta mt3">Meta · 12.5 / muted — dates, helper text, secondary detail.</div>
+        <div class="eyebrow mt3">Eyebrow · 11 uppercase · section labels</div>
+        <div class="num mt3" style="font-size:20px;font-weight:var(--fw-semi)">€1,840.00 · tabular numerals</div>
+      </div>
+      <div class="card pad">
+        <div class="eyebrow mb3">Spacing · 4pt scale</div>
+        <div class="row gap2 wrap" style="align-items:flex-end">
+          <div style="text-align:center"><div style="width:4px;height:4px;background:var(--accent)"></div><code style="font-size:10px;color:var(--muted)">4</code></div>
+          <div style="text-align:center"><div style="width:8px;height:8px;background:var(--accent)"></div><code style="font-size:10px;color:var(--muted)">8</code></div>
+          <div style="text-align:center"><div style="width:12px;height:12px;background:var(--accent)"></div><code style="font-size:10px;color:var(--muted)">12</code></div>
+          <div style="text-align:center"><div style="width:16px;height:16px;background:var(--accent)"></div><code style="font-size:10px;color:var(--muted)">16</code></div>
+          <div style="text-align:center"><div style="width:24px;height:24px;background:var(--accent)"></div><code style="font-size:10px;color:var(--muted)">24</code></div>
+          <div style="text-align:center"><div style="width:32px;height:32px;background:var(--accent)"></div><code style="font-size:10px;color:var(--muted)">32</code></div>
+        </div>
+        <div class="eyebrow mb3 mt5">Radius</div>
+        <div class="row gap3 wrap">
+          <div style="width:48px;height:34px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-sm)"></div>
+          <div style="width:48px;height:34px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-md)"></div>
+          <div style="width:48px;height:34px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-lg)"></div>
+          <div style="width:34px;height:34px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-pill)"></div>
+        </div>
+        <div class="meta mt2">8 · 12 · 16 · pill</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ COMPONENTS ============ -->
+  <section class="section" id="components">
+    <h2 class="section-title">03 · Component Library</h2>
+    <p class="section-note">Every primitive used across the screens, with states. Buttons are pill-shaped; the primary action per screen is ink, the accent button is reserved for the single most important confirm.</p>
+
+    <div class="card pad mb4">
+      <div class="eyebrow mb3">Buttons &amp; controls</div>
+      <div class="row gap3 wrap" style="align-items:center">
+        <button class="btn btn-primary">+ New trip</button>
+        <button class="btn btn-accent">Save entry</button>
+        <button class="btn btn-ghost">Cancel</button>
+        <button class="btn btn-quiet">Skip</button>
+        <button class="btn btn-primary btn-sm">Invite</button>
+        <span class="icon-btn"><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+        <div class="tabs"><button class="active">Current</button><button>Upcoming</button><button>Past</button></div>
+      </div>
+    </div>
+
+    <div class="spec-grid" style="grid-template-columns:1fr 1fr">
+      <div class="card pad">
+        <div class="eyebrow mb3">Chips &amp; badges</div>
+        <div class="row gap2 wrap">
+          <span class="chip solid">Owner</span>
+          <span class="chip accent dot">Day 4 · today</span>
+          <span class="chip outline">Editor ▾</span>
+          <span class="chip">Untimed</span>
+          <span class="badge ok">On track</span>
+          <span class="badge warn">85% used</span>
+          <span class="badge danger">Over</span>
+          <span class="badge neutral">Idea</span>
+        </div>
+        <div class="eyebrow mb3 mt5">Avatars</div>
+        <div class="row gap3">
+          <div class="avatar" style="background:var(--ink)">G</div>
+          <div class="avatar" style="background:var(--accent)">M</div>
+          <div class="avatar" style="background:var(--amber)">A</div>
+          <div class="avatar-stack">
+            <div class="avatar sm" style="background:var(--ink)">G</div>
+            <div class="avatar sm" style="background:var(--accent)">M</div>
+            <div class="avatar sm" style="background:var(--amber)">A</div>
+          </div>
+        </div>
+      </div>
+      <div class="card pad">
+        <div class="eyebrow mb3">Progress &amp; budget meters</div>
+        <div class="meta mb2 row between"><span>Trip budget</span><span class="num">€640 / €1,800</span></div>
+        <div class="progress"><span style="width:36%"></span></div>
+        <div class="meta mb2 mt4 row between"><span>Food · near cap</span><span class="num">€255 / €300</span></div>
+        <div class="progress warn"><span style="width:85%"></span></div>
+        <div class="meta mb2 mt4 row between"><span>Transport · over</span><span class="num">€210 / €180</span></div>
+        <div class="progress danger"><span style="width:100%"></span></div>
+        <div class="meta mb2 mt4">Segmented (by category)</div>
+        <div class="progress seg" style="height:8px">
+          <i style="width:30%;background:var(--cat-stays)"></i>
+          <i style="width:18%;background:var(--cat-transport)"></i>
+          <i style="width:24%;background:var(--cat-food)"></i>
+          <i style="width:20%;background:var(--cat-activities)"></i>
+          <i style="width:8%;background:var(--cat-other)"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="card pad mt4">
+      <div class="eyebrow mb3">Inputs</div>
+      <div class="row gap4 wrap">
+        <div class="field" style="width:240px"><label>Trip name</label><input class="input" value="Japan — Spring 2026"></div>
+        <div class="field" style="width:240px"><label>Invite by email</label><input class="input" placeholder="friend@email.com"></div>
+        <div class="field" style="width:160px"><label>Cost (EUR)</label><input class="input num" value="22.00"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LAPTOP: TRIPS DASHBOARD ============ -->
+  <section class="section" id="laptop-trips">
+    <h2 class="section-title">04 · Laptop — Trips Dashboard</h2>
+    <p class="section-note">The home surface. The <b>current trip</b> is the hero — it's the day-to-day driver while travelling, so it carries today's day number, live budget, and quick entry. Upcoming and Past sit below as calmer cards.</p>
+    <div class="frame-label"><span class="tag">Laptop</span> khiimori.app/trips</div>
+    <div class="laptop">
+      <div class="topbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">khiimori.app/trips</span></div>
+      <div class="viewport">
+        <div class="app">
+          <aside class="sidebar">
+            <div class="brand"><div class="mark">K</div><div class="name">Khiimori</div></div>
+            <nav class="nav">
+              <a class="active" href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7M12 11v10"/></svg> Trips</a>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M9 4L3 7v13l6-3 6 3 6-3V4l-6 3-6-3zM9 4v13M15 7v13"/></svg> Map</a>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5zM9 8h7M9 12h7M9 16h4"/></svg> Journal</a>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg> Budget</a>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M16 19a4 4 0 00-8 0M12 11a3 3 0 100-6 3 3 0 000 6zM20 19a3.5 3.5 0 00-5-3.2M4 19a3.5 3.5 0 015-3.2"/></svg> Sharing</a>
+              <div class="divider"></div>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM5 20a7 7 0 0114 0"/></svg> Profile</a>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M3 5h18M3 12h18M3 19h18"/></svg> Admin</a>
+            </nav>
+            <div class="me"><div class="avatar sm" style="background:var(--ink)">G</div><div class="grow"><div style="font-size:12.5px;font-weight:var(--fw-semi)">Gonçalo</div><div class="meta" style="font-size:11px">EUR · Lisbon</div></div></div>
+          </aside>
+          <div class="main">
+            <div class="topnav">
+              <div class="crumbs"><b>My Trips</b></div>
+              <div class="row gap3">
+                <span class="icon-btn"><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg></span>
+                <button class="btn btn-primary"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> New trip</button>
+              </div>
+            </div>
+            <div class="content">
+              <div class="row between mb4" style="align-items:center">
+                <div class="tabs"><button class="active">Current</button><button>Upcoming</button><button>Past</button></div>
+                <span class="meta">5 trips</span>
+              </div>
+
+              <div class="card card-accent-l hover" style="padding:0;overflow:hidden;margin-bottom:28px">
+                <div style="display:flex">
+                  <div style="width:170px;flex:0 0 170px;background:linear-gradient(135deg,#2f6f6a,#1d4f4b);position:relative">
+                    <div style="position:absolute;inset:0;opacity:.18;background:radial-gradient(circle at 30% 30%,#fff,transparent 60%)"></div>
+                    <div style="position:absolute;left:16px;bottom:14px;color:#fff"><div style="font-size:11px;opacity:.85;letter-spacing:.08em;text-transform:uppercase;font-weight:600">Now</div><div style="font-size:15px;font-weight:700">Day 4 / 12</div></div>
+                  </div>
+                  <div style="flex:1;padding:20px 22px">
+                    <div class="row between">
+                      <div>
+                        <span class="chip accent dot">Today · Kyoto</span>
+                        <div class="h1 mt2">Japan — Spring 2026</div>
+                        <div class="meta mt1">Tokyo · Kyoto · Osaka &nbsp;·&nbsp; Apr 02 – Apr 14, 2026</div>
+                      </div>
+                      <div class="row gap3" style="align-items:center">
+                        <div class="avatar-stack"><div class="avatar sm" style="background:var(--ink)">G</div><div class="avatar sm" style="background:var(--accent)">M</div></div>
+                        <button class="btn btn-accent btn-sm">Open today →</button>
+                      </div>
+                    </div>
+                    <div class="row gap4 mt5" style="align-items:flex-end">
+                      <div class="grow">
+                        <div class="meta row between mb2"><span>Trip budget</span><span class="num"><b style="color:var(--ink)">€640</b> / €1,800 · €1,160 left</span></div>
+                        <div class="progress"><span style="width:36%"></span></div>
+                      </div>
+                      <div style="text-align:center;padding:0 4px"><div class="num" style="font-size:18px;font-weight:700">€80</div><div class="meta" style="font-size:11px">today</div></div>
+                      <div style="text-align:center;padding:0 4px"><div class="num" style="font-size:18px;font-weight:700">3</div><div class="meta" style="font-size:11px">plans</div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="eyebrow mb3">Upcoming</div>
+              <div class="spec-grid" style="grid-template-columns:1fr 1fr;margin-bottom:28px">
+                <div class="card hover pad">
+                  <div class="row between"><div class="h2">Portugal Roadtrip</div><span class="chip">in 9 days</span></div>
+                  <div class="meta mt1">Porto · Douro · Lisbon</div>
+                  <div class="row between mt4" style="align-items:flex-end">
+                    <div class="meta num">Jun 20 – Jun 28, 2026</div>
+                    <div class="avatar-stack"><div class="avatar sm" style="background:var(--ink)">G</div></div>
+                  </div>
+                </div>
+                <div class="card hover pad">
+                  <div class="row between"><div class="h2">Iceland Ring Road</div><span class="chip outline">planning</span></div>
+                  <div class="meta mt1">Reykjavík · South Coast</div>
+                  <div class="row between mt4" style="align-items:flex-end">
+                    <div class="meta num">Sep 05 – Sep 15, 2026</div>
+                    <div class="avatar-stack"><div class="avatar sm" style="background:var(--ink)">G</div><div class="avatar sm" style="background:var(--amber)">A</div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="eyebrow mb3">Past</div>
+              <div class="spec-grid" style="grid-template-columns:1fr 1fr">
+                <div class="card hover pad" style="opacity:.92">
+                  <div class="row between"><div class="h2">Morocco</div><span class="chip"><svg class="ic" width="13" height="13" viewBox="0 0 24 24" style="color:var(--accent)"><path d="M20 6L9 17l-5-5"/></svg> journal</span></div>
+                  <div class="meta mt1 num">Oct 2025 · 8 days · €1,240</div>
+                </div>
+                <div class="card hover pad" style="opacity:.92">
+                  <div class="row between"><div class="h2">Norway Fjords</div><span class="chip"><svg class="ic" width="13" height="13" viewBox="0 0 24 24" style="color:var(--accent)"><path d="M20 6L9 17l-5-5"/></svg> journal</span></div>
+                  <div class="meta mt1 num">Jul 2025 · 6 days · €2,010</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LAPTOP: BUDGET ROLL-UP ============ -->
+  <section class="section" id="laptop-budget">
+    <h2 class="section-title">05 · Laptop — Budget Roll-up</h2>
+    <p class="section-note">Spent vs. planned vs. remaining at a glance — rolled up per category and per day. Costs flow in automatically from stays &amp; plan items, plus quick manual entries. All amounts EUR (v1).</p>
+    <div class="frame-label"><span class="tag">Laptop</span> khiimori.app/trips/japan/budget</div>
+    <div class="laptop">
+      <div class="topbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">khiimori.app/trips/japan/budget</span></div>
+      <div class="viewport">
+        <div class="app">
+          <aside class="sidebar">
+            <div class="brand"><div class="mark">K</div><div class="name">Khiimori</div></div>
+            <nav class="nav">
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7M12 11v10"/></svg> Trips</a>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M9 4L3 7v13l6-3 6 3 6-3V4l-6 3-6-3zM9 4v13M15 7v13"/></svg> Map</a>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5zM9 8h7M9 12h7M9 16h4"/></svg> Journal</a>
+              <a class="active" href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg> Budget</a>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M16 19a4 4 0 00-8 0M12 11a3 3 0 100-6 3 3 0 000 6zM20 19a3.5 3.5 0 00-5-3.2M4 19a3.5 3.5 0 015-3.2"/></svg> Sharing</a>
+              <div class="divider"></div>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM5 20a7 7 0 0114 0"/></svg> Profile</a>
+            </nav>
+            <div class="me"><div class="avatar sm" style="background:var(--ink)">G</div><div class="grow"><div style="font-size:12.5px;font-weight:var(--fw-semi)">Gonçalo</div><div class="meta" style="font-size:11px">EUR · Lisbon</div></div></div>
+          </aside>
+          <div class="main">
+            <div class="topnav">
+              <div class="crumbs"><b>Japan — Spring 2026</b> &nbsp;›&nbsp; Budget</div>
+              <button class="btn btn-primary btn-sm"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Log a cost</button>
+            </div>
+            <div class="content narrow">
+              <!-- summary tiles -->
+              <div class="spec-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:24px">
+                <div class="card pad"><div class="meta">Spent</div><div class="num" style="font-size:26px;font-weight:700;margin-top:4px">€640</div><div class="meta mt1">36% of budget</div></div>
+                <div class="card pad"><div class="meta">Remaining</div><div class="num" style="font-size:26px;font-weight:700;margin-top:4px;color:var(--accent)">€1,160</div><div class="meta mt1">€145 / day left</div></div>
+                <div class="card pad"><div class="meta">Trip budget</div><div class="num" style="font-size:26px;font-weight:700;margin-top:4px">€1,800</div><div class="meta mt1">12 days · 8 to go</div></div>
+              </div>
+
+              <!-- category table -->
+              <div class="card" style="padding:0;overflow:hidden;margin-bottom:24px">
+                <div class="row between pad" style="border-bottom:1px solid var(--line)"><span class="eyebrow">By category</span><span class="meta">Spent / Planned</span></div>
+                <div style="padding:6px 18px 14px">
+                  <div class="mt3"><div class="row between mb2"><div class="row gap2"><span style="width:9px;height:9px;border-radius:3px;background:var(--cat-stays);display:inline-block"></span><b style="font-size:13.5px">Stays</b></div><span class="num meta"><b style="color:var(--ink)">€320</b> / €700</span></div><div class="progress thin"><span style="width:46%"></span></div></div>
+                  <div class="mt4"><div class="row between mb2"><div class="row gap2"><span style="width:9px;height:9px;border-radius:3px;background:var(--cat-transport);display:inline-block"></span><b style="font-size:13.5px">Transport</b></div><span class="num meta"><b style="color:var(--ink)">€95</b> / €250</span></div><div class="progress thin"><span style="width:38%"></span></div></div>
+                  <div class="mt4"><div class="row between mb2"><div class="row gap2"><span style="width:9px;height:9px;border-radius:3px;background:var(--cat-food);display:inline-block"></span><b style="font-size:13.5px">Food</b></div><span class="num meta"><b style="color:var(--warn)">€170</b> / €200</span></div><div class="progress thin warn"><span style="width:85%"></span></div></div>
+                  <div class="mt4"><div class="row between mb2"><div class="row gap2"><span style="width:9px;height:9px;border-radius:3px;background:var(--cat-activities);display:inline-block"></span><b style="font-size:13.5px">Activities</b></div><span class="num meta"><b style="color:var(--ink)">€55</b> / €450</span></div><div class="progress thin"><span style="width:12%"></span></div></div>
+                  <div class="mt4"><div class="row between mb2"><div class="row gap2"><span style="width:9px;height:9px;border-radius:3px;background:var(--cat-other);display:inline-block"></span><b style="font-size:13.5px">Other</b></div><span class="num meta"><b style="color:var(--ink)">€0</b> / €200</span></div><div class="progress thin"><span style="width:0%"></span></div></div>
+                </div>
+              </div>
+
+              <!-- by day -->
+              <div class="card" style="padding:0;overflow:hidden">
+                <div class="row between pad" style="border-bottom:1px solid var(--line)"><span class="eyebrow">By day</span><span class="meta">Recent</span></div>
+                <div style="padding:4px 0">
+                  <div class="row between" style="padding:12px 18px;border-bottom:1px solid var(--line)"><div><b style="font-size:13.5px">Day 4 · Kyoto</b> <span class="chip accent dot" style="margin-left:6px">today</span><div class="meta mt1">Fushimi Inari · Nishiki · Tea ceremony</div></div><div style="text-align:right"><div class="num" style="font-weight:700">€43.20</div><div class="meta">/ €110</div></div></div>
+                  <div class="row between" style="padding:12px 18px;border-bottom:1px solid var(--line)"><div><b style="font-size:13.5px">Day 3 · Kyoto</b><div class="meta mt1">Arashiyama · Bamboo grove</div></div><div style="text-align:right"><div class="num" style="font-weight:700">€128.00</div><div class="meta">/ €150</div></div></div>
+                  <div class="row between" style="padding:12px 18px"><div><b style="font-size:13.5px">Day 2 · Tokyo → Kyoto</b><div class="meta mt1">Shinkansen · check-in</div></div><div style="text-align:right"><div class="num" style="font-weight:700">€210.50</div><div class="meta">/ €200 · <span style="color:var(--danger)">over</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LAPTOP: SHARING ============ -->
+  <section class="section" id="laptop-sharing">
+    <h2 class="section-title">06 · Laptop — Sharing &amp; Access</h2>
+    <p class="section-note">Invite companions by email and assign a role. Authorization is enforced server-side; this UI just reflects it. Owner, Editor, Viewer — no per-section permissions in v1.</p>
+    <div class="frame-label"><span class="tag">Laptop</span> khiimori.app/trips/japan/sharing</div>
+    <div class="laptop">
+      <div class="topbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">khiimori.app/trips/japan/sharing</span></div>
+      <div class="viewport">
+        <div class="app">
+          <aside class="sidebar">
+            <div class="brand"><div class="mark">K</div><div class="name">Khiimori</div></div>
+            <nav class="nav">
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7M12 11v10"/></svg> Trips</a>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M9 4L3 7v13l6-3 6 3 6-3V4l-6 3-6-3zM9 4v13M15 7v13"/></svg> Map</a>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5zM9 8h7M9 12h7M9 16h4"/></svg> Journal</a>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg> Budget</a>
+              <a class="active" href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M16 19a4 4 0 00-8 0M12 11a3 3 0 100-6 3 3 0 000 6zM20 19a3.5 3.5 0 00-5-3.2M4 19a3.5 3.5 0 015-3.2"/></svg> Sharing</a>
+              <div class="divider"></div>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM5 20a7 7 0 0114 0"/></svg> Profile</a>
+            </nav>
+            <div class="me"><div class="avatar sm" style="background:var(--ink)">G</div><div class="grow"><div style="font-size:12.5px;font-weight:var(--fw-semi)">Gonçalo</div><div class="meta" style="font-size:11px">EUR · Lisbon</div></div></div>
+          </aside>
+          <div class="main">
+            <div class="topnav"><div class="crumbs"><b>Japan — Spring 2026</b> &nbsp;›&nbsp; Sharing</div></div>
+            <div class="content" style="max-width:760px">
+              <div class="h1 mb2">Trip sharing &amp; access</div>
+              <div class="meta mb4">People you invite see only this trip. Roles take effect immediately.</div>
+
+              <!-- invite row -->
+              <div class="card pad mb5" style="display:flex;gap:12px;align-items:flex-end;background:var(--surface-2)">
+                <div class="field grow"><label>Invite by email</label><input class="input" placeholder="friend@email.com" style="background:#fff"></div>
+                <div class="field" style="width:140px"><label>Role</label><div class="input row between" style="background:#fff;cursor:pointer">Editor <span class="meta">▾</span></div></div>
+                <button class="btn btn-primary">Send invite</button>
+              </div>
+
+              <div class="eyebrow mb3">Members · 3</div>
+              <div class="card" style="padding:0;overflow:hidden;margin-bottom:24px">
+                <div class="row between" style="padding:13px 16px;border-bottom:1px solid var(--line)">
+                  <div class="row gap3"><div class="avatar" style="background:var(--ink)">G</div><div><div style="font-weight:var(--fw-semi);font-size:13.5px">Gonçalo <span class="meta" style="font-weight:400">(you)</span></div><div class="meta">goncalo@gmail.com</div></div></div>
+                  <span class="chip solid">Owner</span>
+                </div>
+                <div class="row between" style="padding:13px 16px;border-bottom:1px solid var(--line)">
+                  <div class="row gap3"><div class="avatar" style="background:var(--accent)">M</div><div><div style="font-weight:var(--fw-semi);font-size:13.5px">Maria</div><div class="meta">maria@gmail.com</div></div></div>
+                  <div class="row gap2"><span class="chip outline">Editor ▾</span><span class="icon-btn" style="width:30px;height:30px"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span></div>
+                </div>
+                <div class="row between" style="padding:13px 16px">
+                  <div class="row gap3"><div class="avatar" style="background:var(--amber)">A</div><div><div style="font-weight:var(--fw-semi);font-size:13.5px">Alex</div><div class="meta">alex@gmail.com</div></div></div>
+                  <div class="row gap2"><span class="chip outline">Viewer ▾</span><span class="icon-btn" style="width:30px;height:30px"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span></div>
+                </div>
+              </div>
+
+              <div class="eyebrow mb3">Pending invites · 1</div>
+              <div class="card pad mb5" style="display:flex;align-items:center;gap:12px;background:var(--surface-2)">
+                <div class="avatar" style="background:var(--surface-3);color:var(--muted)">?</div>
+                <div class="grow"><div style="font-weight:var(--fw-semi);font-size:13.5px">sofia@gmail.com</div><div class="meta">Invited as Viewer · sent 2 days ago</div></div>
+                <button class="btn btn-ghost btn-sm">Resend</button>
+                <button class="btn btn-quiet btn-sm">Revoke</button>
+              </div>
+
+              <div class="card pad" style="background:var(--surface-2)">
+                <div class="eyebrow mb3">Roles</div>
+                <div class="row between mb3" style="padding-bottom:10px;border-bottom:1px solid var(--line)"><b style="font-size:13.5px">Owner</b><span class="meta">Full control + sharing</span></div>
+                <div class="row between mb3" style="padding-bottom:10px;border-bottom:1px solid var(--line)"><b style="font-size:13.5px">Editor</b><span class="meta">Edit plan, budget, journal</span></div>
+                <div class="row between"><b style="font-size:13.5px">Viewer</b><span class="meta">Read-only access</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LAPTOP: DAY PLAN + MAP ============ -->
+  <section class="section" id="laptop-day">
+    <h2 class="section-title">07 · Laptop — Day Plan &amp; Map</h2>
+    <p class="section-note">The planning workhorse. Left column is the day's living itinerary — stay, a timeline of <b>timed</b> items, and a loose list of <b>untimed ideas</b> (never forced onto the clock). Right column pairs the day's map with a journal preview. Drag handles + "move to day" make re-planning a two-tap gesture.</p>
+    <div class="frame-label"><span class="tag">Laptop</span> khiimori.app/trips/japan/day-4</div>
+    <div class="laptop">
+      <div class="topbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">khiimori.app/trips/japan/day-4</span></div>
+      <div class="viewport">
+        <div class="app">
+          <aside class="sidebar">
+            <div class="brand"><div class="mark">K</div><div class="name">Khiimori</div></div>
+            <nav class="nav">
+              <a class="active" href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7M12 11v10"/></svg> Trips</a>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M9 4L3 7v13l6-3 6 3 6-3V4l-6 3-6-3zM9 4v13M15 7v13"/></svg> Map</a>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5zM9 8h7M9 12h7M9 16h4"/></svg> Journal</a>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"/></svg> Budget</a>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M16 19a4 4 0 00-8 0M12 11a3 3 0 100-6 3 3 0 000 6zM20 19a3.5 3.5 0 00-5-3.2M4 19a3.5 3.5 0 015-3.2"/></svg> Sharing</a>
+              <div class="divider"></div>
+              <a href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM5 20a7 7 0 0114 0"/></svg> Profile</a>
+            </nav>
+            <div class="me"><div class="avatar sm" style="background:var(--ink)">G</div><div class="grow"><div style="font-size:12.5px;font-weight:var(--fw-semi)">Gonçalo</div><div class="meta" style="font-size:11px">EUR · Lisbon</div></div></div>
+          </aside>
+          <div class="main">
+            <div class="topnav">
+              <div class="crumbs"><b>Japan — Spring 2026</b> &nbsp;›&nbsp; Day 4</div>
+              <div class="row gap3">
+                <span class="chip accent dot">Today</span>
+                <span class="icon-btn"><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="M16 19a4 4 0 00-8 0M12 11a3 3 0 100-6 3 3 0 000 6z"/></svg></span>
+              </div>
+            </div>
+            <!-- day selector strip -->
+            <div style="padding:12px 28px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;overflow:hidden">
+              <button class="icon-btn" style="width:30px;height:30px"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+              <div class="row gap2">
+                <div style="text-align:center;padding:6px 4px;width:42px;border-radius:var(--r-sm)"><div class="meta" style="font-size:10px">Thu</div><div class="num" style="font-weight:600">D3</div></div>
+                <div style="text-align:center;padding:6px 4px;width:42px;border-radius:var(--r-sm);background:var(--ink);color:#fff"><div style="font-size:10px;opacity:.8">Fri</div><div class="num" style="font-weight:700">D4</div></div>
+                <div style="text-align:center;padding:6px 4px;width:42px;border-radius:var(--r-sm)"><div class="meta" style="font-size:10px">Sat</div><div class="num" style="font-weight:600">D5</div></div>
+                <div style="text-align:center;padding:6px 4px;width:42px;border-radius:var(--r-sm)"><div class="meta" style="font-size:10px">Sun</div><div class="num" style="font-weight:600">D6</div></div>
+                <div style="text-align:center;padding:6px 4px;width:42px;border-radius:var(--r-sm)"><div class="meta" style="font-size:10px">Mon</div><div class="num" style="font-weight:600">D7</div></div>
+                <div style="text-align:center;padding:6px 4px;width:42px;border-radius:var(--r-sm)"><div class="meta" style="font-size:10px">Tue</div><div class="num" style="font-weight:600">D8</div></div>
+              </div>
+              <button class="icon-btn" style="width:30px;height:30px"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+              <div class="grow"></div>
+              <div style="text-align:right"><div class="h2">Day 4 · Kyoto</div><div class="meta">Friday, Apr 05 2026</div></div>
+            </div>
+
+            <div class="content" style="display:grid;grid-template-columns:1fr 1.05fr;gap:24px;align-items:start">
+              <!-- LEFT: itinerary -->
+              <div>
+                <div class="row between mb3"><span class="eyebrow">Itinerary</span><button class="btn btn-ghost btn-sm"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Add</button></div>
+
+                <!-- stay -->
+                <div class="card card-accent-l pad mb4" style="display:flex;align-items:center;gap:12px">
+                  <svg class="ic" width="20" height="20" viewBox="0 0 24 24" style="color:var(--accent)"><path d="M3 18v-6a2 2 0 012-2h14a2 2 0 012 2v6M3 18h18M3 14h18M7 10V7a2 2 0 012-2h6a2 2 0 012 2v3"/></svg>
+                  <div class="grow"><div style="font-weight:var(--fw-semi);font-size:13.5px">Hotel Mume</div><div class="meta">Stay · Gion district · check-out 11:00</div></div>
+                  <span class="chip outline">€0 left to pay</span>
+                </div>
+
+                <!-- timeline -->
+                <div class="timeline">
+                  <div class="tl-item"><span class="node"></span>
+                    <div class="card pad hover" style="padding:13px 15px">
+                      <div class="row between"><div class="row gap2"><b class="num" style="font-size:13px">09:00</b><span style="font-weight:var(--fw-semi);font-size:13.5px">Fushimi Inari Shrine</span></div><span class="meta">⋮⋮</span></div>
+                      <div class="row gap2 mt2"><span class="chip"><span style="width:6px;height:6px;border-radius:50%;background:var(--cat-activities);display:inline-block"></span> Activity</span><span class="chip">2h</span><span class="meta num">free</span></div>
+                    </div>
+                  </div>
+                  <div class="tl-item"><span class="node amber"></span>
+                    <div class="card pad hover" style="padding:13px 15px">
+                      <div class="row between"><div class="row gap2"><b class="num" style="font-size:13px">12:30</b><span style="font-weight:var(--fw-semi);font-size:13.5px">Nishiki Market lunch</span></div><span class="meta">⋮⋮</span></div>
+                      <div class="row gap2 mt2"><span class="chip"><span style="width:6px;height:6px;border-radius:50%;background:var(--cat-food);display:inline-block"></span> Food</span><span class="meta num">€14.20</span></div>
+                    </div>
+                  </div>
+                  <div class="tl-item"><span class="node"></span>
+                    <div class="card pad hover" style="padding:13px 15px">
+                      <div class="row between"><div class="row gap2"><b class="num" style="font-size:13px">15:00</b><span style="font-weight:var(--fw-semi);font-size:13.5px">Tea ceremony (tour)</span></div><span class="meta">⋮⋮</span></div>
+                      <div class="row gap2 mt2"><span class="chip"><span style="width:6px;height:6px;border-radius:50%;background:var(--cat-activities);display:inline-block"></span> Activity</span><span class="badge ok">booked</span><span class="meta num">€29.00</span></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- untimed ideas -->
+                <div class="eyebrow mb3 mt5">Ideas for today · untimed</div>
+                <div class="card pad" style="padding:10px 12px;display:flex;align-items:center;gap:10px;margin-bottom:8px;background:var(--surface-2)">
+                  <span class="node idea" style="position:static;width:12px;height:12px;border-radius:50%;border:2px dashed var(--line-2);flex:0 0 12px"></span>
+                  <div class="grow" style="font-size:13.5px">Walk the Philosopher's Path</div>
+                  <button class="btn btn-quiet btn-sm">Schedule →</button>
+                </div>
+                <div class="card pad" style="padding:10px 12px;display:flex;align-items:center;gap:10px;margin-bottom:8px;background:var(--surface-2)">
+                  <span class="node idea" style="position:static;width:12px;height:12px;border-radius:50%;border:2px dashed var(--line-2);flex:0 0 12px"></span>
+                  <div class="grow" style="font-size:13.5px">Try a kissaten (old coffee house)</div>
+                  <button class="btn btn-quiet btn-sm">Schedule →</button>
+                </div>
+                <button class="btn btn-ghost btn-sm mt2" style="width:100%;justify-content:center;border-style:dashed">+ Capture an idea</button>
+
+                <!-- day budget -->
+                <div class="card pad mt5">
+                  <div class="row between mb3"><span class="eyebrow">Day budget</span><span class="num"><b>€43.20</b> / €110</span></div>
+                  <div class="progress seg mb2" style="height:8px">
+                    <i style="width:0%;background:var(--cat-stays)"></i>
+                    <i style="width:7%;background:var(--cat-transport)"></i>
+                    <i style="width:13%;background:var(--cat-food)"></i>
+                    <i style="width:26%;background:var(--cat-activities)"></i>
+                  </div>
+                  <div class="row gap3 wrap meta" style="font-size:11px">
+                    <span class="chip dot" style="color:var(--cat-transport)">Transport €7</span>
+                    <span class="chip dot" style="color:var(--cat-food)">Food €14</span>
+                    <span class="chip dot" style="color:var(--cat-activities)">Activities €29</span>
+                    <button class="btn btn-quiet btn-sm" style="margin-left:auto">+ Log a cost</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- RIGHT: map + journal -->
+              <div>
+                <div class="row between mb3"><span class="eyebrow">Map · Day 4 route</span><span class="meta">3 stops</span></div>
+                <div class="card" style="padding:0;overflow:hidden">
+                  <div style="position:relative;height:320px;background:#e9edec">
+                    <svg viewBox="0 0 520 320" width="100%" height="320" preserveAspectRatio="xMidYMid slice">
+                      <rect width="520" height="320" fill="#eef1f0"/>
+                      <g stroke="#dde3e1" stroke-width="7" stroke-linecap="round">
+                        <line x1="-10" y1="80" x2="530" y2="100"/><line x1="-10" y1="180" x2="530" y2="160"/>
+                        <line x1="-10" y1="270" x2="530" y2="290"/><line x1="120" y1="-10" x2="150" y2="330"/>
+                        <line x1="300" y1="-10" x2="330" y2="330"/><line x1="430" y1="-10" x2="450" y2="330"/>
+                      </g>
+                      <g fill="#dce4e1"><rect x="160" y="110" width="120" height="60" rx="4"/><rect x="350" y="190" width="90" height="70" rx="4"/></g>
+                      <path d="M120 250 Q 210 200 270 150 T 420 90" fill="none" stroke="#2f6f6a" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round"/>
+                      <g font-family="Inter,sans-serif" font-size="12" font-weight="700">
+                        <circle cx="120" cy="250" r="13" fill="#2f6f6a"/><text x="120" y="254" fill="#fff" text-anchor="middle">1</text>
+                        <circle cx="270" cy="150" r="13" fill="#b06a2c"/><text x="270" y="154" fill="#fff" text-anchor="middle">2</text>
+                        <circle cx="420" cy="90" r="13" fill="#6d5aa6"/><text x="420" y="94" fill="#fff" text-anchor="middle">3</text>
+                        <circle cx="150" cy="285" r="9" fill="#101113"/>
+                      </g>
+                    </svg>
+                    <div style="position:absolute;left:12px;bottom:12px;background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:var(--r-sm);padding:7px 11px;font-size:11px;box-shadow:var(--shadow-1)">
+                      <div class="row gap2"><span style="width:8px;height:8px;border-radius:50%;background:var(--ink);display:inline-block"></span> Hotel Mume <span class="meta">· start</span></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="row between mb3 mt5"><span class="eyebrow">Day journal</span><button class="btn btn-ghost btn-sm">Edit entry</button></div>
+                <div class="card pad">
+                  <div class="row gap3 mb3">
+                    <div style="width:64px;height:64px;border-radius:var(--r-sm);background:var(--surface-3);display:grid;place-items:center;color:var(--muted)"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M3 7h4l2-3h6l2 3h4v12H3zM12 16a3 3 0 100-6 3 3 0 000 6z"/></svg></div>
+                    <div style="width:64px;height:64px;border-radius:var(--r-sm);background:var(--surface-3)"></div>
+                    <div style="width:64px;height:64px;border-radius:var(--r-sm);background:var(--surface-3);display:grid;place-items:center" class="meta">+1</div>
+                  </div>
+                  <div style="font-size:13.5px;line-height:1.55">“The orange torii gates went on forever. We got lost near the top but found the best ramen of the trip on the way down…”</div>
+                  <div class="row gap3 mt3 meta" style="font-size:11.5px">
+                    <span>⭐ 9/10</span><span>☀ Sunny · 18°C</span><span class="chip accent" style="margin-left:auto">3 photos</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MOBILE SCREENS ============ -->
+  <section class="section" id="mobile">
+    <h2 class="section-title">08 · Mobile (PWA) — Core Screens</h2>
+    <p class="section-note">Not a shrunk desktop. Bottom nav, thumb-reachable primary actions, a floating quick-add, and an offline-first journal. The same tokens and components, re-laid-out for one-handed use mid-trip.</p>
+
+    <div class="phones">
+      <!-- PHONE 1: TRIPS -->
+      <div>
+        <div class="frame-label"><span class="tag alt">Mobile</span> Trips</div>
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="m-app">
+            <div class="m-statusbar"></div>
+            <div class="m-header"><div><div class="meta">Saturday, Jun 27</div><div class="h1" style="font-size:21px">Trips</div></div><div class="avatar" style="background:var(--ink)">G</div></div>
+            <div class="m-body">
+              <div class="tabs mb4" style="display:flex"><button class="active grow">Current</button><button class="grow">Upcoming</button><button class="grow">Past</button></div>
+              <div class="card card-accent-l" style="padding:0;overflow:hidden;margin-bottom:18px">
+                <div style="height:84px;background:linear-gradient(135deg,#2f6f6a,#1d4f4b);position:relative">
+                  <div style="position:absolute;left:14px;bottom:10px;color:#fff"><div style="font-size:10px;opacity:.85;text-transform:uppercase;letter-spacing:.08em;font-weight:600">Now · Day 4/12</div><div style="font-size:16px;font-weight:700">Japan — Spring 2026</div></div>
+                  <div style="position:absolute;right:12px;top:12px" class="avatar-stack"><div class="avatar sm" style="background:#fff;color:var(--ink)">G</div><div class="avatar sm" style="background:var(--amber)">M</div></div>
+                </div>
+                <div style="padding:13px 14px">
+                  <div class="meta row between mb2"><span>Today · Kyoto</span><span class="num"><b style="color:var(--ink)">€640</b>/€1,800</span></div>
+                  <div class="progress mb3"><span style="width:36%"></span></div>
+                  <button class="btn btn-accent" style="width:100%;justify-content:center">Open today →</button>
+                </div>
+              </div>
+              <div class="eyebrow mb3">Upcoming</div>
+              <div class="card pad mb3" style="padding:13px 14px">
+                <div class="row between"><b style="font-size:14px">Portugal Roadtrip</b><span class="chip">9d</span></div>
+                <div class="meta mt1 num">Jun 20 – 28 · Porto · Lisbon</div>
+              </div>
+              <div class="card pad" style="padding:13px 14px">
+                <div class="row between"><b style="font-size:14px">Iceland Ring Road</b><span class="chip outline">plan</span></div>
+                <div class="meta mt1 num">Sep 05 – 15 · Reykjavík</div>
+              </div>
+            </div>
+            <button class="fab"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+            <nav class="m-tabbar">
+              <a class="m-tab active"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7"/></svg>Trips</a>
+              <a class="m-tab"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M9 4L3 7v13l6-3 6 3 6-3V4l-6 3-6-3zM9 4v13"/></svg>Map</a>
+              <a class="m-tab"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5zM9 8h7M9 12h7"/></svg>Journal</a>
+              <a class="m-tab"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM5 20a7 7 0 0114 0"/></svg>Me</a>
+            </nav>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- PHONE 2: DAY PLAN -->
+      <div>
+        <div class="frame-label"><span class="tag alt">Mobile</span> Day plan (today)</div>
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="m-app">
+            <div class="m-statusbar"></div>
+            <div class="m-header"><div><div class="meta">Apr 05 · Kyoto</div><div class="h1" style="font-size:21px">Today · Day 4</div></div><span class="chip accent dot">€43 spent</span></div>
+            <div class="m-body">
+              <div class="card mb3" style="padding:0;overflow:hidden">
+                <svg viewBox="0 0 280 110" width="100%" height="110" preserveAspectRatio="xMidYMid slice">
+                  <rect width="280" height="110" fill="#eef1f0"/>
+                  <g stroke="#dde3e1" stroke-width="6"><line x1="-5" y1="40" x2="285" y2="55"/><line x1="80" y1="-5" x2="95" y2="115"/><line x1="190" y1="-5" x2="205" y2="115"/></g>
+                  <path d="M60 85 Q 120 60 160 50 T 230 30" fill="none" stroke="#2f6f6a" stroke-width="2.5" stroke-dasharray="2 6"/>
+                  <g font-family="Inter" font-size="10" font-weight="700"><circle cx="60" cy="85" r="11" fill="#2f6f6a"/><text x="60" y="89" fill="#fff" text-anchor="middle">1</text><circle cx="160" cy="50" r="11" fill="#b06a2c"/><text x="160" y="54" fill="#fff" text-anchor="middle">2</text><circle cx="230" cy="30" r="11" fill="#6d5aa6"/><text x="230" y="34" fill="#fff" text-anchor="middle">3</text></g>
+                </svg>
+              </div>
+              <div class="card card-accent-l mb3" style="padding:11px 12px;display:flex;gap:9px;align-items:center">
+                <svg class="ic" width="17" height="17" viewBox="0 0 24 24" style="color:var(--accent)"><path d="M3 18v-6a2 2 0 012-2h14a2 2 0 012 2v6M3 18h18M7 10V7a2 2 0 012-2h6a2 2 0 012 2v3"/></svg>
+                <div class="grow"><b style="font-size:13px">Hotel Mume</b><div class="meta" style="font-size:10.5px">Gion · check-out 11:00</div></div>
+              </div>
+              <div class="card mb2" style="padding:11px 12px"><div class="row gap2"><b class="num" style="font-size:12.5px">09:00</b><span style="font-weight:600;font-size:13px">Fushimi Inari</span></div><div class="meta mt1" style="font-size:10.5px">Activity · 2h · free</div></div>
+              <div class="card mb2" style="padding:11px 12px"><div class="row gap2"><b class="num" style="font-size:12.5px">12:30</b><span style="font-weight:600;font-size:13px">Nishiki Market</span></div><div class="meta mt1" style="font-size:10.5px">Food · €14.20</div></div>
+              <div class="card mb3" style="padding:11px 12px"><div class="row between"><div class="row gap2"><b class="num" style="font-size:12.5px">15:00</b><span style="font-weight:600;font-size:13px">Tea ceremony</span></div><span class="badge ok">booked</span></div><div class="meta mt1" style="font-size:10.5px">Activity · €29.00</div></div>
+              <div class="card mb3" style="padding:10px 12px;display:flex;gap:9px;align-items:center;background:var(--surface-2)">
+                <span style="width:11px;height:11px;border-radius:50%;border:2px dashed var(--line-2);flex:0 0 11px"></span>
+                <div class="grow" style="font-size:13px">Philosopher's Path</div>
+                <span class="meta" style="font-size:10.5px">idea</span>
+              </div>
+            </div>
+            <button class="fab"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+            <nav class="m-tabbar">
+              <a class="m-tab active"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7"/></svg>Trips</a>
+              <a class="m-tab"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M9 4L3 7v13l6-3 6 3 6-3V4l-6 3-6-3zM9 4v13"/></svg>Map</a>
+              <a class="m-tab"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5zM9 8h7M9 12h7"/></svg>Journal</a>
+              <a class="m-tab"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM5 20a7 7 0 0114 0"/></svg>Me</a>
+            </nav>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- PHONE 3: JOURNAL -->
+      <div>
+        <div class="frame-label"><span class="tag alt">Mobile</span> Journal · offline</div>
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="m-app">
+            <div class="m-statusbar"></div>
+            <div class="m-header"><div><div class="meta">Day 4 · Kyoto</div><div class="h1" style="font-size:21px">Journal</div></div><span class="chip outline" style="gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:var(--warn);display:inline-block"></span>Offline</span></div>
+            <div class="m-body">
+              <div class="row gap2 mb3">
+                <div style="flex:1;height:78px;border-radius:var(--r-sm);background:var(--surface-3);display:grid;place-items:center;color:var(--muted)"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><path d="M3 7h4l2-3h6l2 3h4v12H3zM12 16a3 3 0 100-6 3 3 0 000 6z"/></svg></div>
+                <div style="flex:1;height:78px;border-radius:var(--r-sm);background:var(--surface-3)"></div>
+                <div style="flex:1;height:78px;border-radius:var(--r-sm);background:var(--surface-2);border:1px dashed var(--line-2);display:grid;place-items:center;color:var(--muted)"><svg class="ic" width="18" height="18" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+              </div>
+              <div class="card pad mb3" style="padding:13px">
+                <div style="font-size:13px;line-height:1.6">The orange torii gates went on forever. We got lost near the top but found the best ramen of the trip on the way down. Mood: tired + happy.<span style="display:inline-block;width:2px;height:15px;background:var(--accent);vertical-align:-3px;margin-left:1px"></span></div>
+              </div>
+              <div class="row gap2 mb3 wrap">
+                <span class="chip">⭐ 9/10</span>
+                <span class="chip">☀ Sunny 18°</span>
+                <span class="chip">😌 Content</span>
+              </div>
+              <div class="meta" style="font-size:11px;text-align:center">Auto-saved locally · syncs when online</div>
+            </div>
+            <div style="padding:12px 16px;border-top:1px solid var(--line)"><button class="btn btn-primary" style="width:100%;justify-content:center">Done</button></div>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- PHONE 4: BUDGET -->
+      <div>
+        <div class="frame-label"><span class="tag alt">Mobile</span> Budget</div>
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="m-app">
+            <div class="m-statusbar"></div>
+            <div class="m-header"><div><div class="meta">Japan — Spring 2026</div><div class="h1" style="font-size:21px">Budget</div></div></div>
+            <div class="m-body">
+              <div class="card pad mb3" style="text-align:center">
+                <div class="meta">Remaining</div>
+                <div class="num" style="font-size:30px;font-weight:700;color:var(--accent)">€1,160</div>
+                <div class="meta mt1">€640 of €1,800 spent · 36%</div>
+                <div class="progress mt3"><span style="width:36%"></span></div>
+              </div>
+              <div class="eyebrow mb3">By category</div>
+              <div class="card pad mb3">
+                <div class="row between mb2"><div class="row gap2"><span style="width:8px;height:8px;border-radius:2px;background:var(--cat-stays);display:inline-block"></span>Stays</div><span class="num meta">€320/700</span></div>
+                <div class="progress thin mb3"><span style="width:46%"></span></div>
+                <div class="row between mb2"><div class="row gap2"><span style="width:8px;height:8px;border-radius:2px;background:var(--cat-food);display:inline-block"></span>Food</div><span class="num meta">€170/200</span></div>
+                <div class="progress thin warn mb3"><span style="width:85%"></span></div>
+                <div class="row between mb2"><div class="row gap2"><span style="width:8px;height:8px;border-radius:2px;background:var(--cat-transport);display:inline-block"></span>Transport</div><span class="num meta">€95/250</span></div>
+                <div class="progress thin"><span style="width:38%"></span></div>
+              </div>
+              <div class="card pad" style="padding:12px;display:flex;align-items:center;gap:10px;background:var(--surface-2)">
+                <div class="grow"><b style="font-size:13px">Quick add cost</b><div class="meta" style="font-size:10.5px">Logs against today</div></div>
+                <button class="btn btn-primary btn-sm">+ €</button>
+              </div>
+            </div>
+            <button class="fab"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+            <nav class="m-tabbar">
+              <a class="m-tab active"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7"/></svg>Trips</a>
+              <a class="m-tab"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M9 4L3 7v13l6-3 6 3 6-3V4l-6 3-6-3zM9 4v13"/></svg>Map</a>
+              <a class="m-tab"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5zM9 8h7M9 12h7"/></svg>Journal</a>
+              <a class="m-tab"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM5 20a7 7 0 0114 0"/></svg>Me</a>
+            </nav>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- PHONE 5: SHARING -->
+      <div>
+        <div class="frame-label"><span class="tag alt">Mobile</span> Sharing</div>
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="m-app">
+            <div class="m-statusbar"></div>
+            <div class="m-header"><div><div class="meta">Japan — Spring 2026</div><div class="h1" style="font-size:21px">Sharing</div></div></div>
+            <div class="m-body">
+              <div class="card pad mb4" style="background:var(--surface-2)">
+                <div class="field mb3"><label>Invite by email</label><input class="input" placeholder="friend@email.com" style="background:#fff"></div>
+                <div class="row gap2">
+                  <div class="input row between grow" style="background:#fff">Editor <span class="meta">▾</span></div>
+                  <button class="btn btn-primary">Invite</button>
+                </div>
+              </div>
+              <div class="eyebrow mb3">Members · 3</div>
+              <div class="card pad mb2" style="padding:11px 12px;display:flex;align-items:center;gap:10px">
+                <div class="avatar" style="background:var(--ink)">G</div>
+                <div class="grow"><b style="font-size:13px">Gonçalo (you)</b><div class="meta" style="font-size:10.5px">goncalo@gmail.com</div></div>
+                <span class="chip solid">Owner</span>
+              </div>
+              <div class="card pad mb2" style="padding:11px 12px;display:flex;align-items:center;gap:10px">
+                <div class="avatar" style="background:var(--accent)">M</div>
+                <div class="grow"><b style="font-size:13px">Maria</b><div class="meta" style="font-size:10.5px">maria@gmail.com</div></div>
+                <span class="chip outline">Editor ▾</span>
+              </div>
+              <div class="card pad mb3" style="padding:11px 12px;display:flex;align-items:center;gap:10px">
+                <div class="avatar" style="background:var(--amber)">A</div>
+                <div class="grow"><b style="font-size:13px">Alex</b><div class="meta" style="font-size:10.5px">alex@gmail.com</div></div>
+                <span class="chip outline">Viewer ▾</span>
+              </div>
+              <div class="card pad" style="background:var(--surface-2);padding:12px 13px">
+                <div class="meta" style="font-size:11px;line-height:1.6"><b style="color:var(--ink)">Owner</b> full control · <b style="color:var(--ink)">Editor</b> edits plan, budget, journal · <b style="color:var(--ink)">Viewer</b> read-only</div>
+              </div>
+            </div>
+            <nav class="m-tabbar">
+              <a class="m-tab active"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7"/></svg>Trips</a>
+              <a class="m-tab"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M9 4L3 7v13l6-3 6 3 6-3V4l-6 3-6-3zM9 4v13"/></svg>Map</a>
+              <a class="m-tab"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5zM9 8h7M9 12h7"/></svg>Journal</a>
+              <a class="m-tab"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM5 20a7 7 0 0114 0"/></svg>Me</a>
+            </nav>
+          </div>
+        </div></div>
+      </div>
+
+    </div>
+  </section>
+
+  <footer style="margin-top:72px;padding-top:24px;border-top:1px solid #d9dcde;color:var(--muted);font-size:12.5px">
+    Khiimori · Design Reference v1 — tokens, components &amp; screens for laptop + mobile. Copy the <code>:root</code> tokens and <code>APP STYLES</code> into the React build. See <b>DESIGN-SPEC.md</b> for the implementer's notes.
+  </footer>
+
+</div>
+</body>
+</html>
+
