@@ -425,22 +425,14 @@ jobs:
           test -n "$VITE_API_BASE_URL" || { echo "API_BASE_URL repo variable is empty — refusing to build the web app without an API base URL"; exit 1; }
           npm run build
 
-      # Keyless auth (S5): request an access token in addition to the WIF credential
-      # file — Firebase CLI v15 doesn't reliably pick up external-account credential
-      # files as ADC, causing intermittent "Failed to authenticate" failures. Passing
-      # the short-lived access token via GOOGLE_OAUTH_ACCESS_TOKEN is the reliable fix.
-      - id: auth
-        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
-        with:
-          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_DEPLOYER_SA }}
-          token_format: access_token
-
       # Atomic release to the M01.4 Hosting site (target in firebase.json). The
       # CLI prints the Hosting URL, satisfying the "report the URL" AC.
+      # Auth: firebase-tools@15 dropped GOOGLE_OAUTH_ACCESS_TOKEN (WIF access token).
+      # FIREBASE_TOKEN (long-lived CI token from `firebase login:ci`) is the reliable
+      # alternative — stored as repo secret FIREBASE_TOKEN.
       - name: Deploy to Firebase Hosting
         env:
-          GOOGLE_OAUTH_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: npx --yes firebase-tools@15 deploy --only hosting --project "${{ vars.GCP_PROJECT_ID }}" --non-interactive
 
   pulumi-up:
