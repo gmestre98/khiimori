@@ -17,6 +17,7 @@ function renderLayout(path = '/') {
       <Routes>
         <Route element={<AuthenticatedLayout />}>
           <Route path="/" element={<p>Home screen</p>} />
+          <Route path="/profile" element={<p>Profile screen</p>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -43,5 +44,11 @@ describe('AuthenticatedLayout', () => {
     const fab = screen.getByRole('link', { name: 'New trip' })
     expect(fab).toHaveAttribute('href', '/trips/new')
     expect(fab).toHaveClass('thumb-fab')
+  })
+
+  it('hides the "New trip" thumb action off the trips dashboard', () => {
+    renderLayout('/profile')
+    expect(screen.getByText('Profile screen')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'New trip' })).not.toBeInTheDocument()
   })
 })

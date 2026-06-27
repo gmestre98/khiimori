@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { BottomNav } from '../ui'
 import { useAuth } from '../../auth/AuthContext'
 import { AppLayout } from './AppLayout'
@@ -13,9 +13,15 @@ import { PRIMARY_NAV_ITEMS } from './navItems'
 //   - Mobile: the fixed BottomNav (same destinations) in the thumb zone, plus a
 //     ThumbFab for the primary "New trip" action, bottom-right in reach.
 //
+// The ThumbFab is contextual — it shows on the trips dashboard ("/"), where
+// creating a trip is the primary action, not on the create form itself or
+// trip-scoped screens (which surface their own primary actions in M04).
+//
 // Child routes render through <Outlet> into the content column.
 export function AuthenticatedLayout() {
   const { signOut } = useAuth()
+  const { pathname } = useLocation()
+  const showNewTripFab = pathname === '/'
 
   const sidebar = (
     <SidebarNav
@@ -35,8 +41,9 @@ export function AuthenticatedLayout() {
   return (
     <AppLayout sidebar={sidebar} bottomNav={<BottomNav items={PRIMARY_NAV_ITEMS} />}>
       <Outlet />
-      {/* Primary action in the mobile thumb zone (hidden on laptop via CSS). */}
-      <ThumbFab to="/trips/new" label="New trip" icon="+" />
+      {/* Primary action in the mobile thumb zone (hidden on laptop via CSS),
+          only where creating a trip is the screen's primary action. */}
+      {showNewTripFab && <ThumbFab to="/trips/new" label="New trip" icon="+" />}
     </AppLayout>
   )
 }
