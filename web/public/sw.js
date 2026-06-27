@@ -47,9 +47,15 @@ const SHELL_URLS = [
   '/apple-touch-icon.png',
 ]
 
-// The trip whose API reads are cached for offline viewing. Set by the app via
-// a SET_ACTIVE_TRIP message; null until a trip screen is opened.
+// The trip whose API reads are currently being cached. Set by the app via a
+// SET_ACTIVE_TRIP message; null when no trip screen is open. Gates whether trip
+// reads are intercepted.
 let activeTripId = null
+
+// The trip whose data is currently held in DATA_CACHE. Distinct from
+// activeTripId so that leaving a trip (activeTripId → null) keeps its cached
+// data viewable later; the cache is only dropped when a *different* trip opens.
+let cachedTripId = null
 
 // isCacheableRead reports whether a request is a GET we cache for offline
 // current-trip viewing (on any origin — the API is a separate origin from the
@@ -93,14 +99,17 @@ self.addEventListener('activate', (event) => {
 })
 
 // The app tells the worker which trip is open so its reads can be cached for
-// offline viewing. Switching trips clears the data cache, keeping storage
-// bounded to the current trip rather than the whole history (S3 AC).
+// offline viewing. The data cache is dropped only when a *different* trip
+// opens, keeping storage bounded to one trip (S3 AC) while preserving the
+// cached data after the user navigates away (so it's still there offline).
 self.addEventListener('message', (event) => {
   const data = event.data
   if (!data || data.type !== 'SET_ACTIVE_TRIP') return
-  if (data.tripId === activeTripId) return
   activeTripId = data.tripId
-  event.waitUntil(caches.delete(DATA_CACHE))
+  if (activeTripId !== null && activeTripId !== cachedTripId) {
+    cachedTripId = activeTripId
+    event.waitUntil(caches.delete(DATA_CACHE))
+  }
 })
 
 // cacheFirst: serve from cache if present, otherwise fetch + store, otherwise
