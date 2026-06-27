@@ -196,3 +196,34 @@
     display: none;
   }
 }
+
+/* ── QuickActionDialog (laptop modal) ─────────────────────────────────────────
+   The laptop equivalent of the mobile bottom Sheet for quick add/edit. Reuses
+   the shared .modal / .modal-backdrop surface; adds a close affordance. */
+.quick-action-modal {
+  position: relative;
+  max-width: 460px;
+}
+
+.quick-action-modal-close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  background: none;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: var(--space-1) 6px;
+  border-radius: var(--radius-sm);
+}
+
+.quick-action-modal-close:hover {
+  background: var(--surface-hover);
+}
+
+.quick-action-modal-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

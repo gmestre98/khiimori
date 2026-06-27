@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import { useFocusTrap } from './useFocusTrap'
 
 export interface SheetProps {
   /** Whether the sheet is visible. */
@@ -12,6 +13,10 @@ export interface SheetProps {
 
 export function Sheet({ open, onClose, title, children }: SheetProps) {
   const closeBtnRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+
+  // Trap focus inside the sheet and restore it on close (M09.3 S3 a11y).
+  useFocusTrap(open, dialogRef)
 
   useEffect(() => {
     if (!open) return
@@ -34,6 +39,7 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
       data-testid="sheet-overlay"
     >
       <div
+        ref={dialogRef}
         className="sheet"
         role="dialog"
         aria-modal="true"
