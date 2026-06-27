@@ -31,6 +31,28 @@ npm run test:watch # run the tests in watch mode
 npm run preview    # serve the production build locally
 ```
 
+## PWA / offline shell
+
+The app is an installable PWA (manifest + icons in [`public/`](public/), M09.4 S1) backed by a
+hand-rolled service worker — [`public/sw.js`](public/sw.js), M09.4 S2. No Workbox / build plugin is
+used (project no-deps rule, PRD §7.0); the logic is small and auditable.
+
+Registration is in [`src/lib/registerSW.ts`](src/lib/registerSW.ts), called from `main.tsx`. It is
+**production-only** — in dev a worker would cache Vite HMR modules and fight the dev server.
+
+**Caching strategy** (`sw.js`):
+
+| Request                            | Strategy                                     | Why                                                      |
+| ---------------------------------- | -------------------------------------------- | -------------------------------------------------------- |
+| Navigations (HTML)                 | network-first → cached `index.html` fallback | fresh shell online; SPA still boots offline              |
+| Hashed build assets (`/assets/*`)  | cache-first                                  | Vite fingerprints names, so cached entries are immutable |
+| Other same-origin static (icons …) | cache-first                                  | installed shell renders offline                          |
+| Cross-origin (API, tiles, fonts)   | not handled (network)                        | this worker owns only the static shell                   |
+
+The shell is precached on `install`; old version caches are cleared on `activate`. The cache version
+(`CACHE_VERSION` in `sw.js`) is bumped to invalidate. Offline trip data (S3), the write queue (S4),
+and update/version handling (S5) build on this worker.
+
 ## Testing
 
 Unit/component tests use **Vitest** + **React Testing Library** (jsdom), added with the app shell
