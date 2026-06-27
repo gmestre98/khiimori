@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { UnauthorizedError, datesInRange, fetchTrips, type Trip } from '../lib/api'
+import { useActiveTripOffline } from '../lib/activeTripSync'
 
 // todayStr returns today's date as YYYY-MM-DD in local time.
 function todayStr(): string {
@@ -40,6 +41,10 @@ function TripShell() {
   const [trip, setTrip] = useState<Trip | null>(stateTrip)
   const [loading, setLoading] = useState(stateTrip === null)
   const [error, setError] = useState<string | null>(null)
+
+  // Register this trip with the service worker so its API reads are cached for
+  // offline viewing (M09.4 S3); leaving the trip clears the cache.
+  useActiveTripOffline(tripId ?? null)
 
   useEffect(() => {
     // stateTrip was already used to initialize state above — skip the fetch.
