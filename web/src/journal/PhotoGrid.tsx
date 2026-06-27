@@ -9,9 +9,13 @@ import {
 } from '../lib/api'
 import { enqueue } from '../lib/mutationQueue'
 import { useIsOnline } from '../lib/useIsOnline'
+import { useFocusTrap } from '../components/ui/useFocusTrap'
 
 // PhotoLightbox renders a single photo full-screen with caption.
 function PhotoLightbox({ photo, onClose }: { photo: Photo; onClose: () => void }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(true, dialogRef)
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -23,14 +27,18 @@ function PhotoLightbox({ photo, onClose }: { photo: Photo; onClose: () => void }
   return (
     <div
       className="photo-lightbox-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Photo"
+      role="presentation"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="photo-lightbox">
+      <div
+        ref={dialogRef}
+        className="photo-lightbox"
+        role="dialog"
+        aria-modal="true"
+        aria-label={photo.caption ? `Photo: ${photo.caption}` : 'Photo'}
+      >
         <button
           type="button"
           className="photo-lightbox-close"

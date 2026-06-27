@@ -16,6 +16,26 @@ describe('AppLayout', () => {
     expect(main).toHaveTextContent('Screen content')
   })
 
+  it('renders a skip-nav link pointing to #main-content', () => {
+    render(
+      <AppLayout>
+        <p>Content</p>
+      </AppLayout>,
+    )
+    const skip = screen.getByRole('link', { name: 'Skip to main content' })
+    expect(skip).toBeInTheDocument()
+    expect(skip).toHaveAttribute('href', '#main-content')
+  })
+
+  it('main element has id="main-content" for skip-nav target', () => {
+    render(
+      <AppLayout>
+        <p>Content</p>
+      </AppLayout>,
+    )
+    expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content')
+  })
+
   it('renders the sidebar region when provided', () => {
     render(
       <AppLayout sidebar={<span>Side nav</span>}>

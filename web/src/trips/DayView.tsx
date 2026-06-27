@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useParams } from 'react-router-dom'
+import { useFocusTrap } from '../components/ui/useFocusTrap'
 import { collectLocatedItems } from './locatedItems'
 import {
   PlanItemValidationError,
@@ -44,6 +45,9 @@ function BottomSheet({
   label: string
   children: React.ReactNode
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(open, dialogRef)
+
   // Lock body scroll while the sheet is open.
   useEffect(() => {
     if (!open) return
@@ -54,19 +58,33 @@ function BottomSheet({
     }
   }, [open])
 
+  // Dismiss on Escape.
+  useEffect(() => {
+    if (!open) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
   if (!open) return null
 
   return createPortal(
     <div
       className="bottom-sheet-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-label={label}
+      role="presentation"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="bottom-sheet">
+      <div
+        ref={dialogRef}
+        className="bottom-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+      >
         <div className="bottom-sheet-handle" aria-hidden="true" />
         <button type="button" className="bottom-sheet-close" aria-label="Close" onClick={onClose}>
           ✕
