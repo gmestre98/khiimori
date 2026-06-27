@@ -455,6 +455,38 @@ describe('DayView', () => {
       expect(screen.getByLabelText('Title')).toBeInTheDocument()
     })
 
+    it('bottom sheet has role=dialog and aria-modal on the inner panel (M09.5 a11y)', async () => {
+      setMobile(true)
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      renderDayView()
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Add activity' })).toBeInTheDocument(),
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Add activity' }))
+      const dialog = screen.getByRole('dialog', { name: 'Add activity' })
+      expect(dialog).toHaveAttribute('aria-modal', 'true')
+    })
+
+    it('Escape closes the mobile add sheet (M09.5 a11y)', async () => {
+      setMobile(true)
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      renderDayView()
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Add activity' })).toBeInTheDocument(),
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Add activity' }))
+      expect(screen.getByRole('dialog', { name: 'Add activity' })).toBeInTheDocument()
+
+      await user.keyboard('{Escape}')
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog', { name: 'Add activity' })).not.toBeInTheDocument(),
+      )
+    })
+
     it('renders touch reorder buttons on mobile for untimed items', async () => {
       setMobile(true)
       const items = [

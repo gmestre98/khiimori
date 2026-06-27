@@ -3,6 +3,34 @@
  * No hardcoded colours, type sizes, or spacing — use token variables throughout.
  */
 
+/* ── Global focus ring (M09.5 S1) ──────────────────────────────────────────
+   Provide a consistent, token-driven focus ring for keyboard navigation.
+   :focus-visible targets only keyboard / programmatic focus so mouse clicks
+   are unaffected. Individual components may override the ring colour when the
+   default accent conflicts with a dark or filled background. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Skip navigation link — allows keyboard users to jump past repeated chrome.
+   Hidden by default; becomes visible on focus so it does not affect layout. */
+.skip-nav {
+  position: absolute;
+  top: -9999px;
+  left: var(--space-4);
+  z-index: 9999;
+  padding: var(--space-2) var(--space-4);
+  background: var(--accent);
+  color: var(--accent-on);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  white-space: nowrap;
+}
+.skip-nav:focus-visible {
+  top: var(--space-4);
+}
+
 /* ── App root ───────────────────────────────────────────────────────────────
    Fills the viewport height so the responsive AppLayout (M09.3) can stretch.
    The bare /signin route renders here too (without the layout chrome). */

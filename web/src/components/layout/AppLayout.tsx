@@ -43,6 +43,11 @@ export function AppLayout({
 }: AppLayoutProps) {
   return (
     <div className={['app-layout', className].filter(Boolean).join(' ')}>
+      {/* Skip-nav: visible only on :focus-visible, lets keyboard users jump
+          past the repeated navigation chrome to the main content. */}
+      <a className="skip-nav" href="#main-content">
+        Skip to main content
+      </a>
       {sidebar && (
         <aside className="app-layout-sidebar" aria-label="Primary">
           {sidebar}
@@ -50,7 +55,9 @@ export function AppLayout({
       )}
       <div className="app-layout-content">
         {header && <div className="app-layout-header">{header}</div>}
-        <main className="app-layout-main">{children}</main>
+        <main id="main-content" className="app-layout-main">
+          {children}
+        </main>
       </div>
       {bottomNav && <div className="app-layout-bottom-nav">{bottomNav}</div>}
     </div>
