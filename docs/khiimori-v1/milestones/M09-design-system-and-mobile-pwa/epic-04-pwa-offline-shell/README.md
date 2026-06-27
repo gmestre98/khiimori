@@ -1,5 +1,7 @@
 # Epic M09.4 — PWA installability & offline shell
 
+> **Status:** ✅ Done — all 5 stories shipped across PRs [#376](https://github.com/gmestre98/khiimori/pull/376) (S1), [#377](https://github.com/gmestre98/khiimori/pull/377) (S2), [#378](https://github.com/gmestre98/khiimori/pull/378) (S3), [#379](https://github.com/gmestre98/khiimori/pull/379) (S4), [#380](https://github.com/gmestre98/khiimori/pull/380) (S5). 5/5 ACs satisfied, 377 tests green.
+
 > Milestone: [09 — Design System & Mobile/PWA](../README.md) · PRD refs: §6 (Offline), §7.0, §7.2.
 
 ## Description
@@ -14,16 +16,16 @@ coordination that Planning and Journal plug their queued writes into.
 
 ## Acceptance Criteria
 
-- [ ] The app is an **installable PWA** (manifest, service worker, icons) and **launches standalone**
-      on a phone (PRD §7.2).
-- [ ] The PWA is **offline-capable**: the **app shell and current-trip viewing work offline** via
-      service-worker caching (PRD §6 Offline).
-- [ ] The service worker **coordinates the offline write queue** used by Milestones 04 (Planning) and
-      06 (Journal) — **one** mechanism, not three (PRD §6, §7.0).
-- [ ] Cached content updates correctly when back online (no stale-forever shell); update/version
-      handling is defined (PRD §6).
-- [ ] Offline behaviour is tested (install, offline shell load, queued write replay on reconnect)
-      (PRD §7.6).
+- [x] The app is an **installable PWA** (manifest, service worker, icons) and **launches standalone**
+      on a phone (PRD §7.2). — S1 + S2
+- [x] The PWA is **offline-capable**: the **app shell and current-trip viewing work offline** via
+      service-worker caching (PRD §6 Offline). — S2 + S3
+- [x] The service worker **coordinates the offline write queue** used by Milestones 04 (Planning) and
+      06 (Journal) — **one** mechanism, not three (PRD §6, §7.0). — S4
+- [x] Cached content updates correctly when back online (no stale-forever shell); update/version
+      handling is defined (PRD §6). — S5
+- [x] Offline behaviour is tested (install, offline shell load, queued write replay on reconnect)
+      (PRD §7.6). — S5 (offlineIntegration.test.ts, 15 tests)
 
 ## Implementation Details / Architecture
 
