@@ -36,7 +36,11 @@ export function QuickActionDialog({ open, onClose, title, children }: QuickActio
   }
 
   // Laptop: centred modal equivalent.
-  return <QuickActionModal open={open} onClose={onClose} title={title} children={children} />
+  return (
+    <QuickActionModal open={open} onClose={onClose} title={title}>
+      {children}
+    </QuickActionModal>
+  )
 }
 
 function QuickActionModal({ open, onClose, title, children }: QuickActionDialogProps) {
