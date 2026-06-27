@@ -15,31 +15,33 @@ import { DayView } from './trips/DayView'
 import { BacklogPage } from './trips/BacklogPage'
 import { TripBudgetPage } from './trips/TripBudgetPage'
 import { TripSharingPage } from './trips/TripSharingPage'
+import { AuthenticatedLayout } from './components/layout/AuthenticatedLayout'
 
-// App is the milestone-02 shell and route table. Public route: /signin. Gated
+// App is the shell and route table. Public route: /signin (rendered bare). Gated
 // routes (everything under RequireAuth) require a valid session and redirect
-// anonymous users to /signin. PostLoginRedirect returns a freshly-signed-in user
-// to where they were headed. The profile screen is added under the gate in S5.
+// anonymous users to /signin; they render inside AuthenticatedLayout, which
+// supplies the responsive navigation chrome (laptop sidebar / mobile bottom nav
+// + thumb-zone action, M09.3). PostLoginRedirect returns a freshly-signed-in
+// user to where they were headed.
 function App() {
   return (
     <ThemeProvider>
       <PostLoginRedirect />
-      <main className="app-shell">
-        <h1>Khiimori</h1>
-        <p className="tagline">Travel manager — app shell</p>
-
+      <div className="app-root">
         <Routes>
           <Route path="/signin" element={<SignIn />} />
           <Route element={<RequireAuth />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/trips/new" element={<TripFormPage />} />
-            <Route path="/trips/:id/edit" element={<TripFormPage />} />
-            <Route path="/trips/:tripId" element={<TripShellRoute />}>
-              <Route path="days/:date" element={<DayView />} />
-              <Route path="backlog" element={<BacklogPage />} />
-              <Route path="budget" element={<TripBudgetPage />} />
-              <Route path="sharing" element={<TripSharingPage />} />
+            <Route element={<AuthenticatedLayout />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/trips/new" element={<TripFormPage />} />
+              <Route path="/trips/:id/edit" element={<TripFormPage />} />
+              <Route path="/trips/:tripId" element={<TripShellRoute />}>
+                <Route path="days/:date" element={<DayView />} />
+                <Route path="backlog" element={<BacklogPage />} />
+                <Route path="budget" element={<TripBudgetPage />} />
+                <Route path="sharing" element={<TripSharingPage />} />
+              </Route>
             </Route>
           </Route>
           {/* Admin backoffice — gated by RequireAdmin (is_admin check, UX layer;
@@ -54,7 +56,7 @@ function App() {
           {/* Unknown paths fall back to home, which gates to sign-in if anonymous. */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </main>
+      </div>
     </ThemeProvider>
   )
 }
