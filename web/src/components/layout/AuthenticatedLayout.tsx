@@ -5,6 +5,7 @@ import { AppLayout } from './AppLayout'
 import { SidebarNav } from './SidebarNav'
 import { ThumbFab } from './ThumbFab'
 import { OfflineBanner } from './OfflineBanner'
+import { SyncStatus } from './SyncStatus'
 import { PRIMARY_NAV_ITEMS } from './navItems'
 
 // AuthenticatedLayout (M09.3 S2) is the route element wrapping every gated
@@ -42,6 +43,7 @@ export function AuthenticatedLayout() {
   return (
     <AppLayout sidebar={sidebar} bottomNav={<BottomNav items={PRIMARY_NAV_ITEMS} />}>
       <OfflineBanner />
+      <SyncStatus />
       <Outlet />
       {/* Primary action in the mobile thumb zone (hidden on laptop via CSS),
           only where creating a trip is the screen's primary action. */}

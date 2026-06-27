@@ -238,3 +238,22 @@
   font-size: var(--text-sm);
   text-align: center;
 }
+
+/* Sync notice (M09.4 S4). Transient, unobtrusive confirmation that queued
+   offline writes have replayed (or will retry). Pinned bottom-centre above the
+   mobile bottom nav so it doesn't cover content or the thumb-zone actions. */
+.sync-status {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--bottom-nav-height, 56px) + var(--space-3));
+  z-index: 50;
+  max-width: min(92vw, 32rem);
+  padding: var(--space-2) var(--space-4);
+  background: var(--text-h);
+  color: var(--bg);
+  font-size: var(--text-sm);
+  text-align: center;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}

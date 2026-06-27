@@ -62,7 +62,24 @@ storage stays bounded to one trip — not the whole history. Reads that were nev
 screen's own "couldn't load" state (the worker returns a synthetic 503), never a crash, and an
 [`OfflineBanner`](src/components/layout/OfflineBanner.tsx) gives a clear offline indication.
 
-The write queue (S4) and update/version handling (S5) build on this worker.
+Update/version handling (S5) builds on this worker.
+
+**Offline write queue (S4).** There is **one** offline write mechanism across Planning (M04), Journal
+(M06), and the PWA shell — it is not redefined here. Offline writes are persisted by
+[`src/lib/mutationQueue.ts`](src/lib/mutationQueue.ts) (`enqueue(kind, payload)`) and replayed in order
+by [`src/lib/replayQueue.ts`](src/lib/replayQueue.ts) (`replayQueue()`), both owned by Milestone 04.
+S4's contribution is to **drive that one queue from the PWA lifecycle**:
+[`src/lib/writeQueueCoordination.ts`](src/lib/writeQueueCoordination.ts) reuses M04's reconnect
+listener (the `online` event → replay) and adds a **cold-start drain** (replay once on launch if the app
+opens online with writes left over from a previous offline session, when no `online` event fires). It is
+started once by [`SyncStatus`](src/components/layout/SyncStatus.tsx) in the authenticated layout, which
+shows a transient "Synced N changes" / retry notice.
+
+**Plugging in a new offline write:** extend `MutationKind` and add a `dispatch` case in `replayQueue` —
+call `enqueue(kind, payload)` when offline. No second queue, no changes to the coordination layer.
+
+The shell SW and the write queue are independent stores (Cache API for reads, IndexedDB for queued
+writes) but one coordinated mechanism each, so offline edits and cached reads stay consistent.
 
 ## Testing
 
