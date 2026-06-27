@@ -52,3 +52,19 @@ indicator. The content column reserves bottom padding so the fixed nav never ove
 last row.
 
 Slots are optional: `AppLayout` with only `children` is a valid plain content shell.
+
+## Navigation chrome (S2)
+
+`AuthenticatedLayout` is the route element wrapping every gated screen (see `App.tsx`).
+It fills `AppLayout`'s slots from one shared destination list
+([`navItems.ts`](./navItems.ts) → `PRIMARY_NAV_ITEMS`), so laptop and mobile navigate
+the same information architecture:
+
+- **`SidebarNav`** — laptop sidebar: the primary destinations as a vertical list plus a
+  footer slot (sign out). Active route is `end`-matched for `/`.
+- **`BottomNav`** (Epic 02) — mobile bottom bar in the thumb zone; ≥48px tap targets.
+- **`ThumbFab`** — mobile-only floating primary action (e.g. _New trip_), pinned
+  bottom-right above the bottom nav with a ≥56px tap target and safe-area offset. Hidden
+  on laptop, where primary actions sit inline in the content.
+
+To change the destinations, edit `PRIMARY_NAV_ITEMS` once — both navs update.

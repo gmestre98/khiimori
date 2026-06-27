@@ -14,6 +14,9 @@
   flex-direction: column;
   min-height: 100%;
   width: 100%;
+  /* Height reserved at the bottom of the mobile content column for the fixed
+     bottom nav. Tap targets stay ≥48px (see .bottom-nav-link). */
+  --bottom-nav-height: 56px;
 }
 
 .app-layout-content {
@@ -41,22 +44,19 @@
   display: none;
 }
 
-/* The bottom-nav slot is mobile-only; shown by default, hidden on laptop. It is
-   fixed to the bottom edge (thumb zone) and respects the safe-area inset so it
-   clears the home indicator on iOS. */
+/* The bottom-nav slot is mobile-only. It is a transparent passthrough
+   (`display: contents`) so the BottomNav primitive's own fixed positioning
+   pins it to the viewport's bottom edge (thumb zone). Hidden on laptop. */
 .app-layout-bottom-nav {
-  position: sticky;
-  bottom: 0;
-  z-index: 20;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: var(--bg);
+  display: contents;
 }
 
 /* ── Mobile / tablet (< 1024px): purpose-built single-column layout ─────────── */
 @media (max-width: 1023px) {
   .app-layout-main {
-    /* Leave room so fixed bottom nav never overlaps the last content row. */
-    padding-bottom: var(--space-4);
+    /* Reserve room for the fixed bottom nav (height + safe-area inset) so it
+       never overlaps the last content row. */
+    padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -84,5 +84,115 @@
     max-width: var(--content-max-width, 1100px);
     margin: 0 auto;
     padding: var(--space-6);
+  }
+}
+
+/* ── SidebarNav (laptop) ─────────────────────────────────────────────────────
+   Vertical primary-destination list shown in AppLayout's sidebar (≥1024px). */
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: var(--space-4);
+}
+
+.sidebar-nav-brand {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-h);
+  padding: var(--space-1) var(--space-2);
+}
+
+.sidebar-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+}
+
+.sidebar-nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  /* Large tap target — comfortable on touch laptops too (≥44px tall). */
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+}
+
+.sidebar-nav-link:hover {
+  background: var(--surface-hover);
+  color: var(--text-h);
+}
+
+.sidebar-nav-link--active {
+  background: var(--surface-muted);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.sidebar-nav-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.sidebar-nav-icon {
+  font-size: var(--text-xl);
+  line-height: 1;
+}
+
+.sidebar-nav-footer {
+  margin-top: auto;
+}
+
+.sidebar-nav-signout {
+  width: 100%;
+}
+
+/* ── ThumbFab (mobile primary action) ────────────────────────────────────────
+   Floating action button pinned to the bottom-right thumb zone, above the fixed
+   bottom nav. Large tap target (≥56px). Hidden on laptop — the comfortable
+   layout places primary actions inline. */
+.thumb-fab {
+  position: fixed;
+  right: var(--space-4);
+  /* Sit above the bottom nav + safe-area inset. */
+  bottom: calc(var(--bottom-nav-height, 56px) + var(--space-3) + env(safe-area-inset-bottom, 0px));
+  z-index: 110;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 56px;
+  padding: 0 var(--space-5);
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--accent-on);
+  font-size: var(--text-md);
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+}
+
+.thumb-fab-icon {
+  font-size: var(--text-xl);
+  line-height: 1;
+}
+
+.thumb-fab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (min-width: 1024px) {
+  .thumb-fab {
+    display: none;
   }
 }
