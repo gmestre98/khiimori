@@ -55,14 +55,14 @@ export function SidebarNav({
       {/* Primary nav */}
       <ul className="sidebar-nav-list" role="list">
         {items.map((item) => (
-          <NavItem key={item.to} item={item} />
+          <NavItem key={item.label} item={item} />
         ))}
 
         {secondaryItems && secondaryItems.length > 0 && (
           <>
             <li className="sidebar-nav-divider" role="separator" />
             {secondaryItems.map((item) => (
-              <NavItem key={item.to} item={item} />
+              <NavItem key={item.label} item={item} />
             ))}
           </>
         )}

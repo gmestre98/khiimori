@@ -14,7 +14,7 @@ import { CurrentTripCard } from './CurrentTripCard'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { BudgetGlance } from './RollupDisplay'
 
-type Tab = 'current' | 'upcoming' | 'past'
+type Tab = 'current' | 'past'
 type PendingAction = { type: 'archive' | 'delete'; trip: Trip }
 
 // PlusIcon — inline SVG for the "New trip" button
@@ -251,7 +251,7 @@ export function TripsDashboard() {
           }}
         >
           <div className="trips-tabs" role="tablist">
-            {(['current', 'upcoming', 'past'] as Tab[]).map((t) => (
+            {(['current', 'past'] as Tab[]).map((t) => (
               <button
                 key={t}
                 role="tab"
@@ -261,7 +261,7 @@ export function TripsDashboard() {
                   .join(' ')}
                 onClick={() => setTab(t)}
               >
-                {t.charAt(0).toUpperCase() + t.slice(1)}
+                {t === 'current' ? 'Current & Upcoming' : 'Past'}
               </button>
             ))}
           </div>
@@ -289,6 +289,7 @@ export function TripsDashboard() {
           <>
             {tab === 'current' && (
               <>
+                {/* Current trip — hero, or the calmer cards / empty state */}
                 {currentTrip ? (
                   <CurrentTripCard
                     trip={currentTrip}
@@ -298,14 +299,7 @@ export function TripsDashboard() {
                     onArchive={() => setPending({ type: 'archive', trip: currentTrip })}
                     onDelete={() => setPending({ type: 'delete', trip: currentTrip })}
                   />
-                ) : data.current.length === 0 ? (
-                  <p className="trips-empty">
-                    No current trip.{' '}
-                    <Link to="/trips/new" style={{ color: 'var(--accent)' }}>
-                      Plan one →
-                    </Link>
-                  </p>
-                ) : (
+                ) : data.current.length > 0 ? (
                   <div className="trips-grid">
                     {data.current.map((t) => (
                       <TripCard
@@ -316,31 +310,38 @@ export function TripsDashboard() {
                       />
                     ))}
                   </div>
-                )}
-              </>
-            )}
-
-            {tab === 'upcoming' && (
-              <>
-                {data.upcoming.length === 0 ? (
+                ) : (
                   <p className="trips-empty">
-                    No upcoming trips.{' '}
+                    No current trip.{' '}
                     <Link to="/trips/new" style={{ color: 'var(--accent)' }}>
                       Plan one →
                     </Link>
                   </p>
-                ) : (
-                  <div className="trips-grid">
-                    {data.upcoming.map((t) => (
-                      <TripCard
-                        key={t.id}
-                        trip={t}
-                        onArchive={(trip) => setPending({ type: 'archive', trip })}
-                        onDelete={(trip) => setPending({ type: 'delete', trip })}
-                      />
-                    ))}
-                  </div>
                 )}
+
+                {/* Upcoming — stacked below the current trip */}
+                <section className="trips-section" aria-label="Upcoming trips">
+                  <h2 className="trips-section-title">Upcoming</h2>
+                  {data.upcoming.length === 0 ? (
+                    <p className="trips-empty">
+                      No upcoming trips.{' '}
+                      <Link to="/trips/new" style={{ color: 'var(--accent)' }}>
+                        Plan one →
+                      </Link>
+                    </p>
+                  ) : (
+                    <div className="trips-grid">
+                      {data.upcoming.map((t) => (
+                        <TripCard
+                          key={t.id}
+                          trip={t}
+                          onArchive={(trip) => setPending({ type: 'archive', trip })}
+                          onDelete={(trip) => setPending({ type: 'delete', trip })}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </section>
               </>
             )}
 

@@ -135,14 +135,6 @@ export function TripSharingPage() {
 
   return (
     <div className="sharing-page">
-      <header className="topnav">
-        <div className="crumbs">
-          <b>{trip.name}</b>
-          <span className="trip-shell-sep"> › </span>
-          Sharing
-        </div>
-      </header>
-
       <div className="screen-content sharing-body">
         <h2 className="h1 sharing-title">Sharing</h2>
         <p className="meta sharing-subtitle">
