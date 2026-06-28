@@ -57,6 +57,14 @@ describe('InstallPrompt', () => {
     expect(localStorage.getItem(DISMISS_KEY)).toBe('1')
   })
 
+  it('stays hidden while offline (defers to offline/sync indicators)', () => {
+    const spy = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    const { container } = render(<InstallPrompt />)
+    fireBeforeInstallPrompt()
+    expect(container.querySelector('.install-prompt')).toBeNull()
+    spy.mockRestore()
+  })
+
   it('triggers the native prompt and hides on Install', async () => {
     render(<InstallPrompt />)
     const event = fireBeforeInstallPrompt('accepted')

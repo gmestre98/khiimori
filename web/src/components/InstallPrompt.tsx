@@ -2,6 +2,7 @@ import { useState } from 'react'
 import './InstallPrompt.css'
 import { Button } from './ui'
 import { useInstallPrompt } from '../lib/useInstallPrompt'
+import { useIsOnline } from '../lib/useIsOnline'
 
 // Persisted across sessions so a visitor who said "Not now" isn't nagged on
 // every visit. Cleared automatically once they install (appinstalled hides it).
@@ -45,10 +46,14 @@ function IOSShareIcon() {
 // app isn't already installed — so it stays out of the way for everyone else.
 export function InstallPrompt() {
   const { canInstall, showIOSInstructions, install } = useInstallPrompt()
+  const online = useIsOnline()
   const [dismissed, setDismissed] = useState(readDismissed)
 
   if (dismissed) return null
   if (!canInstall && !showIOSInstructions) return null
+  // Defer the offer while offline: a fresh install isn't the priority then, and
+  // it avoids colliding with the bottom-pinned offline/sync indicators.
+  if (!online) return null
 
   function dismiss() {
     setDismissed(true)
