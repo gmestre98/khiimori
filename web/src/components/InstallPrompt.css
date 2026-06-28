@@ -1,0 +1,50 @@
+/* Install prompt — app-wide, dismissible "add to home screen" banner. Fixed to
+   the bottom so it doesn't disturb page layout; sits above the mobile bottom
+   nav (when present). Hidden entirely unless the platform supports installing. */
+.install-prompt {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--bottom-nav-height, 0px) + var(--s4));
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  flex-wrap: wrap;
+  justify-content: space-between;
+  width: min(92vw, 30rem);
+  padding: var(--s3) var(--s4);
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-3);
+}
+
+.install-prompt-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--t-sm);
+  line-height: var(--t-sm-lh);
+  color: var(--ink-2);
+  min-width: 12rem;
+  flex: 1;
+}
+
+.install-prompt-text strong {
+  font-size: var(--t-body);
+  color: var(--ink);
+}
+
+.install-prompt-share-icon {
+  vertical-align: -3px;
+  margin: 0 1px;
+}
+
+.install-prompt-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-shrink: 0;
+}
