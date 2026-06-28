@@ -43,7 +43,7 @@ const tripB = {
 }
 
 describe('TripsDashboard', () => {
-  it('renders bucket headings even when all buckets are empty', async () => {
+  it('renders tab buttons for all three buckets', async () => {
     mockFetchTrips(emptyResponse)
 
     render(
@@ -54,9 +54,9 @@ describe('TripsDashboard', () => {
 
     await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument())
 
-    expect(screen.getByRole('region', { name: /current/i })).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: /upcoming/i })).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: /past/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /current/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /upcoming/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /past/i })).toBeInTheDocument()
   })
 
   it('shows empty-state messages when buckets are empty', async () => {
@@ -68,12 +68,19 @@ describe('TripsDashboard', () => {
       </MemoryRouter>,
     )
 
+    // Current tab is default
     await waitFor(() => screen.getByText(/no current trip/i))
+
+    // Upcoming tab
+    fireEvent.click(screen.getByRole('tab', { name: /upcoming/i }))
     expect(screen.getByText(/no upcoming trips/i)).toBeInTheDocument()
+
+    // Past tab
+    fireEvent.click(screen.getByRole('tab', { name: /past/i }))
     expect(screen.getByText(/no past trips/i)).toBeInTheDocument()
   })
 
-  it('renders trip cards with name, destinations, and dates', async () => {
+  it('renders trip cards with name, destinations, and dates on the right tabs', async () => {
     mockFetchTrips({ current: [tripA], upcoming: [tripB], past: [] })
 
     render(
@@ -82,30 +89,15 @@ describe('TripsDashboard', () => {
       </MemoryRouter>,
     )
 
+    // tripA is in the current bucket (is_current: false → shows as grid card on Current tab)
     await waitFor(() => screen.getByText('Japan 2024'))
-
-    expect(screen.getByText('Japan 2024')).toBeInTheDocument()
-    expect(screen.getByText('Tokyo, Kyoto')).toBeInTheDocument()
+    expect(screen.getByText(/tokyo.*kyoto/i)).toBeInTheDocument()
     expect(screen.getByText('2024-04-01 – 2024-04-14')).toBeInTheDocument()
 
+    // tripB is on the Upcoming tab
+    fireEvent.click(screen.getByRole('tab', { name: /upcoming/i }))
     expect(screen.getByText('Portugal 2025')).toBeInTheDocument()
     expect(screen.getByText('Lisbon')).toBeInTheDocument()
-  })
-
-  it('shows a cover image when cover is set', async () => {
-    const tripWithCover = { ...tripA, cover: 'https://example.com/cover.jpg' }
-    mockFetchTrips({ current: [tripWithCover], upcoming: [], past: [] })
-
-    render(
-      <MemoryRouter>
-        <TripsDashboard />
-      </MemoryRouter>,
-    )
-
-    await waitFor(() => screen.getByText('Japan 2024'))
-
-    const img = document.querySelector('.trip-card-cover') as HTMLImageElement
-    expect(img).toHaveAttribute('src', 'https://example.com/cover.jpg')
   })
 
   it('shows an error message on fetch failure', async () => {
@@ -131,6 +123,9 @@ describe('TripsDashboard', () => {
       </MemoryRouter>,
     )
 
+    // Navigate to Upcoming tab to see tripA
+    await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('tab', { name: /upcoming/i }))
     await waitFor(() => screen.getByText('Japan 2024'))
 
     expect(screen.getByRole('button', { name: /archive japan 2024/i })).toBeInTheDocument()
@@ -146,7 +141,10 @@ describe('TripsDashboard', () => {
       </MemoryRouter>,
     )
 
+    await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('tab', { name: /upcoming/i }))
     await waitFor(() => screen.getByText('Japan 2024'))
+
     fireEvent.click(screen.getByRole('button', { name: /archive japan 2024/i }))
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
@@ -166,16 +164,18 @@ describe('TripsDashboard', () => {
       </MemoryRouter>,
     )
 
+    await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('tab', { name: /upcoming/i }))
     await waitFor(() => screen.getByText('Japan 2024'))
+
     fireEvent.click(screen.getByRole('button', { name: /delete japan 2024/i }))
 
     const dialog = screen.getByRole('dialog')
     expect(dialog).toBeInTheDocument()
     expect(screen.getByText(/cannot be undone/i)).toBeInTheDocument()
-    expect(screen.getByText(/all days and associated data/i)).toBeInTheDocument()
   })
 
-  it('archives a trip: removes from active buckets and shows Past/archived section', async () => {
+  it('archives a trip: removes from upcoming and appears on Past tab', async () => {
     mockFetchTrips({ current: [], upcoming: [tripA], past: [] })
 
     vi.spyOn(globalThis, 'fetch')
@@ -192,14 +192,19 @@ describe('TripsDashboard', () => {
       </MemoryRouter>,
     )
 
+    await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('tab', { name: /upcoming/i }))
     await waitFor(() => screen.getByText('Japan 2024'))
+
     fireEvent.click(screen.getByRole('button', { name: /archive japan 2024/i }))
     fireEvent.click(screen.getByRole('button', { name: /^archive$/i }))
 
-    await waitFor(() =>
-      expect(screen.getByRole('region', { name: /past\/archived/i })).toBeInTheDocument(),
-    )
-    expect(screen.getByRole('region', { name: /upcoming/i })).not.toHaveTextContent('Japan 2024')
+    // Trip removed from upcoming tab
+    await waitFor(() => expect(screen.queryByText('Japan 2024')).not.toBeInTheDocument())
+
+    // Appears on Past tab (moved to local archived state)
+    fireEvent.click(screen.getByRole('tab', { name: /past/i }))
+    expect(screen.getByText('Japan 2024')).toBeInTheDocument()
   })
 
   it('deletes a trip: removes from dashboard after confirmation', async () => {
@@ -217,7 +222,10 @@ describe('TripsDashboard', () => {
       </MemoryRouter>,
     )
 
+    await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('tab', { name: /upcoming/i }))
     await waitFor(() => screen.getByText('Japan 2024'))
+
     fireEvent.click(screen.getByRole('button', { name: /delete japan 2024/i }))
     fireEvent.click(screen.getByRole('button', { name: /^delete$/i }))
 
@@ -233,7 +241,10 @@ describe('TripsDashboard', () => {
       </MemoryRouter>,
     )
 
+    await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('tab', { name: /upcoming/i }))
     await waitFor(() => screen.getByText('Japan 2024'))
+
     fireEvent.click(screen.getByRole('button', { name: /delete japan 2024/i }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
 

@@ -57,7 +57,7 @@ describe('CurrentTripCard', () => {
         <CurrentTripCard trip={baseTrip} />
       </MemoryRouter>,
     )
-    expect(screen.getByText((t) => t.trim() === 'Day 5')).toBeInTheDocument()
+    expect(screen.getByText(/^Day 5 \/ \d+$/)).toBeInTheDocument()
   })
 
   it('shows Day 1 when trip started today', () => {
@@ -67,7 +67,7 @@ describe('CurrentTripCard', () => {
         <CurrentTripCard trip={trip} />
       </MemoryRouter>,
     )
-    expect(screen.getByText((t) => t.trim() === 'Day 1')).toBeInTheDocument()
+    expect(screen.getByText(/^Day 1 \/ \d+$/)).toBeInTheDocument()
   })
 
   it('renders the destinations', () => {
@@ -76,7 +76,7 @@ describe('CurrentTripCard', () => {
         <CurrentTripCard trip={baseTrip} />
       </MemoryRouter>,
     )
-    expect(screen.getByText('Tokyo, Kyoto')).toBeInTheDocument()
+    expect(screen.getByText(/tokyo.*kyoto/i)).toBeInTheDocument()
   })
 
   it('renders the budget-glance slot region', () => {
@@ -94,7 +94,7 @@ describe('CurrentTripCard', () => {
         <CurrentTripCard trip={baseTrip} />
       </MemoryRouter>,
     )
-    expect(screen.getByText(/budget overview coming soon/i)).toBeInTheDocument()
+    expect(screen.getByText(/budget overview loading/i)).toBeInTheDocument()
   })
 
   it('renders custom budgetGlance content when provided', () => {
@@ -107,24 +107,13 @@ describe('CurrentTripCard', () => {
     expect(screen.queryByText(/coming soon/i)).not.toBeInTheDocument()
   })
 
-  it('renders a cover image when cover is set', () => {
-    const trip = { ...baseTrip, cover: 'https://example.com/cover.jpg' }
-    render(
-      <MemoryRouter>
-        <CurrentTripCard trip={trip} />
-      </MemoryRouter>,
-    )
-    const img = document.querySelector('.current-trip-cover') as HTMLImageElement
-    expect(img).toHaveAttribute('src', 'https://example.com/cover.jpg')
-  })
-
-  it('omits the cover image when cover is empty', () => {
+  it('renders the teal panel with day counter', () => {
     render(
       <MemoryRouter>
         <CurrentTripCard trip={baseTrip} />
       </MemoryRouter>,
     )
-    expect(document.querySelector('.current-trip-cover')).toBeNull()
+    expect(document.querySelector('.current-trip-panel')).not.toBeNull()
   })
 
   it('omits day number when trip has not started yet', () => {

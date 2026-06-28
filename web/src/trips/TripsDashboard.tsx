@@ -14,104 +14,92 @@ import { CurrentTripCard } from './CurrentTripCard'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { BudgetGlance } from './RollupDisplay'
 
+type Tab = 'current' | 'upcoming' | 'past'
 type PendingAction = { type: 'archive' | 'delete'; trip: Trip }
 
-// TripCard renders a single trip's summary with Edit, Archive, and Delete controls.
-// Authorization is server-side scoped — only trips the user owns or is a member
-// of appear (PRD §5.9); the server enforces the owner-only constraint on mutation.
-// onArchive is omitted for already-archived trips to avoid a no-op button.
+// PlusIcon — inline SVG for the "New trip" button
+function PlusIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
+// TripCard renders an upcoming/past trip as a calm card
 function TripCard({
   trip,
+  isPast,
   onArchive,
   onDelete,
 }: {
   trip: Trip
+  isPast?: boolean
   onArchive?: (trip: Trip) => void
   onDelete: (trip: Trip) => void
 }) {
+  const destinations = trip.destinations.join(' · ')
   const dateRange = `${trip.start_date} – ${trip.end_date}`
-  const destinations = trip.destinations.join(', ')
 
   return (
-    <article className="trip-card">
-      {trip.cover && <img src={trip.cover} alt="" className="trip-card-cover" aria-hidden="true" />}
-      <div className="trip-card-body">
+    <article className={['trip-card', isPast ? 'trip-card--past' : ''].filter(Boolean).join(' ')}>
+      <div className="trip-card-header">
         <h3 className="trip-card-name">{trip.name}</h3>
-        {destinations && <p className="trip-card-destinations">{destinations}</p>}
-        <p className="trip-card-dates">{dateRange}</p>
-        <div className="trip-card-actions">
-          <Link
-            to={`/trips/${trip.id}`}
-            state={{ trip }}
-            className="trip-card-open-link"
-            aria-label={`Open ${trip.name}`}
-          >
-            Open
-          </Link>
-          <Link
-            to={`/trips/${trip.id}/edit`}
-            state={{ trip }}
-            className="trip-card-edit-link"
-            aria-label={`Edit ${trip.name}`}
-          >
-            Edit
-          </Link>
-          {onArchive && (
-            <button
-              className="btn-ghost"
-              onClick={() => onArchive(trip)}
-              aria-label={`Archive ${trip.name}`}
-            >
-              Archive
-            </button>
-          )}
+        {isPast ? (
+          <span className="chip chip--accent" style={{ fontSize: 11, gap: 4 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)' }}>
+              <path d="M20 6L9 17l-5-5" />
+            </svg>
+            journal
+          </span>
+        ) : (
+          <span className="chip">upcoming</span>
+        )}
+      </div>
+      {destinations && <p className="trip-card-destinations">{destinations}</p>}
+      <div className="trip-card-footer">
+        <p className="trip-card-dates num">{dateRange}</p>
+      </div>
+      <div className="trip-card-actions">
+        <Link
+          to={`/trips/${trip.id}`}
+          state={{ trip }}
+          className="trip-card-open-link"
+          onClick={(e) => e.stopPropagation()}
+          aria-label={`Open ${trip.name}`}
+        >
+          Open
+        </Link>
+        <Link
+          to={`/trips/${trip.id}/edit`}
+          state={{ trip }}
+          className="trip-card-edit-link"
+          onClick={(e) => e.stopPropagation()}
+          aria-label={`Edit ${trip.name}`}
+        >
+          Edit
+        </Link>
+        {onArchive && (
           <button
-            className="btn-ghost-danger"
-            onClick={() => onDelete(trip)}
-            aria-label={`Delete ${trip.name}`}
+            className="btn-ghost btn-sm"
+            onClick={(e) => { e.stopPropagation(); onArchive(trip) }}
+            aria-label={`Archive ${trip.name}`}
           >
-            Delete
+            Archive
           </button>
-        </div>
+        )}
+        <button
+          className="btn-ghost-danger"
+          onClick={(e) => { e.stopPropagation(); onDelete(trip) }}
+          aria-label={`Delete ${trip.name}`}
+        >
+          Delete
+        </button>
       </div>
     </article>
   )
 }
 
-// BucketSection renders a labelled bucket (Current / Upcoming / Past / Archived)
-// with its trips or an empty-state message when there are none.
-function BucketSection({
-  title,
-  trips,
-  emptyLabel,
-  onArchive,
-  onDelete,
-}: {
-  title: string
-  trips: Trip[]
-  emptyLabel: string
-  onArchive?: (trip: Trip) => void
-  onDelete: (trip: Trip) => void
-}) {
-  return (
-    <section className="trips-bucket" aria-label={title}>
-      <h2 className="trips-bucket-title">{title}</h2>
-      {trips.length === 0 ? (
-        <p className="trips-empty">{emptyLabel}</p>
-      ) : (
-        <ul className="trips-list" role="list">
-          {trips.map((t) => (
-            <li key={t.id}>
-              <TripCard trip={t} onArchive={onArchive} onDelete={onDelete} />
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  )
-}
-
-// removeTripFromData removes a trip from all buckets in TripsResponse.
 function removeTripFromData(data: TripsResponse, id: string): TripsResponse {
   return {
     current: data.current.filter((t) => t.id !== id),
@@ -120,9 +108,6 @@ function removeTripFromData(data: TripsResponse, id: string): TripsResponse {
   }
 }
 
-// TripsDashboard fetches and renders the Current / Upcoming / Past trip buckets
-// from GET /trips, plus an Archived section populated client-side as the user
-// archives trips in this session. Authorization and bucketing are server-side.
 export function TripsDashboard() {
   const [data, setData] = useState<TripsResponse | null>(null)
   const [archived, setArchived] = useState<Trip[]>([])
@@ -131,6 +116,7 @@ export function TripsDashboard() {
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [currentRollup, setCurrentRollup] = useState<BudgetRollup | null>(null)
+  const [tab, setTab] = useState<Tab>('current')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -143,9 +129,7 @@ export function TripsDashboard() {
         if (current) {
           fetchBudgetRollup(current.id, controller.signal)
             .then((r) => setCurrentRollup(r))
-            .catch(() => {
-              // Glance is best-effort; silently degrade.
-            })
+            .catch(() => {})
         }
       })
       .catch((err: unknown) => {
@@ -188,32 +172,17 @@ export function TripsDashboard() {
     }
   }
 
-  if (loading) {
-    return (
-      <p className="trips-loading" aria-busy="true">
-        Loading trips…
-      </p>
-    )
-  }
-
-  if (error) {
-    return (
-      <p role="alert" className="trips-error">
-        {error}
-      </p>
-    )
-  }
-
-  if (!data) return null
-
-  const currentTrip = data.current.find((t) => t.is_current) ?? null
+  const currentTrip = data?.current.find((t) => t.is_current) ?? null
+  const totalCount = data
+    ? data.current.length + data.upcoming.length + data.past.length + archived.length
+    : 0
 
   return (
-    <div className="trips-dashboard">
+    <>
       {pending?.type === 'archive' && (
         <ConfirmModal
           title="Archive trip"
-          message={`Archive "${pending.trip.name}"? It will move to your archive and no longer appear in active lists.`}
+          message={`Archive "${pending.trip.name}"? It will move to your archive.`}
           confirmLabel="Archive"
           onConfirm={handleConfirm}
           onCancel={handleCancel}
@@ -222,61 +191,120 @@ export function TripsDashboard() {
       {pending?.type === 'delete' && (
         <ConfirmModal
           title="Delete trip"
-          message={`Permanently delete "${pending.trip.name}"? This removes all days and associated data and cannot be undone.`}
+          message={`Permanently delete "${pending.trip.name}"? This cannot be undone.`}
           confirmLabel="Delete"
           onConfirm={handleConfirm}
           onCancel={handleCancel}
           danger
         />
       )}
-      <div className="trips-dashboard-header">
-        <Link to="/trips/new" className="btn-primary trips-new-btn">
-          + New trip
-        </Link>
+
+      {/* Top nav bar */}
+      <div className="trips-dashboard-topnav">
+        <div className="trips-dashboard-crumbs">My Trips</div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <Link to="/trips/new" className="btn-primary trips-new-btn">
+            <PlusIcon /> New trip
+          </Link>
+        </div>
       </div>
-      {actionError && (
-        <p role="alert" className="trips-error">
-          {actionError}
-        </p>
-      )}
-      {currentTrip ? (
-        <CurrentTripCard
-          trip={currentTrip}
-          budgetGlance={currentRollup ? <BudgetGlance rollup={currentRollup} /> : undefined}
-          onArchive={() => setPending({ type: 'archive', trip: currentTrip })}
-          onDelete={() => setPending({ type: 'delete', trip: currentTrip })}
-        />
-      ) : (
-        <BucketSection
-          title="Current"
-          trips={data.current}
-          emptyLabel="No current trip."
-          onArchive={(t) => setPending({ type: 'archive', trip: t })}
-          onDelete={(t) => setPending({ type: 'delete', trip: t })}
-        />
-      )}
-      <BucketSection
-        title="Upcoming"
-        trips={data.upcoming}
-        emptyLabel="No upcoming trips."
-        onArchive={(t) => setPending({ type: 'archive', trip: t })}
-        onDelete={(t) => setPending({ type: 'delete', trip: t })}
-      />
-      <BucketSection
-        title="Past"
-        trips={data.past}
-        emptyLabel="No past trips."
-        onArchive={(t) => setPending({ type: 'archive', trip: t })}
-        onDelete={(t) => setPending({ type: 'delete', trip: t })}
-      />
-      {archived.length > 0 && (
-        <BucketSection
-          title="Past/archived"
-          trips={archived}
-          emptyLabel=""
-          onDelete={(t) => setPending({ type: 'delete', trip: t })}
-        />
-      )}
-    </div>
+
+      <div className="trips-dashboard">
+        {actionError && (
+          <p role="alert" className="trips-error">{actionError}</p>
+        )}
+
+        {/* Tab bar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--s6)' }}>
+          <div className="trips-tabs" role="tablist">
+            {(['current', 'upcoming', 'past'] as Tab[]).map((t) => (
+              <button
+                key={t}
+                role="tab"
+                aria-selected={tab === t}
+                className={['trips-tabs-btn', tab === t ? 'trips-tabs-btn--active' : ''].filter(Boolean).join(' ')}
+                onClick={() => setTab(t)}
+              >
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </div>
+          {data && <span className="trips-tab-meta">{totalCount} {totalCount === 1 ? 'trip' : 'trips'}</span>}
+        </div>
+
+        {/* Loading / error states */}
+        {loading && <p className="trips-loading" aria-busy="true">Loading trips…</p>}
+        {error && <p role="alert" className="trips-error">{error}</p>}
+
+        {/* Tab content */}
+        {!loading && !error && data && (
+          <>
+            {tab === 'current' && (
+              <>
+                {currentTrip ? (
+                  <CurrentTripCard
+                    trip={currentTrip}
+                    budgetGlance={currentRollup ? <BudgetGlance rollup={currentRollup} /> : undefined}
+                    onArchive={() => setPending({ type: 'archive', trip: currentTrip })}
+                    onDelete={() => setPending({ type: 'delete', trip: currentTrip })}
+                  />
+                ) : data.current.length === 0 ? (
+                  <p className="trips-empty">No current trip. <Link to="/trips/new" style={{ color: 'var(--accent)' }}>Plan one →</Link></p>
+                ) : (
+                  <div className="trips-grid">
+                    {data.current.map((t) => (
+                      <TripCard
+                        key={t.id}
+                        trip={t}
+                        onArchive={(trip) => setPending({ type: 'archive', trip })}
+                        onDelete={(trip) => setPending({ type: 'delete', trip })}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {tab === 'upcoming' && (
+              <>
+                {data.upcoming.length === 0 ? (
+                  <p className="trips-empty">No upcoming trips. <Link to="/trips/new" style={{ color: 'var(--accent)' }}>Plan one →</Link></p>
+                ) : (
+                  <div className="trips-grid">
+                    {data.upcoming.map((t) => (
+                      <TripCard
+                        key={t.id}
+                        trip={t}
+                        onArchive={(trip) => setPending({ type: 'archive', trip })}
+                        onDelete={(trip) => setPending({ type: 'delete', trip })}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {tab === 'past' && (
+              <>
+                {data.past.length === 0 && archived.length === 0 ? (
+                  <p className="trips-empty">No past trips yet.</p>
+                ) : (
+                  <div className="trips-grid">
+                    {[...data.past, ...archived].map((t) => (
+                      <TripCard
+                        key={t.id}
+                        trip={t}
+                        isPast
+                        onDelete={(trip) => setPending({ type: 'delete', trip })}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </>
   )
 }

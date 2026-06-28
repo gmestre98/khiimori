@@ -1,221 +1,186 @@
 /*
- * Design tokens — M09.1 (design system foundation).
+ * Design tokens — source of truth: docs/khiimori-v1/design/khiimori-design.html
  *
- * Structure:
- *   1. Primitive color scale  — raw values, not used directly in components
- *   2. Semantic color tokens  — meaningful names that components consume
- *   3. Accent tokens          — single configurable accent (status/budget/pins only)
- *   4. Typography tokens      — font families and size scale
- *   5. Spacing tokens         — size scale (4-px base grid)
- *   6. Border-radius tokens
- *   7. Shadow tokens
+ * Sections:
+ *   1. Design tokens (brand palette, type, spacing, radius, shadow, motion)
+ *   2. Backward-compat semantic aliases (for existing components)
  *
- * Re-skinning: edit the primitive scale + semantic mappings below.
- * The accent colour is intentionally a single token — apply only to:
- *   • status badges / indicators
- *   • budget bars (progress fills)
- *   • map pins
- * See docs/khiimori-v1/milestones/M09-design-system-and-mobile-pwa/epic-01-design-tokens-theming/
+ * Changing a design token re-skins the whole app. Components reference
+ * var(--token), never hardcoded hex values.
  */
 
-/* ── 1. Primitive color scale ──────────────────────────────────────────────── */
+/* ── 1. DESIGN TOKENS ──────────────────────────────────────────────────────── */
 :root {
-  --color-black: #0a0a0a;
-  --color-gray-950: #111111;
-  --color-gray-900: #1a1a1a;
-  --color-gray-800: #2d2d2d;
-  --color-gray-700: #404040;
-  --color-gray-600: #525252;
-  --color-gray-500: #737373;
-  --color-gray-400: #a3a3a3;
-  --color-gray-300: #d4d4d4;
-  --color-gray-200: #e5e5e5;
-  --color-gray-150: #ededed;
-  --color-gray-100: #f5f5f5;
-  --color-gray-50: #fafafa;
-  --color-white: #ffffff;
+  /* ---- Brand & ink ---- */
+  --ink: #101113;
+  --ink-2: #3a3d42;
+  --muted: #6b7076;
+  --faint: #9aa0a6;
 
-  /* Status primitives — fixed regardless of theme */
-  --color-success: #16a34a;
-  --color-success-bg: #f0fdf4;
-  --color-warning: #b45309;
-  --color-warning-bg: #fffbeb;
-  --color-error: #dc2626;
-  --color-error-bg: #fef2f2;
-  --color-error-border: #fecaca;
-  /* Rating (star) indicator — amber, fixed across themes */
-  --color-rating: #f59e0b;
+  /* ---- Surfaces ---- */
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f7f8f8;
+  --surface-3: #eef0f0;
+
+  /* ---- Lines ---- */
+  --line: #e7e9ea;
+  --line-2: #dcdfe1;
+  --line-strong: #101113;
+
+  /* ---- Accent (teal) — status, progress, active state ---- */
+  --accent: #2f6f6a;
+  --accent-press: #255854;
+  --accent-tint: #e7f0ef;
+  --accent-tint-2: #d4e4e2;
+
+  /* ---- Secondary accent (amber) — use sparingly ---- */
+  --amber: #b06a2c;
+  --amber-tint: #f6ece1;
+
+  /* ---- Functional / status ---- */
+  --ok: #2f6f6a;
+  --warn: #b8852a;
+  --danger: #b3402e;
+  --danger-tint: #f7e8e4;
+  --info: #3a6ea5;
+
+  /* ---- Category colors (budget / map pins) ---- */
+  --cat-stays: #2f6f6a;
+  --cat-transport: #3a6ea5;
+  --cat-food: #b06a2c;
+  --cat-activities: #6d5aa6;
+  --cat-other: #6b7076;
+
+  /* ---- Typography ---- */
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-num: "Inter", ui-monospace, "SF Mono", Menlo, monospace;
+  --t-display: 28px;  --t-display-lh: 34px;
+  --t-h1: 22px;       --t-h1-lh: 28px;
+  --t-h2: 17px;       --t-h2-lh: 24px;
+  --t-h3: 14px;       --t-h3-lh: 20px;
+  --t-body: 14px;     --t-body-lh: 21px;
+  --t-sm: 12.5px;     --t-sm-lh: 18px;
+  --t-xs: 11px;       --t-xs-lh: 15px;
+  --t-eyebrow: 11px;
+  --fw-reg: 400;
+  --fw-med: 500;
+  --fw-semi: 600;
+  --fw-bold: 700;
+
+  /* ---- Spacing (4pt scale) ---- */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+  --s6: 24px;
+  --s7: 32px;
+  --s8: 40px;
+  --s9: 48px;
+  --s10: 64px;
+
+  /* ---- Radius ---- */
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+  --r-pill: 999px;
+
+  /* ---- Elevation (restrained, almost flat) ---- */
+  --shadow-1: 0 1px 2px rgba(16,17,19,.04), 0 1px 1px rgba(16,17,19,.03);
+  --shadow-2: 0 4px 14px rgba(16,17,19,.06), 0 1px 3px rgba(16,17,19,.05);
+  --shadow-3: 0 12px 32px rgba(16,17,19,.12);
+
+  /* ---- Motion ---- */
+  --ease: cubic-bezier(.2,.7,.3,1);
+  --dur: 160ms;
 }
 
-/* ── 2. Semantic color tokens (light mode) ─────────────────────────────────── */
-:root {
-  --bg: var(--color-white);
-  --bg-muted: var(--color-gray-50);
-  --surface: var(--color-white);
-  --surface-muted: var(--color-gray-100);
-  --surface-hover: var(--color-gray-150);
-  --text-h: var(--color-black);
-  --text: var(--color-gray-600);
-  --text-secondary: var(--color-gray-500);
-  --muted: var(--color-gray-500);
-  --text-muted: var(--color-gray-400);
-  --border: var(--color-gray-200);
-  --border-faint: var(--color-gray-100);
-
-  /* Status semantics */
-  --success: var(--color-success);
-  --warning: var(--color-warning);
-  --danger: var(--color-error);
-  --error: var(--color-error);
-}
-
-/* Dark mode semantic overrides */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: var(--color-gray-950);
-    --bg-muted: var(--color-gray-900);
-    --surface: var(--color-gray-900);
-    --surface-muted: var(--color-gray-800);
-    --surface-hover: var(--color-gray-700);
-    --text-h: var(--color-white);
-    --text: var(--color-gray-400);
-    --text-secondary: var(--color-gray-500);
-    --muted: var(--color-gray-500);
-    --text-muted: var(--color-gray-600);
-    --border: var(--color-gray-800);
-    --border-faint: var(--color-gray-900);
-  }
-}
-
-/* Explicit light/dark overrides (from user preference, applied by ThemeProvider) */
-[data-theme='light'] {
-  --bg: var(--color-white);
-  --bg-muted: var(--color-gray-50);
-  --surface: var(--color-white);
-  --surface-muted: var(--color-gray-100);
-  --surface-hover: var(--color-gray-150);
-  --text-h: var(--color-black);
-  --text: var(--color-gray-600);
-  --text-secondary: var(--color-gray-500);
-  --muted: var(--color-gray-500);
-  --text-muted: var(--color-gray-400);
-  --border: var(--color-gray-200);
-  --border-faint: var(--color-gray-100);
-}
-
-[data-theme='dark'] {
-  --bg: var(--color-gray-950);
-  --bg-muted: var(--color-gray-900);
-  --surface: var(--color-gray-900);
-  --surface-muted: var(--color-gray-800);
-  --surface-hover: var(--color-gray-700);
-  --text-h: var(--color-white);
-  --text: var(--color-gray-400);
-  --text-secondary: var(--color-gray-500);
-  --muted: var(--color-gray-500);
-  --text-muted: var(--color-gray-600);
-  --border: var(--color-gray-800);
-  --border-faint: var(--color-gray-900);
-}
-
-/* ── 3. Accent tokens — SINGLE accent, used only for status/budget/pins ────── */
+/* ── 2. BACKWARD-COMPAT SEMANTIC ALIASES ───────────────────────────────────── */
 /*
- * The accent is intentionally minimal. Feature code must not add accent usage
- * outside the three sanctioned cases. Utility classes .accent-text / .accent-bg
- * make sanctioned usage the easy path; raw hex use elsewhere is a red flag.
+ * Existing components reference these token names. Mapping them to design values
+ * means the visual language is consistent without touching every component.
  */
 :root {
-  /* Accent primitive — edit this one value to re-skin the whole accent system */
-  --color-accent-base: #1a1a1a; /* near-black; switch to e.g. #2563eb for a colour accent */
-
-  --accent: var(--color-accent-base);
-  --accent-bg: color-mix(in srgb, var(--color-accent-base) 8%, transparent);
-  --accent-border: color-mix(in srgb, var(--color-accent-base) 30%, transparent);
-  --accent-hover: color-mix(in srgb, var(--color-accent-base) 6%, transparent);
-  --accent-subtle: color-mix(in srgb, var(--color-accent-base) 5%, var(--bg));
-
-  /* Accent text on a dark/accent background */
-  --accent-on: var(--color-white);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-accent-base: #e5e5e5; /* near-white accent on dark backgrounds */
-    --accent-on: var(--color-black);
-  }
-}
-
-[data-theme='light'] {
-  --color-accent-base: #1a1a1a;
-  --accent-on: var(--color-white);
-}
-
-[data-theme='dark'] {
-  --color-accent-base: #e5e5e5;
-  --accent-on: var(--color-black);
-}
-
-/* ── 4. Typography tokens ──────────────────────────────────────────────────── */
-:root {
-  --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --font-heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: ui-monospace, Consolas, monospace;
-
-  --text-xs: 11px;
+  /* Typography */
+  --font-sans: var(--font);
+  --font-heading: var(--font);
+  --font-mono: var(--font-num);
+  --text-xs: var(--t-xs);
   --text-sm: 12px;
-  --text-base: 14px;
+  --text-base: var(--t-body);
   --text-md: 16px;
   --text-lg: 18px;
   --text-xl: 20px;
   --text-2xl: 24px;
   --text-4xl: 36px;
   --text-6xl: 56px;
-
   --leading-tight: 118%;
   --leading-normal: 145%;
-
   --tracking-tight: -0.04em;
   --tracking-wide: 0.05em;
   --tracking-wider: 0.08em;
-}
 
-/* ── 5. Spacing tokens (4-px base grid) ───────────────────────────────────── */
-:root {
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
-  --space-16: 64px;
-}
+  /* Spacing */
+  --space-1: var(--s1);
+  --space-2: var(--s2);
+  --space-3: var(--s3);
+  --space-4: var(--s4);
+  --space-5: var(--s5);
+  --space-6: var(--s6);
+  --space-8: var(--s7);
+  --space-10: var(--s8);
+  --space-12: var(--s9);
+  --space-16: var(--s10);
 
-/* ── 6. Border-radius tokens ───────────────────────────────────────────────── */
-:root {
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
-  --radius-full: 9999px;
-}
+  /* Radius */
+  --radius-sm: var(--r-xs);
+  --radius-md: var(--r-sm);
+  --radius-lg: var(--r-md);
+  --radius-xl: var(--r-lg);
+  --radius-2xl: var(--r-xl);
+  --radius-full: var(--r-pill);
 
-/* ── 7. Shadow & overlay tokens ────────────────────────────────────────────── */
-:root {
-  --shadow-sm: rgba(0, 0, 0, 0.06) 0 1px 3px;
-  --shadow-md: rgba(0, 0, 0, 0.1) 0 4px 12px;
-  --shadow-lg: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
-  /* Overlay scrim — used behind modals, sheets, and lightboxes */
+  /* Shadow */
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-lg: var(--shadow-3);
   --overlay-scrim: rgba(0, 0, 0, 0.4);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --shadow-sm: rgba(0, 0, 0, 0.25) 0 1px 3px;
-    --shadow-md: rgba(0, 0, 0, 0.4) 0 4px 12px;
-    --shadow-lg: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+  /* Color */
+  --bg-muted: var(--surface-2);
+  --surface-muted: var(--surface-2);
+  --surface-hover: #eceeef;
+  --text-h: var(--ink);
+  --text: var(--ink-2);
+  --text-secondary: var(--muted);
+  --text-muted: var(--faint);
+  --border: var(--line);
+  --border-faint: var(--line);
+
+  /* Accent (backward compat — now teal) */
+  --color-accent-base: var(--accent);
+  --accent-bg: var(--accent-tint);
+  --accent-border: var(--accent-tint-2);
+  --accent-hover: var(--accent-tint);
+  --accent-subtle: var(--accent-tint);
+  --accent-on: #ffffff;
+
+  /* Status */
+  --success: var(--ok);
+  --warning: var(--warn);
+  --error: var(--danger);
+  --color-success: var(--ok);
+  --color-success-bg: var(--accent-tint);
+  --color-warning: var(--warn);
+  --color-warning-bg: var(--amber-tint);
+  --color-error: var(--danger);
+  --color-error-bg: var(--danger-tint);
+  --color-error-border: #f0bfb8;
+  --color-rating: #f59e0b;
+  --color-white: #ffffff;
+  --color-black: var(--ink);
+  --color-gray-200: #e5e5e5;
 }

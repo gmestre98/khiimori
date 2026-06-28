@@ -3,35 +3,23 @@
 @import './components/ui/ui.css';
 
 /*
- * Global base styles. All colour/type/spacing values reference tokens from
- * tokens.css — no hardcoded values here. Changing a token re-skins the app.
+ * Global base styles. All values reference tokens from tokens.css.
  */
 
 :root {
-  font: var(--text-lg) / var(--leading-normal) var(--font-sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--t-body);
+  line-height: var(--t-body-lh);
+  color: var(--ink);
   background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: var(--text-md);
-  }
+  text-rendering: optimizeLegibility;
 }
 
-#root {
-  /* Full-bleed so the responsive AppLayout (M09.3) can span the viewport — a
-     persistent sidebar on laptop, edge-to-edge content on mobile. Individual
-     screens constrain their own reading width. */
-  width: 100%;
-  margin: 0;
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -39,31 +27,32 @@ body {
   margin: 0;
 }
 
-h1,
-h2 {
-  font-family: var(--font-heading);
-  font-weight: 500;
-  color: var(--text-h);
+#root {
+  width: 100%;
+  margin: 0;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
 }
 
+/* Headings use design scale */
 h1 {
-  font-size: var(--text-6xl);
-  letter-spacing: var(--tracking-tight);
-  margin: var(--space-8) 0;
-  @media (max-width: 1024px) {
-    font-size: var(--text-4xl);
-    margin: var(--space-5) 0;
-  }
+  font-family: var(--font);
+  font-size: var(--t-h1);
+  line-height: var(--t-h1-lh);
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
 }
 
 h2 {
-  font-size: var(--text-2xl);
-  line-height: var(--leading-tight);
-  letter-spacing: -0.24px;
-  margin: 0 0 var(--space-2);
-  @media (max-width: 1024px) {
-    font-size: var(--text-xl);
-  }
+  font-family: var(--font);
+  font-size: var(--t-h2);
+  line-height: var(--t-h2-lh);
+  font-weight: var(--fw-semi);
+  color: var(--ink);
+  margin: 0 0 var(--s2);
 }
 
 p {
@@ -73,10 +62,25 @@ p {
 code {
   font-family: var(--font-mono);
   display: inline-flex;
-  border-radius: var(--radius-sm);
-  color: var(--text-h);
-  font-size: 15px;
+  border-radius: var(--r-xs);
+  color: var(--ink);
+  font-size: 13px;
   line-height: 135%;
-  padding: var(--space-1) var(--space-2);
-  background: var(--surface-muted);
+  padding: var(--s1) var(--s2);
+  background: var(--surface-2);
+}
+
+/* Tabular numerals helper */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Eyebrow label */
+.eyebrow {
+  font-size: var(--t-eyebrow);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: var(--fw-semi);
 }
