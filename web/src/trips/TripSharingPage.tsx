@@ -17,6 +17,19 @@ import { ConfirmModal } from '../components/ConfirmModal'
 
 type OutletCtx = { trip: Trip }
 
+// initialOf returns an uppercase initial for an avatar from an id or email.
+function initialOf(idOrEmail: string): string {
+  const cleaned = idOrEmail.replace(/^user-/, '')
+  return (cleaned[0] ?? '?').toUpperCase()
+}
+
+// avatarColor maps a role to its avatar fill (owner = ink, others accent/amber).
+function avatarColor(role: string): string {
+  if (role === 'owner') return 'var(--ink)'
+  if (role === 'editor') return 'var(--accent)'
+  return 'var(--amber)'
+}
+
 export function TripSharingPage() {
   const { trip } = useOutletContext<OutletCtx>()
   const { tripId } = useParams<{ tripId: string }>()
@@ -122,125 +135,162 @@ export function TripSharingPage() {
 
   return (
     <div className="sharing-page">
-      <h2 className="sharing-title">Sharing</h2>
+      <header className="topnav">
+        <div className="crumbs">
+          <b>{trip.name}</b>
+          <span className="trip-shell-sep"> › </span>
+          Sharing
+        </div>
+      </header>
 
-      {/* Members list */}
-      <section className="sharing-section" aria-label="Members">
-        <h3 className="sharing-section-title">Members</h3>
-        {data.members.length === 0 ? (
-          <p className="sharing-empty">No members yet.</p>
-        ) : (
-          <ul className="sharing-members-list">
-            {data.members.map((member) => (
-              <li key={member.id} className="sharing-member-item">
-                <span className="sharing-member-id">{member.user_id}</span>
-                <span className="sharing-role-badge" data-role={member.role}>
-                  {member.role}
-                </span>
-                {isOwner && member.role !== 'owner' && (
-                  <span className="sharing-member-actions">
-                    <select
-                      className="sharing-role-select"
-                      value={member.role}
-                      aria-label={`Change role for ${member.user_id}`}
-                      onChange={(e) =>
-                        handleChangeRole(member.user_id, e.target.value as 'editor' | 'viewer')
-                      }
-                    >
-                      <option value="editor">Editor</option>
-                      <option value="viewer">Viewer</option>
-                    </select>
-                    <button
-                      className="sharing-revoke-btn"
-                      onClick={() => setRevokeTarget({ kind: 'member', member })}
-                      aria-label={`Revoke access for ${member.user_id}`}
-                    >
-                      Revoke
-                    </button>
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
+      <div className="screen-content sharing-body">
+        <h2 className="h1 sharing-title">Sharing</h2>
+        <p className="meta sharing-subtitle">
+          People you invite see only this trip. Roles take effect immediately.
+        </p>
+
+        {/* Invite form — owners only */}
+        {isOwner && (
+          <section className="card pad sharing-invite-card" aria-label="Invite someone">
+            <form className="sharing-invite-form" onSubmit={handleInvite} noValidate>
+              <div className="field grow">
+                <label htmlFor="invite-email">Email address</label>
+                <input
+                  id="invite-email"
+                  className="input"
+                  type="email"
+                  placeholder="companion@example.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  required
+                  disabled={inviting}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="field sharing-invite-role-field">
+                <label htmlFor="invite-role">Role</label>
+                <select
+                  id="invite-role"
+                  className="input"
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as 'editor' | 'viewer')}
+                  disabled={inviting}
+                >
+                  <option value="viewer">Viewer — read only</option>
+                  <option value="editor">Editor — can edit</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={inviting || !inviteEmail.trim()}
+              >
+                {inviting ? 'Sending…' : 'Send Invite'}
+              </button>
+            </form>
+            {inviteError && (
+              <p role="alert" className="sharing-invite-error mt3">
+                {inviteError}
+              </p>
+            )}
+          </section>
         )}
-      </section>
 
-      {/* Pending invitations — owners only */}
-      {isOwner && (
-        <section className="sharing-section" aria-label="Pending invitations">
-          <h3 className="sharing-section-title">Pending Invitations</h3>
-          {pendingInvitations.length === 0 ? (
-            <p className="sharing-empty">No pending invitations.</p>
+        {/* Members list */}
+        <section aria-label="Members">
+          <div className="eyebrow mb3">Members · {data.members.length}</div>
+          {data.members.length === 0 ? (
+            <p className="sharing-empty">No members yet.</p>
           ) : (
-            <ul className="sharing-invitations-list">
-              {pendingInvitations.map((inv) => (
-                <li key={inv.id} className="sharing-invitation-item">
-                  <span className="sharing-invitation-email">{inv.email}</span>
-                  <span className="sharing-role-badge" data-role={inv.role}>
-                    {inv.role}
-                  </span>
-                  <span className="sharing-invitation-status">{inv.status}</span>
-                  <button
-                    className="sharing-revoke-btn"
-                    onClick={() => setRevokeTarget({ kind: 'invitation', inv })}
-                    aria-label={`Revoke invitation for ${inv.email}`}
-                  >
-                    Revoke
-                  </button>
+            <ul className="card sharing-members-list">
+              {data.members.map((member) => (
+                <li key={member.id} className="sharing-member-item">
+                  <div className="avatar" style={{ background: avatarColor(member.role) }}>
+                    {initialOf(member.user_id)}
+                  </div>
+                  <span className="sharing-member-id grow">{member.user_id}</span>
+                  {member.role === 'owner' ? (
+                    <span className="chip solid">Owner</span>
+                  ) : isOwner ? (
+                    <span className="sharing-member-actions row gap2">
+                      <select
+                        className="sharing-role-select"
+                        value={member.role}
+                        aria-label={`Change role for ${member.user_id}`}
+                        onChange={(e) =>
+                          handleChangeRole(member.user_id, e.target.value as 'editor' | 'viewer')
+                        }
+                      >
+                        <option value="editor">Editor</option>
+                        <option value="viewer">Viewer</option>
+                      </select>
+                      <button
+                        className="sharing-revoke-btn"
+                        onClick={() => setRevokeTarget({ kind: 'member', member })}
+                        aria-label={`Revoke access for ${member.user_id}`}
+                      >
+                        Revoke
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="chip outline" style={{ textTransform: 'capitalize' }}>
+                      {member.role}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
           )}
         </section>
-      )}
 
-      {/* Invite form — owners only */}
-      {isOwner && (
-        <section className="sharing-section sharing-invite-section" aria-label="Invite someone">
-          <h3 className="sharing-section-title">Invite Someone</h3>
-          <form className="sharing-invite-form" onSubmit={handleInvite} noValidate>
-            <label className="sharing-invite-label" htmlFor="invite-email">
-              Email address
-            </label>
-            <input
-              id="invite-email"
-              className="sharing-invite-input"
-              type="email"
-              placeholder="companion@example.com"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              required
-              disabled={inviting}
-              autoComplete="off"
-            />
-            <label className="sharing-invite-label" htmlFor="invite-role">
-              Role
-            </label>
-            <select
-              id="invite-role"
-              className="sharing-invite-role"
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as 'editor' | 'viewer')}
-              disabled={inviting}
-            >
-              <option value="viewer">Viewer — read only</option>
-              <option value="editor">Editor — can edit</option>
-            </select>
-            {inviteError && (
-              <p role="alert" className="sharing-invite-error">
-                {inviteError}
-              </p>
+        {/* Pending invitations — owners only */}
+        {isOwner && (
+          <section aria-label="Pending invitations">
+            <div className="eyebrow mb3">Pending invites · {pendingInvitations.length}</div>
+            {pendingInvitations.length === 0 ? (
+              <p className="sharing-empty">No pending invitations.</p>
+            ) : (
+              <ul className="card sharing-invitations-list">
+                {pendingInvitations.map((inv) => (
+                  <li key={inv.id} className="sharing-invitation-item">
+                    <div className="avatar sharing-invitation-avatar">?</div>
+                    <div className="grow">
+                      <div className="sharing-invitation-email">{inv.email}</div>
+                      <div className="meta" style={{ textTransform: 'capitalize' }}>
+                        Invited as {inv.role} · {inv.status}
+                      </div>
+                    </div>
+                    <button
+                      className="sharing-revoke-btn"
+                      onClick={() => setRevokeTarget({ kind: 'invitation', inv })}
+                      aria-label={`Revoke invitation for ${inv.email}`}
+                    >
+                      Revoke
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
-            <button
-              type="submit"
-              className="sharing-invite-submit"
-              disabled={inviting || !inviteEmail.trim()}
-            >
-              {inviting ? 'Sending…' : 'Send Invite'}
-            </button>
-          </form>
+          </section>
+        )}
+
+        {/* Roles legend */}
+        <section className="card pad sharing-roles" aria-label="Roles">
+          <div className="eyebrow mb3">Roles</div>
+          <div className="row between sharing-roles-row">
+            <b>Owner</b>
+            <span className="meta">Full control + sharing</span>
+          </div>
+          <div className="row between sharing-roles-row">
+            <b>Editor</b>
+            <span className="meta">Edit plan, budget, journal</span>
+          </div>
+          <div className="row between">
+            <b>Viewer</b>
+            <span className="meta">Read-only access</span>
+          </div>
         </section>
-      )}
+      </div>
 
       {/* Confirm revoke modal */}
       {revokeTarget && (

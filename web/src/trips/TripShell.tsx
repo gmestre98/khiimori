@@ -104,47 +104,59 @@ function TripShell() {
 
   return (
     <div className="trip-shell">
-      <header className="trip-shell-header">
-        <Link to="/" className="trip-shell-back" aria-label="Back to trips">
-          ← Trips
-        </Link>
-        <div className="trip-shell-title">
+      <header className="topnav">
+        <div className="trip-shell-crumbs">
+          <Link to="/" className="trip-shell-back" aria-label="Back to trips">
+            ← Trips
+          </Link>
+          <span className="trip-shell-sep">›</span>
           <h1 className="trip-shell-name">{trip.name}</h1>
           {trip.destinations.length > 0 && (
-            <p className="trip-shell-destinations">{trip.destinations.join(', ')}</p>
+            <>
+              <span className="trip-shell-sep">·</span>
+              <p className="trip-shell-destinations">{trip.destinations.join(', ')}</p>
+            </>
           )}
         </div>
-        <Link
-          to={`/trips/${trip.id}/budget`}
-          state={{ trip }}
-          className="trip-shell-budget-link"
-          aria-label={`Budget for ${trip.name}`}
-        >
-          Budget
-        </Link>
-        <Link
-          to={`/trips/${trip.id}/sharing`}
-          state={{ trip }}
-          className="trip-shell-sharing-link"
-          aria-label={`Sharing for ${trip.name}`}
-        >
-          Sharing
-        </Link>
-        <Link
-          to={`/trips/${trip.id}/edit`}
-          state={{ trip }}
-          className="trip-card-edit-link"
-          aria-label={`Edit ${trip.name}`}
-        >
-          Edit
-        </Link>
+        <div className="row gap2">
+          <Link
+            to={`/trips/${trip.id}/budget`}
+            state={{ trip }}
+            className="btn btn-ghost btn-sm"
+            aria-label={`Budget for ${trip.name}`}
+          >
+            Budget
+          </Link>
+          <Link
+            to={`/trips/${trip.id}/sharing`}
+            state={{ trip }}
+            className="btn btn-ghost btn-sm"
+            aria-label={`Sharing for ${trip.name}`}
+          >
+            Sharing
+          </Link>
+          <Link
+            to={`/trips/${trip.id}/edit`}
+            state={{ trip }}
+            className="btn btn-ghost btn-sm"
+            aria-label={`Edit ${trip.name}`}
+          >
+            Edit
+          </Link>
+        </div>
       </header>
-      {/* Day navigation strip */}
+      {/* Day selector strip */}
       <DayNav tripId={trip.id} dates={dates} trip={trip} />
       {/* Outlet renders DayView; trip is passed via context */}
       <Outlet context={{ trip }} />
     </div>
   )
+}
+
+// weekdayAbbrev returns the 3-letter weekday for a YYYY-MM-DD date in local time.
+function weekdayAbbrev(date: string): string {
+  const d = new Date(date + 'T00:00:00')
+  return d.toLocaleDateString('en-US', { weekday: 'short' })
 }
 
 // DayNav renders a horizontal strip with prev/next buttons and a day selector
@@ -162,24 +174,55 @@ function DayNav({ tripId, dates, trip }: { tripId: string; dates: string[]; trip
   }
 
   return (
-    <nav className="day-nav" aria-label="Day navigation">
+    <nav className="day-strip" aria-label="Day navigation">
       {prevDate ? (
         <Link
           to={`/trips/${tripId}/days/${prevDate}`}
           state={{ trip }}
-          className="day-nav-prev"
+          className="day-strip-arrow"
           aria-label={`Previous day: ${dayLabel(prevDate)}`}
         >
           ‹ Prev
         </Link>
       ) : (
-        <span className="day-nav-prev day-nav-disabled" aria-disabled="true">
+        <span className="day-strip-arrow day-strip-arrow--disabled" aria-disabled="true">
           ‹ Prev
         </span>
       )}
 
+      <div className="day-strip-pills">
+        {dates.map((d, i) => (
+          <Link
+            key={d}
+            to={`/trips/${tripId}/days/${d}`}
+            state={{ trip }}
+            className={['day-pill', d === date ? 'day-pill--active' : ''].filter(Boolean).join(' ')}
+            aria-label={`Day ${i + 1}, ${d}`}
+            aria-current={d === date ? 'page' : undefined}
+          >
+            <span className="day-pill-dow">{weekdayAbbrev(d)}</span>
+            <span className="day-pill-num num">D{i + 1}</span>
+          </Link>
+        ))}
+      </div>
+
+      {nextDate ? (
+        <Link
+          to={`/trips/${tripId}/days/${nextDate}`}
+          state={{ trip }}
+          className="day-strip-arrow"
+          aria-label={`Next day: ${dayLabel(nextDate)}`}
+        >
+          Next ›
+        </Link>
+      ) : (
+        <span className="day-strip-arrow day-strip-arrow--disabled" aria-disabled="true">
+          Next ›
+        </span>
+      )}
+
       <select
-        className="day-nav-select"
+        className="day-strip-jump"
         value={date ?? ''}
         aria-label="Jump to day"
         onChange={(e) => {
@@ -192,21 +235,6 @@ function DayNav({ tripId, dates, trip }: { tripId: string; dates: string[]; trip
           </option>
         ))}
       </select>
-
-      {nextDate ? (
-        <Link
-          to={`/trips/${tripId}/days/${nextDate}`}
-          state={{ trip }}
-          className="day-nav-next"
-          aria-label={`Next day: ${dayLabel(nextDate)}`}
-        >
-          Next ›
-        </Link>
-      ) : (
-        <span className="day-nav-next day-nav-disabled" aria-disabled="true">
-          Next ›
-        </span>
-      )}
     </nav>
   )
 }

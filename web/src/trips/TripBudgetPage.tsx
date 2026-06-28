@@ -7,7 +7,7 @@ import {
   type BudgetRollup,
 } from '../lib/api'
 import { TripBudgetEditor } from './BudgetEditor'
-import { TripRollup } from './RollupDisplay'
+import { TripRollup, BudgetSummaryTiles } from './RollupDisplay'
 import { useTripShell } from './useTripShell'
 
 // TripBudgetPage renders the trip-level budget editor and rollup display.
@@ -56,22 +56,31 @@ export function TripBudgetPage() {
 
   return (
     <article className="trip-budget-page">
-      <header className="trip-budget-header">
-        <Link to={`/trips/${tripId}`} className="trip-budget-back" aria-label="Back to trip">
-          ← Back
-        </Link>
-        <h2 className="trip-budget-title">{trip?.name ?? 'Trip'} — Budget</h2>
+      <header className="topnav">
+        <div className="crumbs">
+          <Link to={`/trips/${tripId}`} className="trip-shell-back" aria-label="Back to trip">
+            ← Back
+          </Link>
+          <span className="trip-shell-sep">›</span>
+          <b>{trip?.name ?? 'Trip'}</b>
+          <span className="trip-shell-sep">›</span>
+          Budget
+        </div>
       </header>
 
-      {error && (
-        <p role="alert" className="trip-budget-error">
-          {error}
-        </p>
-      )}
+      <div className="screen-content narrow trip-budget-body">
+        {error && (
+          <p role="alert" className="trip-budget-error">
+            {error}
+          </p>
+        )}
 
-      {rollup && <TripRollup rollup={rollup} />}
+        {rollup && <BudgetSummaryTiles rollup={rollup} />}
 
-      <TripBudgetEditor tripId={tripId} lines={lines} onUpdated={handleLineUpdated} />
+        {rollup && <TripRollup rollup={rollup} />}
+
+        <TripBudgetEditor tripId={tripId} lines={lines} onUpdated={handleLineUpdated} />
+      </div>
     </article>
   )
 }

@@ -1389,41 +1389,45 @@ export function DayView() {
       )}
       {day?.notes && <p className="day-view-notes">{day.notes}</p>}
 
-      {/* Stable mount points for Milestones 04–07. Order matches the day plan
-          layout in assets/02-day-plan-map.svg (PRD §4.2). */}
-      <div className="day-slots">
-        {day && tripId ? (
-          <PlanningSection
-            key={day.id}
-            day={day}
-            tripId={tripId}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-          />
-        ) : (
-          <section
-            className="day-slot day-slot-planning"
-            aria-label="Planning"
-            data-slot="planning"
-          >
-            <h2 className="day-slot-title">Plan</h2>
-          </section>
-        )}
-        {day && tripId ? (
-          <BudgetSlot tripId={tripId} day={day} />
-        ) : (
-          <section className="day-slot day-slot-budget" aria-label="Budget" data-slot="budget">
-            <h2 className="day-slot-title">Budget</h2>
-          </section>
-        )}
-        {day && tripId ? (
-          <JournalSlot tripId={tripId} dayId={day.id} readOnly={isPast} />
-        ) : (
-          <section className="day-slot day-slot-journal" aria-label="Journal" data-slot="journal">
-            <h2 className="day-slot-title">Journal</h2>
-          </section>
-        )}
-        <MapSlot day={day} selectedId={selectedId} onSelect={setSelectedId} />
+      {/* Two-column day layout (design reference §07): left column is the living
+          itinerary + day budget, right column pairs the day map with the journal. */}
+      <div className="day-grid">
+        <div className="day-grid-col day-grid-left">
+          {day && tripId ? (
+            <PlanningSection
+              key={day.id}
+              day={day}
+              tripId={tripId}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
+          ) : (
+            <section
+              className="day-slot day-slot-planning"
+              aria-label="Planning"
+              data-slot="planning"
+            >
+              <h2 className="day-slot-title">Plan</h2>
+            </section>
+          )}
+          {day && tripId ? (
+            <BudgetSlot tripId={tripId} day={day} />
+          ) : (
+            <section className="day-slot day-slot-budget" aria-label="Budget" data-slot="budget">
+              <h2 className="day-slot-title">Budget</h2>
+            </section>
+          )}
+        </div>
+        <div className="day-grid-col day-grid-right">
+          <MapSlot day={day} selectedId={selectedId} onSelect={setSelectedId} />
+          {day && tripId ? (
+            <JournalSlot tripId={tripId} dayId={day.id} readOnly={isPast} />
+          ) : (
+            <section className="day-slot day-slot-journal" aria-label="Journal" data-slot="journal">
+              <h2 className="day-slot-title">Journal</h2>
+            </section>
+          )}
+        </div>
       </div>
     </article>
   )
