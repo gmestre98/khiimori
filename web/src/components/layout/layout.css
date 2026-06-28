@@ -151,7 +151,9 @@
   color: var(--ink-2);
   font-size: 13.5px;
   font-weight: var(--fw-med);
-  transition: background var(--dur) var(--ease), color var(--dur);
+  transition:
+    background var(--dur) var(--ease),
+    color var(--dur);
   min-height: 38px;
 }
 
@@ -179,7 +181,7 @@
   width: 18px;
   height: 18px;
   flex-shrink: 0;
-  opacity: .85;
+  opacity: 0.85;
   display: flex;
   align-items: center;
   justify-content: center;

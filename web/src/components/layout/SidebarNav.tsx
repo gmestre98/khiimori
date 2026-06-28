@@ -21,9 +21,7 @@ function NavItem({ item }: { item: BottomNavItem }) {
         to={item.to}
         end={item.to === '/'}
         className={({ isActive }) =>
-          ['sidebar-nav-link', isActive ? 'sidebar-nav-link--active' : '']
-            .filter(Boolean)
-            .join(' ')
+          ['sidebar-nav-link', isActive ? 'sidebar-nav-link--active' : ''].filter(Boolean).join(' ')
         }
       >
         <span className="sidebar-nav-icon" aria-hidden="true">
@@ -48,7 +46,9 @@ export function SidebarNav({
     <nav className="sidebar-nav" aria-label="Primary">
       {/* Brand */}
       <div className="sidebar-nav-brand">
-        <div className="sidebar-nav-brand-mark" aria-hidden="true">K</div>
+        <div className="sidebar-nav-brand-mark" aria-hidden="true">
+          K
+        </div>
         <span className="sidebar-nav-brand-name">Khiimori</span>
       </div>
 
@@ -71,18 +71,16 @@ export function SidebarNav({
       {/* User footer */}
       <div className="sidebar-nav-footer">
         <div className="sidebar-nav-user">
-          <div className="sidebar-nav-avatar" aria-hidden="true">{initial}</div>
+          <div className="sidebar-nav-avatar" aria-hidden="true">
+            {initial}
+          </div>
           <div className="sidebar-nav-user-info">
             <div className="sidebar-nav-user-name">{userName ?? 'Account'}</div>
             {userMeta && <div className="sidebar-nav-user-meta">{userMeta}</div>}
           </div>
         </div>
         {onSignOut && (
-          <button
-            type="button"
-            className="sidebar-nav-signout"
-            onClick={onSignOut}
-          >
+          <button type="button" className="sidebar-nav-signout" onClick={onSignOut}>
             Sign out
           </button>
         )}

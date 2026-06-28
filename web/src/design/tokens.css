@@ -53,15 +53,23 @@
   --cat-other: #6b7076;
 
   /* ---- Typography ---- */
-  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-num: "Inter", ui-monospace, "SF Mono", Menlo, monospace;
-  --t-display: 28px;  --t-display-lh: 34px;
-  --t-h1: 22px;       --t-h1-lh: 28px;
-  --t-h2: 17px;       --t-h2-lh: 24px;
-  --t-h3: 14px;       --t-h3-lh: 20px;
-  --t-body: 14px;     --t-body-lh: 21px;
-  --t-sm: 12.5px;     --t-sm-lh: 18px;
-  --t-xs: 11px;       --t-xs-lh: 15px;
+  --font:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-num: 'Inter', ui-monospace, 'SF Mono', Menlo, monospace;
+  --t-display: 28px;
+  --t-display-lh: 34px;
+  --t-h1: 22px;
+  --t-h1-lh: 28px;
+  --t-h2: 17px;
+  --t-h2-lh: 24px;
+  --t-h3: 14px;
+  --t-h3-lh: 20px;
+  --t-body: 14px;
+  --t-body-lh: 21px;
+  --t-sm: 12.5px;
+  --t-sm-lh: 18px;
+  --t-xs: 11px;
+  --t-xs-lh: 15px;
   --t-eyebrow: 11px;
   --fw-reg: 400;
   --fw-med: 500;
@@ -89,12 +97,12 @@
   --r-pill: 999px;
 
   /* ---- Elevation (restrained, almost flat) ---- */
-  --shadow-1: 0 1px 2px rgba(16,17,19,.04), 0 1px 1px rgba(16,17,19,.03);
-  --shadow-2: 0 4px 14px rgba(16,17,19,.06), 0 1px 3px rgba(16,17,19,.05);
-  --shadow-3: 0 12px 32px rgba(16,17,19,.12);
+  --shadow-1: 0 1px 2px rgba(16, 17, 19, 0.04), 0 1px 1px rgba(16, 17, 19, 0.03);
+  --shadow-2: 0 4px 14px rgba(16, 17, 19, 0.06), 0 1px 3px rgba(16, 17, 19, 0.05);
+  --shadow-3: 0 12px 32px rgba(16, 17, 19, 0.12);
 
   /* ---- Motion ---- */
-  --ease: cubic-bezier(.2,.7,.3,1);
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
   --dur: 160ms;
 }
 

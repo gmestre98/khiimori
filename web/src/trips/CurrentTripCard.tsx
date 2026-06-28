@@ -63,15 +63,33 @@ export function CurrentTripCard({
           <div className="current-trip-header">
             <div>
               <span className="chip chip--accent" style={{ fontSize: 11 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor', display: 'inline-block', flexShrink: 0 }} />
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    background: 'currentColor',
+                    display: 'inline-block',
+                    flexShrink: 0,
+                  }}
+                />
                 Today{destinations ? ` · ${trip.destinations[0]}` : ''}
               </span>
               <h2 className="current-trip-name">{trip.name}</h2>
               <p className="current-trip-meta num">
-                {destinations && `${destinations} · `}{dateRange}
+                {destinations && `${destinations} · `}
+                {dateRange}
               </p>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-end',
+                gap: 8,
+                flexShrink: 0,
+              }}
+            >
               <Link
                 to={`/trips/${trip.id}`}
                 state={{ trip }}

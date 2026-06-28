@@ -73,13 +73,13 @@ code {
 /* Tabular numerals helper */
 .num {
   font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
+  font-feature-settings: 'tnum';
 }
 
 /* Eyebrow label */
 .eyebrow {
   font-size: var(--t-eyebrow);
-  letter-spacing: .12em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
   font-weight: var(--fw-semi);

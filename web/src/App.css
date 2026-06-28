@@ -94,14 +94,17 @@
   font-weight: var(--fw-semi);
   padding: 8px 15px;
   cursor: pointer;
-  transition: background var(--dur) var(--ease), border-color var(--dur), transform var(--dur);
+  transition:
+    background var(--dur) var(--ease),
+    border-color var(--dur),
+    transform var(--dur);
   white-space: nowrap;
   line-height: 1;
   text-decoration: none;
 }
 
 .btn:active {
-  transform: translateY(.5px);
+  transform: translateY(0.5px);
 }
 
 .btn-sm {
@@ -315,7 +318,10 @@
 }
 
 .k-card--hover {
-  transition: box-shadow var(--dur) var(--ease), border-color var(--dur), transform var(--dur);
+  transition:
+    box-shadow var(--dur) var(--ease),
+    border-color var(--dur),
+    transform var(--dur);
   cursor: pointer;
 }
 
@@ -331,7 +337,7 @@
 }
 
 .k-card--accent-l::before {
-  content: "";
+  content: '';
   position: absolute;
   left: 0;
   top: 0;
@@ -348,13 +354,16 @@
   box-shadow: var(--shadow-1);
   overflow: hidden;
   margin-bottom: var(--s7);
-  transition: box-shadow var(--dur) var(--ease), border-color var(--dur), transform var(--dur);
+  transition:
+    box-shadow var(--dur) var(--ease),
+    border-color var(--dur),
+    transform var(--dur);
   cursor: pointer;
   position: relative;
 }
 
 .current-trip-card::before {
-  content: "";
+  content: '';
   position: absolute;
   left: 0;
   top: 0;
@@ -386,7 +395,7 @@
 .current-trip-panel-glow {
   position: absolute;
   inset: 0;
-  opacity: .18;
+  opacity: 0.18;
   background: radial-gradient(circle at 30% 30%, #fff, transparent 60%);
 }
 
@@ -399,8 +408,8 @@
 
 .current-trip-panel-now {
   font-size: 11px;
-  opacity: .85;
-  letter-spacing: .08em;
+  opacity: 0.85;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: 600;
 }
@@ -511,7 +520,7 @@
 
 .trips-section-title {
   font-size: var(--t-eyebrow);
-  letter-spacing: .12em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
   font-weight: var(--fw-semi);
@@ -531,7 +540,10 @@
   border-radius: var(--r-md);
   box-shadow: var(--shadow-1);
   padding: 18px;
-  transition: box-shadow var(--dur) var(--ease), border-color var(--dur), transform var(--dur);
+  transition:
+    box-shadow var(--dur) var(--ease),
+    border-color var(--dur),
+    transform var(--dur);
   cursor: pointer;
   text-decoration: none;
   display: block;
@@ -544,7 +556,7 @@
 }
 
 .trip-card--past {
-  opacity: .92;
+  opacity: 0.92;
 }
 
 .trip-card-header {

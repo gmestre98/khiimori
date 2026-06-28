@@ -291,7 +291,7 @@
   display: flex;
   align-items: center;
   border-top: 1px solid var(--line);
-  background: rgba(255, 255, 255, .96);
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(8px);
   padding-bottom: env(safe-area-inset-bottom, 6px);
   z-index: 100;

@@ -20,7 +20,16 @@ type PendingAction = { type: 'archive' | 'delete'; trip: Trip }
 // PlusIcon — inline SVG for the "New trip" button
 function PlusIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M12 5v14M5 12h14" />
     </svg>
   )
@@ -47,7 +56,17 @@ function TripCard({
         <h3 className="trip-card-name">{trip.name}</h3>
         {isPast ? (
           <span className="chip chip--accent" style={{ fontSize: 11, gap: 4 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)' }}>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ color: 'var(--accent)' }}
+            >
               <path d="M20 6L9 17l-5-5" />
             </svg>
             journal
@@ -82,7 +101,10 @@ function TripCard({
         {onArchive && (
           <button
             className="btn-ghost btn-sm"
-            onClick={(e) => { e.stopPropagation(); onArchive(trip) }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onArchive(trip)
+            }}
             aria-label={`Archive ${trip.name}`}
           >
             Archive
@@ -90,7 +112,10 @@ function TripCard({
         )}
         <button
           className="btn-ghost-danger"
-          onClick={(e) => { e.stopPropagation(); onDelete(trip) }}
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete(trip)
+          }}
           aria-label={`Delete ${trip.name}`}
         >
           Delete
@@ -211,30 +236,53 @@ export function TripsDashboard() {
 
       <div className="trips-dashboard">
         {actionError && (
-          <p role="alert" className="trips-error">{actionError}</p>
+          <p role="alert" className="trips-error">
+            {actionError}
+          </p>
         )}
 
         {/* Tab bar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--s6)' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 'var(--s6)',
+          }}
+        >
           <div className="trips-tabs" role="tablist">
             {(['current', 'upcoming', 'past'] as Tab[]).map((t) => (
               <button
                 key={t}
                 role="tab"
                 aria-selected={tab === t}
-                className={['trips-tabs-btn', tab === t ? 'trips-tabs-btn--active' : ''].filter(Boolean).join(' ')}
+                className={['trips-tabs-btn', tab === t ? 'trips-tabs-btn--active' : '']
+                  .filter(Boolean)
+                  .join(' ')}
                 onClick={() => setTab(t)}
               >
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
           </div>
-          {data && <span className="trips-tab-meta">{totalCount} {totalCount === 1 ? 'trip' : 'trips'}</span>}
+          {data && (
+            <span className="trips-tab-meta">
+              {totalCount} {totalCount === 1 ? 'trip' : 'trips'}
+            </span>
+          )}
         </div>
 
         {/* Loading / error states */}
-        {loading && <p className="trips-loading" aria-busy="true">Loading trips…</p>}
-        {error && <p role="alert" className="trips-error">{error}</p>}
+        {loading && (
+          <p className="trips-loading" aria-busy="true">
+            Loading trips…
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="trips-error">
+            {error}
+          </p>
+        )}
 
         {/* Tab content */}
         {!loading && !error && data && (
@@ -244,12 +292,19 @@ export function TripsDashboard() {
                 {currentTrip ? (
                   <CurrentTripCard
                     trip={currentTrip}
-                    budgetGlance={currentRollup ? <BudgetGlance rollup={currentRollup} /> : undefined}
+                    budgetGlance={
+                      currentRollup ? <BudgetGlance rollup={currentRollup} /> : undefined
+                    }
                     onArchive={() => setPending({ type: 'archive', trip: currentTrip })}
                     onDelete={() => setPending({ type: 'delete', trip: currentTrip })}
                   />
                 ) : data.current.length === 0 ? (
-                  <p className="trips-empty">No current trip. <Link to="/trips/new" style={{ color: 'var(--accent)' }}>Plan one →</Link></p>
+                  <p className="trips-empty">
+                    No current trip.{' '}
+                    <Link to="/trips/new" style={{ color: 'var(--accent)' }}>
+                      Plan one →
+                    </Link>
+                  </p>
                 ) : (
                   <div className="trips-grid">
                     {data.current.map((t) => (
@@ -268,7 +323,12 @@ export function TripsDashboard() {
             {tab === 'upcoming' && (
               <>
                 {data.upcoming.length === 0 ? (
-                  <p className="trips-empty">No upcoming trips. <Link to="/trips/new" style={{ color: 'var(--accent)' }}>Plan one →</Link></p>
+                  <p className="trips-empty">
+                    No upcoming trips.{' '}
+                    <Link to="/trips/new" style={{ color: 'var(--accent)' }}>
+                      Plan one →
+                    </Link>
+                  </p>
                 ) : (
                   <div className="trips-grid">
                     {data.upcoming.map((t) => (
