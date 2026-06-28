@@ -1,5 +1,7 @@
 # Milestone 09 — Design System & Mobile/PWA Polish
 
+> **Status:** ✅ Done — All 5 epics complete (21/21 ACs). Token layer, B&W theme, 10-primitive component library, responsive + mobile-bottom-nav layouts, PWA (manifest, service worker, offline shell, write-queue coordination, update handling), accessibility audit (focus traps, skip-nav, focus ring), and performance budget (TTI ≈ 1.0–1.2 s < 1.5 s target) all shipped. PRs [#361](https://github.com/gmestre98/khiimori/pull/361)–[#363](https://github.com/gmestre98/khiimori/pull/363) (E01), [#365](https://github.com/gmestre98/khiimori/pull/365)–[#367](https://github.com/gmestre98/khiimori/pull/367), [#370](https://github.com/gmestre98/khiimori/pull/370) (E02), E03 PRs, [#376](https://github.com/gmestre98/khiimori/pull/376)–[#380](https://github.com/gmestre98/khiimori/pull/380) (E04), [#382](https://github.com/gmestre98/khiimori/pull/382)–[#384](https://github.com/gmestre98/khiimori/pull/384) (E05).
+
 > The minimal black/white theme and component library, a genuinely usable responsive + installable
 > (PWA) mobile experience, accessibility, and a performance budget — the shared UI foundation every
 > screen reuses.
