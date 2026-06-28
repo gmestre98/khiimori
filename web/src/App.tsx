@@ -6,6 +6,7 @@ import { SignIn } from './auth/SignIn'
 import { PostLoginRedirect, RequireAuth } from './auth/RequireAuth'
 import { RequireAdmin } from './auth/RequireAdmin'
 import { AuthenticatedLayout } from './components/layout/AuthenticatedLayout'
+import { InstallPrompt } from './components/InstallPrompt'
 
 // Route-level code-splitting (M09.5 S2): each lazy() call produces a separate
 // JS chunk so the browser only fetches what's needed for the current route.
@@ -180,6 +181,9 @@ function App() {
           {/* Unknown paths fall back to home, which gates to sign-in if anonymous. */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        {/* App-wide "add to home screen" offer. Self-hides unless the platform
+            supports installing and the app isn't already installed. */}
+        <InstallPrompt />
       </div>
     </ThemeProvider>
   )
