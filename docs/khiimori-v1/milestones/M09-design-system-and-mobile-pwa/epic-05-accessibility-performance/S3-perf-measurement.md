@@ -8,11 +8,11 @@ content and recorded, with a **repeatable method** so Milestone 10 can re-verify
 Define a repeatable performance measurement and validate the day-view target.
 
 ## Acceptance criteria
-- [ ] A **repeatable measurement method** is documented (device/network profile — mid-range phone on 4G,
+- [x] A **repeatable measurement method** is documented (device/network profile — mid-range phone on 4G,
   the day-view scenario, what "interactive" means).
-- [ ] The **day view is measured interactive < 1.5s** against real-ish content; the result is **recorded**.
-- [ ] If the target isn't met, the gaps and the techniques applied (S2) to close them are documented.
-- [ ] The method is reusable by Milestone 10's non-functional verification.
+- [x] The **day view is measured interactive < 1.5s** against real-ish content; the result is **recorded**.
+- [x] If the target isn't met, the gaps and the techniques applied (S2) to close them are documented.
+- [x] The method is reusable by Milestone 10's non-functional verification.
 
 ## Constraints
 - Measure against real-ish content (a populated day), not an empty page.
