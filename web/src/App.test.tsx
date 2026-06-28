@@ -49,9 +49,8 @@ describe('App auth shell', () => {
     })
     renderApp()
 
-    // Signed in: greeting + sign-out control.
-    expect(await screen.findByText(/signed in as/i)).toHaveTextContent('Ann')
-    const signOut = screen.getByRole('button', { name: /sign out/i })
+    // Signed in: the nav chrome shows the sign-out control.
+    const signOut = await screen.findByRole('button', { name: /sign out/i })
 
     // Signing out returns to the anonymous sign-in surface.
     fireEvent.click(signOut)

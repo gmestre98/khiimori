@@ -2,41 +2,89 @@ import { NavLink } from 'react-router-dom'
 import { type BottomNavItem } from '../ui'
 
 export interface SidebarNavProps {
-  /** Primary destinations — same list the mobile bottom nav uses. */
+  /** Primary navigation items */
   items: BottomNavItem[]
-  /** Optional footer slot (e.g. sign-out button). */
-  footer?: React.ReactNode
+  /** Secondary items shown below a divider (e.g. Profile, Admin) */
+  secondaryItems?: BottomNavItem[]
+  /** User display name — shown in the footer avatar */
+  userName?: string
+  /** Short meta line below user name (e.g. "EUR · Lisbon") */
+  userMeta?: string
+  /** Sign-out action */
+  onSignOut?: () => void
 }
 
-// SidebarNav (M09.3 S2) is the comfortable laptop navigation: a vertical list of
-// the same primary destinations the mobile BottomNav renders, shown in
-// AppLayout's persistent sidebar. The mobile/laptop split is structural, not a
-// different information architecture.
-export function SidebarNav({ items, footer }: SidebarNavProps) {
+function NavItem({ item }: { item: BottomNavItem }) {
+  return (
+    <li>
+      <NavLink
+        to={item.to}
+        end={item.to === '/'}
+        className={({ isActive }) =>
+          ['sidebar-nav-link', isActive ? 'sidebar-nav-link--active' : ''].filter(Boolean).join(' ')
+        }
+      >
+        <span className="sidebar-nav-icon" aria-hidden="true">
+          {item.icon}
+        </span>
+        <span className="sidebar-nav-label">{item.label}</span>
+      </NavLink>
+    </li>
+  )
+}
+
+export function SidebarNav({
+  items,
+  secondaryItems,
+  userName,
+  userMeta,
+  onSignOut,
+}: SidebarNavProps) {
+  const initial = userName ? userName[0].toUpperCase() : 'U'
+
   return (
     <nav className="sidebar-nav" aria-label="Primary">
-      <div className="sidebar-nav-brand">Khiimori</div>
+      {/* Brand */}
+      <div className="sidebar-nav-brand">
+        <div className="sidebar-nav-brand-mark" aria-hidden="true">
+          K
+        </div>
+        <span className="sidebar-nav-brand-name">Khiimori</span>
+      </div>
+
+      {/* Primary nav */}
       <ul className="sidebar-nav-list" role="list">
         {items.map((item) => (
-          <li key={item.to}>
-            <NavLink
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) =>
-                ['sidebar-nav-link', isActive ? 'sidebar-nav-link--active' : '']
-                  .filter(Boolean)
-                  .join(' ')
-              }
-            >
-              <span className="sidebar-nav-icon" aria-hidden="true">
-                {item.icon}
-              </span>
-              <span className="sidebar-nav-label">{item.label}</span>
-            </NavLink>
-          </li>
+          <NavItem key={item.to} item={item} />
         ))}
+
+        {secondaryItems && secondaryItems.length > 0 && (
+          <>
+            <li className="sidebar-nav-divider" role="separator" />
+            {secondaryItems.map((item) => (
+              <NavItem key={item.to} item={item} />
+            ))}
+          </>
+        )}
       </ul>
-      {footer && <div className="sidebar-nav-footer">{footer}</div>}
+
+      {/* User footer */}
+      <div className="sidebar-nav-footer">
+        <div className="sidebar-nav-user">
+          <div className="sidebar-nav-avatar" aria-hidden="true">
+            {initial}
+          </div>
+          <div className="sidebar-nav-user-info">
+            <div className="sidebar-nav-user-name">{userName ?? 'Account'}</div>
+            {userMeta && <div className="sidebar-nav-user-meta">{userMeta}</div>}
+          </div>
+        </div>
+        {onSignOut && (
+          <button type="button" className="sidebar-nav-signout" onClick={onSignOut}>
+            Sign out
+          </button>
+        )}
+      </div>
     </nav>
   )
 }

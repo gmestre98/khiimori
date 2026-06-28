@@ -1,12 +1,9 @@
 /*
- * Responsive layout system (M09.3 S1).
+ * Responsive layout system.
  *
- * Two genuinely distinct structures from one tree, switched purely in CSS so
- * there is no JS-measured layout shift. Breakpoint pixel values mirror
- * src/design/breakpoints.ts (laptop begins at 1024px) — keep them in sync.
- *
- * All values reference design tokens (tokens.css). No hardcoded colours,
- * spacing, or type sizes.
+ * Two distinct structures from one tree, switched in CSS (no JS layout shift).
+ * Laptop ≥1024px: persistent sidebar + wide content column.
+ * Mobile <1024px: single-column with fixed bottom nav in the thumb zone.
  */
 
 .app-layout {
@@ -14,9 +11,7 @@
   flex-direction: column;
   min-height: 100%;
   width: 100%;
-  /* Height reserved at the bottom of the mobile content column for the fixed
-     bottom nav. Tap targets stay ≥48px (see .bottom-nav-link). */
-  --bottom-nav-height: 56px;
+  --bottom-nav-height: 64px;
 }
 
 .app-layout-content {
@@ -24,6 +19,7 @@
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 
 .app-layout-header {
@@ -36,105 +32,144 @@
 .app-layout-main {
   flex: 1;
   min-width: 0;
+  overflow: auto;
 }
 
-/* The sidebar is the laptop-only navigation column; hidden by default (mobile
-   first) and revealed at the laptop breakpoint. */
 .app-layout-sidebar {
   display: none;
 }
 
-/* The bottom-nav slot is mobile-only. It is a transparent passthrough
-   (`display: contents`) so the BottomNav primitive's own fixed positioning
-   pins it to the viewport's bottom edge (thumb zone). Hidden on laptop. */
 .app-layout-bottom-nav {
   display: contents;
 }
 
-/* ── Mobile / tablet (< 1024px): purpose-built single-column layout ─────────── */
+/* ── Mobile / tablet (< 1024px) ─────────────────────────────────────────────── */
 @media (max-width: 1023px) {
   .app-layout-main {
-    /* Reserve room for the fixed bottom nav (height + safe-area inset) so it
-       never overlaps the last content row. */
     padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
   }
 }
 
-/* ── Laptop (≥ 1024px): comfortable sidebar + wide content layout ───────────── */
+/* ── Laptop (≥ 1024px) ──────────────────────────────────────────────────────── */
 @media (min-width: 1024px) {
   .app-layout {
     flex-direction: row;
+    height: 100svh;
+    overflow: hidden;
   }
 
   .app-layout-sidebar {
-    display: block;
-    flex: 0 0 var(--sidebar-width, 240px);
-    border-right: 1px solid var(--border);
-    padding: var(--space-4);
+    display: flex;
+    flex: 0 0 212px;
+    background: var(--surface-2);
+    border-right: 1px solid var(--line);
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
   }
 
-  /* Bottom nav is replaced by the sidebar on laptop. */
   .app-layout-bottom-nav {
     display: none;
   }
 
+  .app-layout-content {
+    height: 100%;
+    overflow: hidden;
+  }
+
   .app-layout-main {
-    /* Comfortable reading width with generous gutters, centred in the column. */
-    width: 100%;
-    max-width: var(--content-max-width, 1100px);
-    margin: 0 auto;
-    padding: var(--space-6);
+    padding: 0;
+    overflow: auto;
   }
 }
 
-/* ── SidebarNav (laptop) ─────────────────────────────────────────────────────
-   Vertical primary-destination list shown in AppLayout's sidebar (≥1024px). */
+/* ── SidebarNav ──────────────────────────────────────────────────────────────── */
+
 .sidebar-nav {
   display: flex;
   flex-direction: column;
   height: 100%;
-  gap: var(--space-4);
+  padding: var(--s5) var(--s3);
+  gap: 0;
+  overflow: hidden;
 }
 
+/* Brand row: K logo + name */
 .sidebar-nav-brand {
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--text-h);
-  padding: var(--space-1) var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 10px 18px;
+  flex-shrink: 0;
 }
 
+.sidebar-nav-brand-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--ink);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: var(--fw-bold);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.sidebar-nav-brand-name {
+  font-weight: var(--fw-bold);
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+/* Nav list */
 .sidebar-nav-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
   list-style: none;
   margin: 0;
   padding: 0;
   flex: 1;
+  overflow-y: auto;
+}
+
+.sidebar-nav-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 12px 8px;
 }
 
 .sidebar-nav-link {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  /* Large tap target — comfortable on touch laptops too (≥44px tall). */
-  min-height: 44px;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-lg);
+  gap: 11px;
+  padding: 9px 11px;
+  border-radius: var(--r-sm);
   text-decoration: none;
-  color: var(--text-secondary);
-  font-size: var(--text-md);
+  color: var(--ink-2);
+  font-size: 13.5px;
+  font-weight: var(--fw-med);
+  transition:
+    background var(--dur) var(--ease),
+    color var(--dur);
+  min-height: 38px;
 }
 
 .sidebar-nav-link:hover {
-  background: var(--surface-hover);
-  color: var(--text-h);
+  background: #eceeef;
+  color: var(--ink);
 }
 
 .sidebar-nav-link--active {
-  background: var(--surface-muted);
-  color: var(--accent);
-  font-weight: 600;
+  background: var(--accent-tint);
+  color: var(--accent-press);
+  font-weight: var(--fw-semi);
+}
+
+.sidebar-nav-link--active .sidebar-nav-icon {
+  opacity: 1;
 }
 
 .sidebar-nav-link:focus-visible {
@@ -143,47 +178,109 @@
 }
 
 .sidebar-nav-icon {
-  font-size: var(--text-xl);
-  line-height: 1;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  opacity: 0.85;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
+.sidebar-nav-label {
+  flex: 1;
+}
+
+/* User footer */
 .sidebar-nav-footer {
   margin-top: auto;
+  flex-shrink: 0;
+}
+
+.sidebar-nav-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.sidebar-nav-user:hover {
+  background: #eceeef;
+}
+
+.sidebar-nav-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: var(--fw-semi);
+  flex-shrink: 0;
+}
+
+.sidebar-nav-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-nav-user-name {
+  font-size: 12.5px;
+  font-weight: var(--fw-semi);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-nav-user-meta {
+  font-size: 11px;
+  color: var(--muted);
 }
 
 .sidebar-nav-signout {
   width: 100%;
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 11px;
+  border-radius: var(--r-sm);
+  background: transparent;
+  border: 1px solid var(--line-2);
+  color: var(--ink-2);
+  cursor: pointer;
+  text-align: left;
+  margin-top: var(--s2);
 }
 
-/* ── ThumbFab (mobile primary action) ────────────────────────────────────────
-   Floating action button pinned to the bottom-right thumb zone, above the fixed
-   bottom nav. Large tap target (≥56px). Hidden on laptop — the comfortable
-   layout places primary actions inline. */
+.sidebar-nav-signout:hover {
+  background: #eceeef;
+}
+
+/* ── ThumbFab (mobile primary action) ─────────────────────────────────────── */
+
 .thumb-fab {
   position: fixed;
-  right: var(--space-4);
-  /* Sit above the bottom nav + safe-area inset. */
-  bottom: calc(var(--bottom-nav-height, 56px) + var(--space-3) + env(safe-area-inset-bottom, 0px));
+  right: var(--s4);
+  bottom: calc(var(--bottom-nav-height, 64px) + var(--s3) + env(safe-area-inset-bottom, 0px));
   z-index: 110;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: 56px;
-  padding: 0 var(--space-5);
-  border: none;
-  border-radius: var(--radius-full);
-  background: var(--accent);
-  color: var(--accent-on);
-  font-size: var(--text-md);
-  font-weight: 600;
-  text-decoration: none;
-  box-shadow: var(--shadow-lg);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  box-shadow: var(--shadow-3);
+  border: 0;
   cursor: pointer;
-}
-
-.thumb-fab-icon {
-  font-size: var(--text-xl);
+  font-size: 24px;
   line-height: 1;
+  text-decoration: none;
 }
 
 .thumb-fab:focus-visible {
@@ -197,9 +294,8 @@
   }
 }
 
-/* ── QuickActionDialog (laptop modal) ─────────────────────────────────────────
-   The laptop equivalent of the mobile bottom Sheet for quick add/edit. Reuses
-   the shared .modal / .modal-backdrop surface; adds a close affordance. */
+/* ── QuickActionDialog ────────────────────────────────────────────────────── */
+
 .quick-action-modal {
   position: relative;
   max-width: 460px;
@@ -207,53 +303,44 @@
 
 .quick-action-modal-close {
   position: absolute;
-  top: var(--space-3);
-  right: var(--space-3);
+  top: var(--s3);
+  right: var(--s3);
   background: none;
   border: none;
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
-  color: var(--text-secondary);
-  padding: var(--space-1) 6px;
-  border-radius: var(--radius-sm);
+  color: var(--muted);
+  padding: var(--s1) 6px;
+  border-radius: var(--r-xs);
 }
 
 .quick-action-modal-close:hover {
-  background: var(--surface-hover);
+  background: var(--surface-2);
 }
 
-.quick-action-modal-close:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
+/* ── Offline / sync indicators ────────────────────────────────────────────── */
 
-/* Offline indicator (M09.4 S3). A full-width strip at the top of the content
-   column shown only while offline, signalling that cached trip data is in view.
-   Inverted (text-on-text) so it reads as a system notice, not page content. */
 .offline-banner {
-  padding: var(--space-2) var(--space-4);
-  background: var(--text-h);
+  padding: var(--s2) var(--s4);
+  background: var(--ink);
   color: var(--bg);
-  font-size: var(--text-sm);
+  font-size: var(--t-sm);
   text-align: center;
 }
 
-/* Sync notice (M09.4 S4). Transient, unobtrusive confirmation that queued
-   offline writes have replayed (or will retry). Pinned bottom-centre above the
-   mobile bottom nav so it doesn't cover content or the thumb-zone actions. */
 .sync-status {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(var(--bottom-nav-height, 56px) + var(--space-3));
+  bottom: calc(var(--bottom-nav-height, 64px) + var(--s3));
   z-index: 50;
   max-width: min(92vw, 32rem);
-  padding: var(--space-2) var(--space-4);
-  background: var(--text-h);
+  padding: var(--s2) var(--s4);
+  background: var(--ink);
   color: var(--bg);
-  font-size: var(--text-sm);
+  font-size: var(--t-sm);
   text-align: center;
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
 }
