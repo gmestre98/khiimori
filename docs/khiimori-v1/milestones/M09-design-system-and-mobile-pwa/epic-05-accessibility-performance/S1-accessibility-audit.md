@@ -8,10 +8,10 @@
 Audit the primary flows for accessibility and close gaps.
 
 ## Acceptance criteria
-- [ ] **Keyboard navigation** works across primary flows (sign-in, trips, day planning, journal, sharing).
-- [ ] **Contrast is sufficient** (token-driven) and **type is readable** at standard sizes.
-- [ ] Focus states, labels, and semantic markup are correct on the primary flows (gaps from Epic 02 closed).
-- [ ] An audit checklist/notes record what was checked and fixed.
+- [x] **Keyboard navigation** works across primary flows (sign-in, trips, day planning, journal, sharing).
+- [x] **Contrast is sufficient** (token-driven) and **type is readable** at standard sizes.
+- [x] Focus states, labels, and semantic markup are correct on the primary flows (gaps from Epic 02 closed).
+- [x] An audit checklist/notes record what was checked and fixed.
 
 ## Constraints
 - Build on Epic 02's a11y baseline; this is auditing real flows, not new primitives.

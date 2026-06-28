@@ -9,10 +9,10 @@ choices that also cut the two named variable-cost risks (PRD §8.4 #2–3).
 Apply the performance techniques across the app.
 
 ## Acceptance criteria
-- [ ] **Code-splitting** is in place so the day view loads only what it needs (routes/components split).
-- [ ] The **map is lazy-loaded** (Milestone 07 S1) — not on initial app/day load.
-- [ ] List/grid views serve **light thumbnails** (Milestone 06 S3), not originals.
-- [ ] Bundle/asset sizes for the critical path are kept lean (measured).
+- [x] **Code-splitting** is in place so the day view loads only what it needs (routes/components split).
+- [x] The **map is lazy-loaded** (Milestone 07 S1) — not on initial app/day load.
+- [x] List/grid views serve **light thumbnails** (Milestone 06 S3), not originals.
+- [x] Bundle/asset sizes for the critical path are kept lean (measured).
 
 ## Constraints
 - These techniques double as cost mitigations (fewer Maps calls, less photo egress) — apply them
