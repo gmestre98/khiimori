@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { UnauthorizedError, datesInRange, fetchTrips, type Trip } from '../lib/api'
 import { useActiveTripOffline } from '../lib/activeTripSync'
@@ -113,12 +113,12 @@ function TripShell() {
           <h1 className="trip-shell-name">{trip.name}</h1>
           {trip.destinations.length > 0 && (
             <>
-              <span className="trip-shell-sep">·</span>
+              <span className="trip-shell-sep trip-shell-sep--dest">·</span>
               <p className="trip-shell-destinations">{trip.destinations.join(', ')}</p>
             </>
           )}
         </div>
-        <div className="row gap2">
+        <div className="row gap2 trip-shell-actions">
           <Link
             to={`/trips/${trip.id}/budget`}
             state={{ trip }}
@@ -145,8 +145,8 @@ function TripShell() {
           </Link>
         </div>
       </header>
-      {/* Day selector strip */}
-      <DayNav tripId={trip.id} dates={dates} trip={trip} />
+      {/* Day selector strip — only on the day view, not budget/sharing/backlog */}
+      {dateParam && <DayNav tripId={trip.id} dates={dates} trip={trip} />}
       {/* Outlet renders DayView; trip is passed via context */}
       <Outlet context={{ trip }} />
     </div>
@@ -173,6 +173,13 @@ function DayNav({ tripId, dates, trip }: { tripId: string; dates: string[]; trip
     return idx >= 0 ? `Day ${idx + 1} · ${d}` : d
   }
 
+  // Keep the active day pill in view when the day changes (matters on mobile,
+  // where the pill strip scrolls horizontally).
+  const activePillRef = useRef<HTMLAnchorElement | null>(null)
+  useEffect(() => {
+    activePillRef.current?.scrollIntoView({ inline: 'center', block: 'nearest' })
+  }, [date])
+
   return (
     <nav className="day-strip" aria-label="Day navigation">
       {prevDate ? (
@@ -194,6 +201,7 @@ function DayNav({ tripId, dates, trip }: { tripId: string; dates: string[]; trip
         {dates.map((d, i) => (
           <Link
             key={d}
+            ref={d === date ? activePillRef : undefined}
             to={`/trips/${tripId}/days/${d}`}
             state={{ trip }}
             className={['day-pill', d === date ? 'day-pill--active' : ''].filter(Boolean).join(' ')}

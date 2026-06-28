@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import {
   UnauthorizedError,
   fetchBudgetRollup,
@@ -8,12 +8,10 @@ import {
 } from '../lib/api'
 import { TripBudgetEditor } from './BudgetEditor'
 import { TripRollup, BudgetSummaryTiles } from './RollupDisplay'
-import { useTripShell } from './useTripShell'
 
 // TripBudgetPage renders the trip-level budget editor and rollup display.
 export function TripBudgetPage() {
   const { tripId } = useParams<{ tripId: string }>()
-  const { trip } = useTripShell()
   const [rollup, setRollup] = useState<BudgetRollup | null>(null)
   const [lines, setLines] = useState<BudgetLine[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -56,19 +54,8 @@ export function TripBudgetPage() {
 
   return (
     <article className="trip-budget-page">
-      <header className="topnav">
-        <div className="crumbs">
-          <Link to={`/trips/${tripId}`} className="trip-shell-back" aria-label="Back to trip">
-            ← Back
-          </Link>
-          <span className="trip-shell-sep">›</span>
-          <b>{trip?.name ?? 'Trip'}</b>
-          <span className="trip-shell-sep">›</span>
-          Budget
-        </div>
-      </header>
-
       <div className="screen-content narrow trip-budget-body">
+        <h1 className="h1 trip-budget-title">Budget</h1>
         {error && (
           <p role="alert" className="trip-budget-error">
             {error}

@@ -23,7 +23,7 @@ export function BottomNav({ items, className = '' }: BottomNavProps) {
     >
       <ul className="bottom-nav-list" role="list">
         {items.map((item) => (
-          <li key={item.to} className="bottom-nav-item">
+          <li key={item.label} className="bottom-nav-item">
             <NavLink
               to={item.to}
               className={({ isActive }) =>

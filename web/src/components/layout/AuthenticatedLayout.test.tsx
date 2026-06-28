@@ -39,16 +39,8 @@ describe('AuthenticatedLayout', () => {
     expect(screen.getAllByRole('link', { name: /trips/i }).length).toBeGreaterThanOrEqual(2)
   })
 
-  it('exposes the primary "New trip" thumb action', () => {
+  it('does not render a redundant "New trip" thumb action (the dashboard top bar owns it)', () => {
     renderLayout()
-    const fab = screen.getByRole('link', { name: 'New trip' })
-    expect(fab).toHaveAttribute('href', '/trips/new')
-    expect(fab).toHaveClass('thumb-fab')
-  })
-
-  it('hides the "New trip" thumb action off the trips dashboard', () => {
-    renderLayout('/profile')
-    expect(screen.getByText('Profile screen')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'New trip' })).not.toBeInTheDocument()
   })
 })
