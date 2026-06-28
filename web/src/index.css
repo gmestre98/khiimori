@@ -1,4 +1,5 @@
 @import './design/tokens.css';
+@import './design/design-system.css';
 @import './design/utilities.css';
 @import './components/ui/ui.css';
 

@@ -1,0 +1,392 @@
+/*
+ * Khiimori component library — the APP STYLES block from
+ * docs/khiimori-v1/design/khiimori-design.html, copied as the baseline
+ * component styles. Classes map 1:1 to the design reference; screens compose
+ * them rather than redefining visuals. All values reference tokens.css.
+ *
+ * Buttons (.btn*) and chips (.chip) live in App.css and already match the
+ * reference; this file adds the remaining primitives and the compound chip /
+ * card forms used across the per-trip screens.
+ */
+
+/* ---------- Typography helpers ---------- */
+.h1 {
+  font-size: var(--t-h1);
+  line-height: var(--t-h1-lh);
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.h2 {
+  font-size: var(--t-h2);
+  line-height: var(--t-h2-lh);
+  font-weight: var(--fw-semi);
+  margin: 0;
+}
+.meta {
+  color: var(--muted);
+  font-size: var(--t-sm);
+  line-height: var(--t-sm-lh);
+}
+
+/* ---------- Per-trip screen chrome ---------- */
+.topnav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--line);
+}
+.topnav .crumbs {
+  font-size: 13px;
+  color: var(--muted);
+}
+.topnav .crumbs b {
+  color: var(--ink);
+}
+.screen-content {
+  padding: 26px 28px;
+}
+.screen-content.narrow {
+  max-width: 980px;
+}
+
+/* ---------- Tabs / segmented ---------- */
+.tabs {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--surface-2);
+  padding: 4px;
+  border-radius: var(--r-pill);
+}
+.tabs button {
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: var(--fw-med);
+  color: var(--muted);
+  padding: 7px 16px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+.tabs button.active {
+  background: #fff;
+  color: var(--ink);
+  font-weight: var(--fw-semi);
+  box-shadow: var(--shadow-1);
+}
+.tabs button:hover:not(.active) {
+  color: var(--ink);
+}
+
+/* ---------- Chip compound forms (base .chip lives in App.css) ---------- */
+.chip.solid {
+  background: var(--ink);
+  color: #fff;
+}
+.chip.accent {
+  background: var(--accent-tint);
+  color: var(--accent-press);
+}
+.chip.outline {
+  background: #fff;
+  border: 1px solid var(--line-2);
+  color: var(--ink-2);
+}
+.chip.dot::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.9;
+}
+
+/* ---------- Badges ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 5px;
+}
+.badge.ok {
+  background: var(--accent-tint);
+  color: var(--accent-press);
+}
+.badge.warn {
+  background: var(--amber-tint);
+  color: var(--warn);
+}
+.badge.danger {
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+.badge.neutral {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+/* ---------- Cards ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+}
+.card.pad {
+  padding: 18px;
+}
+.card.hover {
+  transition:
+    box-shadow var(--dur) var(--ease),
+    border-color var(--dur),
+    transform var(--dur);
+  cursor: pointer;
+}
+.card.hover:hover {
+  box-shadow: var(--shadow-2);
+  border-color: var(--line-2);
+  transform: translateY(-1px);
+}
+.card-accent-l {
+  position: relative;
+  overflow: hidden;
+}
+.card-accent-l::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent);
+}
+
+/* ---------- Avatars ---------- */
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 12px;
+  font-weight: var(--fw-semi);
+  flex: 0 0 auto;
+}
+.avatar.sm {
+  width: 24px;
+  height: 24px;
+  font-size: 10px;
+}
+.avatar.lg {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+}
+.avatar-stack {
+  display: flex;
+}
+.avatar-stack .avatar {
+  box-shadow: 0 0 0 2px #fff;
+  margin-left: -8px;
+}
+.avatar-stack .avatar:first-child {
+  margin-left: 0;
+}
+
+/* ---------- Progress / budget meters ---------- */
+.progress {
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.progress > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+}
+.progress.warn > span {
+  background: var(--warn);
+}
+.progress.danger > span {
+  background: var(--danger);
+}
+.progress.thin {
+  height: 6px;
+}
+.progress.seg {
+  display: flex;
+  gap: 2px;
+  background: transparent;
+}
+.progress.seg > i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+}
+
+/* ---------- Inputs ---------- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field label {
+  font-size: 12px;
+  font-weight: var(--fw-semi);
+  color: var(--ink-2);
+}
+.input {
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  width: 100%;
+  transition:
+    border-color var(--dur),
+    background var(--dur);
+}
+.input::placeholder {
+  color: var(--faint);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}
+
+/* ---------- Icon button ---------- */
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-2);
+  background: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--ink-2);
+}
+.icon-btn:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* ---------- Timeline (day plan) ---------- */
+.timeline {
+  position: relative;
+  padding-left: 26px;
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 8px;
+  bottom: 18px;
+  width: 2px;
+  background: var(--line-2);
+}
+.tl-item {
+  position: relative;
+  margin-bottom: 12px;
+}
+.tl-item .node {
+  position: absolute;
+  left: -26px;
+  top: 16px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 3px #fff;
+}
+.tl-item .node.amber {
+  border-color: var(--amber);
+}
+.tl-item .node.idea {
+  border-color: var(--line-2);
+  border-style: dashed;
+}
+
+/* ---------- Inline SVG stroke icons ---------- */
+svg.ic {
+  stroke: currentColor;
+  stroke-width: 1.7;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- Layout utilities ---------- */
+.row {
+  display: flex;
+  align-items: center;
+}
+.between {
+  justify-content: space-between;
+}
+.gap2 {
+  gap: 8px;
+}
+.gap3 {
+  gap: 12px;
+}
+.gap4 {
+  gap: 16px;
+}
+.wrap {
+  flex-wrap: wrap;
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.mt1 {
+  margin-top: 4px;
+}
+.mt2 {
+  margin-top: 8px;
+}
+.mt3 {
+  margin-top: 12px;
+}
+.mt4 {
+  margin-top: 16px;
+}
+.mt5 {
+  margin-top: 20px;
+}
+.mt6 {
+  margin-top: 24px;
+}
+.mb2 {
+  margin-bottom: 8px;
+}
+.mb3 {
+  margin-bottom: 12px;
+}
+.mb4 {
+  margin-bottom: 16px;
+}
+.mb5 {
+  margin-bottom: 20px;
+}
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
