@@ -483,6 +483,37 @@ describe('DayView', () => {
 
     afterEach(() => setMobile(false))
 
+    it('shows facet tabs and switches the visible section on mobile', async () => {
+      setMobile(true)
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      renderDayView()
+      await waitFor(() =>
+        expect(screen.getByRole('tablist', { name: 'Trip sections' })).toBeInTheDocument(),
+      )
+      // Default facet is Plan; the map/journal are not simultaneously mounted.
+      expect(screen.getByRole('region', { name: 'Planning' })).toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Map' })).not.toBeInTheDocument()
+
+      // Switching to Map reveals it and hides Plan.
+      await user.click(screen.getByRole('tab', { name: 'Map' }))
+      expect(screen.getByRole('region', { name: 'Map' })).toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Planning' })).not.toBeInTheDocument()
+    })
+
+    it('does not render facet tabs on desktop (combined grid instead)', async () => {
+      setMobile(false)
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      renderDayView()
+      await waitFor(() =>
+        expect(screen.getByRole('region', { name: 'Planning' })).toBeInTheDocument(),
+      )
+      // Desktop shows all facets together, no segmented control.
+      expect(screen.queryByRole('tablist', { name: 'Trip sections' })).not.toBeInTheDocument()
+      expect(screen.getByRole('region', { name: 'Map' })).toBeInTheDocument()
+      expect(screen.getByRole('region', { name: 'Journal' })).toBeInTheDocument()
+    })
+
     it('renders a FAB button on mobile instead of the inline quick-add form', async () => {
       setMobile(true)
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())

@@ -30,7 +30,7 @@ export function AuthenticatedLayout() {
   return (
     <AppLayout
       sidebar={sidebar}
-      bottomNav={<BottomNav items={buildPrimaryNavItems(activeTripId)} />}
+      bottomNav={<BottomNav items={buildPrimaryNavItems()} />}
     >
       <OfflineBanner />
       <SyncStatus />

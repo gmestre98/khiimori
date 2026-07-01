@@ -1622,15 +1622,56 @@ function MapSlot({
   )
 }
 
+// FACETS are the four day sections. On phones they are shown one at a time and
+// switched with a segmented control (a trip's facets aren't top-level nav
+// destinations, so they live here rather than in the bottom bar). On laptop/
+// tablet all four render together in the two-column grid.
+const FACETS = [
+  { key: 'plan', label: 'Plan' },
+  { key: 'map', label: 'Map' },
+  { key: 'budget', label: 'Budget' },
+  { key: 'journal', label: 'Journal' },
+] as const
+type Facet = (typeof FACETS)[number]['key']
+
+// FacetTabs is the mobile segmented control that switches the visible day facet.
+function FacetTabs({ value, onChange }: { value: Facet; onChange: (f: Facet) => void }) {
+  return (
+    <div className="day-facet-tabs" role="tablist" aria-label="Trip sections">
+      {FACETS.map((f) => (
+        <button
+          key={f.key}
+          type="button"
+          role="tab"
+          aria-selected={value === f.key}
+          className={['day-facet-tab', value === f.key ? 'day-facet-tab--active' : '']
+            .filter(Boolean)
+            .join(' ')}
+          onClick={() => onChange(f.key)}
+        >
+          {f.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // DayView renders a single trip day identified by /trips/:tripId/days/:date.
 // It fetches the day from the API, shows its metadata, and renders the planning
-// section (stays, timed/untimed items, quick-add, backlog link) plus placeholder
-// slots for Budget (M05), Journal (M06), and Map (M07).
+// section (stays, timed/untimed items, quick-add, backlog link) plus the Budget,
+// Journal, and Map slots. On phones the four are shown one at a time via
+// FacetTabs; on wider screens they render together in the two-column grid.
 export function DayView() {
   const { tripId, date } = useParams<{ tripId: string; date: string }>()
   const { trip } = useTripShell()
   // A trip is "past" when its end date is before today; journals become read-only.
   const isPast = trip.end_date < new Date().toISOString().slice(0, 10)
+
+  const mobile = useMobile()
+  // On phones only one facet shows at a time; `view` tracks which. It lives in
+  // component state (not the URL) so it persists as the user flips between days
+  // — DayView stays mounted across date changes.
+  const [view, setView] = useState<Facet>('plan')
 
   const [day, setDay] = useState<Day | null>(null)
   // planItems is the live source of truth for the day's plan items, lifted out of
@@ -1697,11 +1738,11 @@ export function DayView() {
       )}
       {day?.notes && <p className="day-view-notes">{day.notes}</p>}
 
-      {/* Two-column day layout (design reference §07): left column is the living
-          itinerary + day budget, right column pairs the day map with the journal. */}
-      <div className="day-grid">
-        <div className="day-grid-col day-grid-left">
-          {liveDay && tripId ? (
+      {(() => {
+        // The four day facets, built once and placed either together (grid) or
+        // one at a time (mobile FacetTabs).
+        const planningSlot =
+          liveDay && tripId ? (
             <PlanningSection
               key={liveDay.id}
               day={liveDay}
@@ -1719,26 +1760,55 @@ export function DayView() {
             >
               <h2 className="day-slot-title">Plan</h2>
             </section>
-          )}
-          {day && tripId ? (
+          )
+        const budgetSlot =
+          day && tripId ? (
             <BudgetSlot tripId={tripId} day={day} />
           ) : (
             <section className="day-slot day-slot-budget" aria-label="Budget" data-slot="budget">
               <h2 className="day-slot-title">Budget</h2>
             </section>
-          )}
-        </div>
-        <div className="day-grid-col day-grid-right">
-          <MapSlot day={liveDay} selectedId={selectedId} onSelect={setSelectedId} />
-          {day && tripId ? (
+          )
+        const mapSlot = <MapSlot day={liveDay} selectedId={selectedId} onSelect={setSelectedId} />
+        const journalSlot =
+          day && tripId ? (
             <JournalSlot tripId={tripId} dayId={day.id} readOnly={isPast} />
           ) : (
             <section className="day-slot day-slot-journal" aria-label="Journal" data-slot="journal">
               <h2 className="day-slot-title">Journal</h2>
             </section>
-          )}
-        </div>
-      </div>
+          )
+
+        // Phones: a segmented control switches a single full-width facet.
+        if (mobile) {
+          return (
+            <div className="day-facets">
+              <FacetTabs value={view} onChange={setView} />
+              <div className="day-facet-panel">
+                {view === 'plan' && planningSlot}
+                {view === 'map' && mapSlot}
+                {view === 'budget' && budgetSlot}
+                {view === 'journal' && journalSlot}
+              </div>
+            </div>
+          )
+        }
+
+        // Laptop/tablet: two-column layout (design reference §07) — living
+        // itinerary + day budget on the left, map + journal on the right.
+        return (
+          <div className="day-grid">
+            <div className="day-grid-col day-grid-left">
+              {planningSlot}
+              {budgetSlot}
+            </div>
+            <div className="day-grid-col day-grid-right">
+              {mapSlot}
+              {journalSlot}
+            </div>
+          </div>
+        )
+      })()}
     </article>
   )
 }
