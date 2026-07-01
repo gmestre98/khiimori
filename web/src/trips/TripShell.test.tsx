@@ -146,7 +146,7 @@ describe('DayView', () => {
     renderShellAtDay('2026-06-03')
     await waitFor(() => {
       expect(screen.getByText('Day 3')).toBeInTheDocument()
-      expect(screen.getByText('2026-06-03')).toBeInTheDocument()
+      expect(screen.getByText('Wednesday, Jun 03 2026')).toBeInTheDocument()
     })
   })
 

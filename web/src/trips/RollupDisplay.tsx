@@ -1,14 +1,6 @@
 import type { BudgetRollup } from '../lib/api'
 import { BUDGET_CATEGORIES } from '../lib/api'
-
-function fmt(n: number): string {
-  return `€${n.toFixed(2)}`
-}
-
-// fmtWhole renders a whole-euro amount (used in the summary tiles).
-function fmtWhole(n: number): string {
-  return `€${Math.round(n).toLocaleString('en-US')}`
-}
+import { euro as fmt, euroWhole as fmtWhole } from '../lib/format'
 
 // Category swatch colors map to the design tokens (--cat-*).
 const CATEGORY_COLOR: Record<string, string> = {
@@ -52,7 +44,10 @@ export function BudgetSummaryTiles({ rollup }: { rollup: BudgetRollup }) {
 
 // SpendBar renders a simple progress bar. pct is clamped to [0, 100].
 // When planned is 0, only the spent pip is shown without a bar track.
+// Non-finite inputs (from a partial/empty rollup) are coerced to 0.
 function SpendBar({ spent, planned }: { spent: number; planned: number }) {
+  spent = Number.isFinite(spent) ? spent : 0
+  planned = Number.isFinite(planned) ? planned : 0
   if (planned <= 0) {
     return (
       <div
@@ -212,23 +207,26 @@ export function BudgetGlance({ rollup }: { rollup: BudgetRollup }) {
   return (
     <div className="budget-glance">
       <div className="budget-glance-row">
-        <span className="budget-glance-label">Spent</span>
-        <span className="budget-glance-value">{fmt(spent)}</span>
-        {planned > 0 && (
-          <>
-            <span className="budget-glance-sep"> of </span>
-            <span className="budget-glance-planned">{fmt(planned)}</span>
-          </>
-        )}
+        <span className="budget-glance-label">Trip budget</span>
+        <span className="budget-glance-amounts num">
+          <b className="budget-glance-value">{fmtWhole(spent)}</b>
+          {planned > 0 && (
+            <>
+              <span className="budget-glance-sep"> / </span>
+              <span className="budget-glance-planned">{fmtWhole(planned)}</span>
+              {remaining !== null && (
+                <span
+                  className={`budget-glance-left${remaining < 0 ? ' budget-glance-left--over' : ''}`}
+                >
+                  {' · '}
+                  {remaining >= 0 ? `${fmtWhole(remaining)} left` : `${fmtWhole(-remaining)} over`}
+                </span>
+              )}
+            </>
+          )}
+        </span>
       </div>
       <SpendBar spent={spent} planned={planned} />
-      {remaining !== null && (
-        <div
-          className={`budget-glance-remaining${remaining < 0 ? ' budget-glance-remaining--over' : ''}`}
-        >
-          {remaining >= 0 ? `${fmt(remaining)} remaining` : `${fmt(-remaining)} over budget`}
-        </div>
-      )}
     </div>
   )
 }

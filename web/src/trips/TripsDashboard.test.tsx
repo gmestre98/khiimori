@@ -92,7 +92,7 @@ describe('TripsDashboard', () => {
     // tripA is in the current bucket (is_current: false → shows as grid card on Current tab)
     await waitFor(() => screen.getByText('Japan 2024'))
     expect(screen.getByText(/tokyo.*kyoto/i)).toBeInTheDocument()
-    expect(screen.getByText('2024-04-01 – 2024-04-14')).toBeInTheDocument()
+    expect(screen.getByText('Apr 01 – Apr 14, 2024')).toBeInTheDocument()
 
     // tripB is on the Upcoming tab
     fireEvent.click(screen.getByRole('tab', { name: /upcoming/i }))

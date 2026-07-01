@@ -23,6 +23,7 @@ import {
   type PlanItemInput,
   type Stay,
 } from '../lib/api'
+import { fullDate } from '../lib/format'
 import { JournalEditor } from '../journal/JournalEditor'
 import { DayBudgetEditor } from './BudgetEditor'
 import { FastAddCost } from './FastAddCost'
@@ -720,29 +721,16 @@ function PlanItemRow({
           aria-label={`Edit ${item.title}`}
           onClick={() => setEditing(true)}
         >
+          {item.start_time && (
+            <span className="plan-item-time" aria-label={`Start time: ${item.start_time}`}>
+              {item.start_time.slice(0, 5)}
+            </span>
+          )}
           <span className="plan-item-title" style={inactive ? { opacity: 0.5 } : undefined}>
             {item.title}
           </span>
-          {item.start_time && (
-            <>
-              {' '}
-              <span className="plan-item-time" aria-label={`Start time: ${item.start_time}`}>
-                {item.start_time.slice(0, 5)}
-              </span>
-            </>
-          )}
-          {item.location && (
-            <>
-              {' '}
-              <span className="plan-item-location">{item.location}</span>
-            </>
-          )}
-          {label && (
-            <>
-              {' '}
-              <span className="plan-item-status-badge">{label}</span>
-            </>
-          )}
+          {item.location && <span className="plan-item-location">{item.location}</span>}
+          {label && <span className="plan-item-status-badge">{label}</span>}
         </button>
       </div>
 
@@ -1372,7 +1360,7 @@ export function DayView() {
         <h2 className="day-view-title">{dayNumber !== null ? `Day ${dayNumber}` : 'Day'}</h2>
         {date && (
           <time className="day-view-date" dateTime={date}>
-            {date}
+            {fullDate(date)}
           </time>
         )}
       </header>

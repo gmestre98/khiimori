@@ -515,6 +515,20 @@
   font-style: italic;
 }
 
+/* "Open today" — the single accent CTA on the hero (design §04). */
+.current-trip-header-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--s2);
+  flex-shrink: 0;
+}
+
+.current-trip-open {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
 /* ── Upcoming / Past cards ───────────────────────────────────────────────── */
 
 .trips-section-title {
@@ -690,6 +704,29 @@
     bottom: 10px;
     left: 14px;
   }
+
+  /* Mobile hero: large title, and the single accent CTA spans the thumb zone
+     full-width below the trip meta (design §08 / spec §5). */
+  .current-trip-header {
+    flex-wrap: wrap;
+  }
+
+  .current-trip-name {
+    font-size: 21px;
+  }
+
+  .current-trip-header-cta {
+    order: 3;
+    width: 100%;
+  }
+
+  .current-trip-open {
+    width: 100%;
+    justify-content: center;
+    font-size: 13px;
+    padding: 11px 16px;
+    margin-top: var(--s2);
+  }
 }
 
 /* ── Trip create/edit form ──────────────────────────────────────────────────── */
@@ -854,6 +891,57 @@
   background: var(--color-error-bg);
 }
 
+/* ── Calm trip cards (design §04) ──────────────────────────────────────────────
+   The card body is one large click target that opens the trip; secondary
+   controls (Edit / Archive / Delete) sit below as quiet text actions so the
+   grid stays calm and uncluttered, matching the reference. */
+.trip-card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.trip-card-action,
+.current-trip-action {
+  font: inherit;
+  font-size: 12px;
+  font-weight: var(--fw-med);
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  padding: 4px 0;
+  cursor: pointer;
+  text-decoration: none;
+  border-radius: var(--r-xs);
+  transition: color var(--dur) var(--ease);
+}
+
+.trip-card-action:hover,
+.current-trip-action:hover {
+  color: var(--ink);
+}
+
+.trip-card-action--danger:hover,
+.current-trip-action--danger:hover {
+  color: var(--danger);
+}
+
+.trip-card-actions {
+  display: flex;
+  gap: var(--s4);
+  margin-top: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+}
+
+.current-trip-actions {
+  display: flex;
+  gap: var(--s4);
+  margin-top: var(--s4);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line);
+}
+
 /* ── Confirm modal ──────────────────────────────────────────────────────────── */
 
 .modal-backdrop {
@@ -963,16 +1051,20 @@
 }
 
 .day-strip-arrow {
-  display: inline-grid;
-  place-items: center;
-  width: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   height: 30px;
+  padding: 0 10px;
+  white-space: nowrap;
   border-radius: var(--r-sm);
   border: 1px solid var(--line-2);
   background: #fff;
   color: var(--ink-2);
   text-decoration: none;
   font-size: 13px;
+  font-weight: var(--fw-med);
   flex: 0 0 auto;
   cursor: pointer;
 }
@@ -1313,6 +1405,12 @@
   min-width: 0;
   font: inherit;
   color: inherit;
+  /* Flex so the time · title · location · badge sit on one row with a
+     consistent gap (whitespace text nodes collapse under flex). */
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
 }
 .plan-item-title {
   font-size: 13.5px;
@@ -2416,35 +2514,41 @@
 .budget-glance-row {
   display: flex;
   align-items: baseline;
-  gap: var(--space-1);
-  font-size: 0.875rem;
+  justify-content: space-between;
+  gap: var(--s3);
+  font-size: var(--t-sm);
+  margin-bottom: var(--s2);
 }
 
 .budget-glance-label {
-  color: var(--text-secondary);
-  font-size: 0.8rem;
+  color: var(--muted);
+  font-size: var(--t-sm);
+}
+
+.budget-glance-amounts {
+  color: var(--muted);
 }
 
 .budget-glance-value {
-  font-weight: 600;
-  color: var(--text-h);
+  font-weight: var(--fw-bold);
+  color: var(--ink);
 }
 
 .budget-glance-sep {
-  color: var(--text-secondary);
+  color: var(--muted);
 }
 
 .budget-glance-planned {
-  color: var(--text-secondary);
+  color: var(--muted);
 }
 
-.budget-glance-remaining {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
+.budget-glance-left {
+  color: var(--accent-press);
+  font-weight: var(--fw-semi);
 }
 
-.budget-glance-remaining--over {
-  color: var(--error);
+.budget-glance-left--over {
+  color: var(--danger);
 }
 
 @media (max-width: 600px) {

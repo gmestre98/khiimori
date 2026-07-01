@@ -13,9 +13,37 @@ import {
 import { CurrentTripCard } from './CurrentTripCard'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { BudgetGlance } from './RollupDisplay'
+import { formatDateRange, monthYear, tripDayCount } from '../lib/format'
 
 type Tab = 'current' | 'past'
 type PendingAction = { type: 'archive' | 'delete'; trip: Trip }
+
+// daysUntil returns whole days from today to an ISO date (negative if past).
+function daysUntil(iso: string): number {
+  const target = new Date(iso + 'T00:00:00').getTime()
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.round((target - today.getTime()) / 86_400_000)
+}
+
+// CheckIcon — the small "journal complete" tick on past trips (design §04).
+function CheckIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ color: 'var(--accent)' }}
+    >
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
+  )
+}
 
 // PlusIcon — inline SVG for the "New trip" button
 function PlusIcon() {
@@ -48,74 +76,61 @@ function TripCard({
   onDelete: (trip: Trip) => void
 }) {
   const destinations = trip.destinations.join(' · ')
-  const dateRange = `${trip.start_date} – ${trip.end_date}`
+  const days = tripDayCount(trip.start_date, trip.end_date)
+  const until = daysUntil(trip.start_date)
+  const pastMeta = `${monthYear(trip.start_date)} · ${days} days`
 
   return (
     <article className={['trip-card', isPast ? 'trip-card--past' : ''].filter(Boolean).join(' ')}>
-      <div className="trip-card-header">
-        <h3 className="trip-card-name">{trip.name}</h3>
-        {isPast ? (
-          <span className="chip chip--accent" style={{ fontSize: 11, gap: 4 }}>
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ color: 'var(--accent)' }}
-            >
-              <path d="M20 6L9 17l-5-5" />
-            </svg>
-            journal
-          </span>
-        ) : (
-          <span className="chip">upcoming</span>
-        )}
-      </div>
-      {destinations && <p className="trip-card-destinations">{destinations}</p>}
-      <div className="trip-card-footer">
-        <p className="trip-card-dates num">{dateRange}</p>
-      </div>
+      {/* The whole card opens the trip; quiet actions sit below (design §04). */}
+      <Link
+        to={`/trips/${trip.id}`}
+        state={{ trip }}
+        className="trip-card-link"
+        aria-label={`Open ${trip.name}`}
+      >
+        <div className="trip-card-header">
+          <h3 className="trip-card-name">{trip.name}</h3>
+          {isPast ? (
+            <span className="chip chip--accent" style={{ gap: 4 }}>
+              <CheckIcon /> journal
+            </span>
+          ) : (
+            <span className={until <= 30 ? 'chip' : 'chip chip--outline'}>
+              {until <= 0 ? 'now' : until <= 30 ? `in ${until} days` : 'planning'}
+            </span>
+          )}
+        </div>
+        {destinations && <p className="trip-card-destinations">{destinations}</p>}
+        <div className="trip-card-footer">
+          <p className="trip-card-dates num">
+            {isPast ? pastMeta : formatDateRange(trip.start_date, trip.end_date)}
+          </p>
+        </div>
+      </Link>
       <div className="trip-card-actions">
-        <Link
-          to={`/trips/${trip.id}`}
-          state={{ trip }}
-          className="trip-card-open-link"
-          onClick={(e) => e.stopPropagation()}
-          aria-label={`Open ${trip.name}`}
-        >
-          Open
-        </Link>
         <Link
           to={`/trips/${trip.id}/edit`}
           state={{ trip }}
-          className="trip-card-edit-link"
-          onClick={(e) => e.stopPropagation()}
+          className="trip-card-action"
           aria-label={`Edit ${trip.name}`}
         >
           Edit
         </Link>
         {onArchive && (
           <button
-            className="btn-ghost btn-sm"
-            onClick={(e) => {
-              e.stopPropagation()
-              onArchive(trip)
-            }}
+            type="button"
+            className="trip-card-action"
+            onClick={() => onArchive(trip)}
             aria-label={`Archive ${trip.name}`}
           >
             Archive
           </button>
         )}
         <button
-          className="btn-ghost-danger"
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete(trip)
-          }}
+          type="button"
+          className="trip-card-action trip-card-action--danger"
+          onClick={() => onDelete(trip)}
           aria-label={`Delete ${trip.name}`}
         >
           Delete
