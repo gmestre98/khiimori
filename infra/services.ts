@@ -49,3 +49,17 @@ export const monitoringApi = enableApi('monitoring', 'monitoring.googleapis.com'
 
 /** Cloud Billing Budget API — billing budget + threshold alerts (M01.8 S1). */
 export const billingBudgetsApi = enableApi('billingbudgets', 'billingbudgets.googleapis.com')
+
+/**
+ * Geocoding API — server-side location → LatLng resolution for the day map and
+ * the plan form's live "Found / couldn't place this" check (geo proxy). Enabled
+ * here so a fresh stack stands the feature up without a manual console step.
+ */
+export const geocodingApi = enableApi('geocoding', 'geocoding-backend.googleapis.com')
+
+/**
+ * Places API — server-side location autocomplete for the plan form (geo proxy
+ * `GET /geo/autocomplete`). Billed per request; the field debounces and requires
+ * 3+ chars. Enabled here for reproducibility (khiimori#391 follow-up).
+ */
+export const placesApi = enableApi('places', 'places-backend.googleapis.com')
