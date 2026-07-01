@@ -50,7 +50,8 @@ describe('Profile', () => {
     expect(screen.getByLabelText(/name/i)).toHaveValue('Ann')
     expect(screen.getByLabelText(/avatar/i)).toHaveValue('https://pic')
     expect(screen.getByLabelText(/home base/i)).toHaveValue('Lisbon')
-    expect(screen.getByLabelText(/theme/i)).toHaveValue('system')
+    // Theme is a segmented radiogroup; the current value is the checked radio.
+    expect(screen.getByRole('radio', { name: 'System' })).toHaveAttribute('aria-checked', 'true')
     // Email + currency are read-only text, not inputs.
     expect(screen.getByText(/ann@example\.com/)).toBeInTheDocument()
     expect(screen.getByText('EUR')).toBeInTheDocument()
@@ -65,7 +66,7 @@ describe('Profile', () => {
     const auth = renderProfile()
 
     fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Ann B.' } })
-    fireEvent.change(screen.getByLabelText(/theme/i), { target: { value: 'dark' } })
+    fireEvent.click(screen.getByRole('radio', { name: 'Dark' }))
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/saved/i))

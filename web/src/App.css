@@ -174,45 +174,138 @@
   color: var(--error);
 }
 
-/* ── Profile form ───────────────────────────────────────────────────────────── */
+/* ── Profile ────────────────────────────────────────────────────────────────── */
+
+.profile {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: var(--s5) var(--s4);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+}
+
+/* Identity hero: avatar + name + email. */
+.profile-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+}
+.profile-avatar {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: var(--accent-tint);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+}
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.profile-avatar-initials {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.profile-hero-meta {
+  min-width: 0;
+}
+.profile-hero-name {
+  margin: 0;
+  font-size: var(--text-xl);
+  line-height: 1.2;
+}
+.profile-hero-email {
+  margin: 2px 0 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
 
 .profile-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  max-width: 420px;
-  margin: var(--space-4) auto 0;
-  text-align: left;
+  gap: var(--s4);
 }
 
-.profile-form label {
+/* Editable fields grouped in a calm card. */
+.profile-card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-}
-
-.profile-form input,
-.profile-form select {
-  font: inherit;
-  padding: var(--space-2) 10px;
+  gap: var(--s4);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: var(--bg);
-  color: var(--text-h);
+  padding: var(--s5);
 }
 
-.profile-readonly {
-  color: var(--text);
+/* Read-only facts (currency) as a compact key/value row. */
+.profile-facts {
+  margin: 0;
+  padding-top: var(--s3);
+  border-top: 1px solid var(--border);
+}
+.profile-fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+.profile-fact dt {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.profile-fact dd {
+  margin: 0;
+  color: var(--text-h);
+}
+.profile-fact-note {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
 }
 
 .profile-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--s4);
 }
 
 .profile-saved {
   color: var(--success);
+  margin: 0;
+}
+
+/* ── Segmented control (radiogroup) ──────────────────────────────────────────── */
+.segmented {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-muted);
+  border-radius: var(--radius-lg);
+}
+.segmented-btn {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 7px 4px;
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.segmented-btn--active {
+  background: var(--surface);
+  color: var(--text-h);
+  font-weight: 500;
 }
 
 /* ── Trips dashboard ─────────────────────────────────────────────────────────── */
