@@ -261,6 +261,27 @@ describe('DayView', () => {
       )
     })
 
+    it('adds a located stop to the map immediately (no reload)', async () => {
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      const located = makePlanItem({ id: 'new-loc', title: 'Kiyomizu-dera', location: 'Kyoto' })
+      vi.mocked(api.createPlanItem).mockResolvedValue(located)
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+      // No map pins before adding.
+      expect(screen.queryByRole('button', { name: /^Pin 1:/ })).not.toBeInTheDocument()
+
+      await user.type(screen.getByLabelText('Title'), 'Kiyomizu-dera')
+      await user.click(screen.getByRole('button', { name: 'Add' }))
+
+      // The map's pin legend reflects the new located stop without a reload,
+      // proving DayView's lifted plan-items state feeds the map live.
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Pin 1: Kiyomizu-dera' })).toBeInTheDocument(),
+      )
+    })
+
     it('shows error when add fails', async () => {
       const user = userEvent.setup()
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
@@ -293,13 +314,13 @@ describe('DayView', () => {
       await waitFor(() => expect(input.value).toBe(''))
     })
 
-    it('expands optional fields when More options is clicked', async () => {
+    it('expands optional fields when More details is clicked', async () => {
       const user = userEvent.setup()
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
       renderDayView()
       await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: 'More options' }))
+      await user.click(screen.getByRole('button', { name: 'More details' }))
       expect(screen.getByLabelText('Location')).toBeInTheDocument()
     })
 
@@ -310,7 +331,7 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: 'More options' }))
+      await user.click(screen.getByRole('button', { name: 'More details' }))
       await user.type(screen.getByLabelText('Location'), 'Louvre, Paris')
 
       await waitFor(() => expect(screen.getByText(/will show on the map/i)).toBeInTheDocument())
@@ -324,7 +345,7 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: 'More options' }))
+      await user.click(screen.getByRole('button', { name: 'More details' }))
       await user.type(screen.getByLabelText('Location'), 'asdfqwer')
 
       await waitFor(() => expect(screen.getByText(/couldn.t place this/i)).toBeInTheDocument())
@@ -341,7 +362,7 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: 'More options' }))
+      await user.click(screen.getByRole('button', { name: 'More details' }))
       await user.type(screen.getByLabelText('Location'), 'Fushimi')
 
       const option = await screen.findByRole('option', {
@@ -475,7 +496,7 @@ describe('DayView', () => {
       )
 
       await user.click(screen.getByRole('button', { name: 'Add activity' }))
-      expect(screen.getByRole('dialog', { name: 'Add activity' })).toBeInTheDocument()
+      expect(screen.getByRole('dialog', { name: 'Add to plan' })).toBeInTheDocument()
       expect(screen.getByLabelText('Title')).toBeInTheDocument()
     })
 
@@ -491,10 +512,10 @@ describe('DayView', () => {
 
       await user.click(screen.getByRole('button', { name: 'Add activity' }))
       await user.type(screen.getByLabelText('Title'), 'New act')
-      await user.click(screen.getByRole('button', { name: 'Add' }))
+      await user.click(screen.getByRole('button', { name: 'Add to plan' }))
 
       await waitFor(() =>
-        expect(screen.queryByRole('dialog', { name: 'Add activity' })).not.toBeInTheDocument(),
+        expect(screen.queryByRole('dialog', { name: 'Add to plan' })).not.toBeInTheDocument(),
       )
       expect(screen.getByText('New act')).toBeInTheDocument()
     })
@@ -522,7 +543,7 @@ describe('DayView', () => {
       )
 
       await user.click(screen.getByRole('button', { name: 'Add activity' }))
-      const dialog = screen.getByRole('dialog', { name: 'Add activity' })
+      const dialog = screen.getByRole('dialog', { name: 'Add to plan' })
       expect(dialog).toHaveAttribute('aria-modal', 'true')
     })
 
@@ -536,11 +557,11 @@ describe('DayView', () => {
       )
 
       await user.click(screen.getByRole('button', { name: 'Add activity' }))
-      expect(screen.getByRole('dialog', { name: 'Add activity' })).toBeInTheDocument()
+      expect(screen.getByRole('dialog', { name: 'Add to plan' })).toBeInTheDocument()
 
       await user.keyboard('{Escape}')
       await waitFor(() =>
-        expect(screen.queryByRole('dialog', { name: 'Add activity' })).not.toBeInTheDocument(),
+        expect(screen.queryByRole('dialog', { name: 'Add to plan' })).not.toBeInTheDocument(),
       )
     })
 

@@ -1698,69 +1698,66 @@
 .plan-item-form {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .plan-item-form-row {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   align-items: center;
 }
+/* The title uses the shared .form-input; this only flexes it to fill the row. */
 .plan-item-form-title {
   flex: 1;
-  font-size: var(--text-base);
-  padding: 6px var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
 }
-.plan-item-form-submit {
-  font-size: 13px;
-  padding: 6px var(--space-3);
-  border-radius: var(--radius-md);
-  border: none;
-  background: var(--accent);
-  color: var(--accent-on);
-  cursor: pointer;
-  font-weight: 500;
-}
-.plan-item-form-submit:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.plan-item-form-cancel {
-  font-size: 13px;
-  padding: 6px 10px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  cursor: pointer;
-}
+
+/* Disclosure toggle: chevron + label, accent-coloured, quiet. */
 .plan-item-form-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
   font-size: var(--text-sm);
-  padding: 0;
+  padding: var(--space-1) 0;
   border: none;
   background: none;
   color: var(--accent);
   cursor: pointer;
-  text-align: left;
 }
-.plan-item-form-optional {
+.plan-item-form-toggle-icon {
+  transition: transform 0.15s ease;
+}
+.plan-item-form-toggle-icon--open {
+  transform: rotate(180deg);
+}
+
+/* Expanded details: full-width fields with related ones paired into a grid
+   that collapses to one column when the container is narrow (mobile sheet). */
+.plan-item-form-details {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-3);
 }
-.plan-item-form-label {
+.plan-item-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-3);
+}
+
+/* Sheet footer: Cancel + primary action pinned below the fields on mobile. */
+.plan-item-form-footer {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
+  gap: var(--space-2);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+  margin-top: var(--space-1);
 }
-.plan-item-form-field {
-  font-size: var(--text-base);
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+.plan-item-form-footer .btn-secondary {
+  flex: 1;
 }
+.plan-item-form-footer .btn-primary {
+  flex: 2;
+}
+
 .plan-item-form-error {
   font-size: 13px;
   color: var(--danger);
@@ -1771,9 +1768,8 @@
 .location-combobox {
   position: relative;
 }
-.location-combobox .plan-item-form-field {
-  width: 100%;
-  box-sizing: border-box;
+.location-field .location-status {
+  margin-top: 0;
 }
 .location-suggestions {
   position: absolute;
