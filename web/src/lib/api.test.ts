@@ -214,7 +214,9 @@ describe('geocodeLocation', () => {
   it('returns coordinates when the location resolves', async () => {
     const spy = vi
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(new Response(JSON.stringify({ lat: 48.8606, lng: 2.3376 }), { status: 200 }))
+      .mockResolvedValue(
+        new Response(JSON.stringify({ lat: 48.8606, lng: 2.3376 }), { status: 200 }),
+      )
 
     const coords = await geocodeLocation('Louvre, Paris')
     expect(coords).not.toBeNull()
@@ -224,7 +226,9 @@ describe('geocodeLocation', () => {
   })
 
   it('returns null when the location is not found (404)', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('location not found', { status: 404 }))
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('location not found', { status: 404 }),
+    )
     await expect(geocodeLocation('Nowheresville')).resolves.toBeNull()
   })
 

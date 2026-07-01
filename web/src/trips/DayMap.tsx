@@ -142,7 +142,8 @@ export default function DayMap({
   } else if (waypoints === null) {
     caption = 'Loading stops…'
   } else if (points.length === 0) {
-    caption = 'We couldn’t place any of this day’s locations. Try adding a city or country to each one.'
+    caption =
+      'We couldn’t place any of this day’s locations. Try adding a city or country to each one.'
   }
 
   return (

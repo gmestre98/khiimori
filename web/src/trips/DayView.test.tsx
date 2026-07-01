@@ -351,9 +351,7 @@ describe('DayView', () => {
 
       expect(screen.getByLabelText('Location')).toHaveValue('Fushimi Inari Taisha, Kyoto, Japan')
       // Dropdown closes after selection.
-      await waitFor(() =>
-        expect(screen.queryByRole('listbox')).not.toBeInTheDocument(),
-      )
+      await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument())
     })
   })
 
