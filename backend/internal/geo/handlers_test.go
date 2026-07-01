@@ -59,6 +59,63 @@ func TestHandleGeocodeSuccess(t *testing.T) {
 	}
 }
 
+func TestHandleAutocompleteNoProvider(t *testing.T) {
+	t.Parallel()
+	m := New(nil, nil, noopMiddleware)
+	req := httptest.NewRequest(http.MethodGet, "/geo/autocomplete?input=lou", nil)
+	w := httptest.NewRecorder()
+	m.handleAutocomplete(w, req)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected 503, got %d", w.Code)
+	}
+}
+
+func TestHandleAutocompleteSuccess(t *testing.T) {
+	t.Parallel()
+	p := &fakeMapProvider{suggestions: []Suggestion{
+		{Description: "Louvre Museum, Paris, France", PlaceID: "abc"},
+	}}
+	m := New(p, nil, noopMiddleware)
+	req := httptest.NewRequest(http.MethodGet, "/geo/autocomplete?input=louvre", nil)
+	w := httptest.NewRecorder()
+	m.handleAutocomplete(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Louvre Museum") || !strings.Contains(body, "suggestions") {
+		t.Errorf("expected suggestions in body, got: %s", body)
+	}
+}
+
+func TestHandleAutocompleteEmptyReturnsList(t *testing.T) {
+	t.Parallel()
+	// nil suggestions from the provider must serialize as [] not null.
+	p := &fakeMapProvider{suggestions: nil}
+	m := New(p, nil, noopMiddleware)
+	req := httptest.NewRequest(http.MethodGet, "/geo/autocomplete?input=", nil)
+	w := httptest.NewRecorder()
+	m.handleAutocomplete(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "[]") {
+		t.Errorf("expected empty array, got: %s", w.Body.String())
+	}
+}
+
+func TestHandleAutocompleteUpstreamError(t *testing.T) {
+	t.Parallel()
+	p := &fakeMapProvider{suggestErr: context.DeadlineExceeded}
+	m := New(p, nil, noopMiddleware)
+	req := httptest.NewRequest(http.MethodGet, "/geo/autocomplete?input=lou", nil)
+	w := httptest.NewRecorder()
+	m.handleAutocomplete(w, req)
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected 502, got %d", w.Code)
+	}
+}
+
 // TestHandleGeocodeUsesInjectedGeocoder verifies that the module calls the
 // injected Geocoder (not the MapProvider) so a caching layer can slot in.
 func TestHandleGeocodeUsesInjectedGeocoder(t *testing.T) {

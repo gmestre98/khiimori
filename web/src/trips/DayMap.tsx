@@ -1,9 +1,14 @@
-import { useEffect, useState } from 'react'
-import { fetchDayRoute, staticMapUrl, UnauthorizedError, type Day, type LatLng } from '../lib/api'
-import { collectLocatedItems } from './locatedItems'
+import { useEffect, useMemo, useState } from 'react'
+import L from 'leaflet'
+import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
+import { fetchDayRoute, UnauthorizedError, type Day, type LatLng } from '../lib/api'
+import { collectLocatedItems, type LocatedItem } from './locatedItems'
 
 // collectLocations builds the raw location string list passed to fetchDayRoute,
-// including empty strings for location-less items (the server skips them).
+// including empty strings for location-less items (the server skips them). The
+// order matches collectLocatedItems so returned waypoints line up positionally
+// with located items (waypoints[i] ↔ locatedItems[i]).
 function collectLocations(day: Day): string[] {
   return [
     ...(day.stays ?? []).map((s) => s.location ?? ''),
@@ -13,19 +18,71 @@ function collectLocations(day: Day): string[] {
   ]
 }
 
-// DayMapImage renders the static map <img> once waypoints are resolved.
-function DayMapImage({ waypoints, label }: { waypoints: LatLng[]; label: string }) {
-  const url = staticMapUrl(waypoints, { size: '600x300', scale: 2 })
-  if (!url) return null
-  return <img src={url} alt={label} className="day-map-img" width={600} height={300} />
+// DEFAULT_CENTER / DEFAULT_ZOOM frame a gentle world view when the day has no
+// located stops yet — the map stays visible ("always available") rather than
+// being replaced by an empty-state message.
+const DEFAULT_CENTER: [number, number] = [20, 0]
+const DEFAULT_ZOOM = 2
+
+// accentColor reads the design system's --accent token so the route polyline and
+// markers stay in sync with the theme instead of hard-coding a hex value.
+function accentColor(): string {
+  if (typeof window === 'undefined') return '#2f6f6a'
+  const v = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
+  return v || '#2f6f6a'
 }
 
-// DayMap fetches route waypoints for the day and renders the static map image.
-// Items without a location are silently excluded by the geo proxy.
-// Exported as the default so React.lazy can load it on demand.
+// pinIcon builds a numbered Leaflet divIcon styled to match the itinerary pins.
+// Selected pins get a modifier class so the map highlight mirrors the list.
+function pinIcon(n: number, selected: boolean): L.DivIcon {
+  return L.divIcon({
+    className: 'day-map-marker-wrap',
+    html: `<span class="day-map-marker${selected ? ' day-map-marker--selected' : ''}">${n}</span>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  })
+}
+
+// MapController syncs the imperative Leaflet map with React state: it fits the
+// view to the day's waypoints and pans to the selected pin when it changes.
+function MapController({
+  waypoints,
+  selectedIndex,
+}: {
+  waypoints: LatLng[]
+  selectedIndex: number
+}) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (waypoints.length === 0) {
+      map.setView(DEFAULT_CENTER, DEFAULT_ZOOM)
+      return
+    }
+    if (waypoints.length === 1) {
+      map.setView([waypoints[0].lat, waypoints[0].lng], 14)
+      return
+    }
+    const bounds = L.latLngBounds(waypoints.map((w) => [w.lat, w.lng] as [number, number]))
+    map.fitBounds(bounds, { padding: [32, 32] })
+  }, [map, waypoints])
+
+  useEffect(() => {
+    if (selectedIndex < 0 || selectedIndex >= waypoints.length) return
+    const wp = waypoints[selectedIndex]
+    map.panTo([wp.lat, wp.lng])
+  }, [map, selectedIndex, waypoints])
+
+  return null
+}
+
+// DayMap renders an interactive OpenStreetMap view of the day's located stops.
+// The map is always shown so users can orient themselves even before adding a
+// location; markers are clickable and wired to the shared selection state
+// (Epic 04 S1), so clicking a pin on the map highlights the matching list item.
 //
-// selectedId / onSelect wire the shared selection state (Epic 04 S1): clicking
-// a pin in the legend updates selectedId; PlanningSection highlights the item.
+// Items without a location are excluded (the geo proxy skips empty strings).
+// Exported as the default so React.lazy can load the map bundle on demand.
 export default function DayMap({
   day,
   selectedId,
@@ -39,51 +96,96 @@ export default function DayMap({
   const locatedItems = collectLocatedItems(day)
   const hasAnyLocation = locations.some((l) => l !== '')
 
-  // When no item has a location we know immediately the map is empty — skip the
-  // async fetch and start in the "resolved empty" state.
+  // Skip the async fetch when nothing has a location: start "resolved empty".
   const [waypoints, setWaypoints] = useState<LatLng[] | null>(hasAnyLocation ? null : [])
   const [error, setError] = useState(false)
 
-  // Stable key for the effect: re-run when the day or its location strings change.
   const locKey = `${day.id}:${locations.join('|')}`
 
   useEffect(() => {
+    // Nothing to geocode: no fetch, no state churn. State is only ever written
+    // from the async callbacks below, so the effect never setState synchronously.
     if (!hasAnyLocation) return
-
     const controller = new AbortController()
-
     fetchDayRoute(locations, controller.signal)
-      .then((res) => setWaypoints(res.waypoints))
+      .then((res) => {
+        if (controller.signal.aborted) return
+        setWaypoints(res.waypoints)
+        setError(false)
+      })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === 'AbortError') return
         if (err instanceof UnauthorizedError) return
         setError(true)
+        setWaypoints([])
       })
-
     return () => controller.abort()
     // locKey encodes day.id + all locations as a single stable primitive
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locKey])
 
-  if (error) {
-    return <p className="day-map-error">Map unavailable.</p>
-  }
+  // Derive displayed points from hasAnyLocation so clearing the last location
+  // immediately empties the map without needing to reset fetched state.
+  const points = hasAnyLocation ? (waypoints ?? []) : []
+  const selectedIndex = useMemo(
+    () => (selectedId ? locatedItems.findIndex((it) => it.id === selectedId) : -1),
+    [selectedId, locatedItems],
+  )
+  const routeColor = useMemo(() => accentColor(), [])
 
-  if (waypoints === null) {
-    return (
-      <p className="day-map-loading" aria-busy="true">
-        Loading map…
-      </p>
-    )
-  }
-
-  if (waypoints.length === 0) {
-    return <p className="day-map-empty">No located stops for this day.</p>
+  // Caption below the map communicates state without hiding the map itself.
+  let caption: string | null = null
+  if (!hasAnyLocation) {
+    caption = 'No places yet. Add a location to a stay or activity and its pin appears here.'
+  } else if (error) {
+    caption = 'Couldn’t load stop positions right now. The map is still available above.'
+  } else if (waypoints === null) {
+    caption = 'Loading stops…'
+  } else if (points.length === 0) {
+    caption =
+      'We couldn’t place any of this day’s locations. Try adding a city or country to each one.'
   }
 
   return (
-    <div className="day-map-container">
-      <DayMapImage waypoints={waypoints} label={`Map for ${day.date}`} />
+    <div className="day-map">
+      <MapContainer
+        center={DEFAULT_CENTER}
+        zoom={DEFAULT_ZOOM}
+        scrollWheelZoom={false}
+        className="day-map-leaflet"
+        aria-label={`Map for ${day.date}`}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        {points.length > 1 && (
+          <Polyline
+            positions={points.map((w) => [w.lat, w.lng] as [number, number])}
+            pathOptions={{ color: routeColor, weight: 3, opacity: 0.5 }}
+          />
+        )}
+        {points.map((wp, i) => {
+          const item: LocatedItem | undefined = locatedItems[i]
+          const isSelected = !!item && selectedId === item.id
+          return (
+            <Marker
+              key={item?.id ?? `${wp.lat},${wp.lng}`}
+              position={[wp.lat, wp.lng]}
+              icon={pinIcon(i + 1, isSelected)}
+              eventHandlers={{
+                click: () => item && onSelect(selectedId === item.id ? null : item.id),
+              }}
+            >
+              {item && <Tooltip>{item.label}</Tooltip>}
+            </Marker>
+          )
+        })}
+        <MapController waypoints={points} selectedIndex={selectedIndex} />
+      </MapContainer>
+
+      {caption && <p className="day-map-caption">{caption}</p>}
+
       {locatedItems.length > 0 && (
         <nav className="day-map-pins" aria-label="Map pins">
           {locatedItems.map((item, i) => (

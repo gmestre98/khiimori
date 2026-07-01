@@ -178,10 +178,32 @@ function json(body: unknown, status = 200): Response {
 }
 
 // route handlers, in priority order. Each entry: [RegExp, handler].
-function resolve(path: string, method: string): Response | null {
+function resolve(path: string, method: string, search: string): Response | null {
   // /me — auth probe
   if (path === '/me') return json(profile)
   if (path === '/trips' && method === 'GET') return null // handled by fetchTrips' own mock branch
+
+  // Single-location geocode proxy — powers the location field's live feedback.
+  // Mimics a real geocoder: resolves anything with letters, 404s on gibberish
+  // (no alphabetic characters) so the "couldn't place this" path is exercisable.
+  if (path === '/geo/geocode') {
+    const loc = new URLSearchParams(search).get('location') ?? ''
+    if (!/[a-z]/i.test(loc)) return json({ error: 'location not found' }, 404)
+    return json({ lat: 35.0116, lng: 135.7681 })
+  }
+
+  // Place autocomplete — returns a few plausible predictions built from the
+  // typed input so the suggestions dropdown is exercisable in local dev.
+  if (path === '/geo/autocomplete') {
+    const input = (new URLSearchParams(search).get('input') ?? '').trim()
+    if (input.length < 3) return json({ suggestions: [] })
+    const suggestions = [
+      { description: `${input}, Kyoto, Japan`, place_id: `mock-${input}-1` },
+      { description: `${input} Station, Osaka, Japan`, place_id: `mock-${input}-2` },
+      { description: `${input}, Tokyo, Japan`, place_id: `mock-${input}-3` },
+    ]
+    return json({ suggestions })
+  }
 
   // Day route geo proxy
   if (path === '/geo/day-route') {
@@ -246,7 +268,7 @@ export function installDevMock() {
         u.pathname.startsWith('/trips') ||
         u.pathname.startsWith('/geo')
       if (isApi) {
-        const res = resolve(u.pathname, method)
+        const res = resolve(u.pathname, method, u.search)
         if (res) return res
         if (u.pathname === '/trips') return realFetch(input as RequestInfo, init)
         return json({}, 200)

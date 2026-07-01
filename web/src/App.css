@@ -1236,17 +1236,53 @@
 
 .day-map-loading,
 .day-map-error,
-.day-map-empty {
+.day-map-empty,
+.day-map-caption {
   font-size: 13px;
   color: var(--text-secondary);
   font-style: italic;
   margin: 0;
 }
 
+.day-map,
 .day-map-container {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+/* Interactive Leaflet map surface. A fixed height is required for Leaflet to
+   size its tiles; the container clips tiles to the rounded card corners. */
+.day-map-leaflet {
+  height: 320px;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  z-index: 0;
+}
+
+/* Numbered map markers reuse the itinerary pin accent (a sanctioned accent
+   use case). divIcon wrapper is transparent; the inner span is the pin. */
+.day-map-marker-wrap {
+  background: transparent;
+  border: none;
+}
+.day-map-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--accent);
+  background: var(--surface, #fff);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+.day-map-marker--selected {
+  background: var(--accent);
+  color: var(--accent-on);
 }
 
 .day-map-pins {
@@ -1729,6 +1765,63 @@
   font-size: 13px;
   color: var(--danger);
   margin: 0;
+}
+
+/* Location combobox: input plus an absolutely-positioned suggestions list. */
+.location-combobox {
+  position: relative;
+}
+.location-combobox .plan-item-form-field {
+  width: 100%;
+  box-sizing: border-box;
+}
+.location-suggestions {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.location-suggestion {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  color: var(--text-primary, inherit);
+  cursor: pointer;
+}
+.location-suggestion--active,
+.location-suggestion:hover {
+  background: var(--accent-tint, var(--accent-hover));
+}
+
+/* Live geocode feedback under the location field — advisory, low-key. */
+.location-status {
+  font-size: var(--text-sm);
+  margin-top: 2px;
+  min-height: 1.2em;
+  transition: color 0.15s;
+}
+.location-status--idle,
+.location-status--unchecked {
+  color: var(--text-muted);
+}
+.location-status--checking {
+  color: var(--text-secondary);
+}
+.location-status--found {
+  color: var(--success);
+}
+.location-status--notfound {
+  color: var(--warning);
 }
 
 .plan-item-save-status {

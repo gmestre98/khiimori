@@ -984,6 +984,45 @@ export async function fetchDayRoute(
   return (await res.json()) as DayRouteResponse
 }
 
+// geocodeLocation resolves a single free-text location to coordinates via the
+// geo proxy (GET /geo/geocode). Returns the LatLng when the address resolves,
+// or null when the location cannot be found (HTTP 404) — this is the "not a real
+// place" signal the location field uses for live feedback. Throws
+// UnauthorizedError on 401 and a generic Error on other failures so callers can
+// distinguish "not found" (expected) from "couldn't check" (transient).
+export async function geocodeLocation(
+  location: string,
+  signal?: AbortSignal,
+): Promise<LatLng | null> {
+  const res = await apiFetch(`/geo/geocode?location=${encodeURIComponent(location)}`, { signal })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`geocode failed: HTTP ${res.status}`)
+  return (await res.json()) as LatLng
+}
+
+// Suggestion is a single place-autocomplete prediction from GET /geo/autocomplete.
+// description is the human-readable label shown in the dropdown; place_id is
+// Google's stable identifier (kept for future use — details lookups etc.).
+export interface Suggestion {
+  description: string
+  place_id: string
+}
+
+// fetchAutocomplete returns place predictions for a partial location string,
+// powering the plan form's location suggestions. Returns an empty array when
+// there are no matches. Throws UnauthorizedError on 401.
+export async function fetchAutocomplete(
+  input: string,
+  signal?: AbortSignal,
+): Promise<Suggestion[]> {
+  const res = await apiFetch(`/geo/autocomplete?input=${encodeURIComponent(input)}`, { signal })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`autocomplete failed: HTTP ${res.status}`)
+  const data = (await res.json()) as { suggestions?: Suggestion[] }
+  return data.suggestions ?? []
+}
+
 // MARKER_COLOR is the accent colour used for itinerary pins (PRD §5.10 restrained
 // accent). Must be a Google Static Maps colour literal (name or 0xRRGGBB).
 const MARKER_COLOR = '0x4F7942'

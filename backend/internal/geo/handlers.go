@@ -39,6 +39,33 @@ func (m *Module) handleGeocode(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(coords)
 }
 
+// handleAutocomplete proxies a place-autocomplete request:
+// GET /geo/autocomplete?input=<partial address>
+//
+// Returns {"suggestions":[{description, place_id}, ...]}. A blank input yields
+// an empty list (200) rather than an error, so the client can call freely as
+// the user types. The Maps API key is never exposed to the client.
+func (m *Module) handleAutocomplete(w http.ResponseWriter, r *http.Request) {
+	if m.provider == nil {
+		http.Error(w, "geo proxy not configured", http.StatusServiceUnavailable)
+		return
+	}
+
+	input := r.URL.Query().Get("input")
+
+	suggestions, err := m.provider.Autocomplete(r.Context(), input)
+	if err != nil {
+		http.Error(w, "autocomplete failed", http.StatusBadGateway)
+		return
+	}
+	if suggestions == nil {
+		suggestions = []Suggestion{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"suggestions": suggestions})
+}
+
 // handleStaticMap proxies a Google Static Maps image: GET /geo/static-map
 //
 // Query parameters (all optional):

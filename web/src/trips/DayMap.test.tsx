@@ -5,12 +5,14 @@ import DayMap from './DayMap'
 import * as api from '../lib/api'
 import type { Day } from '../lib/api'
 
+// The Leaflet map library is mocked globally in src/test/setup.ts to
+// lightweight DOM stand-ins (map div, clickable markers), since Leaflet can't
+// render in jsdom. These tests assert against those stand-ins.
 vi.mock('../lib/api', async (importOriginal) => {
   const orig = await importOriginal<typeof api>()
   return {
     ...orig,
     fetchDayRoute: vi.fn(),
-    staticMapUrl: vi.fn(),
   }
 })
 
@@ -34,7 +36,6 @@ function renderDayMap(day: Day) {
 describe('DayMap', () => {
   beforeEach(() => {
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
-    vi.mocked(api.staticMapUrl).mockReturnValue(null)
   })
 
   afterEach(() => {
@@ -42,25 +43,27 @@ describe('DayMap', () => {
     vi.resetAllMocks()
   })
 
-  it('shows loading while fetching waypoints', () => {
+  it('always renders the map, even for an empty day', async () => {
+    renderDayMap(makeDay())
+    expect(screen.getByTestId('day-map')).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getByText(/No places yet/)).toBeTruthy()
+    })
+    expect(api.fetchDayRoute).not.toHaveBeenCalled()
+  })
+
+  it('shows a loading caption (map still visible) while fetching', () => {
     vi.mocked(api.fetchDayRoute).mockReturnValue(new Promise(() => {}))
     renderDayMap(
       makeDay({
         stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Paris' }],
       }),
     )
-    expect(screen.getByText('Loading map…')).toBeTruthy()
+    expect(screen.getByTestId('day-map')).toBeTruthy()
+    expect(screen.getByText('Loading stops…')).toBeTruthy()
   })
 
-  it('shows empty state when no located items', async () => {
-    renderDayMap(makeDay())
-    await waitFor(() => {
-      expect(screen.getByText('No located stops for this day.')).toBeTruthy()
-    })
-    expect(api.fetchDayRoute).not.toHaveBeenCalled()
-  })
-
-  it('shows empty state when all waypoints unresolvable', async () => {
+  it('shows a distinct "could not place" caption when all waypoints unresolvable', async () => {
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
     renderDayMap(
       makeDay({
@@ -68,17 +71,16 @@ describe('DayMap', () => {
       }),
     )
     await waitFor(() => {
-      expect(screen.getByText('No located stops for this day.')).toBeTruthy()
+      expect(screen.getByText(/couldn.t place any/i)).toBeTruthy()
     })
   })
 
-  it('renders map img when waypoints are returned', async () => {
+  it('renders a marker per waypoint when the route resolves', async () => {
     const waypoints = [
       { lat: 48.8566, lng: 2.3522 },
       { lat: 48.86, lng: 2.36 },
     ]
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints })
-    vi.mocked(api.staticMapUrl).mockReturnValue('http://localhost:8080/geo/static-map?markers=...')
     renderDayMap(
       makeDay({
         stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Paris' }],
@@ -96,11 +98,39 @@ describe('DayMap', () => {
       }),
     )
     await waitFor(() => {
-      expect(screen.getByRole('img', { name: 'Map for 2026-06-01' })).toBeTruthy()
+      expect(screen.getAllByTestId('map-marker')).toHaveLength(2)
     })
   })
 
-  it('shows error state when fetchDayRoute rejects', async () => {
+  it('clicking a map marker selects the matching item', async () => {
+    const onSelect = vi.fn()
+    const user = userEvent.setup()
+    vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [{ lat: 48.8566, lng: 2.3522 }] })
+    render(
+      <DayMap
+        day={makeDay({
+          plan_items: [
+            {
+              id: 'i1',
+              trip_id: 'trip-1',
+              day_id: 'day-1',
+              title: 'Eiffel Tower',
+              location: 'Eiffel Tower',
+              sort_order: 0,
+              status: 'planned',
+            },
+          ],
+        })}
+        selectedId={null}
+        onSelect={onSelect}
+      />,
+    )
+    const marker = await screen.findByTestId('map-marker')
+    await user.click(marker)
+    expect(onSelect).toHaveBeenCalledWith('i1')
+  })
+
+  it('shows an error caption (map still visible) when fetchDayRoute rejects', async () => {
     vi.mocked(api.fetchDayRoute).mockRejectedValue(new Error('network'))
     renderDayMap(
       makeDay({
@@ -108,8 +138,9 @@ describe('DayMap', () => {
       }),
     )
     await waitFor(() => {
-      expect(screen.getByText('Map unavailable.')).toBeTruthy()
+      expect(screen.getByText(/couldn.t load stop positions/i)).toBeTruthy()
     })
+    expect(screen.getByTestId('day-map')).toBeTruthy()
   })
 
   it('passes locations in itinerary order (stay first, then plan items by sort_order)', async () => {
@@ -152,7 +183,6 @@ describe('DayMap', () => {
 describe('DayMap — route and omission (S3)', () => {
   beforeEach(() => {
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
-    vi.mocked(api.staticMapUrl).mockReturnValue(null)
   })
 
   afterEach(() => {
@@ -195,22 +225,9 @@ describe('DayMap — route and omission (S3)', () => {
     })
   })
 
-  it('shows empty state when all returned waypoints are empty (all items unresolvable)', async () => {
-    vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
-    renderDayMap(
-      makeDay({
-        stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Fake Town' }],
-      }),
-    )
-    await waitFor(() => {
-      expect(screen.getByText('No located stops for this day.')).toBeTruthy()
-    })
-  })
-
-  it('renders map when at least one waypoint resolved (mixed day)', async () => {
+  it('renders a marker when at least one waypoint resolved (mixed day)', async () => {
     const waypoints = [{ lat: 48.8566, lng: 2.3522 }]
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints })
-    vi.mocked(api.staticMapUrl).mockReturnValue('http://localhost:8080/geo/static-map?markers=...')
     renderDayMap(
       makeDay({
         stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Paris' }],
@@ -227,16 +244,16 @@ describe('DayMap — route and omission (S3)', () => {
       }),
     )
     await waitFor(() => {
-      expect(screen.getByRole('img', { name: 'Map for 2026-06-01' })).toBeTruthy()
+      expect(screen.getAllByTestId('map-marker')).toHaveLength(1)
     })
   })
 })
 
-// M07.4 S2 — pin legend two-way correlation
+// M07.4 S2 — pin legend two-way correlation (kept alongside the interactive map
+// for keyboard access and list correlation)
 describe('DayMap — pin legend (M07.4 S2)', () => {
   beforeEach(() => {
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
-    vi.mocked(api.staticMapUrl).mockReturnValue(null)
   })
 
   afterEach(() => {
@@ -250,7 +267,6 @@ describe('DayMap — pin legend (M07.4 S2)', () => {
       { lat: 48.86, lng: 2.36 },
     ]
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints })
-    vi.mocked(api.staticMapUrl).mockReturnValue('http://localhost/map')
     renderDayMap(
       makeDay({
         stays: [{ id: 's1', trip_id: 'trip-1', name: 'Hotel', location: 'Paris' }],
@@ -277,7 +293,6 @@ describe('DayMap — pin legend (M07.4 S2)', () => {
     const onSelect = vi.fn()
     const waypoints = [{ lat: 48.8566, lng: 2.3522 }]
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints })
-    vi.mocked(api.staticMapUrl).mockReturnValue('http://localhost/map')
     const user = userEvent.setup()
 
     render(
@@ -308,7 +323,6 @@ describe('DayMap — pin legend (M07.4 S2)', () => {
     const onSelect = vi.fn()
     const waypoints = [{ lat: 48.8566, lng: 2.3522 }]
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints })
-    vi.mocked(api.staticMapUrl).mockReturnValue('http://localhost/map')
     const user = userEvent.setup()
 
     render(
@@ -338,7 +352,6 @@ describe('DayMap — pin legend (M07.4 S2)', () => {
   it('selected pin has aria-pressed=true and --selected CSS class', async () => {
     const waypoints = [{ lat: 48.8566, lng: 2.3522 }]
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints })
-    vi.mocked(api.staticMapUrl).mockReturnValue('http://localhost/map')
 
     render(
       <DayMap
@@ -368,7 +381,6 @@ describe('DayMap — pin legend (M07.4 S2)', () => {
   it('location-less items do not appear in the pin legend', async () => {
     const waypoints = [{ lat: 48.8566, lng: 2.3522 }]
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints })
-    vi.mocked(api.staticMapUrl).mockReturnValue('http://localhost/map')
 
     renderDayMap(
       makeDay({

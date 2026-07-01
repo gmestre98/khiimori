@@ -82,6 +82,8 @@ vi.mock('../lib/api', async (importOriginal) => {
     movePlanItem: vi.fn(),
     reorderPlanItems: vi.fn(),
     fetchDayRoute: vi.fn(),
+    geocodeLocation: vi.fn().mockResolvedValue(null),
+    fetchAutocomplete: vi.fn().mockResolvedValue([]),
   }
 })
 
@@ -111,6 +113,10 @@ beforeEach(() => {
     planned_by_day: {},
   })
   vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
+  // Location field defaults: no suggestions, unresolved geocode — individual
+  // tests override as needed. Restored here since afterEach resets mock state.
+  vi.mocked(api.fetchAutocomplete).mockResolvedValue([])
+  vi.mocked(api.geocodeLocation).mockResolvedValue(null)
 })
 
 afterEach(() => {
@@ -295,6 +301,57 @@ describe('DayView', () => {
 
       await user.click(screen.getByRole('button', { name: 'More options' }))
       expect(screen.getByLabelText('Location')).toBeInTheDocument()
+    })
+
+    it('confirms a typed location resolves on the map', async () => {
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      vi.mocked(api.geocodeLocation).mockResolvedValue({ lat: 48.86, lng: 2.34 })
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: 'More options' }))
+      await user.type(screen.getByLabelText('Location'), 'Louvre, Paris')
+
+      await waitFor(() => expect(screen.getByText(/will show on the map/i)).toBeInTheDocument())
+      expect(api.geocodeLocation).toHaveBeenCalledWith('Louvre, Paris', expect.anything())
+    })
+
+    it('warns when a typed location cannot be placed', async () => {
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      vi.mocked(api.geocodeLocation).mockResolvedValue(null)
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: 'More options' }))
+      await user.type(screen.getByLabelText('Location'), 'asdfqwer')
+
+      await waitFor(() => expect(screen.getByText(/couldn.t place this/i)).toBeInTheDocument())
+    })
+
+    it('shows place suggestions and fills the field when one is chosen', async () => {
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      vi.mocked(api.geocodeLocation).mockResolvedValue({ lat: 35, lng: 135 })
+      vi.mocked(api.fetchAutocomplete).mockResolvedValue([
+        { description: 'Fushimi Inari Taisha, Kyoto, Japan', place_id: 'p1' },
+        { description: 'Fushimi Ward, Kyoto, Japan', place_id: 'p2' },
+      ])
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: 'More options' }))
+      await user.type(screen.getByLabelText('Location'), 'Fushimi')
+
+      const option = await screen.findByRole('option', {
+        name: 'Fushimi Inari Taisha, Kyoto, Japan',
+      })
+      await user.click(option)
+
+      expect(screen.getByLabelText('Location')).toHaveValue('Fushimi Inari Taisha, Kyoto, Japan')
+      // Dropdown closes after selection.
+      await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument())
     })
   })
 
