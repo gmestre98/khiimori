@@ -28,10 +28,7 @@ export function AuthenticatedLayout() {
   )
 
   return (
-    <AppLayout
-      sidebar={sidebar}
-      bottomNav={<BottomNav items={buildPrimaryNavItems()} />}
-    >
+    <AppLayout sidebar={sidebar} bottomNav={<BottomNav items={buildPrimaryNavItems()} />}>
       <OfflineBanner />
       <SyncStatus />
       <Outlet />
