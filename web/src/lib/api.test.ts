@@ -9,6 +9,8 @@ import {
   setPlanItemStatus,
   staticMapUrl,
   fetchDayRoute,
+  geocodeLocation,
+  fetchAutocomplete,
   UnauthorizedError,
 } from './api'
 
@@ -205,5 +207,63 @@ describe('fetchDayRoute', () => {
   it('throws UnauthorizedError on 401', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 401 }))
     await expect(fetchDayRoute(['Paris'])).rejects.toBeInstanceOf(UnauthorizedError)
+  })
+})
+
+describe('geocodeLocation', () => {
+  it('returns coordinates when the location resolves', async () => {
+    const spy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify({ lat: 48.8606, lng: 2.3376 }), { status: 200 }))
+
+    const coords = await geocodeLocation('Louvre, Paris')
+    expect(coords).not.toBeNull()
+    expect(coords?.lat).toBeCloseTo(48.8606)
+    // The location is URL-encoded into the query string.
+    expect(spy.mock.calls[0][0]).toContain('location=Louvre%2C%20Paris')
+  })
+
+  it('returns null when the location is not found (404)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('location not found', { status: 404 }))
+    await expect(geocodeLocation('Nowheresville')).resolves.toBeNull()
+  })
+
+  it('throws on a transient failure so callers can distinguish it from "not found"', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 502 }))
+    await expect(geocodeLocation('Paris')).rejects.toThrow()
+  })
+
+  it('throws UnauthorizedError on 401', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 401 }))
+    await expect(geocodeLocation('Paris')).rejects.toBeInstanceOf(UnauthorizedError)
+  })
+})
+
+describe('fetchAutocomplete', () => {
+  it('returns the suggestions list and encodes the input', async () => {
+    const payload = {
+      suggestions: [
+        { description: 'Louvre Museum, Paris, France', place_id: 'abc' },
+        { description: 'Louvre-Rivoli, Paris, France', place_id: 'def' },
+      ],
+    }
+    const spy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify(payload), { status: 200 }))
+
+    const got = await fetchAutocomplete('lou vre')
+    expect(got).toHaveLength(2)
+    expect(got[0].description).toBe('Louvre Museum, Paris, France')
+    expect(spy.mock.calls[0][0]).toContain('input=lou%20vre')
+  })
+
+  it('returns an empty array when the response has no suggestions', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }))
+    await expect(fetchAutocomplete('x')).resolves.toEqual([])
+  })
+
+  it('throws UnauthorizedError on 401', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 401 }))
+    await expect(fetchAutocomplete('lou')).rejects.toBeInstanceOf(UnauthorizedError)
   })
 })

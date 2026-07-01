@@ -89,6 +89,51 @@ func (g *googleProvider) Geocode(ctx context.Context, location string) (LatLng, 
 	return body.Results[0].Geometry.Location, nil
 }
 
+// Autocomplete returns place predictions for input via the Google Places
+// Autocomplete REST API. An empty/short input or ZERO_RESULTS yields an empty
+// slice (not an error) so the client simply shows no suggestions.
+func (g *googleProvider) Autocomplete(ctx context.Context, input string) ([]Suggestion, error) {
+	if strings.TrimSpace(input) == "" {
+		return nil, nil
+	}
+
+	u := g.baseURL + "/maps/api/place/autocomplete/json"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("geo: building autocomplete request: %w", err)
+	}
+	q := url.Values{}
+	q.Set("input", input)
+	q.Set("key", g.apiKey)
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := g.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("geo: autocomplete request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("geo: autocomplete API status %d", resp.StatusCode)
+	}
+
+	var body struct {
+		Status      string       `json:"status"`
+		Predictions []Suggestion `json:"predictions"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return nil, fmt.Errorf("geo: decoding autocomplete response: %w", err)
+	}
+	// ZERO_RESULTS is a valid "no matches" outcome, not a failure.
+	if body.Status == "ZERO_RESULTS" {
+		return []Suggestion{}, nil
+	}
+	if body.Status != "OK" {
+		return nil, fmt.Errorf("geo: autocomplete API status %q", body.Status)
+	}
+	return body.Predictions, nil
+}
+
 // RouteHints returns waypoints as-is for v1 (no reordering). The indicative
 // route is drawn in itinerary order, so the caller already provides ordered
 // waypoints. Future milestones may call the Directions API to snap points to

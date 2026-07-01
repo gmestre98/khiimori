@@ -36,12 +36,15 @@ func New(provider MapProvider, geocoder Geocoder, requireAuth httpx.Middleware) 
 // RegisterRoutes mounts the geo module's HTTP routes onto mux.
 //
 //	GET  /geo/geocode              — proxy: resolve location → LatLng
+//	GET  /geo/autocomplete         — proxy: place predictions for a partial input
 //	POST /geo/route-hints          — proxy: return ordered waypoints
 //	GET  /geo/static-map           — proxy: return a PNG map image (no client key)
 //	POST /geo/day-route            — geocode ordered locations + return route hints
 func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /geo/geocode",
 		m.requireAuth(http.HandlerFunc(m.handleGeocode)))
+	mux.Handle("GET /geo/autocomplete",
+		m.requireAuth(http.HandlerFunc(m.handleAutocomplete)))
 	mux.Handle("POST /geo/route-hints",
 		m.requireAuth(http.HandlerFunc(m.handleRouteHints)))
 	mux.Handle("GET /geo/static-map",

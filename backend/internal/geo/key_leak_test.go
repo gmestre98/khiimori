@@ -49,6 +49,15 @@ func newSentinelProvider(t *testing.T) (*googleProvider, *httptest.Server) {
 		case strings.Contains(r.URL.Path, "staticmap"):
 			w.Header().Set("Content-Type", "image/png")
 			_, _ = w.Write([]byte("PNG"))
+		case strings.Contains(r.URL.Path, "autocomplete"):
+			resp := map[string]any{
+				"status": "OK",
+				"predictions": []map[string]any{
+					{"description": "Paris, France", "place_id": "safe-id"},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(resp)
 		default:
 			http.Error(w, "not found", http.StatusNotFound)
 		}
@@ -141,6 +150,25 @@ func TestKeyNeverLeaksInRouteHintsResponse(t *testing.T) {
 	assertNoKeyInBody(t, w.Body.String())
 }
 
+// TestKeyNeverLeaksInAutocompleteResponse asserts the Maps API key does not
+// appear in the /geo/autocomplete response on the success path.
+func TestKeyNeverLeaksInAutocompleteResponse(t *testing.T) {
+	t.Parallel()
+
+	p, srv := newSentinelProvider(t)
+	defer srv.Close()
+	m := New(p, nil, noopMiddleware)
+
+	req := httptest.NewRequest(http.MethodGet, "/geo/autocomplete?input=Par", nil)
+	w := httptest.NewRecorder()
+	m.handleAutocomplete(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	assertNoKeyInBody(t, w.Body.String())
+}
+
 // TestProviderInterfaceCannotReturnKey asserts that a provider (faked) cannot
 // be made to echo the key back through the handler.
 func TestProviderInterfaceCannotReturnKey(t *testing.T) {
@@ -209,6 +237,10 @@ func (e *errorMapProvider) RouteHints(_ context.Context, waypoints []LatLng) ([]
 }
 
 func (e *errorMapProvider) StaticMap(_ context.Context, _ StaticMapParams) ([]byte, error) {
+	return nil, &proxyError{msg: e.msg}
+}
+
+func (e *errorMapProvider) Autocomplete(_ context.Context, _ string) ([]Suggestion, error) {
 	return nil, &proxyError{msg: e.msg}
 }
 

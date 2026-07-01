@@ -8,6 +8,15 @@ type LatLng struct {
 	Lng float64 `json:"lng"`
 }
 
+// Suggestion is a single place-autocomplete prediction. Description is the
+// human-readable label shown to the user (e.g. "Louvre Museum, Rue de Rivoli,
+// Paris, France"); PlaceID is Google's stable identifier, forwarded so future
+// callers can fetch details without re-querying by text.
+type Suggestion struct {
+	Description string `json:"description"`
+	PlaceID     string `json:"place_id"`
+}
+
 // Geocoder converts a human-readable location string into geographic coordinates.
 // Implementations must be safe for concurrent use.
 type Geocoder interface {
@@ -44,4 +53,10 @@ type MapProvider interface {
 	// the given markers and path. The Maps API key is embedded server-side and
 	// never returned to the caller alongside the image bytes.
 	StaticMap(ctx context.Context, params StaticMapParams) ([]byte, error)
+
+	// Autocomplete returns place predictions for a partial location string,
+	// powering the plan form's location suggestions. An empty result (no
+	// matches) is returned as an empty slice and nil error. The Maps key is
+	// used server-side only.
+	Autocomplete(ctx context.Context, input string) ([]Suggestion, error)
 }
