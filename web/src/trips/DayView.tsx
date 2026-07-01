@@ -229,6 +229,9 @@ function LocationField({
   // After a suggestion is chosen, skip the next fetch so the list doesn't
   // immediately reopen against the value we just filled in.
   const justSelected = useRef(false)
+  // Skip the first suggestions fetch so opening the edit form for an item that
+  // already has a location doesn't pop the dropdown before the user types.
+  const skipInitialSuggest = useRef(true)
   const inputId = useId()
   const hintId = useId()
   const listboxId = useId()
@@ -261,6 +264,10 @@ function LocationField({
 
   // Place suggestions.
   useEffect(() => {
+    if (skipInitialSuggest.current) {
+      skipInitialSuggest.current = false
+      return
+    }
     if (justSelected.current) {
       justSelected.current = false
       return
