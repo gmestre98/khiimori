@@ -157,6 +157,25 @@ function emptyFields(): PlanItemFormFields {
   }
 }
 
+// DETAILS_OPEN_KEY persists the "More details" disclosure so the extra fields
+// stay open once a user has chosen to see them — no re-clicking on every add.
+const DETAILS_OPEN_KEY = 'khiimori:planDetailsOpen'
+
+// hasDetailValues reports whether any of the fields tucked behind "More details"
+// are set. Title and Location live in the always-visible composer, so they're
+// excluded. Used to auto-open the disclosure when editing an item that has them.
+function hasDetailValues(f: PlanItemFormFields): boolean {
+  return !!(f.type || f.start_time || f.duration || f.booking_status || f.cost || f.link)
+}
+
+function readDetailsOpen(): boolean {
+  try {
+    return localStorage.getItem(DETAILS_OPEN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 function fieldsFromItem(item: PlanItem): PlanItemFormFields {
   return {
     title: item.title,
@@ -449,7 +468,11 @@ function PlanItemForm({
   actionsPlacement = 'inline',
 }: PlanItemFormProps) {
   const [fields, setFields] = useState<PlanItemFormFields>(initialFields ?? emptyFields())
-  const [expanded, setExpanded] = useState(false)
+  // Details start open when editing an item that already has extra fields set,
+  // otherwise follow the user's remembered preference.
+  const [expanded, setExpanded] = useState(
+    () => (initialFields ? hasDetailValues(initialFields) : false) || readDetailsOpen(),
+  )
   const [submitting, setSubmitting] = useState(false)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const optionalId = useId()
@@ -551,10 +574,28 @@ function PlanItemForm({
         {actionsPlacement === 'inline' && actions}
       </div>
 
+      {/* Location lives in the always-visible composer — a "stop" is a place, so
+          it shouldn't require opening "More details" first. */}
+      <LocationField
+        value={fields.location}
+        onChange={(v) => set('location', v)}
+        disabled={submitting}
+      />
+
       <button
         type="button"
         className="plan-item-form-toggle"
-        onClick={() => setExpanded((x) => !x)}
+        onClick={() =>
+          setExpanded((x) => {
+            const next = !x
+            try {
+              localStorage.setItem(DETAILS_OPEN_KEY, next ? '1' : '0')
+            } catch {
+              // ignore storage failures — the toggle still works in-session
+            }
+            return next
+          })
+        }
         aria-expanded={expanded}
         aria-controls={optionalId}
       >
@@ -600,12 +641,6 @@ function PlanItemForm({
               />
             </FormField>
           </div>
-
-          <LocationField
-            value={fields.location}
-            onChange={(v) => set('location', v)}
-            disabled={submitting}
-          />
 
           <div className="plan-item-form-grid">
             <FormField label="Cost" htmlFor={`${fid}-cost`}>

@@ -117,6 +117,9 @@ beforeEach(() => {
   // tests override as needed. Restored here since afterEach resets mock state.
   vi.mocked(api.fetchAutocomplete).mockResolvedValue([])
   vi.mocked(api.geocodeLocation).mockResolvedValue(null)
+  // The "More details" disclosure persists to localStorage; reset it so each
+  // test starts from the collapsed default.
+  localStorage.clear()
 })
 
 afterEach(() => {
@@ -314,14 +317,19 @@ describe('DayView', () => {
       await waitFor(() => expect(input.value).toBe(''))
     })
 
-    it('expands optional fields when More details is clicked', async () => {
+    it('shows Location without expanding, and reveals extra fields on More details', async () => {
       const user = userEvent.setup()
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
       renderDayView()
       await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: 'More details' }))
+      // Location is always visible in the composer — no click needed.
       expect(screen.getByLabelText('Location')).toBeInTheDocument()
+      // Extra fields stay behind the disclosure.
+      expect(screen.queryByLabelText('Start time')).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'More details' }))
+      expect(screen.getByLabelText('Start time')).toBeInTheDocument()
     })
 
     it('confirms a typed location resolves on the map', async () => {
