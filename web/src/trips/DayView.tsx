@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 
 import { createPortal } from 'react-dom'
 import { Link, useParams } from 'react-router-dom'
 import { useFocusTrap } from '../components/ui/useFocusTrap'
+import { Button, FormField, Input } from '../components/ui'
 import { collectLocatedItems } from './locatedItems'
 import {
   PlanItemValidationError,
@@ -354,12 +355,14 @@ function LocationField({
   const showList = open && suggestions.length > 0
 
   return (
-    <div className="plan-item-form-label">
-      <label htmlFor={inputId}>Location</label>
+    <div className="form-field location-field">
+      <label className="form-field-label" htmlFor={inputId}>
+        Location
+      </label>
       <div className="location-combobox">
         <input
           id={inputId}
-          className="plan-item-form-field"
+          className="form-input"
           type="text"
           value={value}
           onChange={(e) => handleChange(e.target.value)}
@@ -430,6 +433,10 @@ interface PlanItemFormProps {
   onCancel?: () => void
   onAutoSave?: (fields: PlanItemFormFields) => Promise<void>
   error: string | null
+  // 'inline' (default): title + actions share the top row (desktop quick-add /
+  // inline edit). 'footer': title gets its own row and the actions sit in a
+  // bottom bar — used inside the mobile bottom sheet.
+  actionsPlacement?: 'inline' | 'footer'
 }
 
 function PlanItemForm({
@@ -439,12 +446,14 @@ function PlanItemForm({
   onCancel,
   onAutoSave,
   error,
+  actionsPlacement = 'inline',
 }: PlanItemFormProps) {
   const [fields, setFields] = useState<PlanItemFormFields>(initialFields ?? emptyFields())
   const [expanded, setExpanded] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const optionalId = useId()
+  const fid = useId()
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Skip auto-save on the initial render so opening the edit form doesn't
   // immediately trigger a write.
@@ -501,13 +510,37 @@ function PlanItemForm({
     }
   }
 
+  const actions = (
+    <>
+      {onCancel && (
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onCancel}
+          disabled={submitting}
+          aria-label="Cancel"
+        >
+          Cancel
+        </Button>
+      )}
+      <Button
+        type="submit"
+        variant="primary"
+        disabled={submitting || !fields.title.trim()}
+        aria-label={submitLabel}
+      >
+        {submitLabel}
+      </Button>
+    </>
+  )
+
   return (
     <form className="plan-item-form" onSubmit={handleSubmit} aria-label="Plan item form">
       <div className="plan-item-form-row">
-        <input
+        <Input
           className="plan-item-form-title"
           type="text"
-          placeholder="Add activity…"
+          placeholder="Add an activity, place or note…"
           value={fields.title}
           onChange={(e) => set('title', e.target.value)}
           required
@@ -515,25 +548,7 @@ function PlanItemForm({
           disabled={submitting}
           autoFocus={!!initialFields}
         />
-        <button
-          type="submit"
-          className="plan-item-form-submit"
-          disabled={submitting || !fields.title.trim()}
-          aria-label={submitLabel}
-        >
-          {submitLabel}
-        </button>
-        {onCancel && (
-          <button
-            type="button"
-            className="plan-item-form-cancel"
-            onClick={onCancel}
-            disabled={submitting}
-            aria-label="Cancel"
-          >
-            Cancel
-          </button>
-        )}
+        {actionsPlacement === 'inline' && actions}
       </div>
 
       <button
@@ -543,81 +558,102 @@ function PlanItemForm({
         aria-expanded={expanded}
         aria-controls={optionalId}
       >
-        {expanded ? 'Fewer options' : 'More options'}
+        <svg
+          className={`plan-item-form-toggle-icon${expanded ? ' plan-item-form-toggle-icon--open' : ''}`}
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            d="M6 9l6 6 6-6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        {expanded ? 'Fewer details' : 'More details'}
       </button>
 
       {expanded && (
-        <div className="plan-item-form-optional" id={optionalId}>
-          <label className="plan-item-form-label">
-            Type
-            <input
-              className="plan-item-form-field"
-              type="text"
-              value={fields.type}
-              onChange={(e) => set('type', e.target.value)}
-              placeholder="e.g. food, museum"
-              disabled={submitting}
-            />
-          </label>
-          <label className="plan-item-form-label">
-            Start time
-            <input
-              className="plan-item-form-field"
-              type="time"
-              value={fields.start_time}
-              onChange={(e) => set('start_time', e.target.value)}
-              disabled={submitting}
-            />
-          </label>
-          <label className="plan-item-form-label">
-            Duration
-            <input
-              className="plan-item-form-field"
-              type="text"
-              value={fields.duration}
-              onChange={(e) => set('duration', e.target.value)}
-              placeholder="e.g. 01:30"
-              disabled={submitting}
-            />
-          </label>
+        <div className="plan-item-form-details" id={optionalId}>
+          <div className="plan-item-form-grid">
+            <FormField label="Start time" htmlFor={`${fid}-time`}>
+              <Input
+                id={`${fid}-time`}
+                type="time"
+                value={fields.start_time}
+                onChange={(e) => set('start_time', e.target.value)}
+                disabled={submitting}
+              />
+            </FormField>
+            <FormField label="Duration" htmlFor={`${fid}-dur`}>
+              <Input
+                id={`${fid}-dur`}
+                type="text"
+                value={fields.duration}
+                onChange={(e) => set('duration', e.target.value)}
+                placeholder="e.g. 01:30"
+                disabled={submitting}
+              />
+            </FormField>
+          </div>
+
           <LocationField
             value={fields.location}
             onChange={(v) => set('location', v)}
             disabled={submitting}
           />
-          <label className="plan-item-form-label">
-            Booking
-            <input
-              className="plan-item-form-field"
-              type="text"
-              value={fields.booking_status}
-              onChange={(e) => set('booking_status', e.target.value)}
-              placeholder="e.g. confirmed"
-              disabled={submitting}
-            />
-          </label>
-          <label className="plan-item-form-label">
-            Cost
-            <input
-              className="plan-item-form-field"
-              type="number"
-              min="0"
-              step="0.01"
-              value={fields.cost}
-              onChange={(e) => set('cost', e.target.value)}
-              disabled={submitting}
-            />
-          </label>
-          <label className="plan-item-form-label">
-            Link
-            <input
-              className="plan-item-form-field"
-              type="url"
-              value={fields.link}
-              onChange={(e) => set('link', e.target.value)}
-              disabled={submitting}
-            />
-          </label>
+
+          <div className="plan-item-form-grid">
+            <FormField label="Cost" htmlFor={`${fid}-cost`}>
+              <Input
+                id={`${fid}-cost`}
+                type="number"
+                min="0"
+                step="0.01"
+                value={fields.cost}
+                onChange={(e) => set('cost', e.target.value)}
+                placeholder="0.00"
+                disabled={submitting}
+              />
+            </FormField>
+            <FormField label="Booking" htmlFor={`${fid}-book`}>
+              <Input
+                id={`${fid}-book`}
+                type="text"
+                value={fields.booking_status}
+                onChange={(e) => set('booking_status', e.target.value)}
+                placeholder="e.g. confirmed"
+                disabled={submitting}
+              />
+            </FormField>
+          </div>
+
+          <div className="plan-item-form-grid">
+            <FormField label="Type" htmlFor={`${fid}-type`}>
+              <Input
+                id={`${fid}-type`}
+                type="text"
+                value={fields.type}
+                onChange={(e) => set('type', e.target.value)}
+                placeholder="e.g. food, museum"
+                disabled={submitting}
+              />
+            </FormField>
+            <FormField label="Link" htmlFor={`${fid}-link`}>
+              <Input
+                id={`${fid}-link`}
+                type="url"
+                value={fields.link}
+                onChange={(e) => set('link', e.target.value)}
+                placeholder="https://…"
+                disabled={submitting}
+              />
+            </FormField>
+          </div>
         </div>
       )}
 
@@ -647,6 +683,8 @@ function PlanItemForm({
           {error}
         </p>
       )}
+
+      {actionsPlacement === 'footer' && <div className="plan-item-form-footer">{actions}</div>}
     </form>
   )
 }
@@ -849,6 +887,7 @@ function PlanItemRow({
       }}
       onAutoSave={handleAutoSave}
       error={editError}
+      actionsPlacement={mobile ? 'footer' : 'inline'}
     />
   )
 
@@ -1057,9 +1096,18 @@ function QuickAddForm({
             setSheetOpen(false)
             setAddError(null)
           }}
-          label="Add activity"
+          label="Add to plan"
         >
-          <PlanItemForm submitLabel="Add" onSubmit={handleAdd} error={addError} />
+          <PlanItemForm
+            submitLabel="Add to plan"
+            onSubmit={handleAdd}
+            error={addError}
+            actionsPlacement="footer"
+            onCancel={() => {
+              setSheetOpen(false)
+              setAddError(null)
+            }}
+          />
         </BottomSheet>
       </>
     )
@@ -1323,18 +1371,22 @@ function BacklogLink({ tripId }: { tripId: string }) {
 // to the Epic 03–04 API operations.
 function PlanningSection({
   day,
+  items,
+  setItems,
   tripId,
   selectedId,
   onSelect,
 }: {
   day: Day
+  // items / setItems are owned by DayView so the map stays in sync with edits.
+  items: PlanItem[]
+  setItems: React.Dispatch<React.SetStateAction<PlanItem[]>>
   tripId: string
   selectedId: string | null
   onSelect: (id: string | null) => void
 }) {
   const { trip } = useTripShell()
   const tripDates = datesInRange(trip.start_date, trip.end_date)
-  const [items, setItems] = useState<PlanItem[]>(day.plan_items)
 
   const timed = items.filter((item) => item.start_time != null)
   const untimed = items.filter((item) => item.start_time == null)
@@ -1546,6 +1598,10 @@ export function DayView() {
   const isPast = trip.end_date < new Date().toISOString().slice(0, 10)
 
   const [day, setDay] = useState<Day | null>(null)
+  // planItems is the live source of truth for the day's plan items, lifted out of
+  // PlanningSection so the map (MapSlot) reflects adds/edits/removes immediately
+  // — without a page reload. Seeded from the fetched day and mutated in place.
+  const [planItems, setPlanItems] = useState<PlanItem[]>([])
   // fetchError is scoped to a date so stale errors from a previous date are
   // not shown when the user navigates to a new day (avoids synchronous resets).
   const [fetchError, setFetchError] = useState<{ date: string; msg: string } | null>(null)
@@ -1565,6 +1621,7 @@ export function DayView() {
     fetchDay(tripId, date, controller.signal)
       .then((d) => {
         setDay(d)
+        setPlanItems(d.plan_items)
       })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === 'AbortError') return
@@ -1574,6 +1631,10 @@ export function DayView() {
 
     return () => controller.abort()
   }, [tripId, date])
+
+  // liveDay overlays the live plan items onto the fetched day so the map and the
+  // planning list share one source of truth — adding a stop updates both at once.
+  const liveDay = day ? { ...day, plan_items: planItems } : null
 
   // day.index is 0-based (server-provided); +1 gives the 1-based display number.
   const dayNumber = day ? day.index + 1 : null
@@ -1605,10 +1666,12 @@ export function DayView() {
           itinerary + day budget, right column pairs the day map with the journal. */}
       <div className="day-grid">
         <div className="day-grid-col day-grid-left">
-          {day && tripId ? (
+          {liveDay && tripId ? (
             <PlanningSection
-              key={day.id}
-              day={day}
+              key={liveDay.id}
+              day={liveDay}
+              items={planItems}
+              setItems={setPlanItems}
               tripId={tripId}
               selectedId={selectedId}
               onSelect={setSelectedId}
@@ -1631,7 +1694,7 @@ export function DayView() {
           )}
         </div>
         <div className="day-grid-col day-grid-right">
-          <MapSlot day={day} selectedId={selectedId} onSelect={setSelectedId} />
+          <MapSlot day={liveDay} selectedId={selectedId} onSelect={setSelectedId} />
           {day && tripId ? (
             <JournalSlot tripId={tripId} dayId={day.id} readOnly={isPast} />
           ) : (
