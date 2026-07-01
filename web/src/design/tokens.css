@@ -161,6 +161,9 @@
   --bg-muted: var(--surface-2);
   --surface-muted: var(--surface-2);
   --surface-hover: #eceeef;
+  /* Solid near-black fill for primary buttons and active chips. Decoupled from
+     --ink (text) so dark mode can recolour fills without inverting text. */
+  --fill-strong: var(--ink);
   --text-h: var(--ink);
   --text: var(--ink-2);
   --text-secondary: var(--muted);
@@ -191,4 +194,73 @@
   --color-white: #ffffff;
   --color-black: var(--ink);
   --color-gray-200: #e5e5e5;
+}
+
+/* ── 3. DARK THEME ─────────────────────────────────────────────────────────── */
+/*
+ * Dark palette. Applied when the user picks Dark (<html data-theme="dark">) or,
+ * for the "System" preference (no data-theme attribute), when the OS is dark.
+ * Only the base neutrals/surfaces/lines + a few hardcoded semantic values are
+ * overridden — the semantic aliases in section 2 cascade from these. Text stays
+ * light while solid fills use --fill-strong (teal), so buttons never invert.
+ */
+[data-theme='dark'] {
+  --ink: #e8eaed;
+  --ink-2: #c2c6cb;
+  --muted: #9aa0a6;
+  --faint: #787d83;
+
+  --bg: #131519;
+  --surface: #1b1e23;
+  --surface-2: #23262c;
+  --surface-3: #2a2e35;
+
+  --line: #2c3138;
+  --line-2: #383e46;
+  --line-strong: #e8eaed;
+
+  --accent: #4aa79b;
+  --accent-press: #3d9084;
+  --accent-tint: #17322e;
+  --accent-tint-2: #21463f;
+
+  --fill-strong: #2f6f6a;
+
+  --surface-hover: #2a2e35;
+  --overlay-scrim: rgba(0, 0, 0, 0.6);
+  --color-gray-200: #33383f;
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  /* System preference: dark unless the user has explicitly chosen light/dark. */
+  :root:not([data-theme='light']):not([data-theme='dark']) {
+    --ink: #e8eaed;
+    --ink-2: #c2c6cb;
+    --muted: #9aa0a6;
+    --faint: #787d83;
+
+    --bg: #131519;
+    --surface: #1b1e23;
+    --surface-2: #23262c;
+    --surface-3: #2a2e35;
+
+    --line: #2c3138;
+    --line-2: #383e46;
+    --line-strong: #e8eaed;
+
+    --accent: #4aa79b;
+    --accent-press: #3d9084;
+    --accent-tint: #17322e;
+    --accent-tint-2: #21463f;
+
+    --fill-strong: #2f6f6a;
+
+    --surface-hover: #2a2e35;
+    --overlay-scrim: rgba(0, 0, 0, 0.6);
+    --color-gray-200: #33383f;
+
+    color-scheme: dark;
+  }
 }

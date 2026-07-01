@@ -1,8 +1,9 @@
-import { useId, useState, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { ProfileValidationError, UnauthorizedError, updateProfile } from '../lib/api'
 import { Button, FormField, Input } from '../components/ui'
+import { applyTheme } from '../design/theme'
 
 const THEMES = [
   { value: 'system', label: 'System' },
@@ -44,6 +45,20 @@ export function Profile() {
   const avatarId = useId()
   const homeId = useId()
   const themeLabelId = useId()
+
+  // Preview the selected theme live so the choice is visible before saving.
+  // On unmount, restore the last *saved* theme so an unsaved preview doesn't
+  // leak to the rest of the app.
+  const savedTheme = useRef(user?.theme ?? 'system')
+  useEffect(() => {
+    savedTheme.current = user?.theme ?? 'system'
+  }, [user?.theme])
+  useEffect(() => {
+    applyTheme(form.theme)
+  }, [form.theme])
+  useEffect(() => {
+    return () => applyTheme(savedTheme.current)
+  }, [])
 
   if (!user) return null
 
