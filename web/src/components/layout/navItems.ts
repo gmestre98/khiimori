@@ -79,16 +79,18 @@ export const SIDEBAR_SECONDARY_ITEMS: BottomNavItem[] = [
   { to: '/admin', label: 'Admin', icon: ICONS.admin },
 ]
 
-// buildPrimaryNavItems returns the four mobile bottom-nav items in the thumb zone.
-export function buildPrimaryNavItems(activeTripId: string | null): BottomNavItem[] {
+// buildPrimaryNavItems returns the mobile bottom-nav items in the thumb zone.
+// Only the two true global destinations live here: Trips and Me. A trip's facets
+// (Plan / Map / Budget / Journal) are not top-level destinations — they're
+// switched via the in-trip segmented tab bar (see DayView), so putting Map and
+// Journal in the bottom bar was redundant (both just reopened the trip).
+export function buildPrimaryNavItems(): BottomNavItem[] {
   return [
     { to: '/', label: 'Trips', icon: ICONS.trips },
-    { to: tripPath(activeTripId), label: 'Map', icon: ICONS.map },
-    { to: tripPath(activeTripId), label: 'Journal', icon: ICONS.journal },
     { to: '/profile', label: 'Me', icon: ICONS.profile },
   ]
 }
 
 // Static defaults (no active trip) — used by tests and as a stable fallback.
 export const SIDEBAR_NAV_ITEMS: BottomNavItem[] = buildSidebarNavItems(null)
-export const PRIMARY_NAV_ITEMS: BottomNavItem[] = buildPrimaryNavItems(null)
+export const PRIMARY_NAV_ITEMS: BottomNavItem[] = buildPrimaryNavItems()

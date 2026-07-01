@@ -1201,6 +1201,40 @@
   min-width: 0;
 }
 
+/* Mobile facet switcher: a segmented control above a single full-width facet.
+   Only rendered on phones (DayView branches on useMobile). */
+.day-facets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+.day-facet-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-muted);
+  border-radius: var(--radius-lg);
+}
+.day-facet-tab {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 7px 4px;
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.day-facet-tab--active {
+  background: var(--surface);
+  color: var(--text-h);
+  font-weight: 500;
+}
+.day-facet-panel {
+  min-width: 0;
+}
+
 /* Slots are calm cards, not dashed placeholders */
 .day-slot {
   background: var(--surface);
