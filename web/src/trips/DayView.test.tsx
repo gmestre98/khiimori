@@ -130,7 +130,7 @@ describe('DayView', () => {
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
     renderDayView()
     await waitFor(() => expect(screen.getByText('Day 1')).toBeInTheDocument())
-    expect(screen.getByText('2026-06-01')).toBeInTheDocument()
+    expect(screen.getByText('Monday, Jun 01 2026')).toBeInTheDocument()
   })
 
   it('shows error message on fetch failure', async () => {

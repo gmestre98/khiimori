@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { UnauthorizedError, datesInRange, fetchTrips, type Trip } from '../lib/api'
+import { shortDate } from '../lib/format'
 import { useActiveTripOffline } from '../lib/activeTripSync'
 
 // todayStr returns today's date as YYYY-MM-DD in local time.
@@ -170,7 +171,7 @@ function DayNav({ tripId, dates, trip }: { tripId: string; dates: string[]; trip
 
   const dayLabel = (d: string) => {
     const idx = dates.indexOf(d)
-    return idx >= 0 ? `Day ${idx + 1} · ${d}` : d
+    return idx >= 0 ? `Day ${idx + 1} · ${shortDate(d)}` : d
   }
 
   // Keep the active day pill in view when the day changes (matters on mobile,
@@ -239,7 +240,7 @@ function DayNav({ tripId, dates, trip }: { tripId: string; dates: string[]; trip
       >
         {dates.map((d, i) => (
           <option key={d} value={d}>
-            Day {i + 1} · {d}
+            Day {i + 1} · {shortDate(d)}
           </option>
         ))}
       </select>
