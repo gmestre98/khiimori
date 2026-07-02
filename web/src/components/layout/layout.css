@@ -191,6 +191,175 @@
   flex: 1;
 }
 
+/* ── Trip switcher tab ───────────────────────────────────────────────────── */
+
+.trip-switcher {
+  position: relative;
+  list-style: none;
+}
+
+/* Row holds the trip link + the caret button side by side, sharing one hover /
+   active surface so it reads as a single nav row. */
+.trip-switcher-row {
+  display: flex;
+  align-items: center;
+  border-radius: var(--r-sm);
+}
+
+.trip-switcher-row:hover {
+  background: #eceeef;
+}
+
+.trip-switcher-row--active {
+  background: var(--accent-tint);
+}
+
+.trip-switcher-link {
+  flex: 1;
+  min-width: 0;
+  padding-right: 4px;
+}
+
+/* The link fills the row; the row owns the hover/active background instead. */
+.trip-switcher-link:hover {
+  background: transparent;
+}
+
+.trip-switcher-row--active .trip-switcher-link {
+  color: var(--accent-press);
+  font-weight: var(--fw-semi);
+}
+
+.trip-switcher-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.trip-switcher-eyebrow {
+  font-size: 10px;
+  font-weight: var(--fw-semi);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.trip-switcher-row--active .trip-switcher-eyebrow {
+  color: var(--accent-press);
+}
+
+.trip-switcher-name {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trip-switcher-caret {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-right: 4px;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-sm);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.trip-switcher-caret:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--ink);
+}
+
+.trip-switcher-caret:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.trip-switcher-caret-icon {
+  transition: transform var(--dur) var(--ease);
+}
+
+.trip-switcher-caret-icon--open {
+  transform: rotate(180deg);
+}
+
+/* Dropdown — flows in the sidebar column below the row. */
+.trip-switcher-menu {
+  list-style: none;
+  margin: 4px 2px 2px;
+  padding: 5px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-3);
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.trip-switcher-group {
+  font-size: 10px;
+  font-weight: var(--fw-semi);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 8px 9px 4px;
+}
+
+.trip-switcher-option {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 9px;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font: inherit;
+  color: var(--ink);
+}
+
+.trip-switcher-option:hover {
+  background: #eceeef;
+}
+
+.trip-switcher-option--selected {
+  background: var(--accent-tint);
+  color: var(--accent-press);
+}
+
+.trip-switcher-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.trip-switcher-option-name {
+  font-size: 13px;
+  font-weight: var(--fw-med);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trip-switcher-option-meta {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trip-switcher-option--selected .trip-switcher-option-meta {
+  color: var(--accent-press);
+  opacity: 0.75;
+}
+
 /* User footer */
 .sidebar-nav-footer {
   margin-top: auto;

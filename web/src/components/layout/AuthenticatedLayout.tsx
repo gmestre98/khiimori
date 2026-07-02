@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { BottomNav } from '../ui'
 import { useAuth } from '../../auth/AuthContext'
-import { useActiveTrip } from '../../lib/useActiveTrip'
+import { useSelectedTrip } from '../../lib/useSelectedTrip'
 import { AppLayout } from './AppLayout'
 import { SidebarNav } from './SidebarNav'
 import { OfflineBanner } from './OfflineBanner'
@@ -10,10 +10,11 @@ import { buildPrimaryNavItems, buildSidebarNavItems, SIDEBAR_SECONDARY_ITEMS } f
 
 export function AuthenticatedLayout() {
   const { signOut, user } = useAuth()
-  // The active trip routes the trip-scoped nav (Map / Journal / Budget /
-  // Sharing) into the current trip rather than back to the dashboard.
-  const activeTrip = useActiveTrip()
-  const activeTripId = activeTrip?.id ?? null
+  // The selected trip drives both the dynamic "Trip · …" switcher tab and the
+  // trip-scoped nav (Map / Journal / Budget / Sharing), so they all follow the
+  // trip the user is currently viewing rather than always the default.
+  const tripSwitcher = useSelectedTrip()
+  const activeTripId = tripSwitcher.selectedTrip?.id ?? null
 
   const userName = user?.name ?? user?.email?.split('@')[0] ?? 'You'
 
@@ -21,6 +22,7 @@ export function AuthenticatedLayout() {
     <SidebarNav
       items={buildSidebarNavItems(activeTripId)}
       secondaryItems={SIDEBAR_SECONDARY_ITEMS}
+      tripSwitcher={tripSwitcher}
       userName={userName}
       userMeta="EUR · Lisbon"
       onSignOut={() => void signOut()}

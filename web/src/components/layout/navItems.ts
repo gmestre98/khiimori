@@ -39,6 +39,8 @@ function icMulti(...paths: string[]) {
 // Icon set, defined once and shared between the sidebar and the mobile bottom nav.
 const ICONS = {
   trips: ic('M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7M12 11v10'),
+  // Suitcase — the single active trip.
+  trip: icMulti('M4 8h16v11a1 1 0 01-1 1H5a1 1 0 01-1-1V8z', 'M9 8V5a1 1 0 011-1h4a1 1 0 011 1v3'),
   map: ic('M9 4L3 7v13l6-3 6 3 6-3V4l-6 3-6-3zM9 4v13M15 7v13'),
   journal: ic('M5 3h11l3 3v15H5zM9 8h7M9 12h7M9 16h4'),
   budget: ic('M4 19V9m5 10V5m5 14v-7m5 7V8'),
@@ -60,6 +62,10 @@ const ICONS = {
 function tripPath(activeTripId: string | null, suffix = ''): string {
   return activeTripId ? `/trips/${activeTripId}${suffix}` : '/'
 }
+
+// TRIP_TAB_ICON is the suitcase icon used by the sidebar's dynamic "Trip · …"
+// switcher tab (rendered separately from the plain nav items).
+export const TRIP_TAB_ICON = ICONS.trip
 
 // buildSidebarNavItems returns the full laptop sidebar destinations, routed into
 // the active trip where applicable.
