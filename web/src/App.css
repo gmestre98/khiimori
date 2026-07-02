@@ -194,11 +194,11 @@
   gap: var(--s4);
 }
 .profile-avatar {
+  position: relative;
   flex: 0 0 auto;
   width: 64px;
   height: 64px;
   border-radius: var(--radius-full);
-  overflow: hidden;
   background: var(--accent-tint);
   color: var(--accent);
   display: flex;
@@ -210,10 +210,63 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: var(--radius-full);
 }
 .profile-avatar-initials {
   font-size: var(--text-lg);
   font-weight: 600;
+}
+
+/* Clickable avatar (upload) with a camera badge that overlaps the edge. */
+.profile-avatar--edit {
+  padding: 0;
+  cursor: pointer;
+}
+.profile-avatar-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--accent-on);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--surface);
+}
+.profile-avatar--edit:hover .profile-avatar-badge,
+.profile-avatar--edit:focus-visible .profile-avatar-badge {
+  background: var(--accent-press);
+}
+.profile-avatar-change {
+  margin-top: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.profile-avatar-error {
+  margin: 4px 0 0;
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+
+/* Screen-reader-only utility (visually hidden, still focusable/announced). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .profile-hero-meta {
   min-width: 0;

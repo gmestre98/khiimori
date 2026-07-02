@@ -40,18 +40,22 @@ func (s *fakeProfileStore) UpdateProfile(_ context.Context, id string, p profile
 	if p.Name != nil {
 		u.Name = *p.Name
 	}
-	if p.Avatar != nil {
-		u.Avatar = *p.Avatar
-	}
 	if p.HomeBase != nil {
 		u.HomeBase = *p.HomeBase
 	}
-	if p.Theme != nil {
+	// Theme and the custom avatar are merged into prefs (mirroring the SQL); the
+	// avatar column stays Google-managed.
+	if p.Theme != nil || p.Avatar != nil {
 		m := map[string]any{}
 		if len(u.Prefs) > 0 {
 			_ = json.Unmarshal(u.Prefs, &m)
 		}
-		m["theme"] = *p.Theme
+		if p.Theme != nil {
+			m["theme"] = *p.Theme
+		}
+		if p.Avatar != nil {
+			m["avatar"] = *p.Avatar
+		}
 		b, _ := json.Marshal(m)
 		u.Prefs = b
 	}
@@ -171,6 +175,45 @@ func TestProfileEditUpdatesProvidedFields(t *testing.T) {
 	if after != want {
 		t.Errorf("read-after-edit = %+v, want %+v", after, want)
 	}
+}
+
+// TestProfileEditAvatarUpload: an uploaded inline image (data URL) is accepted,
+// returned as the effective avatar, and — crucially — stored in prefs, leaving
+// the Google-sourced avatar column untouched so a re-sign-in won't clobber it.
+func TestProfileEditAvatarUpload(t *testing.T) {
+	t.Parallel()
+
+	u := User{
+		ID: "user-1", Email: "ann@example.com", Name: "Ann", Avatar: "https://google-pic",
+		HomeBase: "Lisbon", DefaultCurrency: "EUR", Prefs: json.RawMessage(`{"theme":"system"}`),
+	}
+	store := newFakeProfileStore(u)
+	m := profileModule(store)
+
+	const dataURL = "data:image/jpeg;base64,/9j/AAAQSkZJRg=="
+	rec := patchProfile(t, m, "user-1", `{"avatar":`+jsonString(dataURL)+`}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %q)", rec.Code, rec.Body.String())
+	}
+	var got profileResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	// The effective avatar is the uploaded image...
+	if got.Avatar != dataURL {
+		t.Errorf("avatar = %q, want the uploaded data URL", got.Avatar)
+	}
+	// ...and the Google avatar column is preserved (custom avatar lives in prefs).
+	if store.byID["user-1"].Avatar != "https://google-pic" {
+		t.Errorf("avatar column = %q, want it unchanged (custom avatar goes to prefs)",
+			store.byID["user-1"].Avatar)
+	}
+}
+
+// jsonString marshals s as a JSON string literal (with quotes and escaping).
+func jsonString(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
 }
 
 // TestProfileEditRejectsInvalid: bad theme, an over-long name, and a non-URL

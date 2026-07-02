@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 
@@ -41,10 +42,32 @@ type profileStore interface {
 const (
 	maxNameLen     = 200
 	maxHomeBaseLen = 200
-	maxAvatarLen   = 2048
+	// maxAvatarLen accommodates a small inline (data:) image uploaded from the
+	// profile page (client-resized to a ~192px square JPEG ≈ a few KB base64).
+	// http(s) avatar URLs are far shorter, so the same cap covers both.
+	maxAvatarLen = 262144
 )
 
 var validThemes = map[string]bool{"system": true, "light": true, "dark": true}
+
+// allowedAvatarDataPrefixes are the inline-image data-URL prefixes the profile
+// page may upload (client-resized JPEG in practice; others accepted defensively).
+var allowedAvatarDataPrefixes = []string{
+	"data:image/jpeg;base64,",
+	"data:image/png;base64,",
+	"data:image/webp;base64,",
+}
+
+// isDataImageURL reports whether s is an inline base64 image data URL of an
+// allowed type. The length cap in validate() bounds the payload size.
+func isDataImageURL(s string) bool {
+	for _, p := range allowedAvatarDataPrefixes {
+		if strings.HasPrefix(s, p) {
+			return true
+		}
+	}
+	return false
+}
 
 // profilePatch is the editable profile fields. A nil pointer means "leave
 // unchanged" (PATCH semantics), so a field is only touched when the client sends
@@ -69,9 +92,13 @@ func (p profilePatch) validate() error {
 		if len(*p.Avatar) > maxAvatarLen {
 			return fmt.Errorf("avatar must be at most %d characters", maxAvatarLen)
 		}
-		u, err := url.Parse(*p.Avatar)
-		if err != nil || !u.IsAbs() || (u.Scheme != "http" && u.Scheme != "https") {
-			return errors.New("avatar must be an absolute http(s) URL")
+		// Accept either an uploaded inline image (data:image/...;base64,...) or an
+		// absolute http(s) URL. The profile page uploads a resized data URL.
+		if !isDataImageURL(*p.Avatar) {
+			u, err := url.Parse(*p.Avatar)
+			if err != nil || !u.IsAbs() || (u.Scheme != "http" && u.Scheme != "https") {
+				return errors.New("avatar must be an uploaded image or an http(s) URL")
+			}
 		}
 	}
 	if p.Theme != nil && !validThemes[*p.Theme] {
@@ -109,12 +136,33 @@ func newProfileResponse(u User) profileResponse {
 		ID:              u.ID,
 		Name:            u.Name,
 		Email:           u.Email,
-		Avatar:          u.Avatar,
+		Avatar:          avatarFor(u),
 		HomeBase:        u.HomeBase,
 		Theme:           themeFromPrefs(u.Prefs),
 		DefaultCurrency: u.DefaultCurrency,
 		IsAdmin:         u.IsAdmin,
 	}
+}
+
+// avatarFor returns the user's effective avatar: the custom one they uploaded
+// (stored in prefs, so it survives the Google identity refresh on each sign-in)
+// when set, otherwise the Google-sourced avatar column.
+func avatarFor(u User) string {
+	if custom := avatarFromPrefs(u.Prefs); custom != "" {
+		return custom
+	}
+	return u.Avatar
+}
+
+// avatarFromPrefs reads a custom avatar out of the prefs JSONB (empty when unset).
+func avatarFromPrefs(raw json.RawMessage) string {
+	var p struct {
+		Avatar string `json:"avatar"`
+	}
+	if len(raw) > 0 {
+		_ = json.Unmarshal(raw, &p)
+	}
+	return p.Avatar
 }
 
 // themeFromPrefs reads the theme out of the prefs JSONB, falling back to the
@@ -213,13 +261,24 @@ func (m *Module) handleProfileUpdate(w http.ResponseWriter, r *http.Request) {
 // default_currency is never in the SET list — it stays EUR (S3). A missing row
 // is reported as errUserNotFound.
 func (r *pgxUserRepo) UpdateProfile(ctx context.Context, id string, p profilePatch) (User, error) {
+	// The custom avatar ($3) is merged into prefs, NOT the avatar column: the
+	// column holds the Google-sourced avatar and is refreshed on every sign-in
+	// (see provision.go), so a user-uploaded avatar must live in prefs to survive
+	// that refresh. Theme ($5) is merged the same way. Absent (NULL) fields leave
+	// prefs untouched; default_currency is never in the SET list (S3).
 	const query = `
 		UPDATE auth.users
 		SET name      = COALESCE($2, name),
-		    avatar    = COALESCE($3, avatar),
 		    home_base = COALESCE($4, home_base),
-		    prefs     = CASE WHEN $5::text IS NULL THEN prefs
-		                     ELSE jsonb_set(prefs, '{theme}', to_jsonb($5::text)) END,
+		    prefs     = CASE
+		                  WHEN $3::text IS NOT NULL AND $5::text IS NOT NULL
+		                    THEN jsonb_set(jsonb_set(prefs, '{theme}', to_jsonb($5::text)), '{avatar}', to_jsonb($3::text))
+		                  WHEN $3::text IS NOT NULL
+		                    THEN jsonb_set(prefs, '{avatar}', to_jsonb($3::text))
+		                  WHEN $5::text IS NOT NULL
+		                    THEN jsonb_set(prefs, '{theme}', to_jsonb($5::text))
+		                  ELSE prefs
+		                END,
 		    updated_at = now()
 		WHERE id = $1::uuid
 		RETURNING ` + saveColumns
