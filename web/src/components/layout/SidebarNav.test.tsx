@@ -1,10 +1,40 @@
-import { afterEach, describe, it, expect } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, it, expect, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { SidebarNav } from './SidebarNav'
 import { SIDEBAR_NAV_ITEMS, SIDEBAR_SECONDARY_ITEMS, buildSidebarNavItems } from './navItems'
+import type { Trip, TripsResponse } from '../../lib/api'
+import type { TripSwitcher } from '../../lib/useSelectedTrip'
 
 afterEach(cleanup)
+
+// Minimal Trip factory — only the fields the switcher reads matter.
+function trip(id: string, name: string, destinations: string[] = []): Trip {
+  return {
+    id,
+    owner_id: 'u',
+    name,
+    destinations,
+    start_date: '2026-07-01',
+    end_date: '2026-07-05',
+    base_currency: 'EUR',
+    cover: '',
+    status: 'planning',
+    created_at: '',
+    updated_at: '',
+    is_current: false,
+  }
+}
+
+const japan = trip('japan', 'Japan — Spring 2026', ['Tokyo'])
+const portugal = trip('portugal', 'Portugal Roadtrip', ['Lisbon'])
+const morocco = trip('morocco', 'Morocco', ['Fez'])
+
+const tripsResponse: TripsResponse = {
+  current: [japan],
+  upcoming: [portugal],
+  past: [morocco],
+}
 
 function renderNav(path = '/', items = SIDEBAR_NAV_ITEMS) {
   return render(
@@ -61,5 +91,71 @@ describe('SidebarNav', () => {
   it('renders the sign-out button in the user footer', () => {
     renderNav()
     expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument()
+  })
+})
+
+describe('SidebarNav trip switcher', () => {
+  function renderWithSwitcher(
+    path = '/',
+    overrides: Partial<TripSwitcher> = {},
+  ): { selectTrip: ReturnType<typeof vi.fn> } {
+    const selectTrip = vi.fn()
+    const switcher: TripSwitcher = {
+      trips: tripsResponse,
+      selectedTrip: japan,
+      selectTrip,
+      ...overrides,
+    }
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <SidebarNav
+          items={buildSidebarNavItems(switcher.selectedTrip?.id ?? null)}
+          secondaryItems={SIDEBAR_SECONDARY_ITEMS}
+          tripSwitcher={switcher}
+          userName="Test User"
+          onSignOut={() => {}}
+        />
+      </MemoryRouter>,
+    )
+    return { selectTrip }
+  }
+
+  it('renders a Trip tab that opens the selected trip', () => {
+    renderWithSwitcher()
+    const link = screen.getByRole('link', { name: /Japan — Spring 2026/i })
+    expect(link).toHaveAttribute('href', '/trips/japan')
+  })
+
+  it('hides the tab when there is no selected trip', () => {
+    renderWithSwitcher('/', { selectedTrip: null })
+    expect(screen.queryByRole('button', { name: /switch trip/i })).not.toBeInTheDocument()
+  })
+
+  it('opens a dropdown that groups current & upcoming apart from past', () => {
+    renderWithSwitcher()
+    fireEvent.click(screen.getByRole('button', { name: /switch trip/i }))
+    const listbox = screen.getByRole('listbox', { name: /select a trip/i })
+    // Current + upcoming buckets are merged into one group, past kept separate.
+    expect(within(listbox).getByText('Current & upcoming')).toBeInTheDocument()
+    expect(within(listbox).getByText('Past')).toBeInTheDocument()
+    expect(within(listbox).getByRole('option', { name: /Portugal Roadtrip/ })).toBeInTheDocument()
+    expect(within(listbox).getByRole('option', { name: /Morocco/ })).toBeInTheDocument()
+    // The selected trip is marked.
+    const selected = within(listbox).getByRole('option', { name: /Japan — Spring 2026/ })
+    expect(selected).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('remembers the pick via selectTrip when an option is chosen', () => {
+    const { selectTrip } = renderWithSwitcher()
+    fireEvent.click(screen.getByRole('button', { name: /switch trip/i }))
+    fireEvent.click(screen.getByRole('option', { name: /Morocco/ }))
+    expect(selectTrip).toHaveBeenCalledWith('morocco')
+  })
+
+  it('highlights the Trip tab on the selected trip day view', () => {
+    renderWithSwitcher('/trips/japan/days/2026-07-02')
+    // The row wrapper carries the active class (the link shares its background).
+    const link = screen.getByRole('link', { name: /Japan — Spring 2026/i })
+    expect(link.closest('.trip-switcher-row')).toHaveClass('trip-switcher-row--active')
   })
 })
