@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { ProfileValidationError, UnauthorizedError, updateProfile } from '../lib/api'
@@ -20,6 +20,39 @@ function initials(name: string, email: string): string {
   return src.slice(0, 2).toUpperCase()
 }
 
+// AVATAR_SIZE is the square size (px) the picked image is downscaled to. Small
+// enough to store inline as a data URL (a few KB) while staying crisp on retina.
+const AVATAR_SIZE = 192
+
+// fileToAvatarDataURL loads an image file, centre-crops it to a square, downscales
+// to AVATAR_SIZE, and returns a compact JPEG data URL. Keeping the resize on the
+// client means the avatar is a small self-contained string — no upload/serving
+// infrastructure needed.
+async function fileToAvatarDataURL(file: File): Promise<string> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error ?? new Error('read failed'))
+    reader.readAsDataURL(file)
+  })
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image()
+    el.onload = () => resolve(el)
+    el.onerror = () => reject(new Error('decode failed'))
+    el.src = dataUrl
+  })
+  const canvas = document.createElement('canvas')
+  canvas.width = AVATAR_SIZE
+  canvas.height = AVATAR_SIZE
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return dataUrl
+  const scale = Math.max(AVATAR_SIZE / img.width, AVATAR_SIZE / img.height)
+  const w = img.width * scale
+  const h = img.height * scale
+  ctx.drawImage(img, (AVATAR_SIZE - w) / 2, (AVATAR_SIZE - h) / 2, w, h)
+  return canvas.toDataURL('image/jpeg', 0.82)
+}
+
 // Profile views and edits the signed-in user's profile (gated route, S3). It
 // reads the current profile from the auth context — populated by the GET /me
 // session check (Epic 04 S1) — and saves edits via PATCH /me (Epic 04 S2),
@@ -38,11 +71,12 @@ export function Profile() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
-  // Whether the avatar URL currently loads; false falls back to initials.
+  // Whether the current avatar renders; false falls back to initials.
   const [avatarOk, setAvatarOk] = useState(true)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
 
+  const fileRef = useRef<HTMLInputElement>(null)
   const nameId = useId()
-  const avatarId = useId()
   const homeId = useId()
   const themeLabelId = useId()
 
@@ -66,6 +100,22 @@ export function Profile() {
     setForm((f) => ({ ...f, [key]: value }))
     setSaved(false)
     if (key === 'avatar') setAvatarOk(true)
+  }
+
+  async function onPickAvatar(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // let the user re-pick the same file later
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setAvatarError('Please choose an image file.')
+      return
+    }
+    setAvatarError(null)
+    try {
+      set('avatar', await fileToAvatarDataURL(file))
+    } catch {
+      setAvatarError('Could not read that image. Try another.')
+    }
   }
 
   async function onSubmit(e: FormEvent) {
@@ -98,7 +148,12 @@ export function Profile() {
   return (
     <section className="profile">
       <header className="profile-hero">
-        <div className="profile-avatar">
+        <button
+          type="button"
+          className="profile-avatar profile-avatar--edit"
+          onClick={() => fileRef.current?.click()}
+          aria-label="Change profile photo"
+        >
           {form.avatar && avatarOk ? (
             <img src={form.avatar} alt="" onError={() => setAvatarOk(false)} />
           ) : (
@@ -106,10 +161,40 @@ export function Profile() {
               {initials(form.name, user.email)}
             </span>
           )}
-        </div>
+          <span className="profile-avatar-badge" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path
+                d="M4 8h3l2-2h6l2 2h3v11H4z"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle cx="12" cy="13" r="3.2" strokeWidth="1.8" />
+            </svg>
+          </span>
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="visually-hidden"
+          onChange={(e) => void onPickAvatar(e)}
+        />
         <div className="profile-hero-meta">
           <h2 className="profile-hero-name">{form.name.trim() || 'Your profile'}</h2>
           <p className="profile-hero-email">{user.email}</p>
+          <button
+            type="button"
+            className="profile-avatar-change"
+            onClick={() => fileRef.current?.click()}
+          >
+            Change photo
+          </button>
+          {avatarError && (
+            <p role="alert" className="profile-avatar-error">
+              {avatarError}
+            </p>
+          )}
         </div>
       </header>
 
@@ -122,16 +207,6 @@ export function Profile() {
               value={form.name}
               onChange={(e) => set('name', e.target.value)}
               placeholder="Your name"
-            />
-          </FormField>
-
-          <FormField label="Avatar URL" htmlFor={avatarId} hint="Link to a profile image">
-            <Input
-              id={avatarId}
-              type="url"
-              value={form.avatar}
-              onChange={(e) => set('avatar', e.target.value)}
-              placeholder="https://…"
             />
           </FormField>
 

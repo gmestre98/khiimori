@@ -48,8 +48,10 @@ describe('Profile', () => {
     renderProfile()
 
     expect(screen.getByLabelText(/name/i)).toHaveValue('Ann')
-    expect(screen.getByLabelText(/avatar/i)).toHaveValue('https://pic')
     expect(screen.getByLabelText(/home base/i)).toHaveValue('Lisbon')
+    // Avatar is now a click-to-upload control, not a URL text field.
+    expect(screen.queryByLabelText(/avatar url/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /change profile photo/i })).toBeInTheDocument()
     // Theme is a segmented radiogroup; the current value is the checked radio.
     expect(screen.getByRole('radio', { name: 'System' })).toHaveAttribute('aria-checked', 'true')
     // Email + currency are read-only text, not inputs.
