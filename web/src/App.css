@@ -706,19 +706,31 @@
   margin-bottom: var(--s7);
 }
 
+/* Upcoming / past tiles echo the current-trip hero: a colour panel beside the
+   trip's details, an accent edge, and a lift on hover. */
 .trip-card {
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   box-shadow: var(--shadow-1);
-  padding: 18px;
+  overflow: hidden;
   transition:
     box-shadow var(--dur) var(--ease),
     border-color var(--dur),
     transform var(--dur);
   cursor: pointer;
-  text-decoration: none;
-  display: block;
+}
+
+.trip-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent);
+  z-index: 1;
 }
 
 .trip-card:hover {
@@ -727,9 +739,86 @@
   transform: translateY(-1px);
 }
 
-/* Past trips use the exact same card treatment as upcoming (no dimming). */
-.trip-card--past {
-  opacity: 1;
+/* Past tiles share the treatment but with a calmer, non-accent edge. */
+.trip-card--past::before {
+  background: var(--line-2);
+}
+
+/* The lead trip (no current trip) spans the full row above the 2-up grid. */
+.trip-card--featured {
+  margin-bottom: var(--s7);
+}
+
+/* Stretched link covering the whole tile — clicking anywhere opens the trip. */
+.trip-card-stretch-link {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+}
+
+.trip-card-inner {
+  display: flex;
+}
+
+/* Colour panel — status eyebrow over the trip length (mirrors the hero panel). */
+.trip-card-panel {
+  width: 96px;
+  flex: 0 0 96px;
+  background: linear-gradient(135deg, #2f6f6a, #1d4f4b);
+  position: relative;
+  min-height: 118px;
+}
+
+.trip-card-panel--past {
+  background: linear-gradient(135deg, #5a5f66, #3a3e44);
+}
+
+.trip-card--featured .trip-card-panel {
+  width: 150px;
+  flex-basis: 150px;
+  min-height: 150px;
+}
+
+.trip-card-panel-glow {
+  position: absolute;
+  inset: 0;
+  opacity: 0.18;
+  background: radial-gradient(circle at 30% 30%, #fff, transparent 60%);
+}
+
+.trip-card-panel-label {
+  position: absolute;
+  left: 14px;
+  bottom: 12px;
+  color: #fff;
+}
+
+.trip-card-panel-now {
+  font-size: 10px;
+  opacity: 0.85;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.trip-card-panel-day {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.trip-card-body {
+  flex: 1;
+  min-width: 0;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.trip-card--featured .trip-card-body {
+  padding: 20px 22px;
 }
 
 /* "Upcoming" section stacked under the current trip on the Current tab. */
@@ -749,26 +838,30 @@
   font-weight: var(--fw-semi);
   color: var(--ink);
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trip-card--featured .trip-card-name {
+  font-size: var(--t-h1);
+  letter-spacing: -0.01em;
 }
 
 .trip-card-destinations {
   font-size: var(--t-sm);
   color: var(--muted);
   margin: var(--s1) 0 0;
-}
-
-.trip-card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  margin-top: var(--s4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .trip-card-dates {
   font-size: var(--t-sm);
   color: var(--muted);
   font-variant-numeric: tabular-nums;
-  margin: 0;
+  margin: var(--s2) 0 0;
 }
 
 .trip-card-cover {
@@ -1077,6 +1170,9 @@
   margin-top: var(--s3);
   padding-top: var(--s3);
   border-top: 1px solid var(--line);
+  /* Raised above the stretched open-link so Edit / Archive / Delete stay clickable. */
+  position: relative;
+  z-index: 3;
 }
 
 .current-trip-actions {
