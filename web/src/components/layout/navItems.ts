@@ -65,7 +65,7 @@ function tripPath(activeTripId: string | null, suffix = ''): string {
 // the active trip where applicable.
 export function buildSidebarNavItems(activeTripId: string | null): BottomNavItem[] {
   return [
-    { to: '/', label: 'Trips', icon: ICONS.trips },
+    { to: '/', label: 'My Trips', icon: ICONS.trips },
     { to: tripPath(activeTripId), label: 'Map', icon: ICONS.map },
     { to: tripPath(activeTripId), label: 'Journal', icon: ICONS.journal },
     { to: tripPath(activeTripId, '/budget'), label: 'Budget', icon: ICONS.budget },

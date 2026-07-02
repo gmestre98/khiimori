@@ -26,25 +26,6 @@ function daysUntil(iso: string): number {
   return Math.round((target - today.getTime()) / 86_400_000)
 }
 
-// CheckIcon — the small "journal complete" tick on past trips (design §04).
-function CheckIcon() {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      style={{ color: 'var(--accent)' }}
-    >
-      <path d="M20 6L9 17l-5-5" />
-    </svg>
-  )
-}
-
 // PlusIcon — inline SVG for the "New trip" button
 function PlusIcon() {
   return (
@@ -63,78 +44,100 @@ function PlusIcon() {
   )
 }
 
-// TripCard renders an upcoming/past trip as a calm card
+// TripCard renders an upcoming/past trip echoing the current-trip hero: a small
+// colour panel (status + length) beside the trip's name, dates and quiet actions.
+// `featured` stretches it across the full row (used for the lead trip when there
+// is no current trip).
 function TripCard({
   trip,
   isPast,
+  featured,
   onArchive,
   onDelete,
 }: {
   trip: Trip
   isPast?: boolean
+  featured?: boolean
   onArchive?: (trip: Trip) => void
   onDelete: (trip: Trip) => void
 }) {
   const destinations = trip.destinations.join(' · ')
   const days = tripDayCount(trip.start_date, trip.end_date)
   const until = daysUntil(trip.start_date)
-  const pastMeta = `${monthYear(trip.start_date)} · ${days} days`
+  const dayLabel = `${days} ${days === 1 ? 'day' : 'days'}`
+
+  // Panel copy mirrors the hero's "Now / Day N" — a status eyebrow over a figure.
+  const panelTop = isPast ? 'Journal' : until <= 0 ? 'Now' : until <= 30 ? 'Soon' : 'Planning'
+  const panelBottom = isPast ? monthYear(trip.start_date) : dayLabel
+  const dateLine = isPast
+    ? `${monthYear(trip.start_date)} · ${dayLabel}`
+    : formatDateRange(trip.start_date, trip.end_date)
 
   return (
-    <article className={['trip-card', isPast ? 'trip-card--past' : ''].filter(Boolean).join(' ')}>
-      {/* The whole card opens the trip; quiet actions sit below (design §04). */}
+    <article
+      className={[
+        'trip-card',
+        featured ? 'trip-card--featured' : '',
+        isPast ? 'trip-card--past' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {/* Stretched link — the whole card opens the trip; actions are raised above it. */}
       <Link
         to={`/trips/${trip.id}`}
         state={{ trip }}
-        className="trip-card-link"
+        className="trip-card-stretch-link"
         aria-label={`Open ${trip.name}`}
-      >
-        <div className="trip-card-header">
-          <h3 className="trip-card-name">{trip.name}</h3>
-          {isPast ? (
-            <span className="chip chip--accent" style={{ gap: 4 }}>
-              <CheckIcon /> journal
-            </span>
-          ) : (
-            <span className={until <= 30 ? 'chip' : 'chip chip--outline'}>
-              {until <= 0 ? 'now' : until <= 30 ? `in ${until} days` : 'planning'}
-            </span>
-          )}
-        </div>
-        {destinations && <p className="trip-card-destinations">{destinations}</p>}
-        <div className="trip-card-footer">
-          <p className="trip-card-dates num">
-            {isPast ? pastMeta : formatDateRange(trip.start_date, trip.end_date)}
-          </p>
-        </div>
-      </Link>
-      <div className="trip-card-actions">
-        <Link
-          to={`/trips/${trip.id}/edit`}
-          state={{ trip }}
-          className="trip-card-action"
-          aria-label={`Edit ${trip.name}`}
+      />
+      <div className="trip-card-inner">
+        <div
+          className={['trip-card-panel', isPast ? 'trip-card-panel--past' : '']
+            .filter(Boolean)
+            .join(' ')}
+          aria-hidden="true"
         >
-          Edit
-        </Link>
-        {onArchive && (
-          <button
-            type="button"
-            className="trip-card-action"
-            onClick={() => onArchive(trip)}
-            aria-label={`Archive ${trip.name}`}
-          >
-            Archive
-          </button>
-        )}
-        <button
-          type="button"
-          className="trip-card-action trip-card-action--danger"
-          onClick={() => onDelete(trip)}
-          aria-label={`Delete ${trip.name}`}
-        >
-          Delete
-        </button>
+          <div className="trip-card-panel-glow" />
+          <div className="trip-card-panel-label">
+            <div className="trip-card-panel-now">{panelTop}</div>
+            <div className="trip-card-panel-day">{panelBottom}</div>
+          </div>
+        </div>
+        <div className="trip-card-body">
+          <div className="trip-card-body-main">
+            <h3 className="trip-card-name">{trip.name}</h3>
+            {destinations && <p className="trip-card-destinations">{destinations}</p>}
+            <p className="trip-card-dates num">{dateLine}</p>
+          </div>
+          <div className="trip-card-actions">
+            <Link
+              to={`/trips/${trip.id}/edit`}
+              state={{ trip }}
+              className="trip-card-action"
+              aria-label={`Edit ${trip.name}`}
+            >
+              Edit
+            </Link>
+            {onArchive && (
+              <button
+                type="button"
+                className="trip-card-action"
+                onClick={() => onArchive(trip)}
+                aria-label={`Archive ${trip.name}`}
+              >
+                Archive
+              </button>
+            )}
+            <button
+              type="button"
+              className="trip-card-action trip-card-action--danger"
+              onClick={() => onDelete(trip)}
+              aria-label={`Delete ${trip.name}`}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
       </div>
     </article>
   )
@@ -213,6 +216,12 @@ export function TripsDashboard() {
   }
 
   const currentTrip = data?.current.find((t) => t.is_current) ?? null
+  // Current & Upcoming pool, in soonest-first order. The lead trip sits on its
+  // own full-width row (the current trip's hero, or — with no current trip — the
+  // next upcoming trip promoted to the top); the rest fill the 2-up grid below.
+  const currentPool = data ? [...data.current, ...data.upcoming] : []
+  const leadTrip = currentTrip ?? currentPool[0] ?? null
+  const restTrips = leadTrip ? currentPool.filter((t) => t.id !== leadTrip.id) : currentPool
   const totalCount = data
     ? data.current.length + data.upcoming.length + data.past.length + archived.length
     : 0
@@ -241,7 +250,7 @@ export function TripsDashboard() {
 
       {/* Top nav bar */}
       <div className="trips-dashboard-topnav">
-        <div className="trips-dashboard-crumbs">My Trips</div>
+        <div className="trips-dashboard-crumbs">My trips</div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <Link to="/trips/new" className="btn-primary trips-new-btn">
             <PlusIcon /> New trip
@@ -304,7 +313,8 @@ export function TripsDashboard() {
           <>
             {tab === 'current' && (
               <>
-                {/* Current trip — hero, or the calmer cards / empty state */}
+                {/* Lead trip — the current-trip hero, or (with no current trip) the
+                    next upcoming trip promoted to its own full-width row. */}
                 {currentTrip ? (
                   <CurrentTripCard
                     trip={currentTrip}
@@ -314,17 +324,13 @@ export function TripsDashboard() {
                     onArchive={() => setPending({ type: 'archive', trip: currentTrip })}
                     onDelete={() => setPending({ type: 'delete', trip: currentTrip })}
                   />
-                ) : data.current.length > 0 ? (
-                  <div className="trips-grid">
-                    {data.current.map((t) => (
-                      <TripCard
-                        key={t.id}
-                        trip={t}
-                        onArchive={(trip) => setPending({ type: 'archive', trip })}
-                        onDelete={(trip) => setPending({ type: 'delete', trip })}
-                      />
-                    ))}
-                  </div>
+                ) : leadTrip ? (
+                  <TripCard
+                    trip={leadTrip}
+                    featured
+                    onArchive={(trip) => setPending({ type: 'archive', trip })}
+                    onDelete={(trip) => setPending({ type: 'delete', trip })}
+                  />
                 ) : (
                   <p className="trips-empty">
                     No current trip.{' '}
@@ -334,10 +340,10 @@ export function TripsDashboard() {
                   </p>
                 )}
 
-                {/* Upcoming — stacked below the current trip */}
+                {/* Upcoming — the remaining trips, 2 to a row below the lead. */}
                 <section className="trips-section" aria-label="Upcoming trips">
                   <h2 className="trips-section-title">Upcoming</h2>
-                  {data.upcoming.length === 0 ? (
+                  {restTrips.length === 0 ? (
                     <p className="trips-empty">
                       No upcoming trips.{' '}
                       <Link to="/trips/new" style={{ color: 'var(--accent)' }}>
@@ -346,7 +352,7 @@ export function TripsDashboard() {
                     </p>
                   ) : (
                     <div className="trips-grid">
-                      {data.upcoming.map((t) => (
+                      {restTrips.map((t) => (
                         <TripCard
                           key={t.id}
                           trip={t}
