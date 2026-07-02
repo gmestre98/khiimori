@@ -45,6 +45,15 @@ export function CurrentTripCard({
 
   return (
     <section className="current-trip-card" aria-label="Current trip">
+      {/* Stretched link: the whole card opens the trip (at today). It sits behind
+          the content; the action controls below are raised above it so Edit /
+          Archive / Delete keep working. */}
+      <Link
+        to={`/trips/${trip.id}`}
+        state={{ trip }}
+        className="current-trip-open-link"
+        aria-label={`Open ${trip.name}`}
+      />
       <div className="current-trip-card-inner">
         {/* Teal panel — day counter */}
         <div className="current-trip-panel" aria-hidden="true">
@@ -80,15 +89,9 @@ export function CurrentTripCard({
                 {dateRange}
               </p>
             </div>
-            <div className="current-trip-header-cta">
-              <Link
-                to={`/trips/${trip.id}`}
-                state={{ trip }}
-                className="btn-accent current-trip-open"
-                aria-label={`Open today in ${trip.name}`}
-              >
-                Open today →
-              </Link>
+            {/* Decorative "open" cue — the whole card is the link (above). */}
+            <div className="current-trip-header-cta" aria-hidden="true">
+              <span className="current-trip-open-arrow">→</span>
             </div>
           </div>
 

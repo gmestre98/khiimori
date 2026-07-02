@@ -518,6 +518,14 @@
   z-index: 1;
 }
 
+/* Stretched link covering the whole card — clicking anywhere opens the trip. */
+.current-trip-open-link {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+}
+
 .current-trip-card:hover {
   box-shadow: var(--shadow-2);
   border-color: var(--line-2);
@@ -661,7 +669,7 @@
   font-style: italic;
 }
 
-/* "Open today" — the single accent CTA on the hero (design §04). */
+/* Decorative "open" cue on the hero — the whole card is the link (design §04). */
 .current-trip-header-cta {
   display: flex;
   flex-direction: column;
@@ -670,9 +678,14 @@
   flex-shrink: 0;
 }
 
-.current-trip-open {
-  font-size: 12px;
-  padding: 6px 12px;
+.current-trip-open-arrow {
+  color: var(--accent);
+  font-size: 20px;
+  line-height: 1;
+  transition: transform var(--dur) var(--ease);
+}
+.current-trip-card:hover .current-trip-open-arrow {
+  transform: translateX(3px);
 }
 
 /* ── Upcoming / Past cards ───────────────────────────────────────────────── */
@@ -851,27 +864,13 @@
     left: 14px;
   }
 
-  /* Mobile hero: large title, and the single accent CTA spans the thumb zone
-     full-width below the trip meta (design §08 / spec §5). */
+  /* Mobile hero: larger title; the whole card is the tap target. */
   .current-trip-header {
     flex-wrap: wrap;
   }
 
   .current-trip-name {
     font-size: 21px;
-  }
-
-  .current-trip-header-cta {
-    order: 3;
-    width: 100%;
-  }
-
-  .current-trip-open {
-    width: 100%;
-    justify-content: center;
-    font-size: 13px;
-    padding: 11px 16px;
-    margin-top: var(--s2);
   }
 }
 
@@ -1086,6 +1085,9 @@
   margin-top: var(--s4);
   padding-top: var(--s3);
   border-top: 1px solid var(--line);
+  /* Raised above the stretched open-link so Edit / Archive / Delete stay clickable. */
+  position: relative;
+  z-index: 3;
 }
 
 /* ── Confirm modal ──────────────────────────────────────────────────────────── */
