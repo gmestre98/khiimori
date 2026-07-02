@@ -72,7 +72,7 @@
   transition: all var(--dur) var(--ease);
 }
 .tabs button.active {
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   font-weight: var(--fw-semi);
   box-shadow: var(--shadow-1);
@@ -91,7 +91,7 @@
   color: var(--accent-press);
 }
 .chip.outline {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--line-2);
   color: var(--ink-2);
 }
@@ -264,7 +264,7 @@
 .input:focus {
   outline: none;
   border-color: var(--accent);
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 0 0 3px var(--accent-tint);
 }
 
@@ -274,7 +274,7 @@
   height: 34px;
   border-radius: var(--r-sm);
   border: 1px solid var(--line-2);
-  background: #fff;
+  background: var(--surface);
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -310,7 +310,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--surface);
   border: 2px solid var(--accent);
   box-shadow: 0 0 0 3px #fff;
 }
