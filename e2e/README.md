@@ -18,6 +18,10 @@ critical-journey test (S2) and the later role/offline E2E (Epic 02).
   and persists the session (see **Test auth** below).
 - [`tests/smoke.spec.ts`](tests/smoke.spec.ts) — smoke coverage: the anonymous
   shell reaches sign-in, and the test-auth path reaches the app.
+- [`tests/critical-journey.spec.ts`](tests/critical-journey.spec.ts) — the
+  headline journey (S2): create trip → plan a day → add a budget → write a
+  journal → share the trip, asserting a persisted outcome at each step and
+  deleting the trip (cascade) afterwards so reruns stay clean.
 
 Run locally against a target:
 
