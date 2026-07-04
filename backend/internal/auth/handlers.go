@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -24,6 +25,25 @@ const (
 	// state-changing action) and public, so it can clear a stale/expired cookie
 	// too.
 	LogoutPath = "/auth/logout"
+	// TestLoginPath is the guarded E2E test-login endpoint (M10.1). It is only
+	// registered when E2E_LOGIN_SECRET is configured, and the caller must present
+	// that secret; it then mints a session for a fixed non-admin test identity so
+	// the end-to-end harness can authenticate against a deployed environment
+	// without the interactive Google flow.
+	TestLoginPath = "/auth/test-login"
+)
+
+// The fixed identity the test-login endpoint signs in. It is deterministic (so
+// reruns resolve to the same provisioned user) and non-admin (its email never
+// matches ADMIN_EMAIL), keeping the E2E account inside ordinary trip-scoped
+// authorization. The .test TLD (RFC 6761) is reserved and can never be a real
+// Google account.
+const (
+	e2eTestGoogleSub = "e2e-test-user"
+	e2eTestEmail     = "e2e@khiimori.test"
+	e2eTestName      = "E2E Test User"
+	// e2eLoginSecretHeader carries the shared secret the harness presents.
+	e2eLoginSecretHeader = "X-E2E-Login-Secret"
 )
 
 // exchangeTimeout bounds the callback's outbound calls to Google (token
@@ -143,4 +163,65 @@ func (m *Module) handleLogout(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"status":"signed_out"}`))
+}
+
+// handleTestLogin mints a session for the fixed E2E test identity (M10.1). It is
+// only reachable when E2E_LOGIN_SECRET is configured (the route is otherwise
+// unregistered), and the caller must present that exact secret in the
+// X-E2E-Login-Secret header — compared in constant time so a wrong secret leaks
+// no timing signal. On success it provisions (or resolves) the deterministic test
+// user and issues the same signed session cookie the real OAuth flow does, then
+// acknowledges as JSON (never a redirect) so the harness can capture the cookie
+// directly. Unlike the Google callback, this never touches an external provider.
+func (m *Module) handleTestLogin(w http.ResponseWriter, r *http.Request) {
+	// Defence in depth: the route is registered only when the secret is set, but
+	// re-check here so the handler can never mint a session with an empty secret.
+	if m.e2eLoginSecret == "" {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusNotFound, "not_found", "not found"))
+		return
+	}
+
+	// Constant-time compare so the secret can't be guessed by timing. A mismatch
+	// (or missing header) is rejected without provisioning or a session; the
+	// presented value is never logged.
+	presented := r.Header.Get(e2eLoginSecretHeader)
+	if subtle.ConstantTimeCompare([]byte(presented), []byte(m.e2eLoginSecret)) != 1 {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusUnauthorized, "auth_required", "invalid test-login secret"))
+		return
+	}
+
+	// A session may be issued on this response; never cache it.
+	w.Header().Set("Cache-Control", "no-store")
+
+	// Provision (or resolve on rerun) the fixed test user, exactly as the real
+	// callback does via completeSignIn — same code path, minus the Google
+	// exchange. EmailVerified is true so provisioning is well-formed, but the
+	// email never matches ADMIN_EMAIL, so the account stays non-admin.
+	user, err := m.provisioner.Provision(r.Context(), VerifiedIdentity{
+		GoogleSub:     e2eTestGoogleSub,
+		Email:         e2eTestEmail,
+		EmailVerified: true,
+		Name:          e2eTestName,
+	})
+	if err != nil {
+		platformlog.FromContext(r.Context()).Error("test-login provisioning", "err", err.Error())
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusInternalServerError, "auth_provision_failed", "could not complete test sign-in"))
+		return
+	}
+
+	if err := m.sessions.issue(w, user.ID); err != nil {
+		platformlog.FromContext(r.Context()).Error("test-login session", "err", err.Error())
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusInternalServerError, "auth_session_failed", "could not complete test sign-in"))
+		return
+	}
+
+	// Acknowledge as JSON (not a redirect) so the harness reads the cookie off
+	// this response. The user id lets the harness scope/clean up its test data.
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "signed_in", "user_id": user.ID})
 }

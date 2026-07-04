@@ -143,6 +143,16 @@ type Config struct {
 	// env var. Optional at startup; invitation send calls fail at call time when
 	// unset. Set via the RESEND_API_KEY env var.
 	ResendAPIKey string
+
+	// E2ELoginSecret enables the guarded test-login endpoint (POST /auth/test-login,
+	// M10.1) used by the end-to-end harness to sign a fixed test identity into a
+	// deployed environment without the interactive Google flow. It is a shared,
+	// high-entropy secret the harness must present. Optional and OFF by default:
+	// when empty the endpoint is not registered at all, so a normal production
+	// service exposes no test-auth surface. Set it (via Secret Manager → Cloud Run
+	// env injection) only on an environment the E2E suite targets, mirroring the
+	// secret the CI harness holds. Set via the E2E_LOGIN_SECRET env var.
+	E2ELoginSecret string
 }
 
 // Load reads configuration from the environment and returns an error if any
@@ -166,6 +176,7 @@ type Config struct {
 //	ADMIN_EMAIL           verified Google email bootstrapped as admin (M02.2 S4)
 //	SESSION_SECRET        HMAC key for session cookies (M02.3; Secret Manager in prod)
 //	WEB_APP_URL           web app URL the OAuth callback redirects back to (M02.5)
+//	E2E_LOGIN_SECRET      enables the guarded test-login endpoint for E2E (M10.1)
 //
 // Of the two DSNs, only the active one (per DB_POOLED) is required; the unused
 // endpoint stays optional so a pooled service isn't forced to carry the direct
@@ -269,6 +280,12 @@ func Load() (Config, error) {
 	// Optional: Resend transactional email API key (M08.3 S2). The service boots
 	// without it; invitation send calls fail at call time when unset.
 	cfg.ResendAPIKey = strings.TrimSpace(os.Getenv("RESEND_API_KEY"))
+
+	// Optional: E2E test-login secret (M10.1). Empty (the default) leaves the
+	// guarded test-login endpoint unregistered, so production exposes no test-auth
+	// surface. Trimmed so a stray newline in the injected secret can't defeat the
+	// constant-time match.
+	cfg.E2ELoginSecret = strings.TrimSpace(os.Getenv("E2E_LOGIN_SECRET"))
 
 	return cfg, nil
 }

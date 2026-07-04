@@ -1,0 +1,21 @@
+{
+  "name": "khiimori-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "End-to-end suite (Playwright) driving the deployed web/PWA against a staging/preview environment (Milestone 10).",
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test smoke",
+    "typecheck": "tsc --noEmit",
+    "format:check": "prettier --check .",
+    "format": "prettier --write .",
+    "install-browsers": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^24.12.3",
+    "prettier": "^3.8.4",
+    "typescript": "~6.0.2"
+  }
+}
