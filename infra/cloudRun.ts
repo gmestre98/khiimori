@@ -11,6 +11,7 @@ import { cloudRunApi } from './services'
 import { serviceAccount } from './serviceAccount'
 import {
   databaseUrlSecret,
+  e2eLoginSecret,
   mapsApiKeySecret,
   oauthClientSecret,
   secretVersions,
@@ -128,6 +129,10 @@ export const service = new gcp.cloudrunv2.Service(
             // Session cookie signing key (M02.3 S4), auto-generated and stored in
             // Secret Manager by the infra; the app reads it from SESSION_SECRET.
             secretEnv('SESSION_SECRET', sessionSecret),
+            // Shared secret enabling the guarded E2E test-login endpoint (M10.1).
+            // Sourced from Secret Manager; empty (unset config) leaves the endpoint
+            // disabled. Must match the E2E_LOGIN_SECRET GitHub Actions secret.
+            secretEnv('E2E_LOGIN_SECRET', e2eLoginSecret),
             // GCS bucket for journal photo uploads (M06.x). The SA already has
             // roles/storage.objectUser on this bucket (serviceAccount.ts).
             { name: 'MEDIA_BUCKET_NAME', value: mediaBucketName },

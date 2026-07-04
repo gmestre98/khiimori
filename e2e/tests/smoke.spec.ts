@@ -26,9 +26,10 @@ test('authenticated smoke — test-auth reaches the app', async ({ page }) => {
   await page.goto('/')
 
   // Signed in, we are NOT bounced to sign-in: the Google control is gone and the
-  // authenticated navigation chrome is present. `toHaveCount(1)` (attached, not
-  // necessarily visible) keeps the assertion robust across the responsive
-  // sidebar/bottom-nav layouts.
+  // authenticated navigation chrome rendered. Which nav landmark exists is
+  // viewport-dependent (the "Primary" sidebar on laptop, the "Main navigation"
+  // bottom bar on mobile — each rendered conditionally, not just CSS-hidden), so
+  // assert that *some* navigation landmark is present rather than a specific one.
   await expect(page.getByRole('button', { name: /sign in with google/i })).toHaveCount(0)
-  await expect(page.getByRole('navigation', { name: 'Main navigation' })).toHaveCount(1)
+  await expect(page.getByRole('navigation').first()).toBeVisible()
 })
