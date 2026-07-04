@@ -1,0 +1,8 @@
+# Playwright
+/node_modules/
+/playwright-report/
+/test-results/
+/blob-report/
+/playwright/.cache/
+# Persisted auth session (contains a live session cookie) — never commit it.
+/playwright/.auth/

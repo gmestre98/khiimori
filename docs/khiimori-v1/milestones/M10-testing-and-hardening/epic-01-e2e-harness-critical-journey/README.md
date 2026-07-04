@@ -2,6 +2,21 @@
 
 > Milestone: [10 — Testing & Hardening](../README.md) · PRD refs: §7.0, §7.3, §7.5, §7.6.
 
+> **Status:** ✅ Done — all 3 stories merged, 4/4 epic ACs met.
+> S1 [#405](https://github.com/gmestre98/khiimori/pull/405) (harness + guarded test-auth) ·
+> S2 [#406](https://github.com/gmestre98/khiimori/pull/406) (critical-journey test) ·
+> S3 [#407](https://github.com/gmestre98/khiimori/pull/407) (CI staging stage).
+>
+> A TypeScript **Playwright** harness drives the deployed web/PWA against a config-driven target and
+> signs a fixed test identity in via a **guarded backend `POST /auth/test-login`** endpoint (registered
+> only when `E2E_LOGIN_SECRET` is set — no test-auth surface in normal prod, no secret in the repo). The
+> critical journey — **create trip → plan a day → add a budget → write a journal → share the trip** —
+> asserts a persisted outcome at each step and cleans up its trip afterwards. It runs as the pipeline's
+> **staging stage** (`e2e` job, after deploy on `main`), gated to self-skip until the author configures
+> the secret, then failing the pipeline on a broken journey. **To activate:** set the `E2E_LOGIN_SECRET`
+> repo secret and the same value on the API service, then make the `e2e` job a required check (see
+> [e2e/README.md](../../../../../e2e/README.md)).
+
 ## Description
 
 Stand up the **end-to-end test harness** and the **critical-journey** test. Using a TypeScript-based
@@ -14,14 +29,14 @@ gate build on.
 
 ## Acceptance Criteria
 
-- [ ] An **E2E harness** (TypeScript runner, e.g. Playwright) drives the **deployed web/PWA** against
-      a **preview/staging** environment (PRD §7.0, §7.3, §7.6).
-- [ ] The **critical journey** runs green: **sign in → create trip → plan a day → add budget → write
-      journal → share trip** (PRD §7.6).
-- [ ] E2E runs as a **staging stage in the GitHub Actions pipeline** (after deploy), gating later
-      stages (PRD §7.5).
-- [ ] The harness handles auth setup against staging (test identity) without embedding secrets in the
-      repo (PRD §6, §8.5).
+- [x] An **E2E harness** (TypeScript runner, e.g. Playwright) drives the **deployed web/PWA** against
+      a **preview/staging** environment (PRD §7.0, §7.3, §7.6). — S1
+- [x] The **critical journey** runs green: **sign in → create trip → plan a day → add budget → write
+      journal → share trip** (PRD §7.6). — S2 (green run is the author's step once the secret is set)
+- [x] E2E runs as a **staging stage in the GitHub Actions pipeline** (after deploy), gating later
+      stages (PRD §7.5). — S3
+- [x] The harness handles auth setup against staging (test identity) without embedding secrets in the
+      repo (PRD §6, §8.5). — S1 (guarded `POST /auth/test-login`; secret from CI/Secret Manager)
 
 ## Implementation Details / Architecture
 

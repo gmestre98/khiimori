@@ -10,7 +10,7 @@ import (
 // following os.Unsetenv then clears it so LookupEnv reports the variable absent.
 func clearEnv(t *testing.T) {
 	t.Helper()
-	for _, k := range []string{"PORT", "ENV", "LOG_LEVEL", "DATABASE_URL", "DATABASE_URL_DIRECT", "DB_POOLED", "CORS_ALLOWED_ORIGINS", "OAUTH_CLIENT_ID", "OAUTH_CLIENT_SECRET", "OAUTH_REDIRECT_URI", "ADMIN_EMAIL", "SESSION_SECRET", "WEB_APP_URL"} {
+	for _, k := range []string{"PORT", "ENV", "LOG_LEVEL", "DATABASE_URL", "DATABASE_URL_DIRECT", "DB_POOLED", "CORS_ALLOWED_ORIGINS", "OAUTH_CLIENT_ID", "OAUTH_CLIENT_SECRET", "OAUTH_REDIRECT_URI", "ADMIN_EMAIL", "SESSION_SECRET", "WEB_APP_URL", "E2E_LOGIN_SECRET"} {
 		t.Setenv(k, "")
 		if err := os.Unsetenv(k); err != nil {
 			t.Fatalf("unset %s: %v", k, err)
@@ -170,6 +170,37 @@ func TestLoadAdminEmail(t *testing.T) {
 		}
 		if cfg.AdminEmail != "" {
 			t.Errorf("AdminEmail = %q, want empty when unset", cfg.AdminEmail)
+		}
+	})
+}
+
+// TestLoadE2ELoginSecret covers the optional E2E test-login secret (M10.1): it is
+// read and trimmed when set, and empty (endpoint disabled) when unset.
+func TestLoadE2ELoginSecret(t *testing.T) {
+	t.Run("read and trimmed when set", func(t *testing.T) {
+		clearEnv(t)
+		setAllValid(t)
+		t.Setenv("E2E_LOGIN_SECRET", "  high-entropy-token\n")
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() returned error: %v", err)
+		}
+		if cfg.E2ELoginSecret != "high-entropy-token" {
+			t.Errorf("E2ELoginSecret = %q, want %q (trimmed)", cfg.E2ELoginSecret, "high-entropy-token")
+		}
+	})
+
+	t.Run("empty (disabled) when unset", func(t *testing.T) {
+		clearEnv(t)
+		setAllValid(t)
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() returned error: %v", err)
+		}
+		if cfg.E2ELoginSecret != "" {
+			t.Errorf("E2ELoginSecret = %q, want empty when unset", cfg.E2ELoginSecret)
 		}
 	})
 }
