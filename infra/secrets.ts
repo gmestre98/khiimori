@@ -83,6 +83,21 @@ export const oauthClientSecret = managedSecret(
 export const mapsApiKeySecret = managedSecret('maps-api-key', 'khiimori-maps-api-key', 'mapsApiKey')
 
 /**
+ * Shared secret that enables the guarded E2E test-login endpoint (M10.1). Unlike
+ * session-secret (which is ours to mint randomly), this value must MATCH the
+ * `E2E_LOGIN_SECRET` GitHub Actions secret the CI harness presents, so it is
+ * supplied via Pulumi *secret* config (`khiimori:e2eLoginSecret`) rather than
+ * generated — one value lives encrypted here and in the repo secret. When the
+ * config value is absent the container is created empty and the endpoint stays
+ * disabled (the app treats an empty E2E_LOGIN_SECRET as "off").
+ */
+export const e2eLoginSecret = managedSecret(
+  'e2e-login-secret',
+  'khiimori-e2e-login-secret',
+  'e2eLoginSecret',
+)
+
+/**
  * HMAC signing key for authenticated session cookies (M02.3 S4). Unlike the
  * OAuth/DB secrets, this key is *ours* to generate, so the infra mints it
  * automatically with @pulumi/random and stores it as the secret's version —
@@ -121,7 +136,13 @@ export const databaseUrlDirectSecret = managedSecret(
 )
 
 /** All runtime secrets — the Cloud Run SA is granted accessor on each. */
-export const allSecrets = [databaseUrlSecret, oauthClientSecret, mapsApiKeySecret, sessionSecret]
+export const allSecrets = [
+  databaseUrlSecret,
+  oauthClientSecret,
+  mapsApiKeySecret,
+  sessionSecret,
+  e2eLoginSecret,
+]
 
 /**
  * Secret versions created from Pulumi config this run (empty when values are
@@ -136,4 +157,5 @@ export const secretIds = {
   oauthClientSecret: oauthClientSecret.secretId,
   mapsApiKey: mapsApiKeySecret.secretId,
   sessionSecret: sessionSecret.secretId,
+  e2eLoginSecret: e2eLoginSecret.secretId,
 }
