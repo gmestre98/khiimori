@@ -47,7 +47,23 @@ test.afterAll(async () => {
   // use the test-scoped `request` fixture.
   const ctx = await playwrightRequest.newContext({ storageState: storageStatePath })
   try {
-    await ctx.delete(`${apiBaseURL}/trips/${createdTripId}`)
+    // Delete every trip carrying this run's unique name, not just the one id — a
+    // retry re-runs the create step and would otherwise leave a duplicate behind.
+    // The name embeds the unique run id, so this only ever matches this run.
+    const res = await ctx.get(`${apiBaseURL}/trips`)
+    if (res.ok()) {
+      const body = (await res.json()) as {
+        current: Array<{ id: string; name: string }>
+        upcoming: Array<{ id: string; name: string }>
+        past: Array<{ id: string; name: string }>
+      }
+      const mine = [...body.current, ...body.upcoming, ...body.past].filter(
+        (t) => t.name === tripName,
+      )
+      for (const t of mine) {
+        await ctx.delete(`${apiBaseURL}/trips/${t.id}`)
+      }
+    }
   } finally {
     await ctx.dispose()
   }
@@ -131,9 +147,12 @@ test('critical journey: create trip → plan → budget → journal → share', 
 
   await test.step('share the trip — send an invitation', async () => {
     await page.goto(`/trips/${createdTripId}/sharing`)
-    await page.getByLabel('Email address').fill(guestEmail)
-    await page.getByLabel('Role').selectOption('viewer')
-    await page.getByRole('button', { name: 'Send Invite' }).click()
+    // Scope to the invite card so "Role" can't collide with the "Roles" legend
+    // section (getByLabel is a substring match); `exact` pins the invite select.
+    const invite = page.getByRole('region', { name: 'Invite someone' })
+    await invite.getByLabel('Email address').fill(guestEmail)
+    await invite.getByLabel('Role', { exact: true }).selectOption('viewer')
+    await invite.getByRole('button', { name: 'Send Invite' }).click()
 
     // Real outcome: the invitation is persisted and listed as pending.
     await expect(
