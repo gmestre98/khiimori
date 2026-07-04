@@ -38,6 +38,12 @@ type Module struct {
 	// to after sign-in (Epic 05): success → the app, failure → ?auth_error=. Empty
 	// falls back to a JSON acknowledgement (a backend running without the web app).
 	webAppURL string
+	// e2eLoginSecret, when non-empty, enables the guarded test-login endpoint
+	// (POST /auth/test-login, M10.1): the E2E harness presents this shared secret
+	// to mint a session for a fixed test identity without the Google flow. Empty
+	// (the default) leaves the endpoint unregistered — production has no such
+	// surface. It is only ever compared, never logged.
+	e2eLoginSecret string
 	// onVerified consumes a verified identity after a successful callback. The
 	// default is completeSignIn (provision the user); session issuance (Epic 03)
 	// extends it. Kept as a field so tests can substitute a capturing stub.
@@ -58,14 +64,15 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Module {
 	secure := cfg.Env == config.EnvProd
 	repo := &pgxUserRepo{pool: pool}
 	m := &Module{
-		provider:    NewGoogleProvider(gcfg),
-		stateStore:  newOAuthStateStore(deriveStateKey(gcfg.ClientSecret), secure),
-		configured:  gcfg.ClientID != "" && gcfg.ClientSecret != "" && gcfg.RedirectURI != "",
-		provisioner: &Provisioner{repo: repo, adminEmail: cfg.AdminEmail},
-		users:       repo,
-		repo:        repo,
-		sessions:    newSessionManager([]byte(cfg.SessionSecret), secure, sessionTTL),
-		webAppURL:   cfg.WebAppURL,
+		provider:       NewGoogleProvider(gcfg),
+		stateStore:     newOAuthStateStore(deriveStateKey(gcfg.ClientSecret), secure),
+		configured:     gcfg.ClientID != "" && gcfg.ClientSecret != "" && gcfg.RedirectURI != "",
+		provisioner:    &Provisioner{repo: repo, adminEmail: cfg.AdminEmail},
+		users:          repo,
+		repo:           repo,
+		sessions:       newSessionManager([]byte(cfg.SessionSecret), secure, sessionTTL),
+		webAppURL:      cfg.WebAppURL,
+		e2eLoginSecret: cfg.E2ELoginSecret,
 	}
 	m.onVerified = m.completeSignIn
 	return m
@@ -81,6 +88,14 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("GET "+SessionPath, m.RequireAuth(http.HandlerFunc(m.handleSession)))
 	// Sign-out is public so it can clear a stale/expired cookie too.
 	mux.HandleFunc("POST "+LogoutPath, m.handleLogout)
+
+	// E2E test-login (M10.1) — registered ONLY when a secret is configured, so a
+	// normal production service (no E2E_LOGIN_SECRET) exposes no test-auth route at
+	// all. On an E2E-targeted environment the harness presents the shared secret to
+	// mint a session for a fixed, non-admin test identity (see handleTestLogin).
+	if m.e2eLoginSecret != "" {
+		mux.HandleFunc("POST "+TestLoginPath, m.handleTestLogin)
+	}
 	// Profile read + edit (Epic 04), behind the auth middleware — always the
 	// session user's own row.
 	mux.Handle("GET "+ProfilePath, m.RequireAuth(http.HandlerFunc(m.handleProfileRead)))
