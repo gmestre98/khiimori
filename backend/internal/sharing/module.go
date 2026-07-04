@@ -12,9 +12,9 @@ import (
 // so cmd/api can mount the module's routes without reaching into its internals.
 type Module struct {
 	memberships *Memberships
+	// invitations is the concrete store; invCreate is the seam used by the handler
+	// (tests may supply a fake without a real pool).
 	invitations *Invitations
-	// invCreate is the seam used by the invite handler; defaults to invitations.
-	// Tests may supply a fake to avoid a real DB pool.
 	invCreate   invitationCreator
 	authz       invitationAuthorizer
 	emailSender EmailSender
