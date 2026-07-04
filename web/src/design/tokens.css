@@ -22,6 +22,8 @@
   --surface: #ffffff;
   --surface-2: #f7f8f8;
   --surface-3: #eef0f0;
+  /* Frosted-glass surface (fixed nav bars over content) */
+  --surface-translucent: rgba(255, 255, 255, 0.96);
 
   /* ---- Lines ---- */
   --line: #e7e9ea;
@@ -214,6 +216,7 @@
   --surface: #1b1e23;
   --surface-2: #23262c;
   --surface-3: #2a2e35;
+  --surface-translucent: rgba(19, 21, 25, 0.92);
 
   --line: #2c3138;
   --line-2: #383e46;
@@ -245,6 +248,7 @@
     --surface: #1b1e23;
     --surface-2: #23262c;
     --surface-3: #2a2e35;
+    --surface-translucent: rgba(19, 21, 25, 0.92);
 
     --line: #2c3138;
     --line-2: #383e46;
