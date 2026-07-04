@@ -9,11 +9,19 @@ unit → build → integration → deploy → **e2e (staging)** (PRD §7.5). CI 
 Wire the E2E suite into GitHub Actions as a staging stage.
 
 ## Acceptance criteria
-- [ ] The E2E suite runs in CI **after deploy to staging**, as a distinct pipeline stage (PRD §7.5).
-- [ ] A failing journey **fails the pipeline** (it is a gate).
-- [ ] Staging auth/secrets are provided via **CI secrets** (not committed); the run is reproducible.
-- [ ] **CI-minute usage** is considered (the suite is scoped to keep within the free cap, or the repo is
+- [x] The E2E suite runs in CI **after deploy to staging**, as a distinct pipeline stage (PRD §7.5).
+- [x] A failing journey **fails the pipeline** (it is a gate).
+- [x] Staging auth/secrets are provided via **CI secrets** (not committed); the run is reproducible.
+- [x] **CI-minute usage** is considered (the suite is scoped to keep within the free cap, or the repo is
   public) (PRD §8.4 #4).
+
+> Done in [#407](https://github.com/gmestre98/khiimori/pull/407). The existing `e2e` job (after
+> `deploy` + `deploy-web` on `main`) now runs `smoke.sh` then the Playwright suite as the staging stage.
+> The browser run is **gated on `secrets.E2E_LOGIN_SECRET`** so it self-skips (main stays green) until the
+> author provisions the secret, then activates automatically — the same configure-to-enable idiom as
+> `pulumi-up` / `restrict-maps-key`. A failing journey fails the job (the last stage → the pipeline). Lean
+> for CI minutes: single Chromium, one worker, heavy steps only when enabled. Making `e2e` a **required**
+> check is a branch-protection follow-up (author).
 
 ## Constraints
 - Fit the existing M01.5 pipeline ordering; don't restructure earlier stages.
