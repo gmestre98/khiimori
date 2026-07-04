@@ -97,6 +97,9 @@ config:
   #        pulumi config set --secret khiimori:oauthClientSecret "…"
   #        pulumi config set --secret khiimori:mapsApiKey        "…"
   #        pulumi config set --secret khiimori:databaseUrlDirect "postgresql://neondb_owner:…"
+  #        pulumi config set --secret khiimori:e2eLoginSecret    "…"  # M10.1 E2E test-login
+  #      (e2eLoginSecret must MATCH the E2E_LOGIN_SECRET GitHub Actions secret;
+  #       leave it unset to keep the guarded test-login endpoint disabled.)
   #      (These land here as `secure:` blobs — encrypted, safe to commit if you
   #       ever choose to track the stack file; this repo gitignores it anyway.)
   #

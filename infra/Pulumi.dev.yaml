@@ -31,6 +31,8 @@ config:
   # MUST live under config: — a bare top-level key here is ignored by Pulumi, so
   # the budget was silently never provisioned until this was moved in.
   khiimori:billingAccount: 0174E2-8E297D-D1C256
+  khiimori:e2eLoginSecret:
+    secure: AAABAGPF+PpEEZpYq4roiz2fmJ2l//YdjW13wwGh0yiz2UaLGwZNFo9S9GrfmYUSrO8YtKI1RaWxmCpM2azZQz25N91M+J90vkhHi/6s0/JQCbBEEOane53l428gN37Y
 
 # --- Optional: resource names (sensible defaults if omitted) ---------------
 # Artifact Registry Docker repository id (last segment of the image prefix).
