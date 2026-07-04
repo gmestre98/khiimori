@@ -564,20 +564,79 @@ jobs:
           done
 
   e2e:
-    name: E2E smoke (deployed env) [placeholder]
+    name: E2E (deployed env) — smoke + critical journey
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    # After both deploys so there's a live target to exercise (S9). Milestone 10
-    # fills in the critical-journey tests here (see e2e/README.md).
+    # After both deploys so there's a live target to exercise (M01.5 S9). This is
+    # the pipeline's staging stage: it runs last, so a failing journey fails the
+    # pipeline (a release gate, PRD §7.5). Targets are config-driven repo
+    # variables, so this can point at a dedicated preview/staging env with no
+    # workflow change (see e2e/README.md).
     needs: [deploy, deploy-web]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      # Real smoke check against the deployed environment — API /readyz and the
-      # web shell must serve. Targets are config-driven (repo variables) so this
-      # can point at a dedicated staging/preview env later with no workflow change.
+      # Fast, dependency-free pre-check — API /readyz and the web shell must serve
+      # (also wakes the scale-to-zero services before the browser run). A failure
+      # here gates the pipeline before we spend minutes on Playwright.
       - name: Smoke check the deployed environment
         env:
           E2E_API_URL: ${{ vars.API_BASE_URL }}
           E2E_WEB_URL: ${{ vars.WEB_BASE_URL }}
         run: bash e2e/smoke.sh
+
+      # The critical-journey suite (M10.1 S2) needs the test-login secret to sign a
+      # test identity into the deployed env. Until the author configures
+      # E2E_LOGIN_SECRET (as a repo secret AND on the target service), this gate is
+      # false and the browser run is skipped — so the pipeline stays green on the
+      # smoke check alone. It activates automatically once the secret is set (the
+      # same "configure-to-enable" idiom as pulumi-up / restrict-maps-key). The
+      # secret is read into an env var only to test for presence; its value is
+      # never echoed (GitHub masks it regardless).
+      - name: Gate — is the E2E journey configured?
+        id: gate
+        env:
+          E2E_LOGIN_SECRET: ${{ secrets.E2E_LOGIN_SECRET }}
+        run: |
+          if [ -n "$E2E_LOGIN_SECRET" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "E2E journey enabled (E2E_LOGIN_SECRET is set)."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "E2E journey skipped: set the E2E_LOGIN_SECRET repo secret (and the same value on the API) to enable it."
+          fi
+
+      # Node + the committed lockfile drive a reproducible install (npm ci). Only
+      # when the journey is enabled — keeps CI minutes off the free cap otherwise
+      # (PRD §8.4 #4).
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        if: steps.gate.outputs.enabled == 'true'
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install E2E deps
+        if: steps.gate.outputs.enabled == 'true'
+        working-directory: e2e
+        run: npm ci
+
+      # Only the Chromium binary — the suite runs a single browser to stay lean.
+      - name: Install Playwright browser (chromium)
+        if: steps.gate.outputs.enabled == 'true'
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      # The staging stage proper: sign in via the guarded test-login endpoint and
+      # run the critical journey against the deployed app. A failure fails the job,
+      # and this job is the last stage — so a broken journey fails the pipeline
+      # (the release gate). Secrets come from CI (never committed); the URLs are
+      # the same config-driven repo variables the smoke check uses.
+      - name: Run critical-journey E2E (staging)
+        if: steps.gate.outputs.enabled == 'true'
+        working-directory: e2e
+        env:
+          E2E_WEB_URL: ${{ vars.WEB_BASE_URL }}
+          E2E_API_URL: ${{ vars.API_BASE_URL }}
+          E2E_LOGIN_SECRET: ${{ secrets.E2E_LOGIN_SECRET }}
+        run: npm test

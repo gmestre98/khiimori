@@ -80,9 +80,30 @@ Playwright suite and stays as a cheap pre-check:
 E2E_API_URL=https://… E2E_WEB_URL=https://… bash e2e/smoke.sh
 ```
 
-## CI (S3)
+## CI — the staging stage (S3)
 
-The `e2e` job already runs after both deploys and gates `main` on `push`. S3
-extends it to run the Playwright suite (secret from CI), keeping `smoke.sh` as the
-fast pre-check. Making it a required check is a branch-protection setting, not a
+The `e2e` job runs after both deploys on a push to `main`, as the pipeline's
+**staging stage** (lint → unit → build → integration → deploy → **e2e**). It:
+
+1. runs `smoke.sh` (fast pre-check + wakes the scale-to-zero services);
+2. **gates** on `secrets.E2E_LOGIN_SECRET` — when unset the browser run is
+   skipped, so the pipeline stays green on the smoke check alone;
+3. when the secret is set, installs Playwright (Chromium only) and runs the
+   suite against the deployed env. A failure fails the job, and this is the last
+   stage — so a broken journey **fails the pipeline** (the release gate).
+
+**To enable the journey in CI**, the author sets the `E2E_LOGIN_SECRET` repo
+secret to a high-entropy value **and** configures the same value on the target
+API service (`E2E_LOGIN_SECRET` env var, via Secret Manager → Cloud Run). Until
+then the stage self-skips — the "configure-to-enable" idiom used by `pulumi-up`
+and `restrict-maps-key`.
+
+Making the `e2e` job a **required** check is a branch-protection setting, not a
 pipeline change.
+
+### CI minutes (PRD §8.4 #4)
+
+The suite is deliberately lean: a single Chromium browser, one worker, and the
+heavy install/run steps only execute when the journey is enabled. The public
+repo has unlimited Actions minutes; on a private repo this stays well within the
+2,000-minute free cap.
