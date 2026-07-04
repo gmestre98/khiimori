@@ -9,12 +9,19 @@ deployed web/PWA against a **preview/staging** environment, keeping to one langu
 Set up the E2E harness and an auth setup that works against staging without committing secrets.
 
 ## Acceptance criteria
-- [ ] A **TypeScript E2E runner** (e.g. Playwright) is configured to drive the **deployed web/PWA** against
+- [x] A **TypeScript E2E runner** (e.g. Playwright) is configured to drive the **deployed web/PWA** against
   a **staging** URL.
-- [ ] A **test-auth** approach signs a test identity into staging (Google SSO test path or a documented
+- [x] A **test-auth** approach signs a test identity into staging (Google SSO test path or a documented
   staging auth shortcut) **without embedding secrets** in the repo (PRD §6, §8.5).
-- [ ] The harness runs locally against staging and is structured for CI (S3).
-- [ ] A smoke test (load app, reach sign-in) passes to prove the harness works.
+- [x] The harness runs locally against staging and is structured for CI (S3).
+- [x] A smoke test (load app, reach sign-in) passes to prove the harness works.
+
+> Done in [#405](https://github.com/gmestre98/khiimori/pull/405). **Playwright** under `e2e/` drives the
+> deployed app (config-driven `E2E_WEB_URL` / `E2E_API_URL`). Test-auth is a **guarded backend
+> `POST /auth/test-login`** endpoint — registered only when `E2E_LOGIN_SECRET` is set, so normal prod has
+> no test-auth surface and no secret lives in the repo (supplied at run time). `auth.setup.ts` mints the
+> session into `storageState`; `smoke.spec.ts` covers the anonymous sign-in reach and the authenticated
+> path. Runner + test-auth approach confirmed with the author before adding.
 
 ## Constraints
 - Confirm the E2E runner choice with the author before adding it (project rule: ask before deps) —
