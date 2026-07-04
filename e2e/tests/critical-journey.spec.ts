@@ -41,9 +41,6 @@ const endDate = isoDate(new Date(today.getTime() + 3 * 86_400_000))
 // failure before creation leaves nothing to clean up.
 let createdTripId: string | null = null
 
-// The journey is one long flow; give it room for a scale-to-zero cold start.
-test.setTimeout(120_000)
-
 test.afterAll(async () => {
   if (!createdTripId) return
   // A fresh API context authenticated by the same saved session — afterAll can't
@@ -60,6 +57,11 @@ test('critical journey: create trip → plan → budget → journal → share', 
   page,
   request,
 }) => {
+  // One long flow; give it room for a scale-to-zero cold start. Called inside the
+  // test (where there is a running test) so the override actually applies — a
+  // module-scope test.setTimeout would not.
+  test.setTimeout(120_000)
+
   await test.step('signed in and landed on the app', async () => {
     await page.goto('/')
     // The shared session means we are not bounced to sign-in.
