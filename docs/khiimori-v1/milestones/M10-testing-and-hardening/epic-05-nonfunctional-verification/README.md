@@ -14,8 +14,8 @@ author while abroad**). These are measured and recorded as part of the release g
 
 ## Acceptance Criteria
 
-- [ ] **Performance:** the **day view is interactive < 1.5s on a mid-range phone on 4G**, measured and
-      recorded (PRD §6, Milestone 09).
+- [x] **Performance:** the **day view is interactive < 1.5s on a mid-range phone on 4G**, measured and
+      recorded (PRD §6, Milestone 09). *(S1 — ≈ 1.0–1.3 s, [REPORT](S1-performance-verification-REPORT.md))*
 - [ ] **Availability/offline:** graceful **read-only/offline behaviour** under poor network is
       verified, and the **~99.5% API availability** target is understood and monitored (PRD §6).
 - [ ] **Observability:** **centralised logs**, **basic metrics**, and **error alerting** are confirmed
@@ -56,7 +56,7 @@ without reading the rest of the docs.
 
 | # | Story | Est. | Epic AC | Depends on |
 |---|-------|------|---------|-----------|
-| [S1](S1-performance-verification.md) | Performance re-verification (< 1.5s day view) | ~2.5h | AC1 | M09 Epic 05 |
+| [S1](S1-performance-verification.md) ✅ | Performance re-verification (< 1.5s day view) | ~2.5h | AC1 | M09 Epic 05 |
 | [S2](S2-availability-offline.md) | Availability & offline behaviour verification | ~3h | AC2 | M04/M06/M09, M01 |
 | [S3](S3-observability-alert.md) | Observability & alert-reaches-author-abroad verification | ~3h | AC3, AC4 | M01 Epic 07, Epic 01 |
 
