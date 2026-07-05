@@ -44,22 +44,24 @@ function allPoints(days: TripDayMarkers[]): LatLng[] {
   return days.flatMap((d) => d.waypoints)
 }
 
-// MapController fits the view to the focused day's waypoints, or the whole trip
-// when nothing is focused, and pans to the selected pin when it changes.
+// MapController fits the view to the selected days' waypoints, or the whole trip
+// when nothing is selected, and pans to the selected pin when it changes.
 function MapController({
   days,
-  focusedDate,
+  selectedDates,
   selected,
 }: {
   days: TripDayMarkers[]
-  focusedDate: string | null
+  selectedDates: Set<string>
   selected: LatLng | null
 }) {
   const map = useMap()
 
   useEffect(() => {
-    const focusDay = focusedDate ? days.find((d) => d.date === focusedDate) : null
-    const points = focusDay ? focusDay.waypoints : allPoints(days)
+    const points =
+      selectedDates.size > 0
+        ? days.filter((d) => selectedDates.has(d.date)).flatMap((d) => d.waypoints)
+        : allPoints(days)
     if (points.length === 0) {
       map.setView(DEFAULT_CENTER, DEFAULT_ZOOM)
       return
@@ -70,7 +72,7 @@ function MapController({
     }
     const bounds = L.latLngBounds(points.map((w) => [w.lat, w.lng] as [number, number]))
     map.fitBounds(bounds, { padding: [32, 32] })
-  }, [map, days, focusedDate])
+  }, [map, days, selectedDates])
 
   useEffect(() => {
     if (!selected) return
@@ -82,17 +84,18 @@ function MapController({
 
 // TripMap renders one interactive OpenStreetMap view for the whole trip: every
 // day's located stops, colour-coded by day, with a per-day route polyline. When
-// a day is focused the others dim back and the view fits to that day. Markers are
-// wired to the shared selection state so clicking a pin highlights the matching
-// day-list row. Exported as default so React.lazy can defer the map bundle.
+// a subset of days is selected the others dim back and the view fits to the
+// selection (an empty selection means all days). Markers are wired to the shared
+// selection state so clicking a pin highlights the matching day-list row.
+// Exported as default so React.lazy can defer the map bundle.
 export default function TripMap({
   days,
-  focusedDate,
+  selectedDates,
   selectedId,
   onSelect,
 }: {
   days: TripDayMarkers[]
-  focusedDate: string | null
+  selectedDates: Set<string>
   selectedId: string | null
   onSelect: (id: string | null) => void
 }) {
@@ -120,7 +123,7 @@ export default function TripMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {days.map((day) => {
-          const dimmed = focusedDate !== null && focusedDate !== day.date
+          const dimmed = selectedDates.size > 0 && !selectedDates.has(day.date)
           const positions = day.waypoints.map((w) => [w.lat, w.lng] as [number, number])
           return (
             <Fragment key={day.date}>
@@ -157,7 +160,7 @@ export default function TripMap({
             </Fragment>
           )
         })}
-        <MapController days={days} focusedDate={focusedDate} selected={selected} />
+        <MapController days={days} selectedDates={selectedDates} selected={selected} />
       </MapContainer>
     </div>
   )

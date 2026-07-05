@@ -99,17 +99,19 @@ function dayCaption(entry: DayEntry): string {
 
 // TripMapPage is the trip-scoped Map subtab (/trips/:tripId/map). Unlike the day
 // view's per-day map facet, this is a whole-trip, read-only orientation: one
-// overview map with every day's stops colour-coded, plus a day list that focuses
-// the map on a single day. It loads each day + its route once on mount.
+// overview map with every day's stops colour-coded, plus a day list that lets you
+// toggle any subset of days to focus the map on them. It loads each day + its
+// route once on mount.
 export function TripMapPage() {
   const { trip } = useTripShell()
   const dates = datesInRange(trip.start_date, trip.end_date)
 
   const [entries, setEntries] = useState<DayEntry[] | null>(null)
   const [error, setError] = useState(false)
-  // focusedDate narrows the map to one day (null = whole trip). selectedId is the
-  // highlighted pin, shared between the map and the day list.
-  const [focusedDate, setFocusedDate] = useState<string | null>(null)
+  // selectedDates narrows the map to a subset of days; an empty set means "all
+  // days" (the whole trip). selectedId is the highlighted pin, shared between the
+  // map and the day list.
+  const [selectedDates, setSelectedDates] = useState<Set<string>>(() => new Set())
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -148,91 +150,103 @@ export function TripMapPage() {
   )
   const hasAnyPlace = mapDays.length > 0
 
-  const toggleFocus = (date: string) => {
-    setFocusedDate((cur) => (cur === date ? null : date))
+  // Toggle a day in/out of the selection. An empty selection means "all days".
+  const toggleDay = (date: string) => {
+    setSelectedDates((cur) => {
+      const next = new Set(cur)
+      if (next.has(date)) next.delete(date)
+      else next.add(date)
+      return next
+    })
+    setSelectedId(null)
+  }
+  const showAllDays = () => {
+    setSelectedDates(new Set())
     setSelectedId(null)
   }
 
   return (
-    <section className="trip-map-page" aria-label={`Map for ${trip.name}`}>
-      <header className="trip-map-page-header">
-        <h2 className="trip-map-page-title">Trip map</h2>
-        <p className="trip-map-page-sub">Every day’s places on one map. Pick a day to focus it.</p>
-      </header>
+    <article className="trip-map-page" aria-label={`Map for ${trip.name}`}>
+      <div className="screen-content trip-map-body">
+        <header className="trip-map-head">
+          <h1 className="h1">Trip map</h1>
+          <p className="meta">Every day’s places on one map. Toggle days to compare a few.</p>
+        </header>
 
-      {error ? (
-        <p role="alert" className="trip-map-error">
-          Could not load the trip map.
-        </p>
-      ) : entries === null ? (
-        <p className="trip-map-loading" aria-busy="true">
-          Loading trip map…
-        </p>
-      ) : (
-        <div className="trip-map-layout">
-          <nav className="trip-map-days" aria-label="Days">
-            <button
-              type="button"
-              className={['trip-map-day', focusedDate === null ? 'trip-map-day--active' : '']
-                .filter(Boolean)
-                .join(' ')}
-              aria-pressed={focusedDate === null}
-              onClick={() => {
-                setFocusedDate(null)
-                setSelectedId(null)
-              }}
-            >
-              <span className="trip-map-day-dot trip-map-day-dot--all" aria-hidden="true" />
-              <span className="trip-map-day-label">All days</span>
-              <span className="trip-map-day-meta">Whole trip</span>
-            </button>
-            {entries.map((e) => (
+        {error ? (
+          <p role="alert" className="trip-map-error">
+            Could not load the trip map.
+          </p>
+        ) : entries === null ? (
+          <p className="trip-map-loading" aria-busy="true">
+            Loading trip map…
+          </p>
+        ) : (
+          <div className="trip-map-layout">
+            <nav className="trip-map-days" aria-label="Days">
               <button
-                key={e.date}
                 type="button"
-                className={['trip-map-day', focusedDate === e.date ? 'trip-map-day--active' : '']
+                className={['trip-map-day', selectedDates.size === 0 ? 'trip-map-day--active' : '']
                   .filter(Boolean)
                   .join(' ')}
-                aria-pressed={focusedDate === e.date}
-                disabled={e.waypoints.length === 0}
-                onClick={() => toggleFocus(e.date)}
+                aria-pressed={selectedDates.size === 0}
+                onClick={showAllDays}
               >
-                <span
-                  className="trip-map-day-dot"
-                  style={{ background: e.color }}
-                  aria-hidden="true"
-                />
-                <span className="trip-map-day-label">
-                  Day {e.index + 1} · {shortDate(e.date)}
-                </span>
-                <span className="trip-map-day-meta">{dayCaption(e)}</span>
+                <span className="trip-map-day-dot trip-map-day-dot--all" aria-hidden="true" />
+                <span className="trip-map-day-label">All days</span>
+                <span className="trip-map-day-meta">Whole trip</span>
               </button>
-            ))}
-          </nav>
+              {entries.map((e) => (
+                <button
+                  key={e.date}
+                  type="button"
+                  className={[
+                    'trip-map-day',
+                    selectedDates.has(e.date) ? 'trip-map-day--active' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  aria-pressed={selectedDates.has(e.date)}
+                  disabled={e.waypoints.length === 0}
+                  onClick={() => toggleDay(e.date)}
+                >
+                  <span
+                    className="trip-map-day-dot"
+                    style={{ background: e.color }}
+                    aria-hidden="true"
+                  />
+                  <span className="trip-map-day-label">
+                    Day {e.index + 1} · {shortDate(e.date)}
+                  </span>
+                  <span className="trip-map-day-meta">{dayCaption(e)}</span>
+                </button>
+              ))}
+            </nav>
 
-          <div className="trip-map-panel">
-            <Suspense
-              fallback={
-                <p className="trip-map-loading" aria-busy="true">
-                  Loading map…
+            <div className="trip-map-panel">
+              <Suspense
+                fallback={
+                  <p className="trip-map-loading" aria-busy="true">
+                    Loading map…
+                  </p>
+                }
+              >
+                <TripMap
+                  days={mapDays}
+                  selectedDates={selectedDates}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                />
+              </Suspense>
+              {!hasAnyPlace && (
+                <p className="trip-map-caption">
+                  No places yet. Add a location to a stay or activity and its pin appears here.
                 </p>
-              }
-            >
-              <TripMap
-                days={mapDays}
-                focusedDate={focusedDate}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
-              />
-            </Suspense>
-            {!hasAnyPlace && (
-              <p className="trip-map-caption">
-                No places yet. Add a location to a stay or activity and its pin appears here.
-              </p>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      )}
-    </section>
+        )}
+      </div>
+    </article>
   )
 }
