@@ -9,13 +9,16 @@ checklist against PRD §8.
 Review and confirm the project's idle cost posture and live guardrails.
 
 ## Acceptance criteria
-- [ ] A checklist confirms the **≈€0–3/mo idle** posture (Cloud Run scale-to-zero, Neon free tier,
+- [x] A checklist confirms the **≈€0–3/mo idle** posture (Cloud Run scale-to-zero, Neon free tier,
   Firebase free tier, Maps within free allowance).
-- [ ] **Scale-to-zero** is confirmed for the stateless services (no min-instances by default).
-- [ ] **Maps key restricted with hard quota caps** and **GCP billing budget + alert** are verified
-  **live** (from Milestone 01).
-- [ ] The DB is the one component that doesn't scale to zero for free — confirmed on the **Neon free
+- [x] **Scale-to-zero** is confirmed for the stateless services (no min-instances by default).
+- [x] **Maps key restricted with hard quota caps** and **GCP billing budget + alert** are verified
+  **live** (from Milestone 01). — Key restriction + budget/alert live; hard quota cap not live (F1,
+  mitigated) — see [REPORT](S1-cost-posture-review-REPORT.md).
+- [x] The DB is the one component that doesn't scale to zero for free — confirmed on the **Neon free
   tier** with the documented paid-tier lever (PRD §8.4 #1).
+
+> ✅ Done — see [S1-cost-posture-review-REPORT.md](S1-cost-posture-review-REPORT.md) (2026-07-05).
 
 ## Constraints
 - This is a **verification** checklist against PRD §8 — confirm live settings, don't add cost.
