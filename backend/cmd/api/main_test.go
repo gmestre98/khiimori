@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gmestre98/khiimori/backend/internal/budget"
 	"github.com/gmestre98/khiimori/backend/internal/journal"
 	"github.com/gmestre98/khiimori/backend/internal/platform/config"
 )
@@ -102,5 +103,33 @@ func TestDebugTriggerErrorWhenDisabled(t *testing.T) {
 	rec := get(t, h, "/debug/trigger-error")
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want 404 (debug route must be invisible when disabled)", rec.Code)
+	}
+}
+
+func TestPlanItemCategory(t *testing.T) {
+	cases := []struct {
+		in   string
+		want budget.Category
+	}{
+		// Canonical category names sent by the new dropdown (case-insensitive).
+		{"Transport", budget.CategoryTransport},
+		{"transport", budget.CategoryTransport},
+		{"Stays", budget.CategoryStays},
+		{"Food", budget.CategoryFood},
+		{"Activities", budget.CategoryActivities},
+		{"Other", budget.CategoryOther},
+		// Legacy free-text values still map so historical items categorise right.
+		{"flight", budget.CategoryTransport},
+		{"  Hotel ", budget.CategoryStays},
+		{"museum", budget.CategoryActivities},
+		{"restaurant", budget.CategoryFood},
+		// Anything unrecognised (and empty) falls through to Other.
+		{"", budget.CategoryOther},
+		{"whatever", budget.CategoryOther},
+	}
+	for _, c := range cases {
+		if got := planItemCategory(c.in); got != c.want {
+			t.Errorf("planItemCategory(%q) = %q, want %q", c.in, got, c.want)
+		}
 	}
 }
