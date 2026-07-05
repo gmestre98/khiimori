@@ -27,10 +27,11 @@ type tripStore interface {
 	Archive(ctx context.Context, id, ownerID string) (Trip, error)
 	Unarchive(ctx context.Context, id, ownerID string) (Trip, error)
 	Delete(ctx context.Context, id, ownerID string) error
-	// GetDay fetches a single day by trip ownership + date for deep-linking.
-	// ownerID scopes the lookup so a day in another user's trip is an
-	// indistinguishable errDayNotFound.
-	GetDay(ctx context.Context, tripID, ownerID, date string) (Day, error)
+	// GetDay fetches a single day by trip + date for deep-linking. Access is
+	// gated by the handler's membership check (checkAccess ActionRead) before this
+	// is called, so it is trip-scoped, not owner-scoped — any member may read a
+	// shared trip's day (M08).
+	GetDay(ctx context.Context, tripID, date string) (Day, error)
 	// List returns all non-archived trips visible to userID (owner or member),
 	// ordered by start_date ascending. It is the authz-scoping seam: the
 	// owner-only shim used until Milestone 08 is expressed by the JOIN on
@@ -355,7 +356,7 @@ func (m *Module) handleGetDay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	day, err := m.store.GetDay(r.Context(), tripID, p.UserID, date)
+	day, err := m.store.GetDay(r.Context(), tripID, date)
 	if err != nil {
 		if errors.Is(err, errDayNotFound) {
 			httpx.WriteError(w, r, httpx.NewAPIError(

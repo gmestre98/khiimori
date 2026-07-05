@@ -259,19 +259,20 @@ func (s *pgxTripStore) List(ctx context.Context, userID string) ([]Trip, error) 
 	return trips, nil
 }
 
-// GetDay fetches a single day from trip.days, scoped to the requesting owner so
-// a day in another user's trip is an indistinguishable errDayNotFound. The JOIN
-// on trip.trips pins owner_id without a separate trip lookup round-trip.
-func (s *pgxTripStore) GetDay(ctx context.Context, tripID, ownerID, date string) (Day, error) {
+// GetDay fetches a single day from trip.days by trip + date. Access is NOT
+// owner-scoped here: the handler gates the read with the membership Authorizer
+// (checkAccess ActionRead) first, so any trip member — Owner, Editor, or Viewer —
+// may read a shared trip's day (M08). A non-member never reaches this query (the
+// authz check yields an indistinguishable 404). A day whose trip/date doesn't
+// exist still returns errDayNotFound.
+func (s *pgxTripStore) GetDay(ctx context.Context, tripID, date string) (Day, error) {
 	const q = `
 		SELECT d.id::text, d.trip_id::text, d.date, d.index, d.notes
 		FROM trip.days d
-		JOIN trip.trips t ON t.id = d.trip_id
 		WHERE d.trip_id = $1::uuid
-		  AND t.owner_id = $2::uuid
-		  AND d.date = $3::date`
+		  AND d.date = $2::date`
 	var day Day
-	err := s.pool.QueryRow(ctx, q, tripID, ownerID, date).Scan(
+	err := s.pool.QueryRow(ctx, q, tripID, date).Scan(
 		&day.ID, &day.TripID, &day.Date, &day.Index, &day.Notes,
 	)
 	if err != nil {
