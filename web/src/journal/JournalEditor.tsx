@@ -53,6 +53,15 @@ export function JournalEditor({
   // UsageBar re-fetches the server's authoritative usage figure.
   const [usageRefreshKey, setUsageRefreshKey] = useState(0)
 
+  // onEntryChange is held in a ref so it can be called from `save` without being
+  // a dependency of it. The subtab passes a fresh closure each render; if that
+  // identity fed `save` (and thus the auto-save effect), each save would re-arm
+  // the debounce and trigger another save — an infinite loop.
+  const onEntryChangeRef = useRef(onEntryChange)
+  useEffect(() => {
+    onEntryChangeRef.current = onEntryChange
+  }, [onEntryChange])
+
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // loadedDayId tracks which dayId's data is currently in state. The auto-save
   // effect only fires when loadedDayId === dayId, preventing stale-state saves
@@ -110,12 +119,12 @@ export function JournalEditor({
         const saved = await upsertJournalEntry(tripId, dayId, input)
         setEntry(saved)
         setSaveStatus('saved')
-        onEntryChange?.()
+        onEntryChangeRef.current?.()
       } catch {
         setSaveStatus('error')
       }
     },
-    [tripId, dayId, online, onEntryChange],
+    [tripId, dayId, online],
   )
 
   // Auto-save whenever body/rating/weather/mood change. `loaded` (derived from
@@ -247,7 +256,7 @@ export function JournalEditor({
         }
         onPhotoChange={() => {
           setUsageRefreshKey((k) => k + 1)
-          onEntryChange?.()
+          onEntryChangeRef.current?.()
         }}
       />
     </div>

@@ -140,9 +140,13 @@ function TravelogueDay({
       {(summary.weather || summary.mood) && (
         <p className="trip-journal-entry-meta">
           {summary.weather && (
-            <span className="trip-journal-chip">{WEATHER_LABELS[summary.weather]}</span>
+            <span className="trip-journal-chip">
+              {WEATHER_LABELS[summary.weather] ?? summary.weather}
+            </span>
           )}
-          {summary.mood && <span className="trip-journal-chip">{MOOD_LABELS[summary.mood]}</span>}
+          {summary.mood && (
+            <span className="trip-journal-chip">{MOOD_LABELS[summary.mood] ?? summary.mood}</span>
+          )}
         </p>
       )}
 
