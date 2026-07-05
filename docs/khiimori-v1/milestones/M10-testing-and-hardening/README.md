@@ -6,6 +6,11 @@
 >
 > PRD refs: §6 (all NFRs), §7.5–7.6, §8.4–8.6.
 
+> **Status:** ✅ Done — 2026-07-05. All 5 epics complete (E2E harness & critical journey,
+> role/offline E2E, security & privacy review, load/cost review & scale-up playbook,
+> non-functional verification). Release gate **PASS**: no release-blockers; low findings
+> accepted & mitigated. v1 quality gate met.
+
 ---
 
 ## Milestone goal
@@ -43,7 +48,7 @@ scale-up levers) are verified live.
 | [02](epic-02-role-access-offline-e2e/README.md) | Role-based access & offline-sync E2E | 4 | ~2 | — |
 | [03](epic-03-security-privacy-review/README.md) | Security & privacy review | 4 | ~2 | yes (verifies key/secret posture) |
 | [04](epic-04-load-cost-scaleup-review/README.md) | Load/cost review & scale-up playbook | 5 | ~1–2 | yes (the cost-verification epic) |
-| [05](epic-05-nonfunctional-verification/README.md) | Non-functional verification (perf, availability, observability) | 4 | ~1–2 | — |
+| [05](epic-05-nonfunctional-verification/README.md) ✅ | Non-functional verification (perf, availability, observability) | 4 | ~1–2 | — |
 | | **Milestone total** | **21** | **~8–11** (≈ 2–2.5 weeks, one developer) | — |
 
 > **Estimates** assume one developer familiar with the stack. This milestone is **continuous** (its

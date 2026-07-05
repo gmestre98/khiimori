@@ -2,6 +2,19 @@
 
 > Milestone: [10 — Testing & Hardening](../README.md) · PRD refs: §6, §7.6.
 
+> **Status:** ✅ Done — 2026-07-05. Stories S1–S3 merged. All 4 epic ACs met via live
+> verification of the `dev` stack: **(perf)** day view interactive **≈ 1.0–1.3 s** on the
+> mid-range-4G profile — below the 1.5 s gate ([S1 REPORT](S1-performance-verification-REPORT.md));
+> **(availability/offline)** graceful offline shell + current-trip read + queued-write replay
+> (15-test offline suite, prod-served SW), ~99.5% target understood + live request/latency/5xx
+> dashboard and enabled 5xx alert ([S2 REPORT](S2-availability-offline-REPORT.md));
+> **(observability)** a **live end-to-end alert drill** — 34× induced HTTP 500 drove the 5xx
+> rate > 0 for 6 consecutive minutes, meeting the policy's 3-min condition, delivering the
+> incident email to the author's mobile Gmail; logs queryable with clean redaction
+> ([S3 SIGN-OFF](S3-observability-alert-SIGNOFF.md)). All results recorded with repeatable
+> methods and consolidated into a release-gate summary — **release gate: PASS**, no blockers.
+> This completes **Milestone 10**.
+
 ## Description
 
 Verify the non-functional requirements that don't fit a single feature: **performance** (day view
@@ -19,10 +32,11 @@ author while abroad**). These are measured and recorded as part of the release g
 - [x] **Availability/offline:** graceful **read-only/offline behaviour** under poor network is
       verified, and the **~99.5% API availability** target is understood and monitored (PRD §6).
       *(S2 — offline suite + live dashboard/alert, [REPORT](S2-availability-offline-REPORT.md))*
-- [ ] **Observability:** **centralised logs**, **basic metrics**, and **error alerting** are confirmed
+- [x] **Observability:** **centralised logs**, **basic metrics**, and **error alerting** are confirmed
       to **reach the author while abroad** (e.g. mobile-reachable channel) (PRD §6, Milestone 01).
-- [ ] Results are **recorded** with a repeatable method so they can be re-verified before release
-      (PRD §7.6).
+      *(S3 — live alert drill, [SIGN-OFF](S3-observability-alert-SIGNOFF.md))*
+- [x] Results are **recorded** with a repeatable method so they can be re-verified before release
+      (PRD §7.6). *(S3 consolidated release-gate summary)*
 
 ## Implementation Details / Architecture
 
@@ -59,7 +73,7 @@ without reading the rest of the docs.
 |---|-------|------|---------|-----------|
 | [S1](S1-performance-verification.md) ✅ | Performance re-verification (< 1.5s day view) | ~2.5h | AC1 | M09 Epic 05 |
 | [S2](S2-availability-offline.md) ✅ | Availability & offline behaviour verification | ~3h | AC2 | M04/M06/M09, M01 |
-| [S3](S3-observability-alert.md) | Observability & alert-reaches-author-abroad verification | ~3h | AC3, AC4 | M01 Epic 07, Epic 01 |
+| [S3](S3-observability-alert.md) ✅ | Observability & alert-reaches-author-abroad verification | ~3h | AC3, AC4 | M01 Epic 07, Epic 01 |
 
 **Total:** ~8.5h (≈ 1–2 dev-days), consistent with the epic's ~1–2 dev-day estimate.
 
