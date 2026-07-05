@@ -79,11 +79,20 @@ describe('SidebarNav', () => {
     )
   })
 
-  it('highlights Map and Journal (shared trip day view) on the day route', () => {
+  it('highlights Journal (shared trip day view) on the day route', () => {
     renderNav('/trips/abc/days/2026-07-02', buildSidebarNavItems('abc'))
-    expect(screen.getByRole('link', { name: /^map$/i })).toHaveClass('sidebar-nav-link--active')
     expect(screen.getByRole('link', { name: /journal/i })).toHaveClass('sidebar-nav-link--active')
+    // Map now has its own subtab route, so it is not active on the day view.
+    expect(screen.getByRole('link', { name: /^map$/i })).not.toHaveClass('sidebar-nav-link--active')
     expect(screen.getByRole('link', { name: /budget/i })).not.toHaveClass(
+      'sidebar-nav-link--active',
+    )
+  })
+
+  it('highlights Map on its own trip subtab route', () => {
+    renderNav('/trips/abc/map', buildSidebarNavItems('abc'))
+    expect(screen.getByRole('link', { name: /^map$/i })).toHaveClass('sidebar-nav-link--active')
+    expect(screen.getByRole('link', { name: /journal/i })).not.toHaveClass(
       'sidebar-nav-link--active',
     )
   })

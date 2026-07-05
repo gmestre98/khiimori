@@ -55,10 +55,10 @@ const ICONS = {
 }
 
 // Map / Journal / Budget / Sharing are facets of a single trip, so when a trip is
-// active these point into it (the day view carries both the map and the journal;
-// budget and sharing have their own routes). With no active trip they fall back
-// to the dashboard. From any trip screen the "← Trips" crumb returns to the
-// dashboard to pick a different trip.
+// active these point into it. Map, Budget, and Sharing have their own trip
+// subtab routes; Journal still lives in the day view. With no active trip they
+// fall back to the dashboard. From any trip screen the "← Trips" crumb returns to
+// the dashboard to pick a different trip.
 function tripPath(activeTripId: string | null, suffix = ''): string {
   return activeTripId ? `/trips/${activeTripId}${suffix}` : '/'
 }
@@ -72,7 +72,7 @@ export const TRIP_TAB_ICON = ICONS.trip
 export function buildSidebarNavItems(activeTripId: string | null): BottomNavItem[] {
   return [
     { to: '/', label: 'My Trips', icon: ICONS.trips },
-    { to: tripPath(activeTripId), label: 'Map', icon: ICONS.map },
+    { to: tripPath(activeTripId, '/map'), label: 'Map', icon: ICONS.map },
     { to: tripPath(activeTripId), label: 'Journal', icon: ICONS.journal },
     { to: tripPath(activeTripId, '/budget'), label: 'Budget', icon: ICONS.budget },
     { to: tripPath(activeTripId, '/sharing'), label: 'Sharing', icon: ICONS.sharing },
