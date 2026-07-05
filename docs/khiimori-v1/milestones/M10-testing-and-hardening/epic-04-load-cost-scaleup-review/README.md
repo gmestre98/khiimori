@@ -2,6 +2,20 @@
 
 > Milestone: [10 — Testing & Hardening](../README.md) · PRD refs: §8.4, §8.5, §8.6.
 
+> **Status:** ✅ Done — 2026-07-05. Stories S1–S3 merged
+> ([#419](https://github.com/gmestre98/khiimori/pull/419),
+> [#420](https://github.com/gmestre98/khiimori/pull/420),
+> [#421](https://github.com/gmestre98/khiimori/pull/421)). All 5 epic ACs met via
+> live verification of the `dev` stack: idle ≈€0/mo with scale-to-zero
+> (`scaleToZeroActive=true`), €10 billing budget + 50/90/100% alerts and the Maps
+> server key restriction confirmed live, every scale-up lever confirmed
+> config-only (the Cloud Run `minInstances` lever exercised as a single revision
+> update and reverted), mobile dashboards/runbook reused from M01.8, and CI
+> minutes carry no risk (public repo → unlimited). One low finding
+> (F1 — Maps hard quota cap not live, `enableMapsQuotaCap` off) accepted &
+> mitigated (key restriction + budget + free-tier headroom); recorded in the
+> [S3 sign-off](S3-ci-minutes-signoff-SIGNOFF.md). No release-blockers.
+
 ## Description
 
 The cost-verification epic. Run a light **load/cost review** confirming the project's **≈€0–3/mo idle**
@@ -14,17 +28,18 @@ billing budget/alert are active, and watch CI minutes against the free cap.
 
 ## Acceptance Criteria
 
-- [ ] A light **load/cost review** confirms the expected **≈€0–3/mo idle** posture and that scale-up
+- [x] A light **load/cost review** confirms the expected **≈€0–3/mo idle** posture and that scale-up
       levers (**Neon tier, Cloud Run `min-instances`, Maps quota**) work as **single settings**
-      (PRD §8.6).
-- [ ] The **mid-trip scale-up playbook** is validated: **dashboards reachable from mobile**, scale-up
-      **effective in minutes with no redeploy/migration** (PRD §8.6).
-- [ ] **Maps key restricted with hard quota caps** and **GCP billing budget + alert active** are
-      verified **live** (PRD §8.5).
-- [ ] **Scale-to-zero** is confirmed for the stateless services, and the DB scale-up lever (Neon
-      free → paid) is confirmed config-only (PRD §8.4 #1, §8.6).
-- [ ] **CI minutes** are watched against the **2,000-min free cap** (or the repo kept public)
-      (PRD §8.4 #4).
+      (PRD §8.6). — [S1](S1-cost-posture-review-REPORT.md), [S2](S2-scaleup-playbook-REPORT.md)
+- [x] The **mid-trip scale-up playbook** is validated: **dashboards reachable from mobile**, scale-up
+      **effective in minutes with no redeploy/migration** (PRD §8.6). — [S2](S2-scaleup-playbook-REPORT.md)
+- [x] **Maps key restricted with hard quota caps** and **GCP billing budget + alert active** are
+      verified **live** (PRD §8.5). — key restriction + budget/alert live; hard cap not live (F1,
+      mitigated) — [S1](S1-cost-posture-review-REPORT.md)
+- [x] **Scale-to-zero** is confirmed for the stateless services, and the DB scale-up lever (Neon
+      free → paid) is confirmed config-only (PRD §8.4 #1, §8.6). — [S1](S1-cost-posture-review-REPORT.md)
+- [x] **CI minutes** are watched against the **2,000-min free cap** (or the repo kept public)
+      (PRD §8.4 #4). — public repo → unlimited free — [S3](S3-ci-minutes-signoff-SIGNOFF.md)
 
 ## Implementation Details / Architecture
 

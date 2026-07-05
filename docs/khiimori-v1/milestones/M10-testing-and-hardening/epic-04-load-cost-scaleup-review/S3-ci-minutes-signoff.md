@@ -8,12 +8,14 @@ the cost/load review is a **release-gate** deliverable.
 Check CI-minute usage and record the cost/load review sign-off.
 
 ## Acceptance criteria
-- [ ] **CI-minute usage** is measured against the 2,000-min free cap; if at risk, a mitigation is recorded
-  (trim E2E / keep repo public) (PRD §8.4 #4).
-- [ ] The full cost/load checklist (S1 posture + S2 levers/playbook + CI minutes) is consolidated into a
+- [x] **CI-minute usage** is measured against the 2,000-min free cap; if at risk, a mitigation is recorded
+  (trim E2E / keep repo public) (PRD §8.4 #4). — Repo is **public** → GitHub Actions minutes free/unlimited.
+- [x] The full cost/load checklist (S1 posture + S2 levers/playbook + CI minutes) is consolidated into a
   short **sign-off**.
-- [ ] Any cost risk discovered is recorded with a decision.
-- [ ] The sign-off confirms the project's cost posture is understood and within target before release.
+- [x] Any cost risk discovered is recorded with a decision. — F1 (Maps hard cap not live) accepted/mitigated.
+- [x] The sign-off confirms the project's cost posture is understood and within target before release.
+
+> ✅ Done — see [S3-ci-minutes-signoff-SIGNOFF.md](S3-ci-minutes-signoff-SIGNOFF.md) (2026-07-05).
 
 ## Constraints
 - This is a verification/sign-off deliverable (a checklist against PRD §8), not new infra.
