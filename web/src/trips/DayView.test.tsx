@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { DayView } from './DayView'
 import * as api from '../lib/api'
 import type { Day, PlanItem, Stay, Trip } from '../lib/api'
+import { enqueue } from '../lib/mutationQueue'
 
 function makeTrip(overrides?: Partial<Trip>): Trip {
   return {
@@ -89,6 +90,12 @@ vi.mock('../lib/api', async (importOriginal) => {
 
 vi.mock('./useTripShell', () => ({
   useTripShell: vi.fn(() => ({ trip: makeTrip() })),
+}))
+
+// The offline write queue is exercised in offlineIntegration.test.ts; here we
+// only assert DayView routes an offline add through it, so a stub is enough.
+vi.mock('../lib/mutationQueue', () => ({
+  enqueue: vi.fn().mockResolvedValue(undefined),
 }))
 
 function renderDayView(date = '2026-06-01', tripId = 'trip-1') {
@@ -283,6 +290,32 @@ describe('DayView', () => {
       await waitFor(() =>
         expect(screen.getByRole('button', { name: 'Pin 1: Kiyomizu-dera' })).toBeInTheDocument(),
       )
+    })
+
+    it('queues the add offline and shows a temp item without calling the server', async () => {
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      // Simulate an offline browser so useIsOnline reports offline at mount.
+      const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+
+      await user.type(screen.getByLabelText('Title'), 'Offline activity')
+      await user.click(screen.getByRole('button', { name: 'Add' }))
+
+      // The temp item appears immediately (from the queued write, not the server).
+      await waitFor(() => expect(screen.getByText('Offline activity')).toBeInTheDocument())
+      expect(enqueue).toHaveBeenCalledWith(
+        'createPlanItem',
+        expect.objectContaining({
+          tripId: 'trip-1',
+          input: expect.objectContaining({ title: 'Offline activity', day_id: 'day-1' }),
+        }),
+      )
+      expect(api.createPlanItem).not.toHaveBeenCalled()
+
+      onLine.mockRestore()
     })
 
     it('shows error when add fails', async () => {
