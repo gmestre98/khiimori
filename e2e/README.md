@@ -19,9 +19,19 @@ critical-journey test (S2) and the later role/offline E2E (Epic 02).
 - [`tests/smoke.spec.ts`](tests/smoke.spec.ts) — smoke coverage: the anonymous
   shell reaches sign-in, and the test-auth path reaches the app.
 - [`tests/critical-journey.spec.ts`](tests/critical-journey.spec.ts) — the
-  headline journey (S2): create trip → plan a day → add a budget → write a
+  headline journey (M10.1 S2): create trip → plan a day → add a budget → write a
   journal → share the trip, asserting a persisted outcome at each step and
   deleting the trip (cascade) afterwards so reruns stay clean.
+- [`tests/role-access.spec.ts`](tests/role-access.spec.ts) — role-based access
+  (M10.2 S1): an owner + invited Editor + Viewer + non-member on one trip; asserts
+  **server-side** enforcement at the API (editor writes succeed; viewer reads but
+  writes are rejected; non-member is denied) plus a viewer read-only UI check.
+- [`tests/offline-sync.spec.ts`](tests/offline-sync.spec.ts) — offline → online
+  sync (M10.2 S2): make plan + journal edits offline, reconnect, and assert the
+  deployed API reflects each edit **exactly once** (no loss, no duplication) via
+  the app's single shared write queue.
+- [`lib/identities.ts`](lib/identities.ts) — mints an authenticated API context
+  per test identity (owner/editor/viewer/nonmember) for the role suite.
 
 Run locally against a target:
 
@@ -50,6 +60,20 @@ M10.1):
 
 **No secret is committed.** `E2E_LOGIN_SECRET` is supplied at run time (CI
 secrets / Secret Manager) and must match the value configured on the target API.
+
+### Multiple identities & invite tokens (M10.2)
+
+The role suite needs more than one identity, so two extra affordances are gated
+on the **same** `E2E_LOGIN_SECRET` — production (secret unset) exposes neither:
+
+- **`POST /auth/test-login?identity=owner|editor|viewer|nonmember`** signs in one
+  of four fixed, non-admin `.test` identities (`owner` is the default, preserving
+  M10.1). The response echoes the identity's `email` so the owner can invite it by
+  the exact address it accepts under. `lib/identities.ts` wraps this.
+- The **owner-only invitations list** (`GET /trips/{id}/invitations`) surfaces
+  each invitation's opaque accept **token** on an E2E-targeted env, so the harness
+  can drive the **real invite → accept flow** without an email inbox. Off by
+  default, the token stays email-only.
 
 ## Environment contract
 
@@ -88,11 +112,14 @@ The `e2e` job runs after both deploys on a push to `main`, as the pipeline's
 1. runs `smoke.sh` (fast pre-check + wakes the scale-to-zero services);
 2. **gates** on `secrets.E2E_LOGIN_SECRET` — when unset the browser run is
    skipped, so the pipeline stays green on the smoke check alone;
-3. when the secret is set, installs Playwright (Chromium only) and runs the
-   suite against the deployed env. A failure fails the job, and this is the last
-   stage — so a broken journey **fails the pipeline** (the release gate).
+3. when the secret is set, installs Playwright (Chromium only) and runs the whole
+   suite (`npm test`) against the deployed env — the critical journey **plus** the
+   role-based-access and offline-sync suites (M10.2), which reuse this same
+   harness/auth/secrets setup (no duplication). Any failing spec fails the job,
+   and this is the last stage — so a broken guarantee **fails the pipeline** (the
+   release gate).
 
-**To enable the journey in CI**, the author sets the `E2E_LOGIN_SECRET` repo
+**To enable the suites in CI**, the author sets the `E2E_LOGIN_SECRET` repo
 secret to a high-entropy value **and** configures the same value on the target
 API service (`E2E_LOGIN_SECRET` env var, via Secret Manager → Cloud Run). Until
 then the stage self-skips — the "configure-to-enable" idiom used by `pulumi-up`
