@@ -209,10 +209,14 @@ jobs:
       # The integration-tagged tests run against a disposable DB, each hermetic
       # (migrate up → exercise → roll back): the migration suite asserts the six
       # module schemas, the auth suite exercises user provisioning end-to-end
-      # (M02.2 S5), and the trip suite exercises trip create + Owner membership
-      # transactionally (M03.1 S2). A failure here gates the change. The DSN is the
-      # direct (un-pooled) connection to the local service DB; it is not a secret,
-      # so nothing is masked/printed. -p 1 serialises the package binaries so the
+      # (M02.2 S5), the trip suite exercises trip create + Owner membership
+      # transactionally (M03.1 S2), and the cmd/api suite drives the full HTTP
+      # stack with the real MembershipAuthorizer to pin cross-module authorization
+      # for Owner/Editor/Viewer/non-member + admin gating (M08.2 S5 / M08.5 S4) —
+      # the class of regression that let the shared-day-read bug reach prod
+      # (PR #414). A failure here gates the change. The DSN is the direct
+      # (un-pooled) connection to the local service DB; it is not a secret, so
+      # nothing is masked/printed. -p 1 serialises the package binaries so the
       # suites don't migrate/reset the shared DB concurrently.
       - name: Integration tests
         env:
@@ -222,7 +226,7 @@ jobs:
         # visibly show the tests actually executing.
         run: |
           test -n "$DATABASE_URL_TEST" || { echo "DATABASE_URL_TEST unset — refusing to pass the integration gate without a DB"; exit 1; }
-          go test -tags=integration -p 1 -v ./migrations/... ./internal/auth/... ./internal/trip/...
+          go test -tags=integration -p 1 -v ./migrations/... ./internal/auth/... ./internal/trip/... ./cmd/api/...
 
   gcp-auth:
     name: GCP auth (WIF) — verify

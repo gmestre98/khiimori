@@ -36,11 +36,14 @@ import (
 func insertUser(t *testing.T, email string, isAdmin, active bool) string {
 	t.Helper()
 	var id string
+	// id is a uuid column with a DB default, so it is omitted here and generated
+	// server-side; google_sub is text, so gen_random_uuid()::text is fine there.
+	// RETURNING id::text renders the uuid back as text for the string scan target.
 	err := authzTestPool.QueryRow(context.Background(),
 		`INSERT INTO auth.users
-		 (id, google_sub, email, name, avatar, home_base, default_currency, prefs, is_admin, active)
-		 VALUES (gen_random_uuid()::text, gen_random_uuid()::text, $1, $1, '', '', 'EUR', '{}', $2, $3)
-		 RETURNING id`,
+		 (google_sub, email, name, avatar, home_base, default_currency, prefs, is_admin, active)
+		 VALUES (gen_random_uuid()::text, $1, $1, '', '', 'EUR', '{}', $2, $3)
+		 RETURNING id::text`,
 		email, isAdmin, active,
 	).Scan(&id)
 	if err != nil {

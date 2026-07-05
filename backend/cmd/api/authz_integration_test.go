@@ -68,6 +68,19 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	authzTestPool.Close()
+	// Wipe all rows before rolling migrations back. Unlike the trip suite (which
+	// only ever writes 'owner' memberships), these tests create editor/viewer
+	// rows; the 00021 widen-roles down-migration restores an owner-only CHECK
+	// constraint that those rows would violate, failing goose.Reset. Truncating
+	// first lets every down-migration's constraint re-addition succeed.
+	if _, err := sqlDB.Exec(`TRUNCATE auth.users, sharing.invitations, sharing.trip_memberships,
+		journal.journal_entries, journal.photos, budget.cost_entries, budget.budget_lines,
+		trip.plan_items, trip.stays, trip.days, trip.trips RESTART IDENTITY CASCADE`); err != nil {
+		fmt.Fprintf(os.Stderr, "authz integration teardown: truncate: %v\n", err)
+		if code == 0 {
+			code = 1
+		}
+	}
 	if err := goose.Reset(sqlDB, migrations.Dir); err != nil {
 		fmt.Fprintf(os.Stderr, "authz integration teardown: reset: %v\n", err)
 		if code == 0 {
@@ -116,8 +129,9 @@ func authzServer(t *testing.T, callerID string) *httptest.Server {
 func truncateAll(t *testing.T) {
 	t.Helper()
 	_, err := authzTestPool.Exec(context.Background(),
-		`TRUNCATE journal.entries, journal.photos, budget.cost_entries, budget.budget_lines,
-		         trip.plan_items, trip.stays, trip.days, trip.trips, sharing.trip_memberships
+		`TRUNCATE journal.journal_entries, journal.photos, budget.cost_entries, budget.budget_lines,
+		         trip.plan_items, trip.stays, trip.days, trip.trips,
+		         sharing.trip_memberships, sharing.invitations
 		         RESTART IDENTITY`)
 	if err != nil {
 		t.Fatalf("truncate: %v", err)
@@ -161,6 +175,30 @@ func setupTrip(t *testing.T, ownerID string) string {
 	}
 	resp.Body.Close()
 	return tripResp.ID
+}
+
+// resolveDayID returns the UUID of the day at the given calendar date by reading
+// it back through the owner-authenticated GET /trips/{id}/days/{date} endpoint.
+// The journal endpoints key on the day's UUID (not the calendar date), so tests
+// must resolve it before addressing a day's journal.
+func resolveDayID(t *testing.T, ownerID, tripID, date string) string {
+	t.Helper()
+	srv := authzServer(t, ownerID)
+	r := do(t, srv, http.MethodGet, "/trips/"+tripID+"/days/"+date, nil)
+	defer r.Body.Close()
+	if r.StatusCode != http.StatusOK {
+		t.Fatalf("resolveDayID: GET day %s: status=%d, want 200", date, r.StatusCode)
+	}
+	var day struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&day); err != nil {
+		t.Fatalf("resolveDayID: decode: %v", err)
+	}
+	if day.ID == "" {
+		t.Fatalf("resolveDayID: empty day id for %s", date)
+	}
+	return day.ID
 }
 
 // addMember inserts a membership row directly (invitation flow not yet wired).
@@ -219,7 +257,14 @@ func TestTripAuthz_OwnerCanWriteAndRead(t *testing.T) {
 	wantStatus(t, "owner GET day", r, http.StatusOK)
 }
 
-func TestTripAuthz_EditorCanWriteButNotManage(t *testing.T) {
+// TestTripAuthz_EditorEditsContentNotTripSettings pins the M10.2 S1 boundary: an
+// Editor may write trip *content* (budget/journal/plan), but trip *settings* —
+// rename, date-range, archive, delete — are owner-only. The trip Update/Archive
+// store methods are scoped WHERE owner_id, so even though roleAllows(editor,
+// "write") is true, an Editor's PATCH/archive resolves to a 404 (existence is
+// never leaked). Content writes are covered by the Budget and Journal suites; the
+// budget PUT here is a positive control proving the Editor is genuinely a writer.
+func TestTripAuthz_EditorEditsContentNotTripSettings(t *testing.T) {
 	if authzTestPool == nil {
 		t.Skip("DATABASE_URL_TEST not set")
 	}
@@ -229,9 +274,15 @@ func TestTripAuthz_EditorCanWriteButNotManage(t *testing.T) {
 	addMember(t, tripID, editorID, sharing.RoleEditor)
 	srv := authzServer(t, editorID)
 
-	r := do(t, srv, http.MethodPatch, "/trips/"+tripID,
+	// Content write is allowed (the Editor really is a writer).
+	r := do(t, srv, http.MethodPut, "/trips/"+tripID+"/budget-lines",
+		map[string]any{"category": "Food", "planned_amount": 100})
+	wantStatus(t, "editor PUT budget-lines allowed", r, http.StatusOK)
+
+	// Trip settings are owner-only, so both mutations are denied as 404.
+	r = do(t, srv, http.MethodPatch, "/trips/"+tripID,
 		map[string]any{"name": "editor edit", "start_date": "2026-08-01", "end_date": "2026-08-05"})
-	wantStatus(t, "editor PATCH trip", r, http.StatusOK)
+	wantStatus(t, "editor PATCH trip settings denied", r, http.StatusNotFound)
 
 	r = do(t, srv, http.MethodPost, "/trips/"+tripID+"/archive", nil)
 	wantStatus(t, "editor POST /archive denied", r, http.StatusNotFound)
@@ -295,7 +346,7 @@ func TestBudgetAuthz_ViewerCannotWriteBudgetLine(t *testing.T) {
 	srv := authzServer(t, viewerID)
 
 	r := do(t, srv, http.MethodPut, "/trips/"+tripID+"/budget-lines",
-		map[string]any{"category": "food", "planned_amount": 100})
+		map[string]any{"category": "Food", "planned_amount": 100})
 	wantStatus(t, "viewer PUT budget-lines denied", r, http.StatusNotFound)
 }
 
@@ -310,7 +361,7 @@ func TestBudgetAuthz_EditorCanWriteBudgetLine(t *testing.T) {
 	srv := authzServer(t, editorID)
 
 	r := do(t, srv, http.MethodPut, "/trips/"+tripID+"/budget-lines",
-		map[string]any{"category": "food", "planned_amount": 100})
+		map[string]any{"category": "Food", "planned_amount": 100})
 	wantStatus(t, "editor PUT budget-lines", r, http.StatusOK)
 }
 
@@ -337,9 +388,10 @@ func TestJournalAuthz_ViewerCanReadEntry(t *testing.T) {
 	ownerID, viewerID := genID(t), genID(t)
 	tripID := setupTrip(t, ownerID)
 	addMember(t, tripID, viewerID, sharing.RoleViewer)
+	dayID := resolveDayID(t, ownerID, tripID, "2026-08-01")
 	srv := authzServer(t, viewerID)
 
-	r := do(t, srv, http.MethodGet, "/trips/"+tripID+"/days/2026-08-01/journal", nil)
+	r := do(t, srv, http.MethodGet, "/trips/"+tripID+"/days/"+dayID+"/journal", nil)
 	// 404 here means "no entry yet" (authz passed, entry not found) — not a denial.
 	// Both 200 and 404 are acceptable; 403 or a different denial code is not.
 	if r.StatusCode == http.StatusForbidden {
@@ -358,9 +410,10 @@ func TestJournalAuthz_ViewerCannotWriteEntry(t *testing.T) {
 	ownerID, viewerID := genID(t), genID(t)
 	tripID := setupTrip(t, ownerID)
 	addMember(t, tripID, viewerID, sharing.RoleViewer)
+	dayID := resolveDayID(t, ownerID, tripID, "2026-08-01")
 	srv := authzServer(t, viewerID)
 
-	r := do(t, srv, http.MethodPut, "/trips/"+tripID+"/days/2026-08-01/journal",
+	r := do(t, srv, http.MethodPut, "/trips/"+tripID+"/days/"+dayID+"/journal",
 		map[string]any{"body": json.RawMessage(`"day 1"`)})
 	wantStatus(t, "viewer PUT journal denied", r, http.StatusNotFound)
 }
@@ -373,9 +426,10 @@ func TestJournalAuthz_EditorCanWriteEntry(t *testing.T) {
 	ownerID, editorID := genID(t), genID(t)
 	tripID := setupTrip(t, ownerID)
 	addMember(t, tripID, editorID, sharing.RoleEditor)
+	dayID := resolveDayID(t, ownerID, tripID, "2026-08-01")
 	srv := authzServer(t, editorID)
 
-	r := do(t, srv, http.MethodPut, "/trips/"+tripID+"/days/2026-08-01/journal",
+	r := do(t, srv, http.MethodPut, "/trips/"+tripID+"/days/"+dayID+"/journal",
 		map[string]any{"body": json.RawMessage(`"day 1"`)})
 	wantStatus(t, "editor PUT journal", r, http.StatusOK)
 }
@@ -387,9 +441,10 @@ func TestJournalAuthz_NonMemberDenied(t *testing.T) {
 	truncateAll(t)
 	ownerID, strangerID := genID(t), genID(t)
 	tripID := setupTrip(t, ownerID)
+	dayID := resolveDayID(t, ownerID, tripID, "2026-08-01")
 	srv := authzServer(t, strangerID)
 
-	r := do(t, srv, http.MethodGet, "/trips/"+tripID+"/days/2026-08-01/journal", nil)
+	r := do(t, srv, http.MethodGet, "/trips/"+tripID+"/days/"+dayID+"/journal", nil)
 	wantStatus(t, "non-member GET journal denied", r, http.StatusNotFound)
 }
 
@@ -405,10 +460,11 @@ func TestAuthz_RevocationTakesEffectImmediately(t *testing.T) {
 	addMember(t, tripID, editorID, sharing.RoleEditor)
 	srv := authzServer(t, editorID)
 
-	// Before revocation: editor can write.
-	r := do(t, srv, http.MethodPatch, "/trips/"+tripID,
-		map[string]any{"name": "before revoke", "start_date": "2026-08-01", "end_date": "2026-08-05"})
-	wantStatus(t, "editor PATCH before revoke", r, http.StatusOK)
+	// Before revocation: editor can write content (budget line). Trip settings are
+	// owner-only, so a membership-scoped content write is the right probe here.
+	r := do(t, srv, http.MethodPut, "/trips/"+tripID+"/budget-lines",
+		map[string]any{"category": "Food", "planned_amount": 40})
+	wantStatus(t, "editor PUT budget before revoke", r, http.StatusOK)
 
 	mb := sharing.NewMemberships(authzTestPool)
 	if err := mb.Revoke(context.Background(), tripID, editorID); err != nil {
@@ -416,9 +472,9 @@ func TestAuthz_RevocationTakesEffectImmediately(t *testing.T) {
 	}
 
 	// Denied immediately on the very next request — same server, no restart.
-	r = do(t, srv, http.MethodPatch, "/trips/"+tripID,
-		map[string]any{"name": "after revoke", "start_date": "2026-08-01", "end_date": "2026-08-05"})
-	wantStatus(t, "editor PATCH after revoke denied", r, http.StatusNotFound)
+	r = do(t, srv, http.MethodPut, "/trips/"+tripID+"/budget-lines",
+		map[string]any{"category": "Food", "planned_amount": 41})
+	wantStatus(t, "editor PUT budget after revoke denied", r, http.StatusNotFound)
 }
 
 func TestAuthz_RoleDowngradeTakesEffectImmediately(t *testing.T) {
@@ -433,7 +489,7 @@ func TestAuthz_RoleDowngradeTakesEffectImmediately(t *testing.T) {
 
 	// Before downgrade: editor can write budget lines.
 	r := do(t, srv, http.MethodPut, "/trips/"+tripID+"/budget-lines",
-		map[string]any{"category": "food", "planned_amount": 50})
+		map[string]any{"category": "Food", "planned_amount": 50})
 	wantStatus(t, "editor PUT budget before downgrade", r, http.StatusOK)
 
 	mb := sharing.NewMemberships(authzTestPool)
@@ -443,7 +499,7 @@ func TestAuthz_RoleDowngradeTakesEffectImmediately(t *testing.T) {
 
 	// Write denied immediately after downgrade to Viewer.
 	r = do(t, srv, http.MethodPut, "/trips/"+tripID+"/budget-lines",
-		map[string]any{"category": "food", "planned_amount": 99})
+		map[string]any{"category": "Food", "planned_amount": 99})
 	wantStatus(t, "downgraded-to-viewer PUT budget denied", r, http.StatusNotFound)
 
 	// Read still allowed.
