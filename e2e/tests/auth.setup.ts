@@ -1,5 +1,5 @@
 import { test as setup, expect } from '@playwright/test'
-import { apiBaseURL, e2eLoginSecret, storageStatePath } from '../env'
+import { apiBaseURL, e2eLoginSecret, e2eLoginSecretHeader, storageStatePath } from '../env'
 
 // Auth setup (M10.1): sign the fixed E2E test identity into the deployed target
 // WITHOUT the interactive Google flow, then persist the session so every other
@@ -15,7 +15,7 @@ import { apiBaseURL, e2eLoginSecret, storageStatePath } from '../env'
 // prod).
 setup('authenticate the E2E test identity', async ({ request }) => {
   const res = await request.post(`${apiBaseURL}/auth/test-login`, {
-    headers: { 'X-E2E-Login-Secret': e2eLoginSecret() },
+    headers: { [e2eLoginSecretHeader]: e2eLoginSecret() },
   })
 
   // A clear failure here almost always means the secret is missing/mismatched or

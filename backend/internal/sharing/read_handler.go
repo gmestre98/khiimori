@@ -1,6 +1,7 @@
 package sharing
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -8,6 +9,13 @@ import (
 	"github.com/gmestre98/khiimori/backend/internal/platform/httpx"
 	platformlog "github.com/gmestre98/khiimori/backend/internal/platform/log"
 )
+
+// invitationLister is the read seam used by the list handler; defaults to
+// *Invitations. Tests supply a fake to exercise the handler (e.g. the gated
+// token exposure) without a real DB pool.
+type invitationLister interface {
+	ForTrip(ctx context.Context, tripID string) ([]Invitation, error)
+}
 
 // MembershipsListPath is the trip-scoped memberships collection endpoint.
 // GET returns all current members and their roles.
@@ -26,12 +34,16 @@ type membershipResponse struct {
 }
 
 // invitationListResponse is the wire shape for a single invitation in the list.
+// Token is populated only when the module is configured to expose it (an
+// E2E-targeted environment, M10.2); it is omitted entirely otherwise, so the
+// opaque accept token stays email-only in production.
 type invitationListResponse struct {
 	ID     string `json:"id"`
 	TripID string `json:"trip_id"`
 	Email  string `json:"email"`
 	Role   string `json:"role"`
 	Status string `json:"status"`
+	Token  string `json:"token,omitempty"`
 }
 
 // handleListMemberships handles GET /trips/{tripID}/memberships.
@@ -114,7 +126,7 @@ func (m *Module) handleListInvitations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	invitations, err := m.invitations.ForTrip(r.Context(), tripID)
+	invitations, err := m.invList.ForTrip(r.Context(), tripID)
 	if err != nil {
 		log.Error("list invitations", "err", err.Error())
 		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusInternalServerError, "internal_error", "could not list invitations"))
@@ -123,13 +135,19 @@ func (m *Module) handleListInvitations(w http.ResponseWriter, r *http.Request) {
 
 	out := make([]invitationListResponse, 0, len(invitations))
 	for _, inv := range invitations {
-		out = append(out, invitationListResponse{
+		row := invitationListResponse{
 			ID:     inv.ID,
 			TripID: inv.TripID,
 			Email:  inv.Email,
 			Role:   string(inv.Role),
 			Status: string(inv.Status),
-		})
+		}
+		// Only surface the opaque accept token on an E2E-targeted environment
+		// (M10.2). In production this stays zero and is omitted from the JSON.
+		if m.exposeInviteTokens {
+			row.Token = inv.Token
+		}
+		out = append(out, row)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
