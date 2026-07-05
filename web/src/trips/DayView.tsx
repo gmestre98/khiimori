@@ -28,6 +28,8 @@ import {
   type Suggestion,
 } from '../lib/api'
 import { fullDate } from '../lib/format'
+import { enqueue } from '../lib/mutationQueue'
+import { useIsOnline } from '../lib/useIsOnline'
 import { JournalEditor } from '../journal/JournalEditor'
 import { DayBudgetEditor } from './BudgetEditor'
 import { FastAddCost } from './FastAddCost'
@@ -186,6 +188,29 @@ function fieldsFromItem(item: PlanItem): PlanItemFormFields {
     booking_status: item.booking_status ?? '',
     cost: item.cost != null ? String(item.cost) : '',
     link: item.link ?? '',
+  }
+}
+
+// tempPlanItem synthesises a client-side plan item for an offline add so the day
+// reflects it immediately. The real row is created server-side when the queued
+// mutation replays on reconnect; this temp item carries a fresh client id and a
+// large sort_order so it sorts to the end (mirrors FastAddCost's offline entry).
+// A page reload after sync then shows the authoritative server item.
+function tempPlanItem(tripId: string, dayId: string | null, input: PlanItemInput): PlanItem {
+  return {
+    id: crypto.randomUUID(),
+    trip_id: tripId,
+    day_id: dayId ?? undefined,
+    title: input.title,
+    type: input.type ?? undefined,
+    start_time: input.start_time ?? undefined,
+    duration: input.duration ?? undefined,
+    location: input.location ?? undefined,
+    booking_status: input.booking_status ?? undefined,
+    cost: input.cost ?? undefined,
+    link: input.link ?? undefined,
+    sort_order: Number.MAX_SAFE_INTEGER,
+    status: 'planned',
   }
 }
 
@@ -1096,13 +1121,24 @@ function QuickAddForm({
   onAdded: (item: PlanItem) => void
 }) {
   const mobile = useMobile()
+  const online = useIsOnline()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
 
   async function handleAdd(fields: PlanItemFormFields) {
     setAddError(null)
+    const input = fieldsToInput(fields, dayId)
     try {
-      const item = await createPlanItem(tripId, fieldsToInput(fields, dayId))
+      if (!online) {
+        // Offline: queue the create as an idempotent write (replayed on
+        // reconnect via the single shared queue — same mechanism as Journal and
+        // Budget) and synthesise a temp item so the plan reflects it immediately.
+        await enqueue('createPlanItem', { tripId, input })
+        onAdded(tempPlanItem(tripId, dayId, input))
+        if (mobile) setSheetOpen(false)
+        return
+      }
+      const item = await createPlanItem(tripId, input)
       onAdded(item)
       if (mobile) setSheetOpen(false)
     } catch (err) {
