@@ -8,14 +8,17 @@ accounts), combining the automated `/security-review` with a manual pass (PRD §
 ## Task
 Run the privacy/secrets review using `/security-review` plus a manual audit.
 
+> **Status:** ✅ Done — review recorded in [S2 REPORT](S2-privacy-secrets-review-REPORT.md).
+> No release-blocking findings; one low docs finding (F2: stale mapsKey.ts comment) tracked in S3.
+
 ## Acceptance criteria
-- [ ] **Privacy:** trips, photos, and journals are confirmed **visible only to owner + invited members**
+- [x] **Privacy:** trips, photos, and journals are confirmed **visible only to owner + invited members**
   (probe staging across identities).
-- [ ] **Secrets:** OAuth and **Maps keys never reach the client** (verified in responses/bundles); secrets
+- [x] **Secrets:** OAuth and **Maps keys never reach the client** (verified in responses/bundles); secrets
   live **only in Secret Manager**; service accounts are **least-privilege**.
-- [ ] The project's **`/security-review`** is run over the branch, plus a manual pass on authz, secret
+- [x] The project's **`/security-review`** is run over the branch, plus a manual pass on authz, secret
   handling, and key restrictions.
-- [ ] Findings are recorded with severity (input to S3).
+- [x] Findings are recorded with severity (input to S3).
 
 ## Constraints
 - Focus the manual pass on the safety-critical areas: `Authorizer` chokepoint (M08), Geo proxy key (M07),
