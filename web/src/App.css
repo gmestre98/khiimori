@@ -2171,19 +2171,36 @@
   gap: var(--space-3);
 }
 
-/* Split-cost helper: the leg-count field with its live per-leg preview. */
-.plan-item-form-split {
+/* Split-cost helper: an inline modifier of the Cost field. A toggle reveals a
+   small part-count stepper with a live per-part preview. */
+.cost-split {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  margin-top: var(--space-2);
 }
-.plan-item-form-split .form-field {
-  max-width: 200px;
-}
-.plan-item-form-split-hint {
+.cost-split-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: 13px;
   color: var(--text-muted);
-  margin: 0;
+  cursor: pointer;
+}
+.cost-split-toggle input {
+  cursor: pointer;
+}
+.cost-split-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.cost-split-count {
+  width: 4rem;
+}
+.cost-split-hint {
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 /* Sheet footer: Cancel + primary action pinned below the fields on mobile. */

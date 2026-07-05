@@ -1,10 +1,10 @@
-// MAX_SPLIT_LEGS caps how many legs a single cost can be split into — keeps the
-// "split a flight" helper sane (a handful of legs, not hundreds).
-export const MAX_SPLIT_LEGS = 12
+// MAX_SPLIT_PARTS caps how many parts a single cost can be split into — keeps
+// the split helper sane (a handful of parts, not hundreds).
+export const MAX_SPLIT_PARTS = 12
 
-// splitAmount divides a total across n legs so the per-leg amounts sum back to
+// splitAmount divides a total across n parts so the per-part amounts sum back to
 // the exact total to the cent. Any rounding remainder is spread one cent at a
-// time across the first legs (e.g. 10 / 3 → [3.34, 3.33, 3.33]).
+// time across the first parts (e.g. 10 / 3 → [3.34, 3.33, 3.33]).
 export function splitAmount(total: number, n: number): number[] {
   const totalCents = Math.round(total * 100)
   const base = Math.floor(totalCents / n)
