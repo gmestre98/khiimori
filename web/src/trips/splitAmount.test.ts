@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { splitAmount } from './DayView'
+import { splitAmount } from './splitAmount'
 
 describe('splitAmount', () => {
   it('divides evenly when it can', () => {
