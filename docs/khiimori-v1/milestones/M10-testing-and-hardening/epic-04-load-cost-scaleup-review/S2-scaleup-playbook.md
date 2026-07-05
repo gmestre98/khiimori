@@ -9,13 +9,15 @@ in minutes with no redeploy/migration (PRD §8.6).
 Validate the scale-up levers and exercise the mid-trip playbook.
 
 ## Acceptance criteria
-- [ ] Each lever is confirmed **config-only** (single setting): Neon free→paid, Cloud Run
+- [x] Each lever is confirmed **config-only** (single setting): Neon free→paid, Cloud Run
   `min-instances`, Maps quota cap — **no code change, no migration**.
-- [ ] The playbook is **exercised**: flip a lever (e.g. Cloud Run `min-instances`), confirm the effect,
+- [x] The playbook is **exercised**: flip a lever (e.g. Cloud Run `min-instances`), confirm the effect,
   flip it back — proving the mid-trip story.
-- [ ] **Dashboards/runbook are reachable from mobile** (Milestone 01 Epic 08), so the author can act mid-
+- [x] **Dashboards/runbook are reachable from mobile** (Milestone 01 Epic 08), so the author can act mid-
   trip.
-- [ ] Scale-up is effective **in minutes** with no redeploy/migration.
+- [x] Scale-up is effective **in minutes** with no redeploy/migration.
+
+> ✅ Done — see [S2-scaleup-playbook-REPORT.md](S2-scaleup-playbook-REPORT.md) (2026-07-05).
 
 ## Constraints
 - Actually exercise at least one lever (not just document it) — and revert it after (PRD §8.6).
