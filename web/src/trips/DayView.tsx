@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 
 import { createPortal } from 'react-dom'
 import { Link, useParams } from 'react-router-dom'
 import { useFocusTrap } from '../components/ui/useFocusTrap'
-import { Button, FormField, Input } from '../components/ui'
+import { Button, FormField, Input, Select } from '../components/ui'
 import { collectLocatedItems } from './locatedItems'
 import {
   PlanItemValidationError,
@@ -18,6 +18,7 @@ import {
   setPlanItemStatus,
   updatePlanItem,
   datesInRange,
+  BUDGET_CATEGORIES,
   type BudgetLine,
   type BudgetRollup,
   type CostEntry,
@@ -229,6 +230,20 @@ function fieldsToInput(
     cost: fields.cost.trim() ? parseFloat(fields.cost) : null,
     link: fields.link.trim() || null,
   }
+}
+
+// MAX_SPLIT_LEGS caps how many legs a single cost can be split into — keeps the
+// "split a flight" helper sane (a handful of legs, not hundreds).
+const MAX_SPLIT_LEGS = 12
+
+// splitAmount divides a total across n legs so the per-leg amounts sum back to
+// the exact total to the cent. Any rounding remainder is spread one cent at a
+// time across the first legs (e.g. 10 / 3 → [3.34, 3.33, 3.33]).
+export function splitAmount(total: number, n: number): number[] {
+  const totalCents = Math.round(total * 100)
+  const base = Math.floor(totalCents / n)
+  const remainder = totalCents - base * n
+  return Array.from({ length: n }, (_, i) => (base + (i < remainder ? 1 : 0)) / 100)
 }
 
 // AUTO_SAVE_DEBOUNCE_MS is the delay before a pending edit is flushed to the
@@ -473,7 +488,9 @@ function LocationField({
 interface PlanItemFormProps {
   initialFields?: PlanItemFormFields
   submitLabel: string
-  onSubmit: (fields: PlanItemFormFields) => Promise<void>
+  // splitLegs is 1 for a normal add; >1 splits the cost into that many linked
+  // items (the "split a flight" helper). Edit forms ignore it.
+  onSubmit: (fields: PlanItemFormFields, splitLegs: number) => Promise<void>
   onCancel?: () => void
   onAutoSave?: (fields: PlanItemFormFields) => Promise<void>
   error: string | null
@@ -500,6 +517,8 @@ function PlanItemForm({
   )
   const [submitting, setSubmitting] = useState(false)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+  // splitLegs drives the "split a flight" helper (add mode only). 1 = no split.
+  const [splitLegs, setSplitLegs] = useState(1)
   const optionalId = useId()
   const fid = useId()
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -550,9 +569,12 @@ function PlanItemForm({
     if (!fields.title.trim()) return
     setSubmitting(true)
     try {
-      await onSubmit(fields)
+      await onSubmit(fields, splitLegs)
       // Reset after a successful quick-add (edit forms unmount on save instead).
-      if (!initialFields) setFields(emptyFields())
+      if (!initialFields) {
+        setFields(emptyFields())
+        setSplitLegs(1)
+      }
     } finally {
       setSubmitting(false)
     }
@@ -692,16 +714,52 @@ function PlanItemForm({
             </FormField>
           </div>
 
+          {/* Split helper: only on add, and only meaningful once a cost is set.
+              Splits the cost into N linked items (e.g. a flight's legs), each
+              landing under the same category so the Budget total is unchanged. */}
+          {!initialFields && parseFloat(fields.cost) > 0 && (
+            <div className="plan-item-form-split">
+              <FormField label="Split cost into legs" htmlFor={`${fid}-split`}>
+                <Input
+                  id={`${fid}-split`}
+                  type="number"
+                  min="1"
+                  max={MAX_SPLIT_LEGS}
+                  step="1"
+                  value={String(splitLegs)}
+                  onChange={(e) => {
+                    const n = Math.round(Number(e.target.value))
+                    setSplitLegs(Number.isFinite(n) ? Math.min(MAX_SPLIT_LEGS, Math.max(1, n)) : 1)
+                  }}
+                  disabled={submitting}
+                  aria-label="Split cost into legs"
+                />
+              </FormField>
+              {splitLegs > 1 && (
+                <p className="plan-item-form-split-hint" aria-live="polite">
+                  Creates {splitLegs} items · ≈€{(parseFloat(fields.cost) / splitLegs).toFixed(2)}{' '}
+                  each
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="plan-item-form-grid">
-            <FormField label="Type" htmlFor={`${fid}-type`}>
-              <Input
+            <FormField label="Category" htmlFor={`${fid}-type`}>
+              <Select
                 id={`${fid}-type`}
-                type="text"
                 value={fields.type}
                 onChange={(e) => set('type', e.target.value)}
-                placeholder="e.g. food, museum"
                 disabled={submitting}
-              />
+                aria-label="Category"
+              >
+                <option value="">—</option>
+                {BUDGET_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </Select>
             </FormField>
             <FormField label="Link" htmlFor={`${fid}-link`}>
               <Input
@@ -1125,21 +1183,36 @@ function QuickAddForm({
   const [sheetOpen, setSheetOpen] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
 
-  async function handleAdd(fields: PlanItemFormFields) {
+  async function handleAdd(fields: PlanItemFormFields, splitLegs: number) {
     setAddError(null)
-    const input = fieldsToInput(fields, dayId)
+    const base = fieldsToInput(fields, dayId)
+    // Expand a split into one input per leg: divide the cost to the cent and
+    // suffix each title with "(leg k/n)". A split of 1 (or with no positive
+    // cost) is a single plain item — the common case.
+    const inputs: PlanItemInput[] =
+      splitLegs > 1 && base.cost != null && base.cost > 0
+        ? splitAmount(base.cost, splitLegs).map((amount, i) => ({
+            ...base,
+            title: `${base.title} (leg ${i + 1}/${splitLegs})`,
+            cost: amount,
+          }))
+        : [base]
     try {
       if (!online) {
-        // Offline: queue the create as an idempotent write (replayed on
+        // Offline: queue each create as an idempotent write (replayed on
         // reconnect via the single shared queue — same mechanism as Journal and
         // Budget) and synthesise a temp item so the plan reflects it immediately.
-        await enqueue('createPlanItem', { tripId, input })
-        onAdded(tempPlanItem(tripId, dayId, input))
+        for (const input of inputs) {
+          await enqueue('createPlanItem', { tripId, input })
+          onAdded(tempPlanItem(tripId, dayId, input))
+        }
         if (mobile) setSheetOpen(false)
         return
       }
-      const item = await createPlanItem(tripId, input)
-      onAdded(item)
+      for (const input of inputs) {
+        const item = await createPlanItem(tripId, input)
+        onAdded(item)
+      }
       if (mobile) setSheetOpen(false)
     } catch (err) {
       if (err instanceof PlanItemValidationError) {

@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -360,17 +361,19 @@ func (a tripCostReaderAdapter) GetTripCosts(ctx context.Context, tripID string) 
 }
 
 // planItemCategory maps a plan item's type string to one of the five fixed
-// budget categories. The mapping is intentionally permissive — any unrecognised
-// type falls through to Other.
+// budget categories. The UI now sends a canonical category name (e.g. "Transport"),
+// but the match is case-insensitive and keeps the older free-text keyword aliases
+// ("flight", "hotel", …) so historical items still categorise correctly. Any
+// unrecognised type falls through to Other.
 func planItemCategory(itemType string) budget.Category {
-	switch itemType {
+	switch strings.ToLower(strings.TrimSpace(itemType)) {
 	case "transport", "flight", "train", "bus", "car", "ferry":
 		return budget.CategoryTransport
 	case "food", "restaurant", "cafe", "meal", "drink":
 		return budget.CategoryFood
-	case "activity", "tour", "sightseeing", "museum", "entertainment":
+	case "activities", "activity", "tour", "sightseeing", "museum", "entertainment":
 		return budget.CategoryActivities
-	case "stay", "hotel", "accommodation", "hostel", "airbnb":
+	case "stays", "stay", "hotel", "accommodation", "hostel", "airbnb":
 		return budget.CategoryStays
 	default:
 		return budget.CategoryOther

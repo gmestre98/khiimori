@@ -2171,6 +2171,21 @@
   gap: var(--space-3);
 }
 
+/* Split-cost helper: the leg-count field with its live per-leg preview. */
+.plan-item-form-split {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.plan-item-form-split .form-field {
+  max-width: 200px;
+}
+.plan-item-form-split-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
 /* Sheet footer: Cancel + primary action pinned below the fields on mobile. */
 .plan-item-form-footer {
   display: flex;
