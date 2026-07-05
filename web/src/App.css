@@ -1601,6 +1601,156 @@
   color: var(--accent-on);
 }
 
+/* ── Trip map (whole-trip Map subtab) ───────────────────────────────────────── */
+
+.trip-map-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+}
+
+.trip-map-page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.trip-map-page-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-h);
+}
+.trip-map-page-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.trip-map-loading,
+.trip-map-error,
+.trip-map-caption {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin: 0;
+}
+
+/* Day list left, map right — collapses to a single column on narrow screens,
+   mirroring the day-grid convention. */
+.trip-map-layout {
+  display: grid;
+  gap: var(--s5);
+  grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .trip-map-layout {
+    grid-template-columns: 1fr;
+  }
+  /* Map above the day list on phones. */
+  .trip-map-panel {
+    order: -1;
+  }
+}
+
+.trip-map-days {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trip-map-day {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: center;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  padding: 8px 10px;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.trip-map-day:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.trip-map-day:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.trip-map-day--active {
+  border-color: var(--accent);
+  background: var(--accent-hover, var(--surface-muted));
+}
+
+.trip-map-day-dot {
+  grid-row: 1 / span 2;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+.trip-map-day-dot--all {
+  background: var(--accent);
+}
+
+.trip-map-day-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-h);
+}
+.trip-map-day-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.trip-map-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.trip-map-leaflet {
+  height: 460px;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  z-index: 0;
+}
+@media (max-width: 900px) {
+  .trip-map-leaflet {
+    height: 320px;
+  }
+}
+
+/* Numbered, day-tinted markers. The pin colour is injected inline via the
+   --pin-color custom property set on each divIcon. */
+.trip-map-marker-wrap {
+  background: transparent;
+  border: none;
+}
+.trip-map-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--pin-color, var(--accent));
+  background: var(--surface, #fff);
+  color: var(--pin-color, var(--accent));
+  font-size: var(--text-sm);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+.trip-map-marker--selected {
+  background: var(--pin-color, var(--accent));
+  color: #fff;
+}
+
 .plan-item-pin-badge {
   width: 20px;
   height: 20px;
