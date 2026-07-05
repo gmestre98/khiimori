@@ -16,6 +16,8 @@ type Module struct {
 	// (tests may supply a fake without a real pool).
 	invitations *Invitations
 	invCreate   invitationCreator
+	// invList is the read seam used by the list handler; defaults to invitations.
+	invList     invitationLister
 	authz       invitationAuthorizer
 	emailSender EmailSender
 	// requireAuth is the auth middleware injected by the composition root.
@@ -32,6 +34,13 @@ type Module struct {
 	// userEmails resolves the signed-in user's verified email for invitation
 	// acceptance. Nil when not wired; accept handler returns 500.
 	userEmails userEmailReader
+	// exposeInviteTokens, when true, includes each invitation's opaque accept
+	// token in the owner-only invitations list response. It is enabled ONLY on an
+	// E2E-targeted environment (gated on the same E2E_LOGIN_SECRET as test-login,
+	// M10.2): the harness has no email inbox, so it reads the token from the list
+	// to drive the real invite→accept flow. Off by default (production), the token
+	// stays email-only as designed.
+	exposeInviteTokens bool
 	// pool is needed for the accept handler's transaction.
 	pool *pgxpool.Pool
 }
@@ -47,24 +56,30 @@ type Options struct {
 	TripNames    tripNameReader
 	InviterNames inviterNameReader
 	UserEmails   userEmailReader
+	// ExposeInviteTokens enables returning invitation accept tokens in the
+	// owner-only list response. Set only on an E2E-targeted environment so the
+	// harness can accept invites without an email inbox (M10.2).
+	ExposeInviteTokens bool
 }
 
 // New constructs the sharing module with its Memberships service.
 func New(pool *pgxpool.Pool, opts Options) *Module {
 	inv := NewInvitations(pool)
 	return &Module{
-		memberships:  NewMemberships(pool),
-		invitations:  inv,
-		invCreate:    inv,
-		authz:        opts.Authz,
-		emailSender:  opts.EmailSender,
-		requireAuth:  opts.RequireAuth,
-		requireAdmin: opts.RequireAdmin,
-		webAppURL:    opts.WebAppURL,
-		tripNames:    opts.TripNames,
-		inviterNames: opts.InviterNames,
-		userEmails:   opts.UserEmails,
-		pool:         pool,
+		memberships:        NewMemberships(pool),
+		invitations:        inv,
+		invCreate:          inv,
+		invList:            inv,
+		authz:              opts.Authz,
+		emailSender:        opts.EmailSender,
+		requireAuth:        opts.RequireAuth,
+		requireAdmin:       opts.RequireAdmin,
+		webAppURL:          opts.WebAppURL,
+		tripNames:          opts.TripNames,
+		inviterNames:       opts.InviterNames,
+		userEmails:         opts.UserEmails,
+		exposeInviteTokens: opts.ExposeInviteTokens,
+		pool:               pool,
 	}
 }
 

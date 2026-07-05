@@ -33,7 +33,7 @@ const (
 	TestLoginPath = "/auth/test-login"
 )
 
-// The fixed identity the test-login endpoint signs in. It is deterministic (so
+// The default identity the test-login endpoint signs in. It is deterministic (so
 // reruns resolve to the same provisioned user) and non-admin (its email never
 // matches ADMIN_EMAIL), keeping the E2E account inside ordinary trip-scoped
 // authorization. The .test TLD (RFC 6761) is reserved and can never be a real
@@ -44,7 +44,35 @@ const (
 	e2eTestName      = "E2E Test User"
 	// e2eLoginSecretHeader carries the shared secret the harness presents.
 	e2eLoginSecretHeader = "X-E2E-Login-Secret"
+	// e2eIdentityParam names the optional query parameter selecting which fixed
+	// identity to sign in (defaults to "owner"). See e2eTestIdentities.
+	e2eIdentityParam = "identity"
+	// defaultTestIdentity is used when no identity parameter is supplied, so the
+	// M10.1 single-identity behaviour (sign in the fixed owner) is preserved.
+	defaultTestIdentity = "owner"
 )
+
+// e2eTestIdentity is one of the fixed, non-admin identities the guarded
+// test-login endpoint can sign in. Each is deterministic (reruns resolve to the
+// same provisioned user) and uses the reserved .test TLD so it can never match a
+// real Google account or ADMIN_EMAIL.
+type e2eTestIdentity struct {
+	GoogleSub string
+	Email     string
+	Name      string
+}
+
+// e2eTestIdentities is the allowlist the test-login endpoint selects from via the
+// optional `identity` query parameter. "owner" preserves the M10.1 behaviour; the
+// others let the E2E harness set up a multi-role trip (M10.2): an owner invites an
+// Editor and a Viewer, while the non-member is never invited — proving role-based
+// enforcement (Editor edits, Viewer read-only, non-member denied) end to end.
+var e2eTestIdentities = map[string]e2eTestIdentity{
+	defaultTestIdentity: {GoogleSub: e2eTestGoogleSub, Email: e2eTestEmail, Name: e2eTestName},
+	"editor":            {GoogleSub: "e2e-test-editor", Email: "e2e-editor@khiimori.test", Name: "E2E Editor"},
+	"viewer":            {GoogleSub: "e2e-test-viewer", Email: "e2e-viewer@khiimori.test", Name: "E2E Viewer"},
+	"nonmember":         {GoogleSub: "e2e-test-nonmember", Email: "e2e-nonmember@khiimori.test", Name: "E2E Non-Member"},
+}
 
 // exchangeTimeout bounds the callback's outbound calls to Google (token
 // exchange plus, on first sign-in, OIDC discovery + JWKS) so a slow or hanging
@@ -192,18 +220,33 @@ func (m *Module) handleTestLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Select the fixed identity to sign in. The default ("owner") preserves the
+	// M10.1 single-identity behaviour; the harness passes ?identity=editor|viewer|
+	// nonmember to set up the multi-role trip (M10.2). An unknown value is a client
+	// error rather than a silent fallback, so a typo in a test surfaces clearly.
+	identityKey := r.URL.Query().Get(e2eIdentityParam)
+	if identityKey == "" {
+		identityKey = defaultTestIdentity
+	}
+	identity, ok := e2eTestIdentities[identityKey]
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusBadRequest, "bad_request", "unknown test identity"))
+		return
+	}
+
 	// A session may be issued on this response; never cache it.
 	w.Header().Set("Cache-Control", "no-store")
 
-	// Provision (or resolve on rerun) the fixed test user, exactly as the real
+	// Provision (or resolve on rerun) the selected test user, exactly as the real
 	// callback does via completeSignIn — same code path, minus the Google
 	// exchange. EmailVerified is true so provisioning is well-formed, but the
 	// email never matches ADMIN_EMAIL, so the account stays non-admin.
 	user, err := m.provisioner.Provision(r.Context(), VerifiedIdentity{
-		GoogleSub:     e2eTestGoogleSub,
-		Email:         e2eTestEmail,
+		GoogleSub:     identity.GoogleSub,
+		Email:         identity.Email,
 		EmailVerified: true,
-		Name:          e2eTestName,
+		Name:          identity.Name,
 	})
 	if err != nil {
 		platformlog.FromContext(r.Context()).Error("test-login provisioning", "err", err.Error())
@@ -220,8 +263,12 @@ func (m *Module) handleTestLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Acknowledge as JSON (not a redirect) so the harness reads the cookie off
-	// this response. The user id lets the harness scope/clean up its test data.
+	// this response. The user id lets the harness scope/clean up its test data;
+	// the email lets the owner invite this identity by the address it will accept
+	// invitations under (M10.2 role setup).
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "signed_in", "user_id": user.ID})
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"status": "signed_in", "user_id": user.ID, "email": identity.Email,
+	})
 }

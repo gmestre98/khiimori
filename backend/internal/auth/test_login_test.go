@@ -156,3 +156,95 @@ func TestTestLoginRejectsNonPOST(t *testing.T) {
 		t.Errorf("GET status = %d, want 405", rec.Code)
 	}
 }
+
+// testLoginRequestIdentity builds a POST /auth/test-login carrying the secret and
+// selecting a fixed identity via the ?identity= query parameter.
+func testLoginRequestIdentity(secret, identity string) *http.Request {
+	req := httptest.NewRequest(http.MethodPost, TestLoginPath+"?"+e2eIdentityParam+"="+identity, nil)
+	req.Header.Set(e2eLoginSecretHeader, secret)
+	return req
+}
+
+// TestTestLoginSelectsIdentity: the ?identity= parameter signs in the matching
+// fixed identity (M10.2), each provisioned as a distinct, non-admin user so the
+// role E2E can set up an owner + editor + viewer + non-member on one trip. The
+// body echoes the identity's email so the owner can invite it by that address.
+func TestTestLoginSelectsIdentity(t *testing.T) {
+	t.Parallel()
+
+	const secret = "s3cr3t-e2e-token"
+	for identity, want := range e2eTestIdentities {
+		identity, want := identity, want
+		t.Run(identity, func(t *testing.T) {
+			t.Parallel()
+			m, repo := testLoginModule(secret)
+			rec := serve(m, testLoginRequestIdentity(secret, identity))
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200", rec.Code)
+			}
+			var body struct {
+				Status string `json:"status"`
+				UserID string `json:"user_id"`
+				Email  string `json:"email"`
+			}
+			if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+				t.Fatalf("decoding body: %v", err)
+			}
+			if body.Status != "signed_in" {
+				t.Errorf("status = %q, want signed_in", body.Status)
+			}
+			if body.Email != want.Email {
+				t.Errorf("email = %q, want %q", body.Email, want.Email)
+			}
+			u, ok := repo.bySub[want.GoogleSub]
+			if !ok {
+				t.Fatalf("identity %q was not provisioned under sub %q", identity, want.GoogleSub)
+			}
+			if u.Email != want.Email {
+				t.Errorf("email = %q, want %q", u.Email, want.Email)
+			}
+			if u.IsAdmin {
+				t.Errorf("identity %q must never be provisioned as admin", identity)
+			}
+		})
+	}
+}
+
+// TestTestLoginDefaultsToOwner: omitting the identity parameter preserves the
+// M10.1 behaviour — the fixed owner identity is signed in.
+func TestTestLoginDefaultsToOwner(t *testing.T) {
+	t.Parallel()
+
+	const secret = "s3cr3t-e2e-token"
+	m, repo := testLoginModule(secret)
+	rec := serve(m, testLoginRequest(secret))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if _, ok := repo.bySub[e2eTestGoogleSub]; !ok {
+		t.Errorf("default identity %q was not provisioned", e2eTestGoogleSub)
+	}
+}
+
+// TestTestLoginRejectsUnknownIdentity: an unrecognised identity is a client error
+// (400) rather than a silent fallback, so a typo in a test surfaces clearly and
+// no unintended user is provisioned.
+func TestTestLoginRejectsUnknownIdentity(t *testing.T) {
+	t.Parallel()
+
+	const secret = "s3cr3t-e2e-token"
+	m, repo := testLoginModule(secret)
+	rec := serve(m, testLoginRequestIdentity(secret, "intruder"))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 for an unknown identity", rec.Code)
+	}
+	if readSessionCookie(rec) != nil {
+		t.Error("an unknown identity must not issue a session cookie")
+	}
+	if repo.saves != 0 {
+		t.Errorf("an unknown identity provisioned %d user(s), want 0", repo.saves)
+	}
+}

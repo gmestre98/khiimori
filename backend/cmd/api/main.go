@@ -223,6 +223,11 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 			TripNames:    &pgxTripNameReader{pool: pool},
 			InviterNames: &pgxUserNameReader{pool: pool},
 			UserEmails:   &pgxUserEmailReader{pool: pool},
+			// Expose invitation accept tokens on the owner-only list ONLY on an
+			// E2E-targeted environment — gated on the same secret as test-login so
+			// the role E2E (M10.2) can drive the real invite→accept flow without an
+			// email inbox. Empty (production) leaves tokens email-only.
+			ExposeInviteTokens: cfg.E2ELoginSecret != "",
 		}),
 		func() httpx.RouteRegistrar {
 			geoProvider := buildGeoProvider(cfg.MapsAPIKey)

@@ -52,6 +52,10 @@ export function e2eLoginSecret(): string {
   return required('E2E_LOGIN_SECRET')
 }
 
+// e2eLoginSecretHeader is the request header carrying e2eLoginSecret. Shared so
+// auth.setup and the multi-identity helper (M10.2) present it identically.
+export const e2eLoginSecretHeader = 'X-E2E-Login-Secret'
+
 // storageStatePath is where the auth setup persists the signed-in session (the
 // httpOnly session cookie) for the authenticated project to reuse. Kept out of
 // git via e2e/.gitignore.
