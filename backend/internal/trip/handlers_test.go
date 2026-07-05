@@ -36,11 +36,10 @@ type fakeTripStore struct {
 	gotDeleteOwner string
 	deleteErr      error
 
-	gotGetDayTripID  string
-	gotGetDayOwnerID string
-	gotGetDayDate    string
-	getDayResult     Day
-	getDayErr        error
+	gotGetDayTripID string
+	gotGetDayDate   string
+	getDayResult    Day
+	getDayErr       error
 
 	gotListUserID string
 	listResult    []Trip
@@ -128,9 +127,8 @@ func (f *fakeTripStore) Delete(_ context.Context, id, ownerID string) error {
 	return f.deleteErr
 }
 
-func (f *fakeTripStore) GetDay(_ context.Context, tripID, ownerID, date string) (Day, error) {
+func (f *fakeTripStore) GetDay(_ context.Context, tripID, date string) (Day, error) {
 	f.gotGetDayTripID = tripID
-	f.gotGetDayOwnerID = ownerID
 	f.gotGetDayDate = date
 	return f.getDayResult, f.getDayErr
 }
@@ -548,9 +546,6 @@ func TestHandleGetDaySuccess(t *testing.T) {
 	}
 	if store.gotGetDayTripID != "trip-uuid" {
 		t.Errorf("store trip_id = %q, want trip-uuid", store.gotGetDayTripID)
-	}
-	if store.gotGetDayOwnerID != "owner-1" {
-		t.Errorf("store owner_id = %q, want owner-1 (from session)", store.gotGetDayOwnerID)
 	}
 	if store.gotGetDayDate != "2026-07-03" {
 		t.Errorf("store date = %q, want 2026-07-03", store.gotGetDayDate)
