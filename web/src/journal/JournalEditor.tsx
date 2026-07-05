@@ -11,42 +11,29 @@ import { enqueue } from '../lib/mutationQueue'
 import { useIsOnline } from '../lib/useIsOnline'
 import { PhotoGrid } from './PhotoGrid'
 import { UsageBar } from './UsageBar'
+import { MOOD_LABELS, MOOD_OPTIONS, WEATHER_LABELS, WEATHER_OPTIONS } from './journalMeta'
 
 const DEBOUNCE_MS = 800
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
-const WEATHER_OPTIONS = ['', 'sunny', 'cloudy', 'rainy', 'snowy', 'windy', 'stormy', 'foggy']
-const MOOD_OPTIONS = ['', 'great', 'good', 'okay', 'tired', 'stressed', 'sad']
-
-const WEATHER_LABELS: Record<string, string> = {
-  '': '—',
-  sunny: '☀️ Sunny',
-  cloudy: '☁️ Cloudy',
-  rainy: '🌧️ Rainy',
-  snowy: '❄️ Snowy',
-  windy: '💨 Windy',
-  stormy: '⛈️ Stormy',
-  foggy: '🌫️ Foggy',
-}
-
-const MOOD_LABELS: Record<string, string> = {
-  '': '—',
-  great: '😄 Great',
-  good: '🙂 Good',
-  okay: '😐 Okay',
-  tired: '😴 Tired',
-  stressed: '😤 Stressed',
-  sad: '😢 Sad',
-}
-
 interface JournalEditorProps {
   tripId: string
   dayId: string
   readOnly?: boolean
+  // onEntryChange fires after a change is persisted to the server (a successful
+  // save, or a photo add/remove) so a host like the trip Journal subtab can
+  // refresh its day-rail status and travelogue. It is not called for offline
+  // queued saves, since the server copy hasn't changed yet.
+  onEntryChange?: () => void
 }
 
-export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditorProps) {
+export function JournalEditor({
+  tripId,
+  dayId,
+  readOnly = false,
+  onEntryChange,
+}: JournalEditorProps) {
   const online = useIsOnline()
   const [entry, setEntry] = useState<JournalEntry | null>(null)
   const [body, setBody] = useState('')
@@ -65,6 +52,15 @@ export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditor
   // usageRefreshKey is incremented whenever a photo is uploaded or deleted so
   // UsageBar re-fetches the server's authoritative usage figure.
   const [usageRefreshKey, setUsageRefreshKey] = useState(0)
+
+  // onEntryChange is held in a ref so it can be called from `save` without being
+  // a dependency of it. The subtab passes a fresh closure each render; if that
+  // identity fed `save` (and thus the auto-save effect), each save would re-arm
+  // the debounce and trigger another save — an infinite loop.
+  const onEntryChangeRef = useRef(onEntryChange)
+  useEffect(() => {
+    onEntryChangeRef.current = onEntryChange
+  }, [onEntryChange])
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // loadedDayId tracks which dayId's data is currently in state. The auto-save
@@ -123,6 +119,7 @@ export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditor
         const saved = await upsertJournalEntry(tripId, dayId, input)
         setEntry(saved)
         setSaveStatus('saved')
+        onEntryChangeRef.current?.()
       } catch {
         setSaveStatus('error')
       }
@@ -257,7 +254,10 @@ export function JournalEditor({ tripId, dayId, readOnly = false }: JournalEditor
                 }
               }
         }
-        onPhotoChange={() => setUsageRefreshKey((k) => k + 1)}
+        onPhotoChange={() => {
+          setUsageRefreshKey((k) => k + 1)
+          onEntryChangeRef.current?.()
+        }}
       />
     </div>
   )

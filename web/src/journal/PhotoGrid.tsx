@@ -11,8 +11,9 @@ import { enqueue } from '../lib/mutationQueue'
 import { useIsOnline } from '../lib/useIsOnline'
 import { useFocusTrap } from '../components/ui/useFocusTrap'
 
-// PhotoLightbox renders a single photo full-screen with caption.
-function PhotoLightbox({ photo, onClose }: { photo: Photo; onClose: () => void }) {
+// PhotoLightbox renders a single photo full-screen with caption. Exported so the
+// trip Journal subtab's travelogue can reuse the same viewer for its thumbnails.
+export function PhotoLightbox({ photo, onClose }: { photo: Photo; onClose: () => void }) {
   const dialogRef = useRef<HTMLDivElement>(null)
   useFocusTrap(true, dialogRef)
 

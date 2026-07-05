@@ -79,10 +79,13 @@ describe('SidebarNav', () => {
     )
   })
 
-  it('highlights Journal (shared trip day view) on the day route', () => {
+  it('highlights no trip facet on the bare day route', () => {
+    // Map, Journal, and Budget each have their own subtab route now, so none of
+    // them is active on the day view itself.
     renderNav('/trips/abc/days/2026-07-02', buildSidebarNavItems('abc'))
-    expect(screen.getByRole('link', { name: /journal/i })).toHaveClass('sidebar-nav-link--active')
-    // Map now has its own subtab route, so it is not active on the day view.
+    expect(screen.getByRole('link', { name: /journal/i })).not.toHaveClass(
+      'sidebar-nav-link--active',
+    )
     expect(screen.getByRole('link', { name: /^map$/i })).not.toHaveClass('sidebar-nav-link--active')
     expect(screen.getByRole('link', { name: /budget/i })).not.toHaveClass(
       'sidebar-nav-link--active',
@@ -93,6 +96,15 @@ describe('SidebarNav', () => {
     renderNav('/trips/abc/map', buildSidebarNavItems('abc'))
     expect(screen.getByRole('link', { name: /^map$/i })).toHaveClass('sidebar-nav-link--active')
     expect(screen.getByRole('link', { name: /journal/i })).not.toHaveClass(
+      'sidebar-nav-link--active',
+    )
+  })
+
+  it('highlights Journal on its own trip subtab route', () => {
+    renderNav('/trips/abc/journal', buildSidebarNavItems('abc'))
+    expect(screen.getByRole('link', { name: /journal/i })).toHaveClass('sidebar-nav-link--active')
+    expect(screen.getByRole('link', { name: /^map$/i })).not.toHaveClass('sidebar-nav-link--active')
+    expect(screen.getByRole('link', { name: /budget/i })).not.toHaveClass(
       'sidebar-nav-link--active',
     )
   })
