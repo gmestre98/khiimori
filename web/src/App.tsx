@@ -31,6 +31,9 @@ const TripBudgetPage = lazy(() =>
 const TripMapPage = lazy(() =>
   import('./trips/TripMapPage').then((m) => ({ default: m.TripMapPage })),
 )
+const TripJournalPage = lazy(() =>
+  import('./trips/TripJournalPage').then((m) => ({ default: m.TripJournalPage })),
+)
 const TripSharingPage = lazy(() =>
   import('./trips/TripSharingPage').then((m) => ({ default: m.TripSharingPage })),
 )
@@ -130,6 +133,14 @@ function App() {
                   element={
                     <Suspense fallback={<RouteLoading />}>
                       <TripMapPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="journal"
+                  element={
+                    <Suspense fallback={<RouteLoading />}>
+                      <TripJournalPage />
                     </Suspense>
                   }
                 />

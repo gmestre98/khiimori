@@ -94,6 +94,7 @@ function TripShell() {
     !dateParam &&
     !location.pathname.endsWith('/backlog') &&
     !location.pathname.endsWith('/map') &&
+    !location.pathname.endsWith('/journal') &&
     !location.pathname.endsWith('/budget') &&
     !location.pathname.endsWith('/sharing')
   if (isAtRoot) {
@@ -128,6 +129,14 @@ function TripShell() {
             aria-label={`Map for ${trip.name}`}
           >
             Map
+          </Link>
+          <Link
+            to={`/trips/${trip.id}/journal`}
+            state={{ trip }}
+            className="btn btn-ghost btn-sm"
+            aria-label={`Journal for ${trip.name}`}
+          >
+            Journal
           </Link>
           <Link
             to={`/trips/${trip.id}/budget`}
