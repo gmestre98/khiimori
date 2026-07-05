@@ -20,15 +20,16 @@
 //   pulumi config set khiimori:enableMapsQuotaCap true && pulumi up
 //
 // API key restrictions (which specific APIs the key may call) are NOT managed
-// here: @pulumi/gcp v9.26.0 does not include the apikeys module. Apply them
-// once manually:
-//   GCP Console → APIs & Services → Credentials → (select key) → Edit
-//   Application restrictions: None (Cloud Run uses dynamic IPs)
-//   API restrictions: restrict to the APIs listed in S2 doc
-//     - Maps JavaScript API
-//     - Geocoding API
-//     - Places API
-// This is a one-time console step.
+// here: @pulumi/gcp v9.26.0 does not include the apikeys module. They are
+// instead applied idempotently by CI — the "Apply Maps API key restrictions"
+// job in .github/workflows/ci.yml runs after `pulumi up` on each main push and
+// restricts every non-Firebase API key to:
+//     - Maps JavaScript API  (maps-backend.googleapis.com)
+//     - Geocoding API        (geocoding-backend.googleapis.com)
+//     - Places API           (places-backend.googleapis.com)
+// Application restrictions are left None (Cloud Run uses dynamic IPs and the key
+// is never client-exposed — it is only ever used server-side by the geo proxy).
+// No manual console step is required (M10.3 S2 finding F2).
 //
 // Quota cap lever: mapsDailyQuota from tunables.ts (default 1 000 req/day).
 // Raise with: pulumi config set khiimori:mapsDailyQuota "2000" && pulumi up

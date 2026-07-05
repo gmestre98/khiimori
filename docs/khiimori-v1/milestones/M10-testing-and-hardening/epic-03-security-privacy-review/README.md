@@ -2,6 +2,15 @@
 
 > Milestone: [10 — Testing & Hardening](../README.md) · PRD refs: §5.9, §6, §8.5.
 
+> **Status:** ✅ Done — 2026-07-05. Security & privacy gate met for v1
+> (PRs [#416](https://github.com/gmestre98/khiimori/pull/416),
+> [#417](https://github.com/gmestre98/khiimori/pull/417), S3). All 4 epic ACs met.
+> **No release-blockers.** Authorization verified on every trip-scoped endpoint
+> ([S1 report](S1-authz-coverage-audit-REPORT.md)); privacy + secret/key posture
+> reviewed ([S2 report](S2-privacy-secrets-review-REPORT.md)); two low findings
+> triaged and closed — F1 (403/404 convention) accepted-as-designed, F2 (stale
+> mapsKey.ts comment) fixed ([S3 sign-off](S3-findings-remediation-SIGNOFF.md)).
+
 ## Description
 
 Run a focused **security & privacy review** of v1. Confirm **authorization on every trip-scoped
@@ -14,13 +23,13 @@ plus a manual pass on authorization, secret handling, and key restrictions.
 
 ## Acceptance Criteria
 
-- [ ] **Authorization** is verified on **every** trip-scoped endpoint — no endpoint trusts the client;
+- [x] **Authorization** is verified on **every** trip-scoped endpoint — no endpoint trusts the client;
       unauthorized requests yield `403`/`404` (PRD §5.9, §6).
-- [ ] **Privacy:** trips, photos, and journals are confirmed **visible only to owner + invited
+- [x] **Privacy:** trips, photos, and journals are confirmed **visible only to owner + invited
       members** (PRD §6).
-- [ ] **Secrets:** OAuth and **Maps keys never reach the client**; secrets live **only in Secret
+- [x] **Secrets:** OAuth and **Maps keys never reach the client**; secrets live **only in Secret
       Manager**; service accounts are **least-privilege** (PRD §6, §8.5).
-- [ ] The review runs the project's **`/security-review`** over the branch plus a **manual pass** on
+- [x] The review runs the project's **`/security-review`** over the branch plus a **manual pass** on
       authz, secret handling, and key restrictions, with findings recorded and resolved (PRD §6).
 
 ## Implementation Details / Architecture
