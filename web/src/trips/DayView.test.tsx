@@ -495,6 +495,47 @@ describe('DayView', () => {
         'Could not save changes.',
       )
     })
+
+    it('splitting on save reshapes the item into part 1 and creates the rest', async () => {
+      const user = userEvent.setup()
+      // Item already has a cost, so "More details" opens and the split toggle shows.
+      const item = makePlanItem({ title: 'Flight', cost: 10 })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      vi.mocked(api.updatePlanItem).mockResolvedValue(
+        makePlanItem({ id: 'item-1', title: 'Flight (part 1/2)', cost: 5 }),
+      )
+      vi.mocked(api.createPlanItem).mockResolvedValue(
+        makePlanItem({ id: 'item-2', title: 'Flight (part 2/2)', cost: 5 }),
+      )
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Flight')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Edit Flight/ }))
+      const editingLi = document.querySelector('.plan-item--editing')!
+      // Enable the split (defaults to 2 parts) and save.
+      await user.click(
+        within(editingLi as HTMLElement).getByRole('checkbox', {
+          name: 'Split this cost into several',
+        }),
+      )
+      await user.click(within(editingLi as HTMLElement).getByRole('button', { name: 'Save' }))
+
+      // Part 1 reuses the existing item (same id); part 2 is a new sibling. The
+      // €10 is divided to €5 + €5 (Budget total unchanged).
+      await waitFor(() =>
+        expect(api.updatePlanItem).toHaveBeenCalledWith(
+          'trip-1',
+          'item-1',
+          expect.objectContaining({ title: 'Flight (part 1/2)', cost: 5 }),
+        ),
+      )
+      expect(api.createPlanItem).toHaveBeenCalledWith(
+        'trip-1',
+        expect.objectContaining({ title: 'Flight (part 2/2)', cost: 5 }),
+      )
+      await waitFor(() => expect(screen.getByText('Flight (part 2/2)')).toBeInTheDocument())
+    })
   })
 
   describe('mobile interactions (S5)', () => {
