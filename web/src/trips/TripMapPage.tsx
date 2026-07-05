@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import {
   datesInRange,
   fetchDay,
@@ -129,16 +129,23 @@ export function TripMapPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip.id])
 
-  // Days with resolved waypoints are the only ones the map draws.
-  const mapDays: TripDayMarkers[] = (entries ?? [])
-    .filter((e) => e.waypoints.length > 0)
-    .map((e) => ({
-      date: e.date,
-      index: e.index,
-      color: e.color,
-      items: e.items,
-      waypoints: e.waypoints,
-    }))
+  // Days with resolved waypoints are the only ones the map draws. Memoized so
+  // the array reference is stable across re-renders that don't change the loaded
+  // days (e.g. selecting a pin) — otherwise TripMap's fit-bounds effect would
+  // refire and yank the map view back on every selection.
+  const mapDays: TripDayMarkers[] = useMemo(
+    () =>
+      (entries ?? [])
+        .filter((e) => e.waypoints.length > 0)
+        .map((e) => ({
+          date: e.date,
+          index: e.index,
+          color: e.color,
+          items: e.items,
+          waypoints: e.waypoints,
+        })),
+    [entries],
+  )
   const hasAnyPlace = mapDays.length > 0
 
   const toggleFocus = (date: string) => {
