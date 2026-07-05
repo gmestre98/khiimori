@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useFocusTrap } from '../components/ui/useFocusTrap'
 import { Button, FormField, Input, Select } from '../components/ui'
 import { collectLocatedItems } from './locatedItems'
-import { MAX_SPLIT_LEGS, splitAmount } from './splitAmount'
+import { MAX_SPLIT_PARTS, splitAmount } from './splitAmount'
 import {
   PlanItemValidationError,
   UnauthorizedError,
@@ -475,9 +475,9 @@ function LocationField({
 interface PlanItemFormProps {
   initialFields?: PlanItemFormFields
   submitLabel: string
-  // splitLegs is 1 for a normal add; >1 splits the cost into that many linked
-  // items (the "split a flight" helper). Edit forms ignore it.
-  onSubmit: (fields: PlanItemFormFields, splitLegs: number) => Promise<void>
+  // splitParts is 1 for a normal add; >1 splits the cost into that many linked
+  // items (the split-cost helper). Edit forms ignore it.
+  onSubmit: (fields: PlanItemFormFields, splitParts: number) => Promise<void>
   onCancel?: () => void
   onAutoSave?: (fields: PlanItemFormFields) => Promise<void>
   error: string | null
@@ -504,8 +504,8 @@ function PlanItemForm({
   )
   const [submitting, setSubmitting] = useState(false)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
-  // splitLegs drives the "split a flight" helper (add mode only). 1 = no split.
-  const [splitLegs, setSplitLegs] = useState(1)
+  // splitParts drives the split-cost helper (add mode only). 1 = no split.
+  const [splitParts, setSplitParts] = useState(1)
   const optionalId = useId()
   const fid = useId()
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -556,11 +556,11 @@ function PlanItemForm({
     if (!fields.title.trim()) return
     setSubmitting(true)
     try {
-      await onSubmit(fields, splitLegs)
+      await onSubmit(fields, splitParts)
       // Reset after a successful quick-add (edit forms unmount on save instead).
       if (!initialFields) {
         setFields(emptyFields())
-        setSplitLegs(1)
+        setSplitParts(1)
       }
     } finally {
       setSubmitting(false)
@@ -688,6 +688,46 @@ function PlanItemForm({
                 placeholder="0.00"
                 disabled={submitting}
               />
+              {/* Split is a special case of the cost just entered: divide it into
+                  N linked items (e.g. a flight's separate bookings) that each
+                  carry a share of the total. Add mode only; the Budget total is
+                  unchanged. Shown inline under the amount so it's discoverable. */}
+              {!initialFields && parseFloat(fields.cost) > 0 && (
+                <div className="cost-split">
+                  <label className="cost-split-toggle">
+                    <input
+                      type="checkbox"
+                      checked={splitParts > 1}
+                      onChange={(e) => setSplitParts(e.target.checked ? 2 : 1)}
+                      disabled={submitting}
+                    />
+                    Split this cost into several
+                  </label>
+                  {splitParts > 1 && (
+                    <div className="cost-split-controls">
+                      <Input
+                        className="cost-split-count"
+                        type="number"
+                        min="2"
+                        max={MAX_SPLIT_PARTS}
+                        step="1"
+                        value={String(splitParts)}
+                        onChange={(e) => {
+                          const n = Math.round(Number(e.target.value))
+                          setSplitParts(
+                            Number.isFinite(n) ? Math.min(MAX_SPLIT_PARTS, Math.max(2, n)) : 2,
+                          )
+                        }}
+                        disabled={submitting}
+                        aria-label="Number of parts to split the cost into"
+                      />
+                      <span className="cost-split-hint" aria-live="polite">
+                        parts · ≈€{(parseFloat(fields.cost) / splitParts).toFixed(2)} each
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </FormField>
             <FormField label="Booking" htmlFor={`${fid}-book`}>
               <Input
@@ -700,36 +740,6 @@ function PlanItemForm({
               />
             </FormField>
           </div>
-
-          {/* Split helper: only on add, and only meaningful once a cost is set.
-              Splits the cost into N linked items (e.g. a flight's legs), each
-              landing under the same category so the Budget total is unchanged. */}
-          {!initialFields && parseFloat(fields.cost) > 0 && (
-            <div className="plan-item-form-split">
-              <FormField label="Split cost into legs" htmlFor={`${fid}-split`}>
-                <Input
-                  id={`${fid}-split`}
-                  type="number"
-                  min="1"
-                  max={MAX_SPLIT_LEGS}
-                  step="1"
-                  value={String(splitLegs)}
-                  onChange={(e) => {
-                    const n = Math.round(Number(e.target.value))
-                    setSplitLegs(Number.isFinite(n) ? Math.min(MAX_SPLIT_LEGS, Math.max(1, n)) : 1)
-                  }}
-                  disabled={submitting}
-                  aria-label="Split cost into legs"
-                />
-              </FormField>
-              {splitLegs > 1 && (
-                <p className="plan-item-form-split-hint" aria-live="polite">
-                  Creates {splitLegs} items · ≈€{(parseFloat(fields.cost) / splitLegs).toFixed(2)}{' '}
-                  each
-                </p>
-              )}
-            </div>
-          )}
 
           <div className="plan-item-form-grid">
             <FormField label="Category" htmlFor={`${fid}-type`}>
@@ -1170,17 +1180,17 @@ function QuickAddForm({
   const [sheetOpen, setSheetOpen] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
 
-  async function handleAdd(fields: PlanItemFormFields, splitLegs: number) {
+  async function handleAdd(fields: PlanItemFormFields, splitParts: number) {
     setAddError(null)
     const base = fieldsToInput(fields, dayId)
-    // Expand a split into one input per leg: divide the cost to the cent and
-    // suffix each title with "(leg k/n)". A split of 1 (or with no positive
+    // Expand a split into one input per part: divide the cost to the cent and
+    // suffix each title with "(part k/n)". A split of 1 (or with no positive
     // cost) is a single plain item — the common case.
     const inputs: PlanItemInput[] =
-      splitLegs > 1 && base.cost != null && base.cost > 0
-        ? splitAmount(base.cost, splitLegs).map((amount, i) => ({
+      splitParts > 1 && base.cost != null && base.cost > 0
+        ? splitAmount(base.cost, splitParts).map((amount, i) => ({
             ...base,
-            title: `${base.title} (leg ${i + 1}/${splitLegs})`,
+            title: `${base.title} (part ${i + 1}/${splitParts})`,
             cost: amount,
           }))
         : [base]
