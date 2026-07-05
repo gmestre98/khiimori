@@ -690,9 +690,11 @@ function PlanItemForm({
               />
               {/* Split is a special case of the cost just entered: divide it into
                   N linked items (e.g. a flight's separate bookings) that each
-                  carry a share of the total. Add mode only; the Budget total is
-                  unchanged. Shown inline under the amount so it's discoverable. */}
-              {!initialFields && parseFloat(fields.cost) > 0 && (
+                  carry a share of the total. On add all N are created; on edit
+                  the current item becomes part 1 and the rest are new siblings.
+                  The Budget total is unchanged. Shown inline under the amount so
+                  it's discoverable. */}
+              {parseFloat(fields.cost) > 0 && (
                 <div className="cost-split">
                   <label className="cost-split-toggle">
                     <input
@@ -901,6 +903,7 @@ function PlanItemRow({
   pinNumber,
   onSelect,
   onUpdated,
+  onAdded,
   onRemoved,
   onDragStart,
   onDragOver,
@@ -917,6 +920,9 @@ function PlanItemRow({
   pinNumber?: number
   onSelect?: () => void
   onUpdated: (updated: PlanItem) => void
+  // onAdded appends a newly created sibling item (used when a split turns one
+  // item into several parts on save).
+  onAdded: (item: PlanItem) => void
   onRemoved: (itemId: string) => void
   onDragStart?: (e: React.DragEvent, itemId: string) => void
   onDragOver?: (e: React.DragEvent, itemId: string) => void
@@ -945,10 +951,33 @@ function PlanItemRow({
   const inactive = isSkipped || isCancelled
   const label = statusLabel(item.status)
 
-  async function handleSave(fields: PlanItemFormFields) {
+  async function handleSave(fields: PlanItemFormFields, splitParts: number) {
     setEditError(null)
+    const base = fieldsToInput(fields, item.day_id)
     try {
-      const updated = await updatePlanItem(tripId, item.id, fieldsToInput(fields, item.day_id))
+      if (splitParts > 1 && base.cost != null && base.cost > 0) {
+        // Split an existing item: divide the cost to the cent and reshape it
+        // into N parts. Part 1 reuses this item (keeping its id, day, status and
+        // order); the remaining parts become new sibling items on the same day.
+        const shares = splitAmount(base.cost, splitParts)
+        const first = await updatePlanItem(tripId, item.id, {
+          ...base,
+          title: `${base.title} (part 1/${splitParts})`,
+          cost: shares[0],
+        })
+        onUpdated(first)
+        for (let i = 1; i < splitParts; i++) {
+          const created = await createPlanItem(tripId, {
+            ...base,
+            title: `${base.title} (part ${i + 1}/${splitParts})`,
+            cost: shares[i],
+          })
+          onAdded(created)
+        }
+        setEditing(false)
+        return
+      }
+      const updated = await updatePlanItem(tripId, item.id, base)
       onUpdated(updated)
       setEditing(false)
     } catch (err) {
@@ -1271,6 +1300,7 @@ function TimedSection({
   pinNumberForId,
   onSelect,
   onUpdated,
+  onAdded,
   onRemoved,
 }: {
   items: PlanItem[]
@@ -1281,6 +1311,7 @@ function TimedSection({
   pinNumberForId?: (id: string) => number | undefined
   onSelect?: (id: string | null) => void
   onUpdated: (updated: PlanItem) => void
+  onAdded: (item: PlanItem) => void
   onRemoved: (itemId: string) => void
 }) {
   if (items.length === 0) return null
@@ -1301,6 +1332,7 @@ function TimedSection({
               onSelect ? () => onSelect(selectedId === item.id ? null : item.id) : undefined
             }
             onUpdated={onUpdated}
+            onAdded={onAdded}
             onRemoved={onRemoved}
           />
         ))}
@@ -1321,6 +1353,7 @@ function UntimedSection({
   pinNumberForId,
   onSelect,
   onUpdated,
+  onAdded,
   onRemoved,
   onReordered,
 }: {
@@ -1333,6 +1366,7 @@ function UntimedSection({
   pinNumberForId?: (id: string) => number | undefined
   onSelect?: (id: string | null) => void
   onUpdated: (updated: PlanItem) => void
+  onAdded: (item: PlanItem) => void
   onRemoved: (itemId: string) => void
   onReordered: (newUntimed: PlanItem[]) => void
 }) {
@@ -1415,6 +1449,7 @@ function UntimedSection({
               onSelect ? () => onSelect(selectedId === item.id ? null : item.id) : undefined
             }
             onUpdated={onUpdated}
+            onAdded={onAdded}
             onRemoved={onRemoved}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
@@ -1574,6 +1609,7 @@ function PlanningSection({
         pinNumberForId={pinNumberForId}
         onSelect={onSelect}
         onUpdated={handleUpdated}
+        onAdded={handleAdded}
         onRemoved={handleRemoved}
       />
       <UntimedSection
@@ -1586,6 +1622,7 @@ function PlanningSection({
         pinNumberForId={pinNumberForId}
         onSelect={onSelect}
         onUpdated={handleUpdated}
+        onAdded={handleAdded}
         onRemoved={handleRemoved}
         onReordered={handleReordered}
       />
