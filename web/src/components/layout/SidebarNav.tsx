@@ -231,9 +231,23 @@ export function SidebarNav({
           />
         )}
 
-        {restItems.map((item) => (
-          <NavItem key={item.label} item={item} active={isActiveTo(item.to)} />
-        ))}
+        {/* Map / Journal / Budget / Sharing are facets of the selected trip. When
+            a trip is active they nest under the Trip switcher (indented, with a
+            connector) so they read as subtabs of the trip rather than top-level
+            destinations. With no trip they fall back to flat top-level links. */}
+        {tripSwitcher?.selectedTrip ? (
+          <li className="sidebar-nav-subgroup">
+            <ul className="sidebar-nav-sublist" role="list">
+              {restItems.map((item) => (
+                <NavItem key={item.label} item={item} active={isActiveTo(item.to)} />
+              ))}
+            </ul>
+          </li>
+        ) : (
+          restItems.map((item) => (
+            <NavItem key={item.label} item={item} active={isActiveTo(item.to)} />
+          ))
+        )}
 
         {secondaryItems && secondaryItems.length > 0 && (
           <>

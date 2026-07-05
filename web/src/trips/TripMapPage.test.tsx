@@ -139,7 +139,7 @@ describe('TripMapPage', () => {
     expect(within(day3).getByText('No places yet')).toBeInTheDocument()
   })
 
-  it('focuses a day when its row is clicked and unfocuses on a second click', async () => {
+  it('toggles a day on its row click and off on a second click', async () => {
     const user = userEvent.setup()
     renderPage()
     const nav = await daysNav()
@@ -149,6 +149,27 @@ describe('TripMapPage', () => {
     expect(day1).toHaveAttribute('aria-pressed', 'true')
     await user.click(day1)
     expect(day1).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('supports selecting multiple days at once', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const nav = await daysNav()
+    const allDays = nav.getByRole('button', { name: /all days/i })
+    const day1 = nav.getByRole('button', { name: /day 1/i })
+    const day2 = nav.getByRole('button', { name: /day 2/i })
+    // Empty selection = all days.
+    expect(allDays).toHaveAttribute('aria-pressed', 'true')
+    await user.click(day1)
+    await user.click(day2)
+    expect(day1).toHaveAttribute('aria-pressed', 'true')
+    expect(day2).toHaveAttribute('aria-pressed', 'true')
+    expect(allDays).toHaveAttribute('aria-pressed', 'false')
+    // "All days" clears the multi-selection.
+    await user.click(allDays)
+    expect(day1).toHaveAttribute('aria-pressed', 'false')
+    expect(day2).toHaveAttribute('aria-pressed', 'false')
+    expect(allDays).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('renders the map surface with day pins', async () => {

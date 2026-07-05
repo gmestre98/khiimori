@@ -1603,27 +1603,16 @@
 
 /* ── Trip map (whole-trip Map subtab) ───────────────────────────────────────── */
 
-.trip-map-page {
+.trip-map-body {
   display: flex;
   flex-direction: column;
   gap: var(--s5);
 }
 
-.trip-map-page-header {
+.trip-map-head {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-}
-.trip-map-page-title {
-  margin: 0;
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--text-h);
-}
-.trip-map-page-sub {
-  margin: 0;
-  font-size: 13px;
-  color: var(--muted);
+  gap: 4px;
 }
 
 .trip-map-loading,

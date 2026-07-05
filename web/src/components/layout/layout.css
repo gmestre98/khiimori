@@ -191,6 +191,25 @@
   flex: 1;
 }
 
+/* ── Trip sub-tabs (nested under the Trip switcher) ──────────────────────────
+   The trip's facets (Map / Journal / Budget / Sharing) indent under the Trip
+   switcher with a vertical connector so they read as subtabs of the trip. */
+.sidebar-nav-subgroup {
+  list-style: none;
+}
+.sidebar-nav-sublist {
+  list-style: none;
+  margin: 2px 0 2px 21px;
+  padding: 0 0 0 10px;
+  border-left: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidebar-nav-sublist .sidebar-nav-link {
+  font-size: 13px;
+}
+
 /* ── Trip switcher tab ───────────────────────────────────────────────────── */
 
 .trip-switcher {
