@@ -564,14 +564,16 @@ jobs:
           done
 
   e2e:
-    name: E2E (deployed env) — smoke + critical journey
+    name: E2E (deployed env) — smoke + critical journey + role & offline
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     # After both deploys so there's a live target to exercise (M01.5 S9). This is
-    # the pipeline's staging stage: it runs last, so a failing journey fails the
-    # pipeline (a release gate, PRD §7.5). Targets are config-driven repo
-    # variables, so this can point at a dedicated preview/staging env with no
-    # workflow change (see e2e/README.md).
+    # the pipeline's staging stage: it runs last, so a failing spec fails the
+    # pipeline (a release gate, PRD §7.5). The single Playwright run covers the
+    # critical journey (M10.1) plus the role-based-access and offline-sync suites
+    # (M10.2) — they share this one harness/auth/secrets setup, no duplication.
+    # Targets are config-driven repo variables, so this can point at a dedicated
+    # preview/staging env with no workflow change (see e2e/README.md).
     needs: [deploy, deploy-web]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -585,8 +587,9 @@ jobs:
           E2E_WEB_URL: ${{ vars.WEB_BASE_URL }}
         run: bash e2e/smoke.sh
 
-      # The critical-journey suite (M10.1 S2) needs the test-login secret to sign a
-      # test identity into the deployed env. Until the author configures
+      # The browser suites (critical journey M10.1; role-based-access + offline-sync
+      # M10.2) need the test-login secret to sign test identities into the deployed
+      # env. Until the author configures
       # E2E_LOGIN_SECRET (as a repo secret AND on the target service), this gate is
       # false and the browser run is skipped — so the pipeline stays green on the
       # smoke check alone. It activates automatically once the secret is set (the
@@ -628,11 +631,13 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       # The staging stage proper: sign in via the guarded test-login endpoint and
-      # run the critical journey against the deployed app. A failure fails the job,
-      # and this job is the last stage — so a broken journey fails the pipeline
-      # (the release gate). Secrets come from CI (never committed); the URLs are
-      # the same config-driven repo variables the smoke check uses.
-      - name: Run critical-journey E2E (staging)
+      # run the full Playwright suite against the deployed app — the critical
+      # journey plus the role-based-access and offline-sync suites (M10.2), all via
+      # one `npm test`. Any failing spec fails the job, and this job is the last
+      # stage — so a broken guarantee fails the pipeline (the release gate). Secrets
+      # come from CI (never committed); the URLs are the same config-driven repo
+      # variables the smoke check uses.
+      - name: Run E2E suites — critical journey + role + offline (staging)
         if: steps.gate.outputs.enabled == 'true'
         working-directory: e2e
         env:

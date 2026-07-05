@@ -2,6 +2,17 @@
 
 > Milestone: [10 — Testing & Hardening](../README.md) · PRD refs: §5.9, §6, §7.6.
 
+> **Status:** ✅ Done — PRs [#411](https://github.com/gmestre98/khiimori/pull/411) (S1 role-based access),
+> [#412](https://github.com/gmestre98/khiimori/pull/412) (S2 offline sync), [#413](https://github.com/gmestre98/khiimori/pull/413)
+> (S3 CI integration + docs). All **4 ACs** met. The E2E harness (Epic 01) now also proves the two
+> cross-cutting guarantees: **role-based access** (owner + invited Editor + Viewer + non-member on one
+> trip; server-side enforcement asserted at the API — editor writes 2xx, viewer read 200 / write 404,
+> non-member 404) and **offline → online sync** (plan + journal edits queue offline and reconcile on
+> reconnect exactly once, via the single shared write queue). Both run in the post-merge `e2e` staging
+> stage alongside the critical journey and gate the pipeline. Backend additions (multi-identity
+> test-login, gated invite-token exposure) and the plan-quick-add offline path are all gated on the
+> existing `E2E_LOGIN_SECRET`, so production exposes no new surface.
+
 ## Description
 
 Extend the E2E harness (Epic 01) to exercise the two cross-cutting guarantees that span the whole
@@ -14,14 +25,16 @@ just in unit tests.
 
 ## Acceptance Criteria
 
-- [ ] E2E covers **role-based access**: an **Editor edits**, a **Viewer is read-only**, and a
+- [x] E2E covers **role-based access**: an **Editor edits**, a **Viewer is read-only**, and a
       **non-member is denied** — exercising the server-side authorization guarantee (PRD §5.9, §6,
-      Milestone 08).
-- [ ] E2E covers **offline → online sync** for **journal and plan edits**: changes made offline queue
-      and reconcile on reconnect with no loss/duplication (PRD §6, Milestones 04/06).
-- [ ] Both suites run in the **staging CI stage** alongside the critical journey (Epic 01) (PRD §7.5).
-- [ ] Tests assert server-side enforcement (unauthorized actions yield `403`/`404`, not data), not
-      just hidden UI (PRD §5.9).
+      Milestone 08). — S1, `e2e/tests/role-access.spec.ts`.
+- [x] E2E covers **offline → online sync** for **journal and plan edits**: changes made offline queue
+      and reconcile on reconnect with no loss/duplication (PRD §6, Milestones 04/06). — S2,
+      `e2e/tests/offline-sync.spec.ts` (day plan quick-add wired to the shared offline queue).
+- [x] Both suites run in the **staging CI stage** alongside the critical journey (Epic 01) (PRD §7.5). —
+      S3, the `e2e` job's `npm test` runs all specs; job/step names updated.
+- [x] Tests assert server-side enforcement (unauthorized actions yield `403`/`404`, not data), not
+      just hidden UI (PRD §5.9). — S1 asserts deny-by-default `404` via direct API calls per identity.
 
 ## Implementation Details / Architecture
 
