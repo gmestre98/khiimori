@@ -41,6 +41,14 @@ const ICONS = {
   trips: ic('M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7M12 11v10'),
   // Suitcase — the single active trip.
   trip: icMulti('M4 8h16v11a1 1 0 01-1 1H5a1 1 0 01-1-1V8z', 'M9 8V5a1 1 0 011-1h4a1 1 0 011 1v3'),
+  plan: icMulti(
+    'M9 6h11',
+    'M9 12h11',
+    'M9 18h11',
+    'M4.5 6l1 1 2-2',
+    'M4.5 12l1 1 2-2',
+    'M4.5 18l1 1 2-2',
+  ),
   map: ic('M9 4L3 7v13l6-3 6 3 6-3V4l-6 3-6-3zM9 4v13M15 7v13'),
   journal: ic('M5 3h11l3 3v15H5zM9 8h7M9 12h7M9 16h4'),
   budget: ic('M4 19V9m5 10V5m5 14v-7m5 7V8'),
@@ -54,9 +62,9 @@ const ICONS = {
   admin: ic('M3 5h18M3 12h18M3 19h18'),
 }
 
-// Map / Journal / Budget / Sharing are facets of a single trip, so when a trip is
-// active these point into it. Map, Journal, Budget, and Sharing each have their
-// own trip subtab route. With no active trip they fall back to the dashboard.
+// Plan / Map / Journal / Budget / Sharing are facets of a single trip, so when a
+// trip is active these point into it. Each has its own trip subtab route. With no
+// active trip they fall back to the dashboard.
 // From any trip screen the "← Trips" crumb returns to the dashboard to pick a
 // different trip.
 function tripPath(activeTripId: string | null, suffix = ''): string {
@@ -72,6 +80,7 @@ export const TRIP_TAB_ICON = ICONS.trip
 export function buildSidebarNavItems(activeTripId: string | null): BottomNavItem[] {
   return [
     { to: '/', label: 'My Trips', icon: ICONS.trips },
+    { to: tripPath(activeTripId, '/plan'), label: 'Plan', icon: ICONS.plan },
     { to: tripPath(activeTripId, '/map'), label: 'Map', icon: ICONS.map },
     { to: tripPath(activeTripId, '/journal'), label: 'Journal', icon: ICONS.journal },
     { to: tripPath(activeTripId, '/budget'), label: 'Budget', icon: ICONS.budget },

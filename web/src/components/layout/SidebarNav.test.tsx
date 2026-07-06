@@ -92,6 +92,12 @@ describe('SidebarNav', () => {
     )
   })
 
+  it('highlights Plan on its own trip subtab route', () => {
+    renderNav('/trips/abc/plan', buildSidebarNavItems('abc'))
+    expect(screen.getByRole('link', { name: /^plan$/i })).toHaveClass('sidebar-nav-link--active')
+    expect(screen.getByRole('link', { name: /^map$/i })).not.toHaveClass('sidebar-nav-link--active')
+  })
+
   it('highlights Map on its own trip subtab route', () => {
     renderNav('/trips/abc/map', buildSidebarNavItems('abc'))
     expect(screen.getByRole('link', { name: /^map$/i })).toHaveClass('sidebar-nav-link--active')
