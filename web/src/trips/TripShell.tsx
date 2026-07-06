@@ -93,6 +93,7 @@ function TripShell() {
   const isAtRoot =
     !dateParam &&
     !location.pathname.endsWith('/backlog') &&
+    !location.pathname.endsWith('/plan') &&
     !location.pathname.endsWith('/map') &&
     !location.pathname.endsWith('/journal') &&
     !location.pathname.endsWith('/budget') &&
@@ -122,6 +123,14 @@ function TripShell() {
           )}
         </div>
         <div className="row gap2 trip-shell-actions">
+          <Link
+            to={`/trips/${trip.id}/plan`}
+            state={{ trip }}
+            className="btn btn-ghost btn-sm"
+            aria-label={`Plan for ${trip.name}`}
+          >
+            Plan
+          </Link>
           <Link
             to={`/trips/${trip.id}/map`}
             state={{ trip }}

@@ -1,0 +1,187 @@
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
+import { Link } from 'react-router-dom'
+import { UnauthorizedError, datesInRange, fetchDay, type Day, type PlanItem } from '../lib/api'
+import { fullDate, shortDate } from '../lib/format'
+import { PlanningSection } from './DayView'
+import { useTripShell } from './useTripShell'
+
+// hasPlan reports whether a day has anything planned yet — an activity/note or a
+// stay. Drives the filled rail dot so a glance shows which days still need work.
+function hasPlan(day: Day): boolean {
+  return day.plan_items.length > 0 || day.stays.length > 0
+}
+
+// dayCaption is the muted status line under each rail row.
+function dayCaption(day: Day): string {
+  const n = day.plan_items.length
+  const s = day.stays.length
+  if (n === 0 && s === 0) return 'Nothing planned yet'
+  const parts: string[] = []
+  if (n > 0) parts.push(`${n} ${n === 1 ? 'item' : 'items'}`)
+  if (s > 0) parts.push(`${s} ${s === 1 ? 'stay' : 'stays'}`)
+  return parts.join(' · ')
+}
+
+// TripPlanPage is the trip-scoped Plan subtab (/trips/:tripId/plan). It is a
+// plan-only surface — no map, budget, or journal — mirroring the whole-trip Map
+// and Journal subtabs. A left rail lists every day (with its plan status) plus a
+// "Whole trip" row and a link to the ideas backlog. Selecting a day opens that
+// day's full planner (reusing PlanningSection from the day view); "Whole trip"
+// (the default) stacks every day's planner so you can add to and edit any day
+// from one scroll. It loads each day once on mount.
+export function TripPlanPage() {
+  const { trip } = useTripShell()
+  const dates = datesInRange(trip.start_date, trip.end_date)
+
+  const [days, setDays] = useState<Day[] | null>(null)
+  const [error, setError] = useState(false)
+  // selectedDate is the day being planned on the right; null means the whole-trip
+  // stack (the landing view).
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    Promise.all(dates.map((d) => fetchDay(trip.id, d, controller.signal)))
+      .then((loaded) => {
+        if (controller.signal.aborted) return
+        setDays(loaded)
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return
+        if (err instanceof UnauthorizedError) return
+        setError(true)
+      })
+    return () => controller.abort()
+    // trip.id is stable (TripShell remounts per trip); dates derive from it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trip.id])
+
+  // setItemsForDate returns a Dispatch that mutates one day's plan_items in the
+  // loaded list, so each PlanningSection can add/edit/reorder items in place and
+  // the rail status stays in sync — the whole-trip stack shares one source.
+  function setItemsForDate(date: string): Dispatch<SetStateAction<PlanItem[]>> {
+    return (action) => {
+      setDays((cur) =>
+        cur
+          ? cur.map((d) =>
+              d.date === date
+                ? {
+                    ...d,
+                    plan_items:
+                      typeof action === 'function'
+                        ? (action as (prev: PlanItem[]) => PlanItem[])(d.plan_items)
+                        : action,
+                  }
+                : d,
+            )
+          : cur,
+      )
+    }
+  }
+
+  const selected = days?.find((d) => d.date === selectedDate) ?? null
+  const totalItems = (days ?? []).reduce((sum, d) => sum + d.plan_items.length, 0)
+
+  return (
+    <article className="trip-plan-page" aria-label={`Plan for ${trip.name}`}>
+      <div className="screen-content trip-plan-body">
+        <header className="trip-plan-head">
+          <h1 className="h1">Trip plan</h1>
+          <p className="meta">Build your itinerary day by day, or scan the whole trip at once.</p>
+        </header>
+
+        {error ? (
+          <p role="alert" className="trip-plan-error">
+            Could not load the trip plan.
+          </p>
+        ) : days === null ? (
+          <p className="trip-plan-loading" aria-busy="true">
+            Loading trip plan…
+          </p>
+        ) : (
+          <div className="trip-plan-layout">
+            <nav className="trip-plan-days" aria-label="Days">
+              <button
+                type="button"
+                className={['trip-plan-day', selectedDate === null ? 'trip-plan-day--active' : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-pressed={selectedDate === null}
+                onClick={() => setSelectedDate(null)}
+              >
+                <span className="trip-plan-day-dot trip-plan-day-dot--all" aria-hidden="true" />
+                <span className="trip-plan-day-label">Whole trip</span>
+                <span className="trip-plan-day-meta">
+                  {totalItems > 0
+                    ? `${totalItems} ${totalItems === 1 ? 'item' : 'items'} planned`
+                    : 'Plan the whole trip'}
+                </span>
+              </button>
+              {days.map((d) => (
+                <button
+                  key={d.date}
+                  type="button"
+                  className={[
+                    'trip-plan-day',
+                    selectedDate === d.date ? 'trip-plan-day--active' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  aria-pressed={selectedDate === d.date}
+                  onClick={() => setSelectedDate(d.date)}
+                >
+                  <span
+                    className={['trip-plan-day-dot', hasPlan(d) ? 'trip-plan-day-dot--filled' : '']
+                      .filter(Boolean)
+                      .join(' ')}
+                    aria-hidden="true"
+                  />
+                  <span className="trip-plan-day-label">
+                    Day {d.index + 1} · {shortDate(d.date)}
+                  </span>
+                  <span className="trip-plan-day-meta">{dayCaption(d)}</span>
+                </button>
+              ))}
+              <Link
+                to={`/trips/${trip.id}/backlog`}
+                state={{ trip }}
+                className="trip-plan-backlog"
+                aria-label="View ideas backlog"
+              >
+                💡 Ideas backlog
+              </Link>
+            </nav>
+
+            <div className="trip-plan-panel">
+              {selected ? (
+                <PlanningSection
+                  key={selected.id}
+                  day={selected}
+                  items={selected.plan_items}
+                  setItems={setItemsForDate(selected.date)}
+                  tripId={trip.id}
+                  title={`Day ${selected.index + 1} · ${fullDate(selected.date)}`}
+                  showBacklogLink={false}
+                />
+              ) : (
+                <div className="trip-plan-feed">
+                  {days.map((d) => (
+                    <PlanningSection
+                      key={d.id}
+                      day={d}
+                      items={d.plan_items}
+                      setItems={setItemsForDate(d.date)}
+                      tripId={trip.id}
+                      title={`Day ${d.index + 1} · ${shortDate(d.date)}`}
+                      showBacklogLink={false}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </article>
+  )
+}
