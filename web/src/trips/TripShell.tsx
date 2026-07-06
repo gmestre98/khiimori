@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Link, Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { UnauthorizedError, datesInRange, fetchTrips, type Trip } from '../lib/api'
 import { shortDate } from '../lib/format'
 import { useActiveTripOffline } from '../lib/activeTripSync'
+import { useCachedResource } from '../lib/useCachedResource'
+import { cacheKeys } from '../lib/cacheKeys'
+import { CacheStatus } from '../components/CacheStatus'
 
 // todayStr returns today's date as YYYY-MM-DD in local time.
 function todayStr(): string {
@@ -39,39 +42,38 @@ function TripShell() {
   // Trip may be passed via Link state (from the dashboard) to avoid a refetch.
   const stateTrip = (location.state as { trip?: Trip } | null)?.trip ?? null
 
-  const [trip, setTrip] = useState<Trip | null>(stateTrip)
-  const [loading, setLoading] = useState(stateTrip === null)
-  const [error, setError] = useState<string | null>(null)
-
   // Register this trip with the service worker so its API reads are cached for
   // offline viewing (M09.4 S3); leaving the trip clears the cache.
   useActiveTripOffline(tripId ?? null)
 
-  useEffect(() => {
-    // stateTrip was already used to initialize state above — skip the fetch.
-    if (stateTrip) return
-    const controller = new AbortController()
-    fetchTrips(controller.signal)
-      .then((data) => {
-        const all = [...data.current, ...data.upcoming, ...data.past]
-        const found = all.find((t) => t.id === tripId) ?? null
-        if (!found) {
-          setError('Trip not found.')
-        } else {
-          setTrip(found)
-        }
-        setLoading(false)
-      })
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === 'AbortError') return
-        if (err instanceof UnauthorizedError) return
-        setError('Could not load trip.')
-        setLoading(false)
-      })
-    return () => controller.abort()
-    // tripId is stable per mount (TripShellRoute's key remounts on tripId change).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // Resolve the trip from the user's trips list via the instant-render cache: a
+  // previously-loaded trips list renders the name/dates immediately (no wait for
+  // the backend cold start), then revalidates. Skip the fetch entirely when the
+  // trip was handed over via Link state (navigated from the dashboard).
+  const {
+    data: trips,
+    error: loadError,
+    fromCache,
+    isValidating,
+  } = useCachedResource(stateTrip ? null : cacheKeys.trips(), (signal) => fetchTrips(signal))
+
+  const trip =
+    stateTrip ??
+    (trips
+      ? ([...trips.current, ...trips.upcoming, ...trips.past].find((t) => t.id === tripId) ?? null)
+      : null)
+
+  // Loading while the list hasn't resolved yet (and no Link-state trip); "not
+  // found" only once the list has resolved without the trip. UnauthorizedError
+  // is handled app-wide (central 401 handler → re-auth), so treat it as loading.
+  const loading = !stateTrip && trips === null && loadError === null
+  const notFound = trips !== null && !stateTrip && trip === null
+  const error =
+    loadError && !(loadError instanceof UnauthorizedError)
+      ? 'Could not load trip.'
+      : notFound
+        ? 'Trip not found.'
+        : null
 
   if (loading) {
     return (
@@ -115,6 +117,7 @@ function TripShell() {
           </Link>
           <span className="trip-shell-sep">›</span>
           <h1 className="trip-shell-name">{trip.name}</h1>
+          <CacheStatus fromCache={fromCache} isValidating={isValidating} />
           {trip.destinations.length > 0 && (
             <>
               <span className="trip-shell-sep trip-shell-sep--dest">·</span>

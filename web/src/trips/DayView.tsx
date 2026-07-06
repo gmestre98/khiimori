@@ -32,6 +32,9 @@ import {
 import { fullDate } from '../lib/format'
 import { enqueue } from '../lib/mutationQueue'
 import { useIsOnline } from '../lib/useIsOnline'
+import { readCache, writeCache } from '../lib/resourceCache'
+import { cacheKeys } from '../lib/cacheKeys'
+import { CacheStatus } from '../components/CacheStatus'
 import { JournalEditor } from '../journal/JournalEditor'
 import { DayBudgetEditor } from './BudgetEditor'
 import { FastAddCost } from './FastAddCost'
@@ -1658,7 +1661,10 @@ function BudgetSlot({ tripId, day }: { tripId: string; day: Day }) {
   const loadRollup = useCallback(
     (signal?: AbortSignal) => {
       fetchBudgetRollup(tripId, signal)
-        .then((r) => setRollup(r))
+        .then((r) => {
+          setRollup(r)
+          void writeCache(cacheKeys.budgetRollup(tripId), r)
+        })
         .catch((err: unknown) => {
           if (err instanceof DOMException && err.name === 'AbortError') return
         })
@@ -1668,9 +1674,20 @@ function BudgetSlot({ tripId, day }: { tripId: string; day: Day }) {
 
   useEffect(() => {
     const controller = new AbortController()
-    loadRollup(controller.signal)
-    return () => controller.abort()
-  }, [loadRollup, day.id])
+    let done = false
+    // Instant-render: seed the roll-up from cache, then refresh. Sequencing the
+    // fetch after the cache read means a slow fresh response can't be overwritten
+    // by a late-arriving cached value.
+    void readCache<BudgetRollup>(cacheKeys.budgetRollup(tripId)).then((cached) => {
+      if (done) return
+      if (cached) setRollup(cached.data)
+      loadRollup(controller.signal)
+    })
+    return () => {
+      done = true
+      controller.abort()
+    }
+  }, [loadRollup, day.id, tripId])
 
   function handleLineUpdated(line: BudgetLine) {
     setLines((prev) => {
@@ -1842,6 +1859,12 @@ export function DayView() {
   // map pin legend and the planning list (Epic 04 S1).
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
+  // Instant-render cache state (M11.1 S2): seededFromCache is true while the day
+  // shown came from the on-device cache; revalidating is true while the
+  // background fetch runs. Together they drive the subtle "Updating…" hint.
+  const [seededFromCache, setSeededFromCache] = useState(false)
+  const [revalidating, setRevalidating] = useState(false)
+
   // Derive loading: we are loading when neither a day result nor an error for
   // the current date param is available yet — no synchronous setState needed.
   const loading = day?.date !== date && fetchError?.date !== date
@@ -1850,19 +1873,45 @@ export function DayView() {
   useEffect(() => {
     if (!tripId || !date) return
     const controller = new AbortController()
+    let done = false
+    const key = cacheKeys.day(tripId, date)
 
-    fetchDay(tripId, date, controller.signal)
-      .then((d) => {
-        setDay(d)
-        setPlanItems(d.plan_items)
-      })
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === 'AbortError') return
-        if (err instanceof UnauthorizedError) return
-        setFetchError({ date, msg: 'Could not load day.' })
-      })
+    // Instant-render: paint the last-known day from cache first (so a backend
+    // cold start / weak connection doesn't show a spinner), then revalidate and
+    // swap in fresh data. A failed refresh is non-destructive — the cached day
+    // stays on screen and no error is shown.
+    void readCache<Day>(key).then((cached) => {
+      if (done) return
+      const hasCache = cached !== null && cached.data.date === date
+      if (hasCache) {
+        setDay(cached.data)
+        setPlanItems(cached.data.plan_items)
+        setSeededFromCache(true)
+      }
+      setRevalidating(true)
+      return fetchDay(tripId, date, controller.signal).then(
+        (d) => {
+          if (done) return
+          setDay(d)
+          setPlanItems(d.plan_items)
+          setSeededFromCache(false)
+          setRevalidating(false)
+          void writeCache(key, d)
+        },
+        (err: unknown) => {
+          if (done) return
+          setRevalidating(false)
+          if (err instanceof DOMException && err.name === 'AbortError') return
+          if (err instanceof UnauthorizedError) return
+          if (!hasCache) setFetchError({ date, msg: 'Could not load day.' })
+        },
+      )
+    })
 
-    return () => controller.abort()
+    return () => {
+      done = true
+      controller.abort()
+    }
   }, [tripId, date])
 
   // liveDay overlays the live plan items onto the fetched day so the map and the
@@ -1875,7 +1924,10 @@ export function DayView() {
   return (
     <article className="day-view" aria-label={date ? `Day ${dayNumber ?? ''} — ${date}` : 'Day'}>
       <header className="day-view-header">
-        <h2 className="day-view-title">{dayNumber !== null ? `Day ${dayNumber}` : 'Day'}</h2>
+        <h2 className="day-view-title">
+          {dayNumber !== null ? `Day ${dayNumber}` : 'Day'}
+          <CacheStatus fromCache={seededFromCache} isValidating={revalidating} />
+        </h2>
         {date && (
           <time className="day-view-date" dateTime={date}>
             {fullDate(date)}

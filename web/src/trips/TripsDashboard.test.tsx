@@ -3,6 +3,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router-dom'
 import { TripsDashboard } from './TripsDashboard'
 import type { TripsResponse } from '../lib/api'
+import { writeCache } from '../lib/resourceCache'
+import { cacheKeys } from '../lib/cacheKeys'
 
 afterEach(() => {
   cleanup()
@@ -57,6 +59,39 @@ describe('TripsDashboard', () => {
     expect(screen.getByRole('tab', { name: /current/i })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /upcoming/i })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /past/i })).toBeInTheDocument()
+  })
+
+  it('renders cached trips instantly, before the network responds (M11.1)', async () => {
+    // Seed the on-device cache, then make the network hang. The dashboard should
+    // paint the cached trip with no loading spinner — the instant-render path
+    // that hides the backend cold start.
+    await writeCache(cacheKeys.trips(), { current: [], upcoming: [tripB], past: [] })
+    vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise<Response>(() => {}))
+
+    render(
+      <MemoryRouter>
+        <TripsDashboard />
+      </MemoryRouter>,
+    )
+
+    // Cached content appears without waiting for fetch; no loading text shows.
+    await waitFor(() => expect(screen.getByText('Portugal 2025')).toBeInTheDocument())
+    expect(screen.queryByText(/loading/i)).not.toBeInTheDocument()
+  })
+
+  it('keeps showing cached trips when the refresh fails (M11.1)', async () => {
+    await writeCache(cacheKeys.trips(), { current: [], upcoming: [tripB], past: [] })
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('offline'))
+
+    render(
+      <MemoryRouter>
+        <TripsDashboard />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => expect(screen.getByText('Portugal 2025')).toBeInTheDocument())
+    // Non-destructive: a failed refresh does not replace cached data with an error.
+    expect(screen.queryByText(/could not load/i)).not.toBeInTheDocument()
   })
 
   it('shows empty-state messages when buckets are empty', async () => {

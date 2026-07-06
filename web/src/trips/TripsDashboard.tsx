@@ -14,6 +14,9 @@ import { CurrentTripCard } from './CurrentTripCard'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { BudgetGlance } from './RollupDisplay'
 import { formatDateRange, monthYear, tripDayCount } from '../lib/format'
+import { readCache, writeCache } from '../lib/resourceCache'
+import { cacheKeys } from '../lib/cacheKeys'
+import { CacheStatus } from '../components/CacheStatus'
 
 type Tab = 'current' | 'past'
 type PendingAction = { type: 'archive' | 'delete'; trip: Trip }
@@ -160,32 +163,69 @@ export function TripsDashboard() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [currentRollup, setCurrentRollup] = useState<BudgetRollup | null>(null)
   const [tab, setTab] = useState<Tab>('current')
+  // Instant-render cache state (M11.1 S2): true while showing the cached trips
+  // list and while a background refresh runs — drives the subtle "Updating…"
+  // hint so the dashboard never blocks on the backend cold start.
+  const [fromCache, setFromCache] = useState(false)
+  const [validating, setValidating] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
+    let done = false
+    const key = cacheKeys.trips()
 
-    fetchTrips(controller.signal)
-      .then((trips) => {
-        setData(trips)
+    // Fetch the current trip's budget roll-up (best-effort, non-blocking).
+    const loadRollup = (trips: TripsResponse) => {
+      const current = trips.current.find((t) => t.is_current)
+      if (!current) return
+      fetchBudgetRollup(current.id, controller.signal)
+        .then((r) => {
+          if (!done) setCurrentRollup(r)
+        })
+        .catch(() => {})
+    }
+
+    // Instant-render: paint the cached trips list first (no spinner on cold
+    // start), then revalidate. A failed refresh keeps the cached list on screen.
+    void readCache<TripsResponse>(key).then((cached) => {
+      if (done) return
+      if (cached) {
+        setData(cached.data)
         setLoading(false)
-        const current = trips.current.find((t) => t.is_current)
-        if (current) {
-          fetchBudgetRollup(current.id, controller.signal)
-            .then((r) => setCurrentRollup(r))
-            .catch(() => {})
-        }
-      })
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === 'AbortError') {
+        setFromCache(true)
+        loadRollup(cached.data)
+      }
+      setValidating(true)
+      return fetchTrips(controller.signal).then(
+        (trips) => {
+          if (done) return
+          setData(trips)
           setLoading(false)
-          return
-        }
-        if (err instanceof UnauthorizedError) return
-        setError('Could not load trips. Please try again.')
-        setLoading(false)
-      })
+          setFromCache(false)
+          setValidating(false)
+          void writeCache(key, trips)
+          loadRollup(trips)
+        },
+        (err: unknown) => {
+          if (done) return
+          setValidating(false)
+          if (err instanceof DOMException && err.name === 'AbortError') {
+            setLoading(false)
+            return
+          }
+          if (err instanceof UnauthorizedError) return
+          if (!cached) {
+            setError('Could not load trips. Please try again.')
+            setLoading(false)
+          }
+        },
+      )
+    })
 
-    return () => controller.abort()
+    return () => {
+      done = true
+      controller.abort()
+    }
   }, [])
 
   const handleCancel = useCallback(() => setPending(null), [])
@@ -199,11 +239,15 @@ export function TripsDashboard() {
     try {
       if (type === 'archive') {
         await archiveTrip(trip.id)
-        setData(removeTripFromData(data, trip.id))
+        const next = removeTripFromData(data, trip.id)
+        setData(next)
+        void writeCache(cacheKeys.trips(), next)
         setArchived((prev) => [trip, ...prev])
       } else {
         await deleteTrip(trip.id)
-        setData(removeTripFromData(data, trip.id))
+        const next = removeTripFromData(data, trip.id)
+        setData(next)
+        void writeCache(cacheKeys.trips(), next)
         setArchived((prev) => prev.filter((t) => t.id !== trip.id))
       }
     } catch {
@@ -250,7 +294,10 @@ export function TripsDashboard() {
 
       {/* Top nav bar */}
       <div className="trips-dashboard-topnav">
-        <div className="trips-dashboard-crumbs">My trips</div>
+        <div className="trips-dashboard-crumbs">
+          My trips
+          <CacheStatus fromCache={fromCache} isValidating={validating} />
+        </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <Link to="/trips/new" className="btn-primary trips-new-btn">
             <PlusIcon /> New trip

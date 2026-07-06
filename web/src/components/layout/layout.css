@@ -517,6 +517,17 @@
   text-align: center;
 }
 
+/* Subtle "viewing saved data, refreshing" hint for the instant-render cache
+   (M11.1). Inline, muted, non-blocking — it sits beside a heading while the
+   background revalidation runs. */
+.cache-updating {
+  margin-left: var(--s2);
+  color: var(--muted);
+  font-size: var(--t-xs);
+  font-weight: 400;
+  vertical-align: middle;
+}
+
 .sync-status {
   position: fixed;
   left: 50%;

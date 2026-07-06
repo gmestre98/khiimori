@@ -4,6 +4,8 @@ import { UnauthorizedError, datesInRange, fetchDay, type Day, type PlanItem } fr
 import { fullDate, shortDate } from '../lib/format'
 import { PlanningSection } from './DayView'
 import { useTripShell } from './useTripShell'
+import { readCache, writeCache } from '../lib/resourceCache'
+import { cacheKeys } from '../lib/cacheKeys'
 
 // hasPlan reports whether a day has anything planned yet — an activity/note or a
 // stay. Drives the filled rail dot so a glance shows which days still need work.
@@ -41,17 +43,34 @@ export function TripPlanPage() {
 
   useEffect(() => {
     const controller = new AbortController()
-    Promise.all(dates.map((d) => fetchDay(trip.id, d, controller.signal)))
-      .then((loaded) => {
-        if (controller.signal.aborted) return
-        setDays(loaded)
-      })
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === 'AbortError') return
-        if (err instanceof UnauthorizedError) return
-        setError(true)
-      })
-    return () => controller.abort()
+    let done = false
+
+    // Instant-render: if every day is already cached (shared per-day keys with
+    // the day view, so a browsed trip is warm), paint the whole planner first,
+    // then revalidate. A failed refresh with a full cache is non-destructive.
+    void Promise.all(dates.map((d) => readCache<Day>(cacheKeys.day(trip.id, d)))).then((cached) => {
+      if (done) return
+      const cachedDays = cached.map((c) => c?.data).filter((d): d is Day => d != null)
+      const hadFullCache = cachedDays.length === dates.length
+      if (hadFullCache) setDays(cachedDays)
+
+      return Promise.all(dates.map((d) => fetchDay(trip.id, d, controller.signal)))
+        .then((loaded) => {
+          if (done) return
+          setDays(loaded)
+          loaded.forEach((day) => void writeCache(cacheKeys.day(trip.id, day.date), day))
+        })
+        .catch((err: unknown) => {
+          if (err instanceof DOMException && err.name === 'AbortError') return
+          if (err instanceof UnauthorizedError) return
+          if (!hadFullCache) setError(true)
+        })
+    })
+
+    return () => {
+      done = true
+      controller.abort()
+    }
     // trip.id is stable (TripShell remounts per trip); dates derive from it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip.id])
