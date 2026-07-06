@@ -5,6 +5,8 @@ import { useState } from 'react'
 import { JournalEditor } from './JournalEditor'
 import * as api from '../lib/api'
 import type { JournalEntry } from '../lib/api'
+import { writeCache } from '../lib/resourceCache'
+import { cacheKeys } from '../lib/cacheKeys'
 
 vi.mock('../lib/api', async (importOriginal) => {
   const orig = await importOriginal<typeof api>()
@@ -80,5 +82,31 @@ describe('JournalEditor onEntryChange', () => {
     // settled to exactly one save.
     await new Promise((r) => setTimeout(r, 2500))
     expect(vi.mocked(api.upsertJournalEntry)).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('JournalEditor instant-render cache (M11.1)', () => {
+  it('renders a cached entry instantly, before the network responds', async () => {
+    await writeCache(cacheKeys.journal('trip-1', 'day-1'), makeEntry('Cached thoughts'))
+    // Network hangs: only the cache can satisfy the first paint.
+    vi.mocked(api.fetchJournalEntry).mockReturnValue(new Promise<JournalEntry>(() => {}))
+
+    render(<JournalEditor tripId="trip-1" dayId="day-1" />)
+
+    const textarea = await screen.findByRole('textbox', { name: 'Journal entry' })
+    expect(textarea).toHaveValue('Cached thoughts')
+  })
+
+  it('hydrating from cache + fetch does not trigger an auto-save', async () => {
+    await writeCache(cacheKeys.journal('trip-1', 'day-1'), makeEntry('Loaded body'))
+    vi.mocked(api.fetchJournalEntry).mockResolvedValue(makeEntry('Loaded body'))
+
+    render(<JournalEditor tripId="trip-1" dayId="day-1" />)
+    await screen.findByDisplayValue('Loaded body')
+
+    // Wait past the 800 ms debounce: loading (cache seed + fetch) is not a user
+    // edit, so nothing should be saved.
+    await new Promise((r) => setTimeout(r, 1000))
+    expect(api.upsertJournalEntry).not.toHaveBeenCalled()
   })
 })

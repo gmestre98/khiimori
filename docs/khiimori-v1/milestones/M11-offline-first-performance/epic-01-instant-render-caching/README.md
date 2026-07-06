@@ -1,6 +1,6 @@
 # Epic M11.1 — Instant-render caching
 
-> **Status:** ✅ Done — all 3 stories shipped across PRs [#433](https://github.com/gmestre98/khiimori/pull/433) (docs), [#434](https://github.com/gmestre98/khiimori/pull/434) (S1), [#435](https://github.com/gmestre98/khiimori/pull/435) (S2), and this docs PR (S3). 6/6 ACs satisfied; verified live in a browser (cached first paint, "Updating…" hint, full offline render of trip + day) and by the deployed E2E suite. No new runtime deps; €0/month-idle unchanged. Journal read-caching is a tracked follow-up (see AC3/AC4 note).
+> **Status:** ✅ Done — all 3 stories shipped across PRs [#433](https://github.com/gmestre98/khiimori/pull/433) (docs), [#434](https://github.com/gmestre98/khiimori/pull/434) (S1), [#435](https://github.com/gmestre98/khiimori/pull/435) (S2), and this docs PR (S3). 6/6 ACs satisfied; verified live in a browser (cached first paint, "Updating…" hint, full offline render of trip + day) and by the deployed E2E suite. No new runtime deps; €0/month-idle unchanged. **Follow-up done:** journal read-caching landed in a later PR (the `JournalEditor` auto-save was decoupled from load so cache-seeding is safe), verified in-browser (offline journal render, no spurious save).
 
 > Milestone: [11 — Offline-First Performance](../README.md) · PRD refs: §6 (Offline), §7.0, §7.2, §8.6.
 
@@ -31,9 +31,9 @@ success the affected cache keys are refreshed.
 - [x] Reads are **stale-while-revalidate**: cached data shows immediately, then the screen updates
       silently when the background refresh completes; a **subtle affordance** tells the user when
       they're viewing saved data or a refresh is in flight (PRD §5.10, §6). — S2 (the "Updating…"
-      hint + app-wide OfflineBanner). Trips list, day view, plan and budget are migrated; **journal
-      read-caching is a tracked follow-up** — `JournalEditor`'s auto-save is gated on load, so
-      cache-seeding it needs a small refactor to avoid spurious/queued saves.
+      hint + app-wide OfflineBanner). Trips list, day view, plan, budget **and journal** are
+      migrated. (Journal shipped as a follow-up: its load-gated auto-save was decoupled so
+      cache-seeding no longer risks spurious/queued saves.)
 - [x] On a **weak or absent connection**, read screens still show the last-known data instead of an
       error/spinner; writes continue to queue (unchanged) (PRD §6). — S2 + S3 (verified: with `fetch`
       forced to fail, the dashboard and the trip's day both rendered from cache with no error)
