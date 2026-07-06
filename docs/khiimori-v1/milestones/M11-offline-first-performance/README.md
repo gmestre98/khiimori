@@ -32,7 +32,7 @@ declined to protect the €0-idle goal. Writes/queue semantics are unchanged (ow
 
 | # | Epic | Summary | Status |
 |---|------|---------|--------|
-| [01](epic-01-instant-render-caching/README.md) | Instant-render caching | On-device cache + SWR hook + read-surface migration; instant render, cold-start hidden, offline reads across all trips | Planned |
+| [01](epic-01-instant-render-caching/README.md) | Instant-render caching | On-device cache + SWR hook + read-surface migration; instant render, cold-start hidden, offline reads across all trips | ✅ Done (#434, #435) |
 
 ## Conventions
 

@@ -1,5 +1,7 @@
 # Story M11.1-S1 — IndexedDB cache primitive + SWR hook
 
+> **Status:** ✅ Done — [#434](https://github.com/gmestre98/khiimori/pull/434). 13 tests.
+
 **Epic:** [M11.1 Instant-render caching](README.md) · **Est.** ~3h · **Epic AC:** AC1, AC2, AC5, AC6
 
 ## Goal

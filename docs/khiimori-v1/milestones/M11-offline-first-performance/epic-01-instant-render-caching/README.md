@@ -1,6 +1,6 @@
 # Epic M11.1 — Instant-render caching
 
-> **Status:** 🚧 Planned — 3 stories.
+> **Status:** ✅ Done — all 3 stories shipped across PRs [#433](https://github.com/gmestre98/khiimori/pull/433) (docs), [#434](https://github.com/gmestre98/khiimori/pull/434) (S1), [#435](https://github.com/gmestre98/khiimori/pull/435) (S2), and this docs PR (S3). 6/6 ACs satisfied; verified live in a browser (cached first paint, "Updating…" hint, full offline render of trip + day) and by the deployed E2E suite. No new runtime deps; €0/month-idle unchanged. Journal read-caching is a tracked follow-up (see AC3/AC4 note).
 
 > Milestone: [11 — Offline-First Performance](../README.md) · PRD refs: §6 (Offline), §7.0, §7.2, §8.6.
 
@@ -22,18 +22,25 @@ success the affected cache keys are refreshed.
 
 ## Acceptance Criteria
 
-- [ ] Read screens render **cached data on first paint** when a cached copy exists — no full-screen
-      spinner while the backend cold-starts (PRD §6, §8.6). — S1 + S2
-- [ ] Cached reads are persisted **on-device in IndexedDB** and survive a page reload / app restart,
+- [x] Read screens render **cached data on first paint** when a cached copy exists — no full-screen
+      spinner while the backend cold-starts (PRD §6, §8.6). — S1 + S2 (verified in-browser: "Day 4"
+      itinerary painted from cache while the network hung)
+- [x] Cached reads are persisted **on-device in IndexedDB** and survive a page reload / app restart,
       for **every trip the user has opened** (not bounded to one active trip) (PRD §6). — S1 + S2
-- [ ] Reads are **stale-while-revalidate**: cached data shows immediately, then the screen updates
+      (verified: `khiimori-cache` DB held `GET /trips` and per-day keys after navigation)
+- [x] Reads are **stale-while-revalidate**: cached data shows immediately, then the screen updates
       silently when the background refresh completes; a **subtle affordance** tells the user when
-      they're viewing saved data or a refresh is in flight (PRD §5.10, §6). — S2
-- [ ] On a **weak or absent connection**, read screens still show the last-known data instead of an
-      error/spinner; writes continue to queue (unchanged) (PRD §6). — S2 + S3
-- [ ] The cache layer is **tested** (cache read/write/expire, SWR hook states) and the offline /
-      weak-connection behaviour is **verified in a browser** (PRD §7.6). — S1 + S3
-- [ ] **No new runtime dependencies**; the €0/month-idle cost posture is **unchanged** (no
+      they're viewing saved data or a refresh is in flight (PRD §5.10, §6). — S2 (the "Updating…"
+      hint + app-wide OfflineBanner). Trips list, day view, plan and budget are migrated; **journal
+      read-caching is a tracked follow-up** — `JournalEditor`'s auto-save is gated on load, so
+      cache-seeding it needs a small refactor to avoid spurious/queued saves.
+- [x] On a **weak or absent connection**, read screens still show the last-known data instead of an
+      error/spinner; writes continue to queue (unchanged) (PRD §6). — S2 + S3 (verified: with `fetch`
+      forced to fail, the dashboard and the trip's day both rendered from cache with no error)
+- [x] The cache layer is **tested** (cache read/write/expire, SWR hook states) and the offline /
+      weak-connection behaviour is **verified in a browser** (PRD §7.6). — S1 + S3 (24 unit/component
+      tests + a live browser walkthrough; deployed E2E incl. offline stayed green)
+- [x] **No new runtime dependencies**; the €0/month-idle cost posture is **unchanged** (no
       min-instances, no Neon autosuspend change) (PRD §7.0, §8.6). — S1
 
 ## Implementation Details / Architecture
