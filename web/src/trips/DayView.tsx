@@ -516,8 +516,19 @@ function PlanItemForm({
   // immediately trigger a write.
   const isFirstRender = useRef(true)
 
+  // Hold onAutoSave in a ref so the debounce effect below can depend on `fields`
+  // alone. The callback's identity changes on unrelated parent re-renders (e.g.
+  // after a save updates the parent's plan-items list, which hands down a fresh
+  // onUpdated → a fresh onAutoSave); if that were a dependency, every such
+  // re-render would reschedule the timer and a single edit could fire multiple
+  // saves. Debouncing on the actual field changes is the correct behaviour.
+  const onAutoSaveRef = useRef(onAutoSave)
   useEffect(() => {
-    if (!onAutoSave) return
+    onAutoSaveRef.current = onAutoSave
+  })
+
+  useEffect(() => {
+    if (!onAutoSaveRef.current) return
     if (isFirstRender.current) {
       isFirstRender.current = false
       return
@@ -525,9 +536,11 @@ function PlanItemForm({
     if (timerRef.current) clearTimeout(timerRef.current)
     const timerId = setTimeout(async () => {
       if (!fields.title.trim()) return
+      const autoSave = onAutoSaveRef.current
+      if (!autoSave) return
       setSaveStatus('saving')
       try {
-        await onAutoSave(fields)
+        await autoSave(fields)
         setSaveStatus('saved')
       } catch {
         setSaveStatus('error')
@@ -537,7 +550,7 @@ function PlanItemForm({
     return () => {
       clearTimeout(timerId)
     }
-  }, [fields, onAutoSave])
+  }, [fields])
 
   async function retryAutoSave() {
     if (!onAutoSave) return
