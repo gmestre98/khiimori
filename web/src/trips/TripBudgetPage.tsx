@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   UnauthorizedError,
@@ -8,6 +8,8 @@ import {
 } from '../lib/api'
 import { TripBudgetEditor } from './BudgetEditor'
 import { TripRollup, BudgetSummaryTiles } from './RollupDisplay'
+import { readCache, writeCache } from '../lib/resourceCache'
+import { cacheKeys } from '../lib/cacheKeys'
 
 // TripBudgetPage renders the trip-level budget editor and rollup display.
 export function TripBudgetPage() {
@@ -15,26 +17,49 @@ export function TripBudgetPage() {
   const [rollup, setRollup] = useState<BudgetRollup | null>(null)
   const [lines, setLines] = useState<BudgetLine[]>([])
   const [error, setError] = useState<string | null>(null)
+  // Mirror the latest rollup into a ref so loadRollup's error handler can tell
+  // "nothing cached/loaded yet" (surface an error) from "already showing data"
+  // (keep it — non-destructive refresh) without depending on stale state.
+  const rollupRef = useRef<BudgetRollup | null>(rollup)
+  useEffect(() => {
+    rollupRef.current = rollup
+  })
 
   const loadRollup = useCallback(
     (signal?: AbortSignal) => {
       if (!tripId) return
       fetchBudgetRollup(tripId, signal)
-        .then((r) => setRollup(r))
+        .then((r) => {
+          setRollup(r)
+          void writeCache(cacheKeys.budgetRollup(tripId), r)
+        })
         .catch((err: unknown) => {
           if (err instanceof DOMException && err.name === 'AbortError') return
           if (err instanceof UnauthorizedError) return
-          setError('Could not load budget data.')
+          // Non-destructive: only surface an error when nothing was cached.
+          if (!rollupRef.current) setError('Could not load budget data.')
         })
     },
     [tripId],
   )
 
   useEffect(() => {
+    if (!tripId) return
     const controller = new AbortController()
-    loadRollup(controller.signal)
-    return () => controller.abort()
-  }, [loadRollup])
+    let done = false
+    // Instant-render: seed the roll-up from cache (shared key with the day-view
+    // budget), then revalidate. Sequenced so a slow fresh response isn't
+    // clobbered by a late cached value.
+    void readCache<BudgetRollup>(cacheKeys.budgetRollup(tripId)).then((cached) => {
+      if (done) return
+      if (cached) setRollup(cached.data)
+      loadRollup(controller.signal)
+    })
+    return () => {
+      done = true
+      controller.abort()
+    }
+  }, [tripId, loadRollup])
 
   function handleLineUpdated(line: BudgetLine) {
     setLines((prev) => {

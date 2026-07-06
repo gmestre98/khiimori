@@ -1,8 +1,18 @@
 // Vitest global test setup. Registers @testing-library/jest-dom's matchers
 // (toBeInTheDocument, toHaveTextContent, …) on Vitest's expect and their types.
 import '@testing-library/jest-dom/vitest'
-import { vi } from 'vitest'
+import { afterEach, vi } from 'vitest'
 import { createElement, type ReactNode } from 'react'
+import { clearCache } from '../lib/resourceCache'
+
+// The instant-render cache (M11.1) is a module-level singleton, so cached reads
+// would otherwise leak between tests in the same file (a prior successful load
+// would satisfy a later "fetch fails" test from cache). Reset it after each test
+// so every test starts like a fresh browser, mirroring the localStorage.clear()
+// convention used elsewhere.
+afterEach(async () => {
+  await clearCache()
+})
 
 // Leaflet needs a real, measurable DOM that jsdom can't provide, so we mock the
 // map library globally to lightweight DOM stand-ins. This lets any component

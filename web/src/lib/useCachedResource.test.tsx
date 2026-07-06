@@ -11,6 +11,9 @@ const writeCache = vi.fn()
 vi.mock('./resourceCache', () => ({
   readCache: (...a: unknown[]) => readCache(...a),
   writeCache: (...a: unknown[]) => writeCache(...a),
+  // clearCache is called by the global test setup's afterEach; provide a no-op
+  // so this file's mock satisfies that import.
+  clearCache: () => Promise.resolve(),
 }))
 
 beforeEach(() => {
