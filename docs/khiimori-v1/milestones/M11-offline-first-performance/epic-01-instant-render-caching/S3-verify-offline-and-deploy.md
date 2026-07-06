@@ -1,5 +1,7 @@
 # Story M11.1-S3 — Verify offline / weak-connection & deploy
 
+> **Status:** ✅ Done — this docs PR. Verified live in a browser: cached first paint ("Day 4" itinerary painted while the network hung), the "Updating…" hint online, and full offline render of both the trips dashboard and a trip's day with `fetch` forced to fail. Shipped via the main deploy pipeline (Firebase + Cloud Run + pulumi all green); the deployed E2E suite incl. offline stayed green.
+
 **Epic:** [M11.1 Instant-render caching](README.md) · **Est.** ~2h · **Epic AC:** AC4, AC5 · **Depends on:** S2
 
 ## Goal

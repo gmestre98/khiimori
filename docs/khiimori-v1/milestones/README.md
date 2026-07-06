@@ -27,7 +27,7 @@ keep the stack small, prefer a modular monolith, and keep every decision easy to
 | [08](M08-sharing-and-backoffice/README.md) | Sharing & Backoffice | Memberships, invitations, roles, admin | **Broken into 5 epics** | §3, §5.9, §9 |
 | [09](M09-design-system-and-mobile-pwa/README.md) | Design System & Mobile/PWA | Theme, responsive, installable, a11y | **Broken into 5 epics** | §5.10, §7.2 |
 | [10](M10-testing-and-hardening/README.md) | Testing & Hardening | E2E journeys, load/cost review, security review | **Broken into 5 epics** | §6, §7.6, §8.5 |
-| [11](M11-offline-first-performance/README.md) | Offline-First Performance | Instant-render caching (on-device IndexedDB + stale-while-revalidate) to hide cold starts & keep data available offline | **Post-launch; 1 epic** | §6, §7.0, §8.6 |
+| [11](M11-offline-first-performance/README.md) | Offline-First Performance | Instant-render caching (on-device IndexedDB + stale-while-revalidate) to hide cold starts & keep data available offline | **✅ Epic 01 done** | §6, §7.0, §8.6 |
 
 > **Status legend:** All milestones (01–10) are now broken into ≤5-AC epics, each as a folder with a
 > `README.md` (Description · Acceptance Criteria · Implementation Details · Dependencies · Costs ·

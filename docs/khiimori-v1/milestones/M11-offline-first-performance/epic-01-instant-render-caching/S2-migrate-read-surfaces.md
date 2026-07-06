@@ -1,5 +1,7 @@
 # Story M11.1-S2 — Migrate read surfaces to instant-render cache
 
+> **Status:** ✅ Done — [#435](https://github.com/gmestre98/khiimori/pull/435). Trips list, trip shell, day view, plan and budget migrated; journal read-caching deferred (auto-save coupling). +2 instant-render tests.
+
 **Epic:** [M11.1 Instant-render caching](README.md) · **Est.** ~4h · **Epic AC:** AC1–AC4 · **Depends on:** S1
 
 ## Goal
