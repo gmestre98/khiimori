@@ -28,6 +28,9 @@ const BacklogPage = lazy(() =>
 const TripBudgetPage = lazy(() =>
   import('./trips/TripBudgetPage').then((m) => ({ default: m.TripBudgetPage })),
 )
+const TripPlanPage = lazy(() =>
+  import('./trips/TripPlanPage').then((m) => ({ default: m.TripPlanPage })),
+)
 const TripMapPage = lazy(() =>
   import('./trips/TripMapPage').then((m) => ({ default: m.TripMapPage })),
 )
@@ -125,6 +128,14 @@ function App() {
                   element={
                     <Suspense fallback={<RouteLoading />}>
                       <BacklogPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="plan"
+                  element={
+                    <Suspense fallback={<RouteLoading />}>
+                      <TripPlanPage />
                     </Suspense>
                   }
                 />

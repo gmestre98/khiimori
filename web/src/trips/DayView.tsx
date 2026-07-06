@@ -1545,21 +1545,32 @@ function BacklogLink({ tripId }: { tripId: string }) {
 // stays, timed items, untimed items, quick-add form, and a link to the ideas
 // backlog. Re-planning affordances (reorder, move, demote, status) are wired
 // to the Epic 03–04 API operations.
-function PlanningSection({
+export function PlanningSection({
   day,
   items,
   setItems,
   tripId,
-  selectedId,
+  selectedId = null,
   onSelect,
+  title = 'Plan',
+  showBacklogLink = true,
 }: {
   day: Day
-  // items / setItems are owned by DayView so the map stays in sync with edits.
+  // items / setItems are owned by the parent so a sibling view (the day map, or
+  // the trip-scoped Plan subtab's rail) stays in sync with edits.
   items: PlanItem[]
   setItems: React.Dispatch<React.SetStateAction<PlanItem[]>>
   tripId: string
-  selectedId: string | null
-  onSelect: (id: string | null) => void
+  // selectedId / onSelect drive the map-pin badges (day view). Omit them in
+  // map-less contexts (the Plan subtab) and no pin badges render.
+  selectedId?: string | null
+  onSelect?: (id: string | null) => void
+  // title overrides the section heading (default "Plan"); the Plan subtab uses
+  // the day's name so each stacked day is labelled.
+  title?: string
+  // showBacklogLink renders the in-section backlog link (day view). The Plan
+  // subtab surfaces the backlog once in its rail instead, so it opts out.
+  showBacklogLink?: boolean
 }) {
   const { trip } = useTripShell()
   const tripDates = datesInRange(trip.start_date, trip.end_date)
@@ -1568,12 +1579,15 @@ function PlanningSection({
   const untimed = items.filter((item) => item.start_time == null)
 
   // Build a lookup from item/stay id → pin number (1-based) using the same
-  // ordering as collectLocatedItems so badges match the map legend.
+  // ordering as collectLocatedItems so badges match the map legend. Only needed
+  // when a map is present (onSelect wired) — otherwise no badges are shown.
   const locatedItems = collectLocatedItems({ ...day, plan_items: items })
-  const pinNumberForId = (id: string): number | undefined => {
-    const idx = locatedItems.findIndex((li) => li.id === id)
-    return idx >= 0 ? idx + 1 : undefined
-  }
+  const pinNumberForId = onSelect
+    ? (id: string): number | undefined => {
+        const idx = locatedItems.findIndex((li) => li.id === id)
+        return idx >= 0 ? idx + 1 : undefined
+      }
+    : undefined
 
   function handleAdded(item: PlanItem) {
     setItems((prev) => [...prev, item])
@@ -1593,7 +1607,7 @@ function PlanningSection({
 
   return (
     <section className="day-slot day-slot-planning" aria-label="Planning" data-slot="planning">
-      <h2 className="day-slot-title">Plan</h2>
+      <h2 className="day-slot-title">{title}</h2>
       <StaysSection
         stays={day.stays}
         selectedId={selectedId}
@@ -1630,7 +1644,7 @@ function PlanningSection({
         <p className="day-plan-empty">Nothing planned yet.</p>
       )}
       <QuickAddForm tripId={tripId} dayId={day.id} onAdded={handleAdded} />
-      <BacklogLink tripId={tripId} />
+      {showBacklogLink && <BacklogLink tripId={tripId} />}
     </section>
   )
 }

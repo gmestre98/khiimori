@@ -1926,6 +1926,124 @@
   display: block;
 }
 
+/* ── Trip plan (whole-trip Plan subtab) ─────────────────────────────────────── */
+
+.trip-plan-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+}
+
+.trip-plan-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trip-plan-loading,
+.trip-plan-error {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin: 0;
+}
+
+/* Day rail left, planner right — collapses to one column on narrow screens,
+   mirroring the trip map and journal. The rail stays above the panel on phones
+   (you pick a day, then plan it top-down). */
+.trip-plan-layout {
+  display: grid;
+  gap: var(--s5);
+  grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .trip-plan-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.trip-plan-days {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trip-plan-day {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: center;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  padding: 8px 10px;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.trip-plan-day:hover {
+  border-color: var(--accent);
+}
+.trip-plan-day--active {
+  border-color: var(--accent);
+  background: var(--accent-hover, var(--surface-muted));
+}
+
+.trip-plan-day-dot {
+  grid-row: 1 / span 2;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--line-strong, var(--muted));
+  background: transparent;
+  flex-shrink: 0;
+}
+.trip-plan-day-dot--filled,
+.trip-plan-day-dot--all {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.trip-plan-day-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-h);
+}
+.trip-plan-day-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Backlog link sits at the foot of the rail, set apart from the day rows. */
+.trip-plan-backlog {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px dashed var(--line-strong, var(--line));
+  border-radius: var(--r-md);
+  font-size: var(--text-sm);
+  color: var(--text-h);
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+.trip-plan-backlog:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.trip-plan-panel {
+  min-width: 0;
+}
+
+/* Whole-trip planner: a vertical stack of per-day planning sections. */
+.trip-plan-feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+}
+
 .plan-item-pin-badge {
   width: 20px;
   height: 20px;
