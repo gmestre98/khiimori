@@ -155,6 +155,12 @@ interface PlanItemFormFields {
   booking_status: string
   cost: string
   link: string
+  // Transport columns, carried through as passthrough for the same round-trip
+  // reason as kind — editing a transport item must not wipe them. The transport
+  // input UI lands in M12.1 S5. (M12.1 S2)
+  origin: string
+  destination: string
+  arrive_time: string
 }
 
 function emptyFields(): PlanItemFormFields {
@@ -168,6 +174,9 @@ function emptyFields(): PlanItemFormFields {
     booking_status: '',
     cost: '',
     link: '',
+    origin: '',
+    destination: '',
+    arrive_time: '',
   }
 }
 
@@ -201,6 +210,9 @@ function fieldsFromItem(item: PlanItem): PlanItemFormFields {
     booking_status: item.booking_status ?? '',
     cost: item.cost != null ? String(item.cost) : '',
     link: item.link ?? '',
+    origin: item.origin ?? '',
+    destination: item.destination ?? '',
+    arrive_time: item.arrive_time ? item.arrive_time.slice(0, 5) : '',
   }
 }
 
@@ -223,6 +235,9 @@ function tempPlanItem(tripId: string, dayId: string | null, input: PlanItemInput
     booking_status: input.booking_status ?? undefined,
     cost: input.cost ?? undefined,
     link: input.link ?? undefined,
+    origin: input.origin ?? undefined,
+    destination: input.destination ?? undefined,
+    arrive_time: input.arrive_time ?? undefined,
     sort_order: Number.MAX_SAFE_INTEGER,
     status: 'planned',
   }
@@ -243,6 +258,9 @@ function fieldsToInput(
     booking_status: fields.booking_status.trim() || null,
     cost: fields.cost.trim() ? parseFloat(fields.cost) : null,
     link: fields.link.trim() || null,
+    origin: fields.origin.trim() || null,
+    destination: fields.destination.trim() || null,
+    arrive_time: fields.arrive_time.trim() || null,
   }
 }
 

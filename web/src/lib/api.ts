@@ -343,6 +343,11 @@ export interface PlanItem {
   booking_status?: string
   cost?: number
   link?: string
+  // Transport legs (kind === 'transport') carry a from→to and an arrival time;
+  // departure is start_time. Optional; unused by other kinds. (M12.1 S2)
+  origin?: string
+  destination?: string
+  arrive_time?: string
   sort_order: number
   status: string
 }
@@ -392,6 +397,9 @@ export interface PlanItemInput {
   booking_status?: string | null
   cost?: number | null
   link?: string | null
+  origin?: string | null
+  destination?: string | null
+  arrive_time?: string | null
 }
 
 // PlanItemValidationError carries the API's 400 message so the form can show it.

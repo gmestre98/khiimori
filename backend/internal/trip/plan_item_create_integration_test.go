@@ -173,3 +173,38 @@ func TestPlanItemCreateKindIntegration(t *testing.T) {
 		t.Errorf("kind = %q, want activity (default)", defaulted.Kind)
 	}
 }
+
+// TestPlanItemCreateTransportFieldsIntegration verifies that origin,
+// destination, and arrive_time (M12.1 S2) round-trip through the DB.
+func TestPlanItemCreateTransportFieldsIntegration(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DATABASE_URL_TEST not set; skipping plan item transport integration test")
+	}
+
+	srv := newModule(t)
+	tripID := createTripForPlanItemTest(t, srv)
+	dayID := fetchDayID(t, srv, tripID, "2026-09-01")
+
+	body := fmt.Sprintf(`{
+		"title":"Train to Porto","day_id":%q,"kind":"transport",
+		"origin":"Lisboa Oriente","destination":"Porto Campanha",
+		"start_time":"08:15","arrive_time":"11:20"
+	}`, dayID)
+	pi := createPlanItem(t, srv, tripID, body)
+
+	if pi.Kind != "transport" {
+		t.Errorf("kind = %q, want transport", pi.Kind)
+	}
+	if pi.Origin == nil || *pi.Origin != "Lisboa Oriente" {
+		t.Errorf("origin = %v, want Lisboa Oriente", pi.Origin)
+	}
+	if pi.Destination == nil || *pi.Destination != "Porto Campanha" {
+		t.Errorf("destination = %v, want Porto Campanha", pi.Destination)
+	}
+	if pi.StartTime == nil || *pi.StartTime != "08:15:00" {
+		t.Errorf("start_time = %v, want 08:15:00", pi.StartTime)
+	}
+	if pi.ArriveTime == nil || *pi.ArriveTime != "11:20:00" {
+		t.Errorf("arrive_time = %v, want 11:20:00", pi.ArriveTime)
+	}
+}
