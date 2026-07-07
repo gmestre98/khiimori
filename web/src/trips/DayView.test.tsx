@@ -271,6 +271,67 @@ describe('DayView', () => {
       )
     })
 
+    it('offers a kind picker defaulting to Activity', async () => {
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+
+      const picker = screen.getByRole('group', { name: 'Kind' })
+      for (const label of ['Activity', 'Transport', 'Food', 'Note']) {
+        expect(within(picker).getByRole('button', { name: new RegExp(label) })).toBeInTheDocument()
+      }
+      expect(within(picker).getByRole('button', { name: /Activity/ })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      )
+    })
+
+    it('transport kind shows from/to and sends kind + auto-suggested category', async () => {
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      vi.mocked(api.createPlanItem).mockResolvedValue(
+        makePlanItem({ id: 'tp', title: 'Train', kind: 'transport' }),
+      )
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+
+      // Scope to the plan-item form — the day's budget editor also renders a
+      // "Transport" category control, so screen-wide queries are ambiguous.
+      const form = screen.getByRole('group', { name: 'Kind' }).closest('form') as HTMLElement
+      await user.click(within(form).getByRole('button', { name: /Transport/ }))
+      // Location is replaced by From / To for a transport leg.
+      expect(within(form).queryByLabelText('Location')).not.toBeInTheDocument()
+      await user.type(within(form).getByLabelText('Title'), 'Train to Porto')
+      await user.type(within(form).getByLabelText('From'), 'Lisbon')
+      await user.type(within(form).getByLabelText('To'), 'Porto')
+      await user.click(within(form).getByRole('button', { name: 'Add' }))
+
+      await waitFor(() => expect(api.createPlanItem).toHaveBeenCalled())
+      expect(api.createPlanItem).toHaveBeenCalledWith(
+        'trip-1',
+        expect.objectContaining({
+          kind: 'transport',
+          type: 'Transport', // auto-suggested budget category, decoupled from kind
+          origin: 'Lisbon',
+          destination: 'Porto',
+        }),
+      )
+    })
+
+    it('note kind hides location and the budget category', async () => {
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+
+      const form = screen.getByRole('group', { name: 'Kind' }).closest('form') as HTMLElement
+      await user.click(within(form).getByRole('button', { name: /Note/ }))
+      // A note is a plain reminder: no place, and no budget category.
+      expect(within(form).queryByLabelText('Location')).not.toBeInTheDocument()
+      expect(within(form).queryByLabelText('Category')).not.toBeInTheDocument()
+    })
+
     it('adds a located stop to the map immediately (no reload)', async () => {
       const user = userEvent.setup()
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())

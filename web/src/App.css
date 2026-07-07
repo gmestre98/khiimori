@@ -2508,6 +2508,38 @@
   flex: 1;
 }
 
+/* Kind picker: a segmented control of the four plan-item behaviours. */
+.plan-item-kind-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.plan-item-kind-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.plan-item-kind-btn:hover {
+  border-color: var(--accent);
+}
+.plan-item-kind-btn--active {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  color: var(--accent-press);
+  font-weight: var(--fw-semi);
+}
+.plan-item-kind-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* Disclosure toggle: chevron + label, accent-coloured, quiet. */
 .plan-item-form-toggle {
   display: inline-flex;
