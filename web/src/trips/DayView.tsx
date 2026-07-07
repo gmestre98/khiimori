@@ -283,20 +283,28 @@ function fieldsToInput(
   fields: PlanItemFormFields,
   dayId: string | null | undefined,
 ): PlanItemInput {
+  // Only send fields that belong to the kind. The form keeps hidden values in
+  // state (so toggling kind back and forth doesn't lose them), but a note must
+  // not silently submit a stale cost into the budget, and a transport leg uses
+  // origin/destination + arrival rather than location/duration. (M12.1 S5)
+  const isNote = fields.kind === 'note'
+  const isTransport = fields.kind === 'transport'
+  let cost: number | null = null
+  if (!isNote && fields.cost.trim()) cost = parseFloat(fields.cost)
   return {
     title: fields.title.trim(),
     day_id: dayId ?? null,
     kind: fields.kind,
-    type: fields.type.trim() || null,
-    start_time: fields.start_time.trim() || null,
-    duration: fields.duration.trim() || null,
-    location: fields.location.trim() || null,
-    booking_status: fields.booking_status.trim() || null,
-    cost: fields.cost.trim() ? parseFloat(fields.cost) : null,
+    type: isNote ? null : fields.type.trim() || null,
+    start_time: isNote ? null : fields.start_time.trim() || null,
+    duration: isNote || isTransport ? null : fields.duration.trim() || null,
+    location: isNote || isTransport ? null : fields.location.trim() || null,
+    booking_status: isNote ? null : fields.booking_status.trim() || null,
+    cost,
     link: fields.link.trim() || null,
-    origin: fields.origin.trim() || null,
-    destination: fields.destination.trim() || null,
-    arrive_time: fields.arrive_time.trim() || null,
+    origin: isTransport ? fields.origin.trim() || null : null,
+    destination: isTransport ? fields.destination.trim() || null : null,
+    arrive_time: isTransport ? fields.arrive_time.trim() || null : null,
   }
 }
 

@@ -332,6 +332,26 @@ describe('DayView', () => {
       expect(within(form).queryByLabelText('Category')).not.toBeInTheDocument()
     })
 
+    it('switching to note drops a stale cost so it never hits the budget', async () => {
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      vi.mocked(api.createPlanItem).mockResolvedValue(makePlanItem({ id: 'n1', kind: 'note' }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+
+      const form = screen.getByRole('group', { name: 'Kind' }).closest('form') as HTMLElement
+      await user.type(within(form).getByLabelText('Title'), 'Buy port wine')
+      // Enter a cost as an activity, then switch the kind to note (hides cost).
+      await user.click(within(form).getByRole('button', { name: /details/i }))
+      await user.type(within(form).getByLabelText('Cost'), '50')
+      await user.click(within(form).getByRole('button', { name: /Note/ }))
+      await user.click(within(form).getByRole('button', { name: 'Add' }))
+
+      await waitFor(() => expect(api.createPlanItem).toHaveBeenCalled())
+      const sent = vi.mocked(api.createPlanItem).mock.calls[0][1]
+      expect(sent).toMatchObject({ kind: 'note', cost: null, type: null })
+    })
+
     it('adds a located stop to the map immediately (no reload)', async () => {
       const user = userEvent.setup()
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
