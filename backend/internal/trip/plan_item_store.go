@@ -14,9 +14,9 @@ var errPlanItemNotFound = errors.New("trip: plan item not found")
 
 // planItemStore is the persistence surface the plan-item handlers use.
 type planItemStore interface {
-	// ListByDay returns all plan items assigned to dayID within tripID, ordered
-	// by start_time (nulls last) then sort_order. Timed items come first in
-	// chronological order; untimed items follow in their manual sort order.
+	// ListByDay returns all plan items assigned to dayID within tripID in manual
+	// sort_order (the unified-timeline order, M12.1 S6), with a timed-first
+	// chronological fallback for items that still share a sort_order.
 	ListByDay(ctx context.Context, tripID, dayID string) ([]PlanItem, error)
 	ListBacklog(ctx context.Context, tripID string) ([]PlanItem, error)
 	CreatePlanItem(ctx context.Context, n NewPlanItem) (PlanItem, error)
@@ -91,11 +91,13 @@ func (s *pgxPlanItemStore) CreatePlanItem(ctx context.Context, n NewPlanItem) (P
 			INSERT INTO trip.plan_items
 				(id, trip_id, day_id, title, kind, type, start_time, duration,
 				 location, booking_status, cost, link,
-				 origin, destination, arrive_time, status)
+				 origin, destination, arrive_time, sort_order, status)
 			VALUES
 				($1::uuid, $2::uuid, $3::uuid,  $4, $5, $6, $7::time, $8::interval,
 				 $9, $10, $11, $12,
 				 $13, $14, $15::time,
+				 (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM trip.plan_items
+				  WHERE trip_id = $2::uuid AND day_id IS NOT DISTINCT FROM $3::uuid),
 				 CASE WHEN $3::uuid IS NULL THEN 'idea' ELSE 'planned' END)
 			ON CONFLICT (id) DO UPDATE
 				SET title          = EXCLUDED.title,
@@ -122,11 +124,13 @@ func (s *pgxPlanItemStore) CreatePlanItem(ctx context.Context, n NewPlanItem) (P
 			INSERT INTO trip.plan_items
 				(trip_id, day_id, title, kind, type, start_time, duration,
 				 location, booking_status, cost, link,
-				 origin, destination, arrive_time, status)
+				 origin, destination, arrive_time, sort_order, status)
 			VALUES
 				($1::uuid, $2::uuid, $3, $4, $5, $6::time, $7::interval,
 				 $8, $9, $10, $11,
 				 $12, $13, $14::time,
+				 (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM trip.plan_items
+				  WHERE trip_id = $1::uuid AND day_id IS NOT DISTINCT FROM $2::uuid),
 				 CASE WHEN $2::uuid IS NULL THEN 'idea' ELSE 'planned' END)
 			RETURNING ` + planItemColumns
 		args = []any{
@@ -210,18 +214,23 @@ func (s *pgxPlanItemStore) ListBacklog(ctx context.Context, tripID string) ([]Pl
 	return items, nil
 }
 
-// ListByDay returns all plan items assigned to dayID within tripID. Timed items
-// (start_time IS NOT NULL) sort first in chronological order; untimed items
-// follow ordered by sort_order. Returns an empty slice when there are no items.
+// ListByDay returns all plan items assigned to dayID within tripID in their
+// manual sort_order — the single source of truth for the unified day timeline
+// (M12.1 S6), where untimed items can sit anywhere between timed ones. Items
+// that share a sort_order (e.g. a fresh day where nothing has been dragged yet)
+// fall back to timed-first-chronological then untimed, so an un-arranged day
+// still reads sensibly; id is the final stable tiebreak. Returns an empty slice
+// when there are no items.
 func (s *pgxPlanItemStore) ListByDay(ctx context.Context, tripID, dayID string) ([]PlanItem, error) {
 	const q = `
 		SELECT ` + planItemColumns + `
 		FROM trip.plan_items
 		WHERE trip_id = $1::uuid AND day_id = $2::uuid
 		ORDER BY
+			sort_order,
 			(start_time IS NULL),
 			start_time,
-			sort_order`
+			id`
 
 	rows, err := s.pool.Query(ctx, q, tripID, dayID)
 	if err != nil {

@@ -1248,8 +1248,10 @@ function PlanItemRow({
       aria-label={item.title + (label ? ` — ${label}` : '')}
       draggable={isDraggable}
       onDragStart={isDraggable && onDragStart ? (e) => onDragStart(e, item.id) : undefined}
-      onDragOver={isDraggable && onDragOver ? (e) => onDragOver(e, item.id) : undefined}
-      onDrop={isDraggable && onDrop ? (e) => onDrop(e, item.id) : undefined}
+      // Any row can be a drop target (so an untimed item can be dropped between
+      // two timed ones), but only draggable rows can be picked up. (M12.1 S6)
+      onDragOver={onDragOver ? (e) => onDragOver(e, item.id) : undefined}
+      onDrop={onDrop ? (e) => onDrop(e, item.id) : undefined}
     >
       <div className="plan-item-main">
         {isDraggable && !mobile && (
@@ -1461,61 +1463,28 @@ function QuickAddForm({
 }
 
 // TimedSection renders plan items that have a start_time in chronological order.
-function TimedSection({
-  items,
-  tripId,
-  day,
-  tripDates,
-  selectedId,
-  pinNumberForId,
-  onSelect,
-  onUpdated,
-  onAdded,
-  onRemoved,
-}: {
-  items: PlanItem[]
-  tripId: string
-  day: Day
-  tripDates: string[]
-  selectedId?: string | null
-  pinNumberForId?: (id: string) => number | undefined
-  onSelect?: (id: string | null) => void
-  onUpdated: (updated: PlanItem) => void
-  onAdded: (item: PlanItem) => void
-  onRemoved: (itemId: string) => void
-}) {
-  if (items.length === 0) return null
-  return (
-    <section className="day-plan-section day-plan-section--timed" aria-label="Timed activities">
-      <h3 className="day-plan-section-title">Schedule</h3>
-      <ol className="plan-item-list">
-        {items.map((item) => (
-          <PlanItemRow
-            key={item.id}
-            item={item}
-            tripId={tripId}
-            day={day}
-            tripDates={tripDates}
-            isSelected={selectedId === item.id}
-            pinNumber={pinNumberForId?.(item.id)}
-            onSelect={
-              onSelect ? () => onSelect(selectedId === item.id ? null : item.id) : undefined
-            }
-            onUpdated={onUpdated}
-            onAdded={onAdded}
-            onRemoved={onRemoved}
-          />
-        ))}
-      </ol>
-    </section>
-  )
+// orderTimeline arranges a day's items into the unified timeline (M12.1 S6):
+// timed items always read in clock order, while untimed items hold whatever
+// position they were dropped into (including between two timed items). It walks
+// the current sequence and, at each timed slot, drops in the next
+// chronologically-sorted timed item; untimed items stay where they are. This
+// keeps "set a time → it slots into place" working purely from render, while a
+// drag decides an untimed item's spot.
+function orderTimeline(items: PlanItem[]): PlanItem[] {
+  const timedSorted = items
+    .filter((i) => i.start_time != null)
+    .slice()
+    .sort((a, b) => (a.start_time as string).localeCompare(b.start_time as string))
+  let t = 0
+  return items.map((i) => (i.start_time != null ? timedSorted[t++] : i))
 }
 
-// UntimedSection renders untimed plan items as a draggable loose list.
-// Drag-reorder calls the reorder API with the new combined item order for the day.
-function UntimedSection({
+// TimelineSection renders the whole day as one time-ordered list. Timed items
+// are pinned by their clock time (reorder them by changing the time); untimed
+// items carry a drag handle and can be dropped anywhere — including between two
+// timed items — with the new full order persisted via the reorder API.
+function TimelineSection({
   items,
-  timedItems,
   tripId,
   day,
   tripDates,
@@ -1528,7 +1497,6 @@ function UntimedSection({
   onReordered,
 }: {
   items: PlanItem[]
-  timedItems: PlanItem[]
   tripId: string
   day: Day
   tripDates: string[]
@@ -1538,9 +1506,21 @@ function UntimedSection({
   onUpdated: (updated: PlanItem) => void
   onAdded: (item: PlanItem) => void
   onRemoved: (itemId: string) => void
-  onReordered: (newUntimed: PlanItem[]) => void
+  onReordered: (newOrder: PlanItem[]) => void
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  const display = orderTimeline(items)
+
+  function persist(reordered: PlanItem[]) {
+    const finalOrder = orderTimeline(reordered)
+    const snapshot = items
+    onReordered(finalOrder)
+    reorderPlanItems(
+      tripId,
+      day.id,
+      finalOrder.map((i) => i.id),
+    ).catch(() => onReordered(snapshot))
+  }
 
   function handleDragStart(e: React.DragEvent, itemId: string) {
     setDraggingId(itemId)
@@ -1556,79 +1536,65 @@ function UntimedSection({
   function handleDrop(e: React.DragEvent, targetId: string) {
     e.preventDefault()
     const sourceId = e.dataTransfer.getData('text/plain') || draggingId
-    if (!sourceId || sourceId === targetId) {
-      setDraggingId(null)
-      return
-    }
+    setDraggingId(null)
+    if (!sourceId || sourceId === targetId) return
 
-    const sourceIdx = items.findIndex((i) => i.id === sourceId)
-    const targetIdx = items.findIndex((i) => i.id === targetId)
-    if (sourceIdx === -1 || targetIdx === -1) {
-      setDraggingId(null)
-      return
-    }
+    const sourceIdx = display.findIndex((i) => i.id === sourceId)
+    const targetIdx = display.findIndex((i) => i.id === targetId)
+    if (sourceIdx === -1 || targetIdx === -1) return
 
-    const reordered = [...items]
+    const reordered = [...display]
     const [moved] = reordered.splice(sourceIdx, 1)
     reordered.splice(targetIdx, 0, moved)
-
-    // Snapshot before-state so the revert below is scoped to this drag.
-    const snapshot = items
-
-    // Optimistic update; revert handled via onReordered if server fails.
-    onReordered(reordered)
-    setDraggingId(null)
-
-    // Full day order: timed first (current server order), then untimed in new order.
-    const allIds = [...timedItems.map((i) => i.id), ...reordered.map((i) => i.id)]
-    reorderPlanItems(tripId, day.id, allIds).catch(() => {
-      // Revert to the order before *this* drag only.
-      onReordered(snapshot)
-    })
+    persist(reordered)
   }
 
   function handleTouchReorder(idx: number, direction: 'up' | 'down') {
     const targetIdx = direction === 'up' ? idx - 1 : idx + 1
-    if (targetIdx < 0 || targetIdx >= items.length) return
-    const reordered = [...items]
+    if (targetIdx < 0 || targetIdx >= display.length) return
+    const reordered = [...display]
     ;[reordered[idx], reordered[targetIdx]] = [reordered[targetIdx], reordered[idx]]
-    const snapshot = items
-    onReordered(reordered)
-    const allIds = [...timedItems.map((i) => i.id), ...reordered.map((i) => i.id)]
-    reorderPlanItems(tripId, day.id, allIds).catch(() => {
-      onReordered(snapshot)
-    })
+    persist(reordered)
   }
 
-  if (items.length === 0) return null
+  if (display.length === 0) return null
   return (
-    <section className="day-plan-section day-plan-section--untimed" aria-label="Untimed activities">
-      <h3 className="day-plan-section-title">Activities</h3>
-      <ul className="plan-item-list">
-        {items.map((item, idx) => (
-          <PlanItemRow
-            key={item.id}
-            item={item}
-            tripId={tripId}
-            day={day}
-            tripDates={tripDates}
-            draggable
-            isSelected={selectedId === item.id}
-            pinNumber={pinNumberForId?.(item.id)}
-            onSelect={
-              onSelect ? () => onSelect(selectedId === item.id ? null : item.id) : undefined
-            }
-            onUpdated={onUpdated}
-            onAdded={onAdded}
-            onRemoved={onRemoved}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onMoveUp={idx > 0 ? () => handleTouchReorder(idx, 'up') : undefined}
-            onMoveDown={idx < items.length - 1 ? () => handleTouchReorder(idx, 'down') : undefined}
-          />
-        ))}
-      </ul>
+    <section className="day-plan-section day-plan-section--timeline" aria-label="Day timeline">
+      <h3 className="day-plan-section-title">Timeline</h3>
+      <ol className="plan-item-list">
+        {display.map((item, idx) => {
+          const isUntimed = item.start_time == null
+          return (
+            <PlanItemRow
+              key={item.id}
+              item={item}
+              tripId={tripId}
+              day={day}
+              tripDates={tripDates}
+              // Only untimed items can be picked up; every row accepts a drop so
+              // an untimed item can land between two timed ones.
+              draggable={isUntimed}
+              isSelected={selectedId === item.id}
+              pinNumber={pinNumberForId?.(item.id)}
+              onSelect={
+                onSelect ? () => onSelect(selectedId === item.id ? null : item.id) : undefined
+              }
+              onUpdated={onUpdated}
+              onAdded={onAdded}
+              onRemoved={onRemoved}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onMoveUp={isUntimed && idx > 0 ? () => handleTouchReorder(idx, 'up') : undefined}
+              onMoveDown={
+                isUntimed && idx < display.length - 1
+                  ? () => handleTouchReorder(idx, 'down')
+                  : undefined
+              }
+            />
+          )
+        })}
+      </ol>
     </section>
   )
 }
@@ -1686,9 +1652,6 @@ export function PlanningSection({
   const { trip } = useTripShell()
   const tripDates = datesInRange(trip.start_date, trip.end_date)
 
-  const timed = items.filter((item) => item.start_time != null)
-  const untimed = items.filter((item) => item.start_time == null)
-
   // Build a lookup from item/stay id → pin number (1-based) using the same
   // ordering as collectLocatedItems so badges match the map legend. Only needed
   // when a map is present (onSelect wired) — otherwise no badges are shown.
@@ -1712,8 +1675,8 @@ export function PlanningSection({
     setItems((prev) => prev.filter((i) => i.id !== itemId))
   }
 
-  function handleReordered(newUntimed: PlanItem[]) {
-    setItems((prev) => [...prev.filter((i) => i.start_time != null), ...newUntimed])
+  function handleReordered(newOrder: PlanItem[]) {
+    setItems(newOrder)
   }
 
   return (
@@ -1727,21 +1690,8 @@ export function PlanningSection({
         pinNumberForId={pinNumberForId}
         onSelect={onSelect}
       />
-      <TimedSection
-        items={timed}
-        tripId={tripId}
-        day={day}
-        tripDates={tripDates}
-        selectedId={selectedId}
-        pinNumberForId={pinNumberForId}
-        onSelect={onSelect}
-        onUpdated={handleUpdated}
-        onAdded={handleAdded}
-        onRemoved={handleRemoved}
-      />
-      <UntimedSection
-        items={untimed}
-        timedItems={timed}
+      <TimelineSection
+        items={items}
         tripId={tripId}
         day={day}
         tripDates={tripDates}
