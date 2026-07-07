@@ -27,10 +27,16 @@ type createPlanItemRequest struct {
 	BookingStatus *string  `json:"booking_status"`
 	Cost          *float64 `json:"cost"`
 	Link          *string  `json:"link"`
+	Origin        *string  `json:"origin"`
+	Destination   *string  `json:"destination"`
+	ArriveTime    *string  `json:"arrive_time"`
 }
 
 func (req createPlanItemRequest) toNewPlanItem(tripID string) (NewPlanItem, error) {
 	if err := validatePlanItemFields(req.Title, req.Type, req.StartTime, req.Duration, req.Location, req.Link); err != nil {
+		return NewPlanItem{}, err
+	}
+	if err := validateTransportFields(req.Origin, req.Destination, req.ArriveTime); err != nil {
 		return NewPlanItem{}, err
 	}
 	kind := normalizePlanItemKind(req.Kind)
@@ -50,6 +56,9 @@ func (req createPlanItemRequest) toNewPlanItem(tripID string) (NewPlanItem, erro
 		BookingStatus: req.BookingStatus,
 		Cost:          req.Cost,
 		Link:          req.Link,
+		Origin:        req.Origin,
+		Destination:   req.Destination,
+		ArriveTime:    req.ArriveTime,
 	}, nil
 }
 
@@ -67,6 +76,9 @@ type planItemResponse struct {
 	BookingStatus *string  `json:"booking_status,omitempty"`
 	Cost          *float64 `json:"cost,omitempty"`
 	Link          *string  `json:"link,omitempty"`
+	Origin        *string  `json:"origin,omitempty"`
+	Destination   *string  `json:"destination,omitempty"`
+	ArriveTime    *string  `json:"arrive_time,omitempty"`
 	SortOrder     int      `json:"sort_order"`
 	Status        string   `json:"status"`
 }
@@ -89,10 +101,16 @@ type editPlanItemRequest struct {
 	BookingStatus *string  `json:"booking_status"`
 	Cost          *float64 `json:"cost"`
 	Link          *string  `json:"link"`
+	Origin        *string  `json:"origin"`
+	Destination   *string  `json:"destination"`
+	ArriveTime    *string  `json:"arrive_time"`
 }
 
 func (req editPlanItemRequest) toEditPlanItem() (EditPlanItem, error) {
 	if err := validatePlanItemFields(req.Title, req.Type, req.StartTime, req.Duration, req.Location, req.Link); err != nil {
+		return EditPlanItem{}, err
+	}
+	if err := validateTransportFields(req.Origin, req.Destination, req.ArriveTime); err != nil {
 		return EditPlanItem{}, err
 	}
 	kind := normalizePlanItemKind(req.Kind)
@@ -109,6 +127,9 @@ func (req editPlanItemRequest) toEditPlanItem() (EditPlanItem, error) {
 		BookingStatus: req.BookingStatus,
 		Cost:          req.Cost,
 		Link:          req.Link,
+		Origin:        req.Origin,
+		Destination:   req.Destination,
+		ArriveTime:    req.ArriveTime,
 	}, nil
 }
 

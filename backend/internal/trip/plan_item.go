@@ -71,8 +71,13 @@ type PlanItem struct {
 	BookingStatus *string  // optional
 	Cost          *float64 // optional; owned here for M05 roll-ups
 	Link          *string  // optional; URL
-	SortOrder     int
-	Status        string // "idea"|"planned"|"done"|"skipped"|"cancelled"
+	// Transport legs (kind='transport') carry a from→to and an arrival time
+	// (departure is StartTime). All optional; unused by other kinds. (M12.1 S2)
+	Origin      *string // optional; where a transport leg starts
+	Destination *string // optional; where a transport leg ends
+	ArriveTime  *string // optional; "HH:MM" arrival — departure is StartTime
+	SortOrder   int
+	Status      string // "idea"|"planned"|"done"|"skipped"|"cancelled"
 }
 
 // NewPlanItem is the validated input to create a plan item. ClientID, when
@@ -91,6 +96,9 @@ type NewPlanItem struct {
 	BookingStatus *string
 	Cost          *float64
 	Link          *string
+	Origin        *string
+	Destination   *string
+	ArriveTime    *string
 }
 
 // EditPlanItem is the validated input to edit a plan item. The update is a
@@ -108,6 +116,9 @@ type EditPlanItem struct {
 	BookingStatus *string
 	Cost          *float64
 	Link          *string
+	Origin        *string
+	Destination   *string
+	ArriveTime    *string
 }
 
 // PromotePlanItemInput is the validated input to promote a backlog item to a
@@ -179,6 +190,27 @@ func validatePlanItemFields(title string, itemType, startTime, duration, locatio
 		}
 		if _, err := url.ParseRequestURI(*link); err != nil {
 			return errors.New("link must be a valid URL")
+		}
+	}
+	return nil
+}
+
+// validateTransportFields checks the optional transport columns (M12.1 S2):
+// origin/destination reuse the location length bound, and arrive_time must be
+// HH:MM. They are validated for any item (not just kind='transport') — the
+// backend does not couple these columns to kind; the UI surfaces them only for
+// transport. There is deliberately no ordering constraint between arrive_time
+// and start_time so overnight legs (arrive before depart clock-wise) are valid.
+func validateTransportFields(origin, destination, arriveTime *string) error {
+	if origin != nil && len(*origin) > maxPlanItemLocationLen {
+		return fmt.Errorf("origin must be at most %d characters", maxPlanItemLocationLen)
+	}
+	if destination != nil && len(*destination) > maxPlanItemLocationLen {
+		return fmt.Errorf("destination must be at most %d characters", maxPlanItemLocationLen)
+	}
+	if arriveTime != nil {
+		if _, _, err := parseTimeHHMM(*arriveTime); err != nil {
+			return errors.New("arrive_time must be in HH:MM format")
 		}
 	}
 	return nil

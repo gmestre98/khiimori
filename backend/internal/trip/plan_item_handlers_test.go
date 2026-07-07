@@ -101,6 +101,9 @@ func (f *fakePlanItemStore) CreatePlanItem(_ context.Context, n NewPlanItem) (Pl
 		BookingStatus: n.BookingStatus,
 		Cost:          n.Cost,
 		Link:          n.Link,
+		Origin:        n.Origin,
+		Destination:   n.Destination,
+		ArriveTime:    n.ArriveTime,
 		SortOrder:     0,
 		Status:        status,
 	}, nil
@@ -128,6 +131,9 @@ func (f *fakePlanItemStore) UpdatePlanItem(_ context.Context, tripID, itemID str
 		BookingStatus: e.BookingStatus,
 		Cost:          e.Cost,
 		Link:          e.Link,
+		Origin:        e.Origin,
+		Destination:   e.Destination,
+		ArriveTime:    e.ArriveTime,
 		Status:        "planned",
 	}, nil
 }
@@ -1552,5 +1558,119 @@ func TestHandleUpdatePlanItemRejectsInvalidKind(t *testing.T) {
 	}
 	if pi.gotUpdateItemID != "" {
 		t.Error("store should not be called for an invalid kind")
+	}
+}
+
+// --- Transport fields (M12.1 S2) -----------------------------------------
+
+// TestHandleCreatePlanItemTransportFields asserts origin/destination/arrive_time
+// are forwarded to the store and echoed on the response.
+func TestHandleCreatePlanItemTransportFields(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	body := `{
+		"title":"Train to Porto","kind":"transport",
+		"origin":"Lisboa Oriente","destination":"Porto Campanhã",
+		"start_time":"08:15","arrive_time":"11:20"
+	}`
+	rec := httptest.NewRecorder()
+	m.handleCreatePlanItem(rec, createPlanItemReq("trip-1", "owner-1", body))
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201; body=%s", rec.Code, rec.Body.String())
+	}
+	n := pi.gotCreate
+	if n.Origin == nil || *n.Origin != "Lisboa Oriente" {
+		t.Errorf("origin = %v, want Lisboa Oriente", n.Origin)
+	}
+	if n.Destination == nil || *n.Destination != "Porto Campanhã" {
+		t.Errorf("destination = %v, want Porto Campanhã", n.Destination)
+	}
+	if n.ArriveTime == nil || *n.ArriveTime != "11:20" {
+		t.Errorf("arrive_time = %v, want 11:20", n.ArriveTime)
+	}
+
+	var resp planItemResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Origin == nil || *resp.Origin != "Lisboa Oriente" {
+		t.Errorf("response origin = %v, want Lisboa Oriente", resp.Origin)
+	}
+	if resp.ArriveTime == nil || *resp.ArriveTime != "11:20" {
+		t.Errorf("response arrive_time = %v, want 11:20", resp.ArriveTime)
+	}
+}
+
+// TestHandleCreatePlanItemRejectsBadArriveTime asserts a malformed arrive_time
+// is 400 and the store is not called.
+func TestHandleCreatePlanItemRejectsBadArriveTime(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	body := `{"title":"Flight","kind":"transport","arrive_time":"25:99"}`
+	rec := httptest.NewRecorder()
+	m.handleCreatePlanItem(rec, createPlanItemReq("trip-1", "owner-1", body))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotCreate.TripID != "" {
+		t.Error("store should not be called for an invalid arrive_time")
+	}
+}
+
+// TestHandleCreatePlanItemArriveTimeWithoutStartTime asserts arrive_time is
+// accepted without a departure (start_time) — arrival-only legs are valid.
+func TestHandleCreatePlanItemArriveTimeWithoutStartTime(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	body := `{"title":"Ferry","kind":"transport","arrive_time":"14:00"}`
+	rec := httptest.NewRecorder()
+	m.handleCreatePlanItem(rec, createPlanItemReq("trip-1", "owner-1", body))
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotCreate.ArriveTime == nil || *pi.gotCreate.ArriveTime != "14:00" {
+		t.Errorf("arrive_time = %v, want 14:00", pi.gotCreate.ArriveTime)
+	}
+}
+
+// TestHandleUpdatePlanItemTransportFields asserts edit forwards the transport
+// columns to the store.
+func TestHandleUpdatePlanItemTransportFields(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	body := `{
+		"title":"Bus","kind":"transport",
+		"origin":"A","destination":"B","arrive_time":"09:45"
+	}`
+	rec := httptest.NewRecorder()
+	m.handleUpdatePlanItem(rec, updatePlanItemReq("trip-1", "item-1", "owner-1", body))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	e := pi.gotUpdate
+	if e.Origin == nil || *e.Origin != "A" {
+		t.Errorf("origin = %v, want A", e.Origin)
+	}
+	if e.Destination == nil || *e.Destination != "B" {
+		t.Errorf("destination = %v, want B", e.Destination)
+	}
+	if e.ArriveTime == nil || *e.ArriveTime != "09:45" {
+		t.Errorf("arrive_time = %v, want 09:45", e.ArriveTime)
 	}
 }
