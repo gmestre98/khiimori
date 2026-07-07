@@ -26,6 +26,7 @@ import {
   type Day,
   type PlanItem,
   type PlanItemInput,
+  type PlanItemKind,
   type Stay,
   type Suggestion,
 } from '../lib/api'
@@ -142,6 +143,11 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 // type coercion; numeric fields are parsed on submit.
 interface PlanItemFormFields {
   title: string
+  // kind is carried through the form so edits/auto-saves round-trip it. The
+  // backend defaults an omitted kind to 'activity', so NOT sending it would
+  // silently downgrade a transport/food/note item on any edit. There is no
+  // picker UI yet (that lands in M12.1 S5) — this is a hidden passthrough.
+  kind: PlanItemKind
   type: string
   start_time: string
   duration: string
@@ -154,6 +160,7 @@ interface PlanItemFormFields {
 function emptyFields(): PlanItemFormFields {
   return {
     title: '',
+    kind: 'activity',
     type: '',
     start_time: '',
     duration: '',
@@ -186,6 +193,7 @@ function readDetailsOpen(): boolean {
 function fieldsFromItem(item: PlanItem): PlanItemFormFields {
   return {
     title: item.title,
+    kind: item.kind,
     type: item.type ?? '',
     start_time: item.start_time ? item.start_time.slice(0, 5) : '',
     duration: item.duration ?? '',
@@ -227,6 +235,7 @@ function fieldsToInput(
   return {
     title: fields.title.trim(),
     day_id: dayId ?? null,
+    kind: fields.kind,
     type: fields.type.trim() || null,
     start_time: fields.start_time.trim() || null,
     duration: fields.duration.trim() || null,
