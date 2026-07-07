@@ -152,6 +152,10 @@ interface UploadPhotoPayload {
 function isPermanentFailure(err: unknown): boolean {
   if (err instanceof api.UnauthorizedError) return true
   if (err instanceof api.PlanItemValidationError) return true
+  // A stay that fails validation (400) or overlaps another stay (409) on replay
+  // will never succeed on retry — drop it rather than retrying forever (M12.1 S4).
+  if (err instanceof api.StayValidationError) return true
+  if (err instanceof api.StayOverlapError) return true
   if (err instanceof Error && /^API returned HTTP (4\d\d)$/.test(err.message)) return true
   return false
 }
