@@ -14,6 +14,45 @@ const (
 	maxPlanItemTypeLen     = 100
 )
 
+// planItemKinds is the set of allowed plan-item kinds (M12.1). Kind describes
+// how an item behaves while planning and is independent of its budget category
+// (the `type` field): 'activity' (the default — a thing to do), 'transport' (a
+// leg of travel with an origin→destination and arrival time), 'food' (a meal or
+// reservation), and 'note' (a time-less, place-less reminder). The same set is
+// declared as a CHECK constraint on trip.plan_items.kind as a backstop.
+var planItemKinds = map[string]struct{}{
+	"activity":  {},
+	"transport": {},
+	"food":      {},
+	"note":      {},
+}
+
+// defaultPlanItemKind is applied when a create/edit request omits kind, so the
+// offline write queue can replay older payloads that predate the column (PRD §6).
+const defaultPlanItemKind = "activity"
+
+// normalizePlanItemKind returns the trimmed, lower-cased kind, falling back to
+// defaultPlanItemKind when kind is nil or blank.
+func normalizePlanItemKind(kind *string) string {
+	if kind == nil {
+		return defaultPlanItemKind
+	}
+	k := strings.ToLower(strings.TrimSpace(*kind))
+	if k == "" {
+		return defaultPlanItemKind
+	}
+	return k
+}
+
+// validatePlanItemKind returns a client-safe error when kind is not one of the
+// allowed values. Membership only — there is no transition graph.
+func validatePlanItemKind(kind string) error {
+	if _, ok := planItemKinds[kind]; !ok {
+		return errors.New("kind must be one of activity, transport, food, note")
+	}
+	return nil
+}
+
 // PlanItem is a single entry in a day's itinerary (trip.plan_items, PRD §9,
 // §5.2). Only title is required; all other fields are optional. An item is
 // untimed when StartTime is nil (start_time IS NULL) and timed when StartTime
@@ -24,7 +63,8 @@ type PlanItem struct {
 	TripID        string
 	DayID         *string // nil → backlog
 	Title         string
-	Type          *string  // optional; activity type label
+	Kind          string   // behaviour: activity|transport|food|note (M12.1)
+	Type          *string  // optional; budget category label (Transport, Food, …)
 	StartTime     *string  // optional; "HH:MM" — nil means untimed
 	Duration      *string  // optional; interval as ISO 8601 duration string
 	Location      *string  // optional; feeds Milestone 07 map pins
@@ -43,6 +83,7 @@ type NewPlanItem struct {
 	TripID        string
 	DayID         *string
 	Title         string
+	Kind          string
 	Type          *string
 	StartTime     *string
 	Duration      *string
@@ -59,6 +100,7 @@ type NewPlanItem struct {
 // validatePlanItemFields).
 type EditPlanItem struct {
 	Title         string
+	Kind          string
 	Type          *string
 	StartTime     *string
 	Duration      *string

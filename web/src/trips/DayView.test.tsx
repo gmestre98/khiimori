@@ -459,6 +459,34 @@ describe('DayView', () => {
       )
     })
 
+    it('preserves kind when editing an item (does not reset to activity)', async () => {
+      const user = userEvent.setup()
+      // A transport item edited via the form must round-trip its kind, otherwise
+      // the backend defaults an omitted kind back to 'activity' (M12.1 S1).
+      const item = makePlanItem({ title: 'Train to Porto', kind: 'transport' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      vi.mocked(api.updatePlanItem).mockResolvedValue(
+        makePlanItem({ title: 'Train to Braga', kind: 'transport' }),
+      )
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Train to Porto')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Edit Train to Porto/ }))
+      const editingLi = document.querySelector('.plan-item--editing')!
+      const input = within(editingLi as HTMLElement).getByLabelText('Title')
+      await user.clear(input)
+      await user.type(input, 'Train to Braga')
+      await user.click(within(editingLi as HTMLElement).getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => expect(screen.getByText('Train to Braga')).toBeInTheDocument())
+      expect(api.updatePlanItem).toHaveBeenCalledWith(
+        'trip-1',
+        'item-1',
+        expect.objectContaining({ kind: 'transport' }),
+      )
+    })
+
     it('cancels the edit and restores the item row', async () => {
       const user = userEvent.setup()
       const item = makePlanItem({ title: 'Visit museum' })

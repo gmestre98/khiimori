@@ -320,12 +320,22 @@ export interface Stay {
   link?: string
 }
 
+// PlanItemKind is the behaviour of a plan item while planning — an activity, a
+// leg of transport, a meal, or a plain note/reminder. It is independent of the
+// item's budget category (the `type` field) and drives the item's icon, fields,
+// and how it sorts on the timeline. 'activity' is the default. (M12.1)
+export type PlanItemKind = 'activity' | 'transport' | 'food' | 'note'
+
 // PlanItem is the wire shape of a plan item embedded in the day response.
 export interface PlanItem {
   id: string
   trip_id: string
   day_id?: string
   title: string
+  // kind is always sent by a current backend, but is optional here because the
+  // instant-render cache (IndexedDB) can hold day payloads written before this
+  // field shipped. Consumers normalise a missing kind to 'activity'. (M12.1)
+  kind?: PlanItemKind
   type?: string
   start_time?: string
   duration?: string
@@ -374,6 +384,7 @@ export async function fetchBacklog(tripId: string, signal?: AbortSignal): Promis
 export interface PlanItemInput {
   title: string
   day_id?: string | null
+  kind?: PlanItemKind | null
   type?: string | null
   start_time?: string | null
   duration?: string | null
