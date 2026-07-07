@@ -86,6 +86,23 @@ interface SetPlanItemStatusPayload {
   status: string
 }
 
+// Stay payload shapes (M12.1 S4).
+interface CreateStayPayload {
+  tripId: string
+  input: api.StayInput
+}
+
+interface UpdateStayPayload {
+  tripId: string
+  stayId: string
+  input: api.StayInput
+}
+
+interface DeleteStayPayload {
+  tripId: string
+  stayId: string
+}
+
 // Budget payload shapes (M05.3 S3).
 interface SetTripBudgetLinePayload {
   tripId: string
@@ -135,6 +152,10 @@ interface UploadPhotoPayload {
 function isPermanentFailure(err: unknown): boolean {
   if (err instanceof api.UnauthorizedError) return true
   if (err instanceof api.PlanItemValidationError) return true
+  // A stay that fails validation (400) or overlaps another stay (409) on replay
+  // will never succeed on retry — drop it rather than retrying forever (M12.1 S4).
+  if (err instanceof api.StayValidationError) return true
+  if (err instanceof api.StayOverlapError) return true
   if (err instanceof Error && /^API returned HTTP (4\d\d)$/.test(err.message)) return true
   return false
 }
@@ -177,6 +198,21 @@ async function dispatch(m: QueuedMutation): Promise<void> {
     case 'setPlanItemStatus': {
       const { tripId, itemId, status } = p as unknown as SetPlanItemStatusPayload
       await api.setPlanItemStatus(tripId, itemId, status)
+      return
+    }
+    case 'createStay': {
+      const { tripId, input } = p as unknown as CreateStayPayload
+      await api.createStay(tripId, input)
+      return
+    }
+    case 'updateStay': {
+      const { tripId, stayId, input } = p as unknown as UpdateStayPayload
+      await api.updateStay(tripId, stayId, input)
+      return
+    }
+    case 'deleteStay': {
+      const { tripId, stayId } = p as unknown as DeleteStayPayload
+      await api.deleteStay(tripId, stayId)
       return
     }
     case 'setTripBudgetLine': {

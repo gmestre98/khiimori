@@ -2333,6 +2333,83 @@
   color: var(--text-secondary);
 }
 
+/* Per-night context pill (e.g. "night 2 of 3" / "checking in"). */
+.stay-night-badge {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semi);
+  color: var(--accent-press);
+  background: var(--accent-tint);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.stay-item-actions {
+  display: flex;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+.stay-action {
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  font-size: var(--text-sm);
+  color: var(--accent);
+  cursor: pointer;
+}
+.stay-action:hover {
+  text-decoration: underline;
+}
+.stay-action--danger {
+  color: var(--danger, #b3261e);
+}
+.stay-action:disabled {
+  opacity: 0.5;
+  cursor: default;
+  text-decoration: none;
+}
+/* Add-stay affordance shown when the night has no stay yet. */
+.stay-add-btn {
+  width: 100%;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  padding: 11px 15px;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+}
+.stay-add-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+/* Inline stay add/edit form. */
+.stay-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 15px;
+  background: var(--surface);
+}
+.stay-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s2);
+}
+.stay-form-actions {
+  display: flex;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+.stay-form-error {
+  font-size: var(--text-sm);
+  color: var(--danger, #b3261e);
+  margin: 0;
+}
+
 /* ── Backlog page ───────────────────────────────────────────────────────────── */
 
 .backlog-item {

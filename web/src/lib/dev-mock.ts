@@ -18,6 +18,13 @@ function dayOffset(date: string): number {
 
 const DAY4_ID = 'mock-day-4'
 
+// addDays returns a YYYY-MM-DD offset from the given date.
+function addDays(date: string, n: number): string {
+  return new Date(new Date(date + 'T00:00:00Z').getTime() + n * 86_400_000)
+    .toISOString()
+    .slice(0, 10)
+}
+
 function richKyotoDay(date: string) {
   return {
     id: DAY4_ID,
@@ -31,7 +38,8 @@ function richKyotoDay(date: string) {
         trip_id: MOCK_CURRENT_TRIP_ID,
         name: 'Hotel Mume',
         location: 'Gion district',
-        check_out: '11:00',
+        check_in: addDays(date, -2),
+        check_out: addDays(date, 2),
         cost: 0,
       },
     ],
@@ -110,11 +118,12 @@ function calmDay(date: string, offset: number) {
     notes: '',
     stays: [
       {
-        id: 'stay-x',
+        id: `stay-${offset}`,
         trip_id: MOCK_CURRENT_TRIP_ID,
         name: 'Hotel Mume',
         location: 'Gion district',
-        check_out: '11:00',
+        check_in: addDays(date, -offset),
+        check_out: addDays(date, 5 - offset),
         cost: 0,
       },
     ],

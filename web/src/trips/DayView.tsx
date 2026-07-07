@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useFocusTrap } from '../components/ui/useFocusTrap'
 import { Button, FormField, Input, Select } from '../components/ui'
 import { collectLocatedItems } from './locatedItems'
+import { StaySlot } from './StaySlot'
 import { MAX_SPLIT_PARTS, splitAmount } from './splitAmount'
 import {
   PlanItemValidationError,
@@ -1507,69 +1508,6 @@ function UntimedSection({
   )
 }
 
-// StaysSection renders accommodation stays covering this day.
-function StaysSection({
-  stays,
-  selectedId,
-  pinNumberForId,
-  onSelect,
-}: {
-  stays: Stay[]
-  selectedId?: string | null
-  pinNumberForId?: (id: string) => number | undefined
-  onSelect?: (id: string | null) => void
-}) {
-  if (stays.length === 0) return null
-  return (
-    <section className="day-stays-section" aria-label="Accommodation">
-      <h3 className="day-stays-section-title">Staying</h3>
-      <ul className="stay-list">
-        {stays.map((stay) => {
-          const pinNumber = pinNumberForId?.(stay.id)
-          const isSelected = selectedId === stay.id
-          return (
-            <li
-              key={stay.id}
-              className={['stay-item', isSelected ? 'stay-item--selected' : '']
-                .filter(Boolean)
-                .join(' ')}
-            >
-              <div className="stay-item-main">
-                {pinNumber != null && onSelect && (
-                  <button
-                    type="button"
-                    className={[
-                      'plan-item-pin-badge',
-                      isSelected ? 'plan-item-pin-badge--selected' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    aria-label={`Map pin ${pinNumber} for ${stay.name}`}
-                    aria-pressed={isSelected}
-                    onClick={() => onSelect(isSelected ? null : stay.id)}
-                  >
-                    {pinNumber}
-                  </button>
-                )}
-                <div className="stay-name">{stay.name}</div>
-              </div>
-              {stay.location && <div className="stay-location">{stay.location}</div>}
-              {stay.check_in && stay.check_out && (
-                <div
-                  className="stay-dates"
-                  aria-label={`Check in ${stay.check_in}, check out ${stay.check_out}`}
-                >
-                  {stay.check_in} – {stay.check_out}
-                </div>
-              )}
-            </li>
-          )
-        })}
-      </ul>
-    </section>
-  )
-}
-
 // BacklogLink renders a link/button to access the ideas backlog for the trip.
 function BacklogLink({ tripId }: { tripId: string }) {
   return (
@@ -1593,6 +1531,7 @@ export function PlanningSection({
   day,
   items,
   setItems,
+  setStays,
   tripId,
   selectedId = null,
   onSelect,
@@ -1604,6 +1543,9 @@ export function PlanningSection({
   // the trip-scoped Plan subtab's rail) stays in sync with edits.
   items: PlanItem[]
   setItems: React.Dispatch<React.SetStateAction<PlanItem[]>>
+  // setStays updates this day's stays in the parent so the pinned stay slot and
+  // the day map stay in sync after an add/edit/remove.
+  setStays: React.Dispatch<React.SetStateAction<Stay[]>>
   tripId: string
   // selectedId / onSelect drive the map-pin badges (day view). Omit them in
   // map-less contexts (the Plan subtab) and no pin badges render.
@@ -1652,8 +1594,10 @@ export function PlanningSection({
   return (
     <section className="day-slot day-slot-planning" aria-label="Planning" data-slot="planning">
       <h2 className="day-slot-title">{title}</h2>
-      <StaysSection
-        stays={day.stays}
+      <StaySlot
+        day={day}
+        tripId={tripId}
+        setStays={setStays}
         selectedId={selectedId}
         pinNumberForId={pinNumberForId}
         onSelect={onSelect}
@@ -1959,6 +1903,22 @@ export function DayView() {
   // planning list share one source of truth — adding a stop updates both at once.
   const liveDay = day ? { ...day, plan_items: planItems } : null
 
+  // setStays updates the fetched day's stays in place so the pinned stay slot
+  // and the day map reflect an add/edit/remove without a reload.
+  const setStays: React.Dispatch<React.SetStateAction<Stay[]>> = (action) => {
+    setDay((cur) =>
+      cur
+        ? {
+            ...cur,
+            stays:
+              typeof action === 'function'
+                ? (action as (prev: Stay[]) => Stay[])(cur.stays)
+                : action,
+          }
+        : cur,
+    )
+  }
+
   // day.index is 0-based (server-provided); +1 gives the 1-based display number.
   const dayNumber = day ? day.index + 1 : null
 
@@ -1998,6 +1958,7 @@ export function DayView() {
               day={liveDay}
               items={planItems}
               setItems={setPlanItems}
+              setStays={setStays}
               tripId={tripId}
               selectedId={selectedId}
               onSelect={setSelectedId}

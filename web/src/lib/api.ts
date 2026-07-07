@@ -320,6 +320,81 @@ export interface Stay {
   link?: string
 }
 
+// StayInput is the editable payload for creating or updating a stay. Only name
+// is required. `id` (optional) is a client-generated UUID for upsert idempotency
+// (offline replay). Dates are YYYY-MM-DD; send null to clear an optional field.
+export interface StayInput {
+  id?: string
+  name: string
+  location?: string | null
+  check_in?: string | null
+  check_out?: string | null
+  cost?: number | null
+  link?: string | null
+}
+
+// StayValidationError carries the API's 400 message so the form can show it.
+export class StayValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'StayValidationError'
+  }
+}
+
+// StayOverlapError is thrown on 409 — the stay shares a night with an existing
+// stay (one accommodation per night, M12.1 S3). The UI messages this distinctly.
+export class StayOverlapError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'StayOverlapError'
+  }
+}
+
+// createStay calls POST /trips/:id/stays and returns the new stay. Throws
+// StayValidationError on 400, StayOverlapError on 409, UnauthorizedError on 401.
+export async function createStay(tripId: string, input: StayInput): Promise<Stay> {
+  const res = await apiFetch(`/trips/${tripId}/stays`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 409) throw new StayOverlapError('Another stay already covers those nights')
+  if (res.status === 400) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new StayValidationError(body?.error?.message ?? 'Invalid stay')
+  }
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as Stay
+}
+
+// updateStay calls PATCH /trips/:id/stays/:stayId and returns the updated stay.
+// Throws StayValidationError on 400, StayOverlapError on 409, UnauthorizedError
+// on 401.
+export async function updateStay(tripId: string, stayId: string, input: StayInput): Promise<Stay> {
+  const res = await apiFetch(`/trips/${tripId}/stays/${stayId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 409) throw new StayOverlapError('Another stay already covers those nights')
+  if (res.status === 400) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new StayValidationError(body?.error?.message ?? 'Invalid stay')
+  }
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as Stay
+}
+
+// deleteStay calls DELETE /trips/:id/stays/:stayId. Idempotent (204 even if the
+// stay is already gone). Throws UnauthorizedError on 401.
+export async function deleteStay(tripId: string, stayId: string): Promise<void> {
+  const res = await apiFetch(`/trips/${tripId}/stays/${stayId}`, { method: 'DELETE' })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok && res.status !== 204) throw new Error(`API returned HTTP ${res.status}`)
+}
+
 // PlanItemKind is the behaviour of a plan item while planning — an activity, a
 // leg of transport, a meal, or a plain note/reminder. It is independent of the
 // item's budget category (the `type` field) and drives the item's icon, fields,

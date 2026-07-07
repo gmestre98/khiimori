@@ -192,6 +192,19 @@ describe('replayQueue — permanent failures', () => {
     expect(results[0].outcome).toBe('permanent_failure')
   })
 
+  it('drops a 409-conflicting stay replay as permanent, not transient', async () => {
+    // An offline stay that now overlaps another (e.g. edited on another device)
+    // fails with 409 forever — it must be dropped, not retried indefinitely.
+    globalThis.fetch = make4xxFetch(409) as typeof globalThis.fetch
+
+    await enqueue('createStay', { tripId, input: { id: 's-1', name: 'Hotel' } })
+    const results = await replayQueue()
+
+    expect(results[0].outcome).toBe('permanent_failure')
+    const remaining = await replayQueue()
+    expect(remaining).toEqual([])
+  })
+
   it('does not throw ReplayError when all failures are permanent', async () => {
     globalThis.fetch = make4xxFetch(400) as typeof globalThis.fetch
 
@@ -343,6 +356,36 @@ describe('replayQueue — all mutation kinds', () => {
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining('status'),
       expect.objectContaining({ method: 'POST' }),
+    )
+  })
+
+  it('dispatches createStay', async () => {
+    await enqueue('createStay', { tripId, input: { id: 's-1', name: 'Hotel' } })
+    const [r] = await replayQueue()
+    expect(r.outcome).toBe('success')
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/stays'),
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
+
+  it('dispatches updateStay', async () => {
+    await enqueue('updateStay', { tripId, stayId: 'stay-9', input: { name: 'Hotel' } })
+    const [r] = await replayQueue()
+    expect(r.outcome).toBe('success')
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/stays/stay-9'),
+      expect.objectContaining({ method: 'PATCH' }),
+    )
+  })
+
+  it('dispatches deleteStay', async () => {
+    await enqueue('deleteStay', { tripId, stayId: 'stay-9' })
+    const [r] = await replayQueue()
+    expect(r.outcome).toBe('success')
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/stays/stay-9'),
+      expect.objectContaining({ method: 'DELETE' }),
     )
   })
 })

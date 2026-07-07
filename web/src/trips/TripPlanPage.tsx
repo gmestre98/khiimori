@@ -1,6 +1,13 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 import { Link } from 'react-router-dom'
-import { UnauthorizedError, datesInRange, fetchDay, type Day, type PlanItem } from '../lib/api'
+import {
+  UnauthorizedError,
+  datesInRange,
+  fetchDay,
+  type Day,
+  type PlanItem,
+  type Stay,
+} from '../lib/api'
 import { fullDate, shortDate } from '../lib/format'
 import { PlanningSection } from './DayView'
 import { useTripShell } from './useTripShell'
@@ -98,6 +105,28 @@ export function TripPlanPage() {
     }
   }
 
+  // setStaysForDate mirrors setItemsForDate for a day's stays so the pinned stay
+  // slot in each PlanningSection updates the shared loaded list in place.
+  function setStaysForDate(date: string): Dispatch<SetStateAction<Stay[]>> {
+    return (action) => {
+      setDays((cur) =>
+        cur
+          ? cur.map((d) =>
+              d.date === date
+                ? {
+                    ...d,
+                    stays:
+                      typeof action === 'function'
+                        ? (action as (prev: Stay[]) => Stay[])(d.stays)
+                        : action,
+                  }
+                : d,
+            )
+          : cur,
+      )
+    }
+  }
+
   const selected = days?.find((d) => d.date === selectedDate) ?? null
   const totalItems = (days ?? []).reduce((sum, d) => sum + d.plan_items.length, 0)
 
@@ -178,6 +207,7 @@ export function TripPlanPage() {
                   day={selected}
                   items={selected.plan_items}
                   setItems={setItemsForDate(selected.date)}
+                  setStays={setStaysForDate(selected.date)}
                   tripId={trip.id}
                   title={`Day ${selected.index + 1} · ${fullDate(selected.date)}`}
                   showBacklogLink={false}
@@ -190,6 +220,7 @@ export function TripPlanPage() {
                       day={d}
                       items={d.plan_items}
                       setItems={setItemsForDate(d.date)}
+                      setStays={setStaysForDate(d.date)}
                       tripId={trip.id}
                       title={`Day ${d.index + 1} · ${shortDate(d.date)}`}
                       showBacklogLink={false}
