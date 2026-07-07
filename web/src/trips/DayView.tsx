@@ -193,7 +193,7 @@ function readDetailsOpen(): boolean {
 function fieldsFromItem(item: PlanItem): PlanItemFormFields {
   return {
     title: item.title,
-    kind: item.kind,
+    kind: item.kind ?? 'activity',
     type: item.type ?? '',
     start_time: item.start_time ? item.start_time.slice(0, 5) : '',
     duration: item.duration ?? '',

@@ -332,7 +332,10 @@ export interface PlanItem {
   trip_id: string
   day_id?: string
   title: string
-  kind: PlanItemKind
+  // kind is always sent by a current backend, but is optional here because the
+  // instant-render cache (IndexedDB) can hold day payloads written before this
+  // field shipped. Consumers normalise a missing kind to 'activity'. (M12.1)
+  kind?: PlanItemKind
   type?: string
   start_time?: string
   duration?: string
