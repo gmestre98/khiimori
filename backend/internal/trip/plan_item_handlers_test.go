@@ -93,6 +93,7 @@ func (f *fakePlanItemStore) CreatePlanItem(_ context.Context, n NewPlanItem) (Pl
 		TripID:        n.TripID,
 		DayID:         n.DayID,
 		Title:         n.Title,
+		Kind:          n.Kind,
 		Type:          n.Type,
 		StartTime:     n.StartTime,
 		Duration:      n.Duration,
@@ -119,6 +120,7 @@ func (f *fakePlanItemStore) UpdatePlanItem(_ context.Context, tripID, itemID str
 		ID:            itemID,
 		TripID:        tripID,
 		Title:         e.Title,
+		Kind:          e.Kind,
 		Type:          e.Type,
 		StartTime:     e.StartTime,
 		Duration:      e.Duration,
@@ -1423,5 +1425,132 @@ func TestHandleSetPlanItemStatusUnauthorized(t *testing.T) {
 	}
 	if pi.gotStatusItemID != "" {
 		t.Error("store should not be called for an unauthorized request")
+	}
+}
+
+// --- Kind (M12.1) --------------------------------------------------------
+
+// TestHandleCreatePlanItemDefaultsKind asserts an omitted kind defaults to
+// "activity" so older offline payloads (which predate the field) still create.
+func TestHandleCreatePlanItemDefaultsKind(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleCreatePlanItem(rec, createPlanItemReq("trip-1", "owner-1", `{"title":"Museum"}`))
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotCreate.Kind != "activity" {
+		t.Errorf("store kind = %q, want activity (default)", pi.gotCreate.Kind)
+	}
+	var resp planItemResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Kind != "activity" {
+		t.Errorf("response kind = %q, want activity", resp.Kind)
+	}
+}
+
+// TestHandleCreatePlanItemAcceptsKind asserts a valid kind is forwarded to the
+// store, case-insensitively normalised.
+func TestHandleCreatePlanItemAcceptsKind(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleCreatePlanItem(rec, createPlanItemReq("trip-1", "owner-1",
+		`{"title":"Flight to Porto","kind":"Transport"}`))
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotCreate.Kind != "transport" {
+		t.Errorf("store kind = %q, want transport", pi.gotCreate.Kind)
+	}
+}
+
+// TestHandleCreatePlanItemRejectsInvalidKind asserts an unknown kind is 400 and
+// the store is not called.
+func TestHandleCreatePlanItemRejectsInvalidKind(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleCreatePlanItem(rec, createPlanItemReq("trip-1", "owner-1",
+		`{"title":"Mystery","kind":"teleport"}`))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotCreate.TripID != "" {
+		t.Error("store should not be called for an invalid kind")
+	}
+}
+
+// TestHandleUpdatePlanItemAcceptsKind asserts edit forwards a normalised kind.
+func TestHandleUpdatePlanItemAcceptsKind(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleUpdatePlanItem(rec, updatePlanItemReq("trip-1", "item-1", "owner-1",
+		`{"title":"Lunch","kind":"food"}`))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotUpdate.Kind != "food" {
+		t.Errorf("store kind = %q, want food", pi.gotUpdate.Kind)
+	}
+}
+
+// TestHandleUpdatePlanItemDefaultsKind asserts an omitted kind on edit falls
+// back to "activity".
+func TestHandleUpdatePlanItemDefaultsKind(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleUpdatePlanItem(rec, updatePlanItemReq("trip-1", "item-1", "owner-1",
+		`{"title":"Untyped"}`))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotUpdate.Kind != "activity" {
+		t.Errorf("store kind = %q, want activity (default)", pi.gotUpdate.Kind)
+	}
+}
+
+// TestHandleUpdatePlanItemRejectsInvalidKind asserts an unknown kind is 400 and
+// the store is not called.
+func TestHandleUpdatePlanItemRejectsInvalidKind(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleUpdatePlanItem(rec, updatePlanItemReq("trip-1", "item-1", "owner-1",
+		`{"title":"Bad","kind":"nap"}`))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", rec.Code, rec.Body.String())
+	}
+	if pi.gotUpdateItemID != "" {
+		t.Error("store should not be called for an invalid kind")
 	}
 }

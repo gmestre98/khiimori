@@ -19,6 +19,7 @@ type createPlanItemRequest struct {
 	ClientID      string   `json:"id"`
 	DayID         *string  `json:"day_id"`
 	Title         string   `json:"title"`
+	Kind          *string  `json:"kind"`
 	Type          *string  `json:"type"`
 	StartTime     *string  `json:"start_time"`
 	Duration      *string  `json:"duration"`
@@ -32,11 +33,16 @@ func (req createPlanItemRequest) toNewPlanItem(tripID string) (NewPlanItem, erro
 	if err := validatePlanItemFields(req.Title, req.Type, req.StartTime, req.Duration, req.Location, req.Link); err != nil {
 		return NewPlanItem{}, err
 	}
+	kind := normalizePlanItemKind(req.Kind)
+	if err := validatePlanItemKind(kind); err != nil {
+		return NewPlanItem{}, err
+	}
 	return NewPlanItem{
 		ClientID:      req.ClientID,
 		TripID:        tripID,
 		DayID:         req.DayID,
 		Title:         req.Title,
+		Kind:          kind,
 		Type:          req.Type,
 		StartTime:     req.StartTime,
 		Duration:      req.Duration,
@@ -53,6 +59,7 @@ type planItemResponse struct {
 	TripID        string   `json:"trip_id"`
 	DayID         *string  `json:"day_id,omitempty"`
 	Title         string   `json:"title"`
+	Kind          string   `json:"kind"`
 	Type          *string  `json:"type,omitempty"`
 	StartTime     *string  `json:"start_time,omitempty"`
 	Duration      *string  `json:"duration,omitempty"`
@@ -74,6 +81,7 @@ func newPlanItemResponse(p PlanItem) planItemResponse {
 // automatically when start_time is absent (enforced by validation).
 type editPlanItemRequest struct {
 	Title         string   `json:"title"`
+	Kind          *string  `json:"kind"`
 	Type          *string  `json:"type"`
 	StartTime     *string  `json:"start_time"`
 	Duration      *string  `json:"duration"`
@@ -87,7 +95,21 @@ func (req editPlanItemRequest) toEditPlanItem() (EditPlanItem, error) {
 	if err := validatePlanItemFields(req.Title, req.Type, req.StartTime, req.Duration, req.Location, req.Link); err != nil {
 		return EditPlanItem{}, err
 	}
-	return EditPlanItem(req), nil
+	kind := normalizePlanItemKind(req.Kind)
+	if err := validatePlanItemKind(kind); err != nil {
+		return EditPlanItem{}, err
+	}
+	return EditPlanItem{
+		Title:         req.Title,
+		Kind:          kind,
+		Type:          req.Type,
+		StartTime:     req.StartTime,
+		Duration:      req.Duration,
+		Location:      req.Location,
+		BookingStatus: req.BookingStatus,
+		Cost:          req.Cost,
+		Link:          req.Link,
+	}, nil
 }
 
 // backlogResponse is the wire shape for the backlog list endpoint.

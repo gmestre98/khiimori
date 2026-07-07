@@ -148,3 +148,28 @@ func TestPlanItemCreateUnauthorizedIntegration(t *testing.T) {
 		t.Errorf("status = %d, want 404 (presence oracle protection)", resp.StatusCode)
 	}
 }
+
+// TestPlanItemCreateKindIntegration verifies that kind (M12.1) round-trips
+// through the DB: an explicit kind is stored and returned, and an omitted kind
+// defaults to "activity" via the column default.
+func TestPlanItemCreateKindIntegration(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DATABASE_URL_TEST not set; skipping plan item kind integration test")
+	}
+
+	srv := newModule(t)
+	tripID := createTripForPlanItemTest(t, srv)
+	dayID := fetchDayID(t, srv, tripID, "2026-09-01")
+
+	explicit := createPlanItem(t, srv, tripID,
+		fmt.Sprintf(`{"title":"Train to Porto","day_id":%q,"kind":"transport"}`, dayID))
+	if explicit.Kind != "transport" {
+		t.Errorf("kind = %q, want transport", explicit.Kind)
+	}
+
+	defaulted := createPlanItem(t, srv, tripID,
+		fmt.Sprintf(`{"title":"Wander","day_id":%q}`, dayID))
+	if defaulted.Kind != "activity" {
+		t.Errorf("kind = %q, want activity (default)", defaulted.Kind)
+	}
+}

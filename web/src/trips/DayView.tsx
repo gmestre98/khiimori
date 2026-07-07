@@ -207,6 +207,7 @@ function tempPlanItem(tripId: string, dayId: string | null, input: PlanItemInput
     trip_id: tripId,
     day_id: dayId ?? undefined,
     title: input.title,
+    kind: input.kind ?? 'activity',
     type: input.type ?? undefined,
     start_time: input.start_time ?? undefined,
     duration: input.duration ?? undefined,

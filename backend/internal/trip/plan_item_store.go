@@ -57,7 +57,7 @@ type pgxPlanItemStore struct {
 // planItemColumns is the trip.plan_items column list in scan order.
 const planItemColumns = `
 	id::text, trip_id::text, day_id::text,
-	title, type, start_time::text, duration::text,
+	title, kind, type, start_time::text, duration::text,
 	location, booking_status, cost, link,
 	sort_order, status`
 
@@ -65,7 +65,7 @@ const planItemColumns = `
 func scanPlanItem(row pgx.Row, p *PlanItem) error {
 	return row.Scan(
 		&p.ID, &p.TripID, &p.DayID,
-		&p.Title, &p.Type, &p.StartTime, &p.Duration,
+		&p.Title, &p.Kind, &p.Type, &p.StartTime, &p.Duration,
 		&p.Location, &p.BookingStatus, &p.Cost, &p.Link,
 		&p.SortOrder, &p.Status,
 	)
@@ -87,14 +87,15 @@ func (s *pgxPlanItemStore) CreatePlanItem(ctx context.Context, n NewPlanItem) (P
 	if n.ClientID != "" {
 		q = `
 			INSERT INTO trip.plan_items
-				(id, trip_id, day_id, title, type, start_time, duration,
+				(id, trip_id, day_id, title, kind, type, start_time, duration,
 				 location, booking_status, cost, link, status)
 			VALUES
-				($1::uuid, $2::uuid, $3::uuid,  $4, $5, $6::time, $7::interval,
-				 $8, $9, $10, $11,
+				($1::uuid, $2::uuid, $3::uuid,  $4, $5, $6, $7::time, $8::interval,
+				 $9, $10, $11, $12,
 				 CASE WHEN $3::uuid IS NULL THEN 'idea' ELSE 'planned' END)
 			ON CONFLICT (id) DO UPDATE
 				SET title          = EXCLUDED.title,
+				    kind           = EXCLUDED.kind,
 				    type           = EXCLUDED.type,
 				    start_time     = EXCLUDED.start_time,
 				    duration       = EXCLUDED.duration,
@@ -105,21 +106,21 @@ func (s *pgxPlanItemStore) CreatePlanItem(ctx context.Context, n NewPlanItem) (P
 			WHERE trip.plan_items.trip_id = EXCLUDED.trip_id
 			RETURNING ` + planItemColumns
 		args = []any{
-			n.ClientID, n.TripID, n.DayID, n.Title, n.Type,
+			n.ClientID, n.TripID, n.DayID, n.Title, n.Kind, n.Type,
 			n.StartTime, n.Duration, n.Location, n.BookingStatus, n.Cost, n.Link,
 		}
 	} else {
 		q = `
 			INSERT INTO trip.plan_items
-				(trip_id, day_id, title, type, start_time, duration,
+				(trip_id, day_id, title, kind, type, start_time, duration,
 				 location, booking_status, cost, link, status)
 			VALUES
-				($1::uuid, $2::uuid, $3, $4, $5::time, $6::interval,
-				 $7, $8, $9, $10,
+				($1::uuid, $2::uuid, $3, $4, $5, $6::time, $7::interval,
+				 $8, $9, $10, $11,
 				 CASE WHEN $2::uuid IS NULL THEN 'idea' ELSE 'planned' END)
 			RETURNING ` + planItemColumns
 		args = []any{
-			n.TripID, n.DayID, n.Title, n.Type,
+			n.TripID, n.DayID, n.Title, n.Kind, n.Type,
 			n.StartTime, n.Duration, n.Location, n.BookingStatus, n.Cost, n.Link,
 		}
 	}
@@ -139,19 +140,20 @@ func (s *pgxPlanItemStore) UpdatePlanItem(ctx context.Context, tripID, itemID st
 	const q = `
 		UPDATE trip.plan_items
 		SET title          = $3,
-		    type           = $4,
-		    start_time     = $5::time,
-		    duration       = $6::interval,
-		    location       = $7,
-		    booking_status = $8,
-		    cost           = $9,
-		    link           = $10
+		    kind           = $4,
+		    type           = $5,
+		    start_time     = $6::time,
+		    duration       = $7::interval,
+		    location       = $8,
+		    booking_status = $9,
+		    cost           = $10,
+		    link           = $11
 		WHERE id = $1::uuid AND trip_id = $2::uuid
 		RETURNING ` + planItemColumns
 	var p PlanItem
 	err := scanPlanItem(s.pool.QueryRow(ctx, q,
 		itemID, tripID,
-		e.Title, e.Type, e.StartTime, e.Duration,
+		e.Title, e.Kind, e.Type, e.StartTime, e.Duration,
 		e.Location, e.BookingStatus, e.Cost, e.Link,
 	), &p)
 	if err != nil {
