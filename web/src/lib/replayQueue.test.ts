@@ -345,6 +345,36 @@ describe('replayQueue — all mutation kinds', () => {
       expect.objectContaining({ method: 'POST' }),
     )
   })
+
+  it('dispatches createStay', async () => {
+    await enqueue('createStay', { tripId, input: { id: 's-1', name: 'Hotel' } })
+    const [r] = await replayQueue()
+    expect(r.outcome).toBe('success')
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/stays'),
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
+
+  it('dispatches updateStay', async () => {
+    await enqueue('updateStay', { tripId, stayId: 'stay-9', input: { name: 'Hotel' } })
+    const [r] = await replayQueue()
+    expect(r.outcome).toBe('success')
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/stays/stay-9'),
+      expect.objectContaining({ method: 'PATCH' }),
+    )
+  })
+
+  it('dispatches deleteStay', async () => {
+    await enqueue('deleteStay', { tripId, stayId: 'stay-9' })
+    const [r] = await replayQueue()
+    expect(r.outcome).toBe('success')
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/stays/stay-9'),
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------

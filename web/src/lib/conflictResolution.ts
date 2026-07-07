@@ -50,8 +50,12 @@ function resourceKey(m: QueuedMutation): string | null {
       return `promotePlanItem:${String(p.tripId)}:${String(p.itemId)}`
     case 'demotePlanItem':
       return `demotePlanItem:${String(p.tripId)}:${String(p.itemId)}`
+    case 'updateStay':
+      return `updateStay:${String(p.tripId)}:${String(p.stayId)}`
     case 'createPlanItem':
     default:
+      // createStay is never deduplicated (unique client id, like createPlanItem);
+      // deleteStay is idempotent so replaying duplicates is harmless.
       return null
   }
 }
