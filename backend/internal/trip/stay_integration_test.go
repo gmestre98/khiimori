@@ -103,9 +103,11 @@ func TestStayCRUDIntegration(t *testing.T) {
 	}
 
 	// ── Edit ───────────────────────────────────────────────────────────────
+	// Dates chosen to NOT overlap the "Grand Hotel" stay above (08-02→08-05):
+	// check-in on its check-out day shares no night (one-stay-per-night, S3).
 	patchReq, err := http.NewRequest(http.MethodPatch,
 		fmt.Sprintf("%s%s/%s/stays/%s", srv.URL, TripsPath, tripID, stayID),
-		bytes.NewBufferString(`{"name":"Updated Hostel","check_in":"2026-08-03","check_out":"2026-08-06"}`),
+		bytes.NewBufferString(`{"name":"Updated Hostel","check_in":"2026-08-05","check_out":"2026-08-07"}`),
 	)
 	if err != nil {
 		t.Fatalf("build patch: %v", err)
@@ -126,8 +128,8 @@ func TestStayCRUDIntegration(t *testing.T) {
 	if updated.Name != "Updated Hostel" {
 		t.Errorf("updated name = %q, want Updated Hostel", updated.Name)
 	}
-	if updated.CheckIn != "2026-08-03" {
-		t.Errorf("updated check_in = %q, want 2026-08-03", updated.CheckIn)
+	if updated.CheckIn != "2026-08-05" {
+		t.Errorf("updated check_in = %q, want 2026-08-05", updated.CheckIn)
 	}
 
 	// ── Delete ─────────────────────────────────────────────────────────────
@@ -281,5 +283,88 @@ func TestStayCRUDAuthorizationDenied(t *testing.T) {
 	defer resp4.Body.Close()
 	if resp4.StatusCode != http.StatusNotFound {
 		t.Errorf("other delete stay status = %d, want 404", resp4.StatusCode)
+	}
+}
+
+// postStay POSTs a stay create and returns the HTTP status and decoded body.
+func postStay(t *testing.T, srv *httptest.Server, tripID, body string) (int, stayResponse) {
+	t.Helper()
+	resp, err := http.Post(
+		fmt.Sprintf("%s%s/%s/stays", srv.URL, TripsPath, tripID),
+		"application/json", bytes.NewBufferString(body))
+	if err != nil {
+		t.Fatalf("create stay: %v", err)
+	}
+	defer resp.Body.Close()
+	var st stayResponse
+	if resp.StatusCode == http.StatusCreated {
+		if err := json.NewDecoder(resp.Body).Decode(&st); err != nil {
+			t.Fatalf("decode stay: %v", err)
+		}
+	}
+	return resp.StatusCode, st
+}
+
+// patchStay PATCHes a stay edit and returns the HTTP status.
+func patchStay(t *testing.T, srv *httptest.Server, tripID, stayID, body string) int {
+	t.Helper()
+	req, _ := http.NewRequest(http.MethodPatch,
+		fmt.Sprintf("%s%s/%s/stays/%s", srv.URL, TripsPath, tripID, stayID),
+		bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("update stay: %v", err)
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode
+}
+
+// TestStayOverlapIntegration verifies the one-stay-per-night rule (M12.1 S3):
+// overlapping stays are rejected 409, while adjacent and date-less stays are
+// allowed, and an edit that creates an overlap is also rejected.
+func TestStayOverlapIntegration(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DATABASE_URL_TEST not set; skipping stay overlap integration test")
+	}
+
+	srv := newModule(t)
+	tripID := createTripForStayTest(t, srv)
+
+	// Stay A covers nights 08-02, 08-03, 08-04 (check_out 08-05 not slept).
+	if code, _ := postStay(t, srv, tripID,
+		`{"name":"Hotel A","check_in":"2026-08-02","check_out":"2026-08-05"}`); code != http.StatusCreated {
+		t.Fatalf("create A status = %d, want 201", code)
+	}
+
+	// Overlapping stay (shares night 08-03) → rejected.
+	if code, _ := postStay(t, srv, tripID,
+		`{"name":"Hotel B","check_in":"2026-08-03","check_out":"2026-08-04"}`); code != http.StatusConflict {
+		t.Errorf("overlapping create status = %d, want 409", code)
+	}
+
+	// Adjacent stay (check_in == A's check_out) shares no night → allowed.
+	codeC, stC := postStay(t, srv, tripID,
+		`{"name":"Hotel C","check_in":"2026-08-05","check_out":"2026-08-07"}`)
+	if codeC != http.StatusCreated {
+		t.Fatalf("adjacent create status = %d, want 201", codeC)
+	}
+
+	// Date-less stay has no coverage interval → allowed even alongside others.
+	if code, _ := postStay(t, srv, tripID, `{"name":"Undated Stay"}`); code != http.StatusCreated {
+		t.Errorf("date-less create status = %d, want 201", code)
+	}
+
+	// Editing C back onto A's nights (08-04) → rejected.
+	if code := patchStay(t, srv, tripID, stC.ID,
+		`{"name":"Hotel C","check_in":"2026-08-04","check_out":"2026-08-06"}`); code != http.StatusConflict {
+		t.Errorf("overlapping edit status = %d, want 409", code)
+	}
+
+	// Editing C to keep its own (non-overlapping) nights → still allowed
+	// (self-exclusion works).
+	if code := patchStay(t, srv, tripID, stC.ID,
+		`{"name":"Hotel C2","check_in":"2026-08-05","check_out":"2026-08-07"}`); code != http.StatusOK {
+		t.Errorf("self edit status = %d, want 200", code)
 	}
 }

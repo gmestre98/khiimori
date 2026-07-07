@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -11,6 +12,15 @@ import (
 
 // errStayNotFound means no stay matched the id within the given trip.
 var errStayNotFound = errors.New("trip: stay not found")
+
+// errStayOverlap means the stay's [check_in, check_out) range shares a night with
+// another stay in the same trip — you sleep in one place per night (M12.1 S3).
+var errStayOverlap = errors.New("trip: stay overlaps an existing stay")
+
+// nilUUID is an all-zero UUID used as the "nothing to exclude" sentinel when
+// checking overlaps for a brand-new stay that has no id yet — no real stay row
+// carries it, so `id <> nilUUID` is true for every existing stay.
+const nilUUID = "00000000-0000-0000-0000-000000000000"
 
 // stayStore is the persistence surface the stay handlers use. The concrete
 // pgxStayStore implements it; unit tests supply a fake.
@@ -39,11 +49,58 @@ func scanStay(row pgx.Row, s *Stay) error {
 	)
 }
 
+// stayOverlaps reports whether a stay with the given half-open [checkIn, checkOut)
+// range would share any night with another stay in the trip. Two half-open
+// ranges overlap iff each starts before the other ends; adjacent stays
+// (check_out == the next check_in) therefore do NOT overlap — you can change
+// hotels on the same day. excludeID is the id of the stay being written so an
+// edit/upsert never conflicts with itself (pass nilUUID for a brand-new stay).
+// A stay missing either date has no coverage interval and never conflicts.
+//
+// This is enforced in the application layer rather than a DB EXCLUDE constraint:
+// stays created before this rule may already overlap, and an EXCLUDE constraint
+// (which can't be added NOT VALID) would fail to apply against that existing
+// data. Write-time enforcement keeps new/edited stays clean without a risky
+// data-validating migration.
+func (s *pgxStayStore) stayOverlaps(ctx context.Context, tripID string, checkIn, checkOut *time.Time, excludeID string) (bool, error) {
+	if checkIn == nil || checkOut == nil {
+		return false, nil
+	}
+	const q = `
+		SELECT EXISTS (
+			SELECT 1 FROM trip.stays
+			WHERE trip_id   = $1::uuid
+			  AND id       <> $2::uuid
+			  AND check_in  IS NOT NULL
+			  AND check_out IS NOT NULL
+			  AND check_in  < $4::date
+			  AND $3::date  < check_out
+		)`
+	var exists bool
+	if err := s.pool.QueryRow(ctx, q, tripID, excludeID, checkIn, checkOut).Scan(&exists); err != nil {
+		return false, fmt.Errorf("trip: check stay overlap: %w", err)
+	}
+	return exists, nil
+}
+
 // CreateStay inserts a stay and returns it. When ns.ClientID is non-empty it is
 // used as the row id, enabling upsert semantics: a replay with the same
 // ClientID replaces the row's editable fields rather than inserting a duplicate.
 // This makes the create mutation idempotent for Epic 06's offline replay layer.
 func (s *pgxStayStore) CreateStay(ctx context.Context, ns NewStay) (Stay, error) {
+	// One accommodation per night: reject a stay whose nights are already
+	// covered. An upsert replay (same ClientID) must not conflict with itself,
+	// so exclude that id; a brand-new stay excludes nothing (nilUUID).
+	excludeID := ns.ClientID
+	if excludeID == "" {
+		excludeID = nilUUID
+	}
+	if over, err := s.stayOverlaps(ctx, ns.TripID, ns.CheckIn, ns.CheckOut, excludeID); err != nil {
+		return Stay{}, err
+	} else if over {
+		return Stay{}, errStayOverlap
+	}
+
 	var q string
 	var args []any
 
@@ -79,6 +136,14 @@ func (s *pgxStayStore) CreateStay(ctx context.Context, ns NewStay) (Stay, error)
 // UpdateStay edits the editable fields of one stay scoped to a trip. Returns
 // errStayNotFound when the id does not exist within the trip.
 func (s *pgxStayStore) UpdateStay(ctx context.Context, tripID, stayID string, e EditStay) (Stay, error) {
+	// One accommodation per night — reject an edit that moves this stay onto
+	// nights another stay already covers (excluding itself).
+	if over, err := s.stayOverlaps(ctx, tripID, e.CheckIn, e.CheckOut, stayID); err != nil {
+		return Stay{}, err
+	} else if over {
+		return Stay{}, errStayOverlap
+	}
+
 	const q = `
 		UPDATE trip.stays
 		SET name = $3, location = $4, check_in = $5::date, check_out = $6::date,

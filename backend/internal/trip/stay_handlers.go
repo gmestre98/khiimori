@@ -155,6 +155,11 @@ func (m *Module) handleCreateStay(w http.ResponseWriter, r *http.Request) {
 
 	st, err := m.stays.CreateStay(r.Context(), ns)
 	if err != nil {
+		if errors.Is(err, errStayOverlap) {
+			httpx.WriteError(w, r, httpx.NewAPIError(
+				http.StatusConflict, "stay_overlap", "another stay already covers those nights"))
+			return
+		}
 		platformlog.FromContext(r.Context()).Error("creating stay", "err", err.Error())
 		httpx.WriteError(w, r, err)
 		return
@@ -201,6 +206,11 @@ func (m *Module) handleUpdateStay(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, errStayNotFound) {
 			httpx.WriteError(w, r, httpx.NewAPIError(
 				http.StatusNotFound, "stay_not_found", "stay not found"))
+			return
+		}
+		if errors.Is(err, errStayOverlap) {
+			httpx.WriteError(w, r, httpx.NewAPIError(
+				http.StatusConflict, "stay_overlap", "another stay already covers those nights"))
 			return
 		}
 		platformlog.FromContext(r.Context()).Error("updating stay", "err", err.Error())
