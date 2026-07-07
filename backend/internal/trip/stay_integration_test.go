@@ -103,9 +103,11 @@ func TestStayCRUDIntegration(t *testing.T) {
 	}
 
 	// ── Edit ───────────────────────────────────────────────────────────────
+	// Dates chosen to NOT overlap the "Grand Hotel" stay above (08-02→08-05):
+	// check-in on its check-out day shares no night (one-stay-per-night, S3).
 	patchReq, err := http.NewRequest(http.MethodPatch,
 		fmt.Sprintf("%s%s/%s/stays/%s", srv.URL, TripsPath, tripID, stayID),
-		bytes.NewBufferString(`{"name":"Updated Hostel","check_in":"2026-08-03","check_out":"2026-08-06"}`),
+		bytes.NewBufferString(`{"name":"Updated Hostel","check_in":"2026-08-05","check_out":"2026-08-07"}`),
 	)
 	if err != nil {
 		t.Fatalf("build patch: %v", err)
@@ -126,8 +128,8 @@ func TestStayCRUDIntegration(t *testing.T) {
 	if updated.Name != "Updated Hostel" {
 		t.Errorf("updated name = %q, want Updated Hostel", updated.Name)
 	}
-	if updated.CheckIn != "2026-08-03" {
-		t.Errorf("updated check_in = %q, want 2026-08-03", updated.CheckIn)
+	if updated.CheckIn != "2026-08-05" {
+		t.Errorf("updated check_in = %q, want 2026-08-05", updated.CheckIn)
 	}
 
 	// ── Delete ─────────────────────────────────────────────────────────────
