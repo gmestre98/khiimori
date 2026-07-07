@@ -448,3 +448,45 @@ func TestHandleDeleteStayUnauthorized(t *testing.T) {
 		t.Error("store should not be called for an unauthorized request")
 	}
 }
+
+// --- One stay per night (M12.1 S3) ---------------------------------------
+
+// TestHandleCreateStayOverlapReturns409 asserts that when the store reports an
+// overlapping stay, the create handler responds 409 with the stay_overlap code.
+func TestHandleCreateStayOverlapReturns409(t *testing.T) {
+	t.Parallel()
+
+	stays := &fakeStayStore{createErr: errStayOverlap}
+	m := newStayModule(&fakeTripStore{}, stays)
+
+	body := `{"name":"Second Hotel","check_in":"2026-08-02","check_out":"2026-08-05"}`
+	rec := httptest.NewRecorder()
+	m.handleCreateStay(rec, createStayReq("trip-1", "owner-1", body))
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409; body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "stay_overlap") {
+		t.Errorf("body = %s, want stay_overlap error code", rec.Body.String())
+	}
+}
+
+// TestHandleUpdateStayOverlapReturns409 asserts an edit that the store reports as
+// overlapping responds 409.
+func TestHandleUpdateStayOverlapReturns409(t *testing.T) {
+	t.Parallel()
+
+	stays := &fakeStayStore{updateErr: errStayOverlap}
+	m := newStayModule(&fakeTripStore{}, stays)
+
+	body := `{"name":"Moved Hotel","check_in":"2026-08-02","check_out":"2026-08-05"}`
+	rec := httptest.NewRecorder()
+	m.handleUpdateStay(rec, updateStayReq("trip-1", "stay-1", "owner-1", body))
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409; body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "stay_overlap") {
+		t.Errorf("body = %s, want stay_overlap error code", rec.Body.String())
+	}
+}
