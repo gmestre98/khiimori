@@ -29,6 +29,10 @@ type Stay struct {
 	CheckOut *time.Time // optional; date only
 	Cost     *float64   // optional
 	Link     *string    // optional; URL; NULL when absent
+	// Paid marks the stay as actually paid for; the budget roll-up counts a
+	// stay's cost as spent only when paid, otherwise as an upcoming estimate
+	// (M12.2 S2). Defaults to false.
+	Paid bool
 }
 
 // NewStay is the validated input to create a stay. ClientID, if non-empty, is a
@@ -44,6 +48,7 @@ type NewStay struct {
 	CheckOut *time.Time
 	Cost     *float64
 	Link     *string // nil when absent
+	Paid     bool
 }
 
 // EditStay is the validated input to edit a stay. All fields replace the
@@ -55,6 +60,7 @@ type EditStay struct {
 	CheckOut *time.Time
 	Cost     *float64
 	Link     *string // nil when absent
+	Paid     bool
 }
 
 // validateStayFields checks the client-supplied stay fields used by both create

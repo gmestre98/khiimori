@@ -309,8 +309,10 @@ func (a tripCostReaderAdapter) GetTripCosts(ctx context.Context, tripID string) 
 	var out []budget.ExternalCost
 
 	// --- Stays → CategoryStays, trip-level (no day) ---
+	// A stay's cost is only spent once it's marked paid; an unpaid stay is an
+	// upcoming estimate (M12.2 S2).
 	stayRows, err := a.pool.Query(ctx,
-		`SELECT COALESCE(cost, 0) FROM trip.stays WHERE trip_id = $1::uuid AND cost IS NOT NULL AND cost > 0`,
+		`SELECT COALESCE(cost, 0), paid FROM trip.stays WHERE trip_id = $1::uuid AND cost IS NOT NULL AND cost > 0`,
 		tripID)
 	if err != nil {
 		return nil, fmt.Errorf("tripCostReader: query stays: %w", err)
@@ -318,16 +320,15 @@ func (a tripCostReaderAdapter) GetTripCosts(ctx context.Context, tripID string) 
 	defer stayRows.Close()
 	for stayRows.Next() {
 		var amount float64
-		if err := stayRows.Scan(&amount); err != nil {
+		var paid bool
+		if err := stayRows.Scan(&amount, &paid); err != nil {
 			return nil, fmt.Errorf("tripCostReader: scan stay: %w", err)
 		}
 		out = append(out, budget.ExternalCost{
 			DayID:    "", // trip-level — stays span multiple days
 			Category: budget.CategoryStays,
 			Amount:   amount,
-			// Stays have no paid flag yet (added in M12.2 S2); treat every stay
-			// as spent so this story doesn't change stay behaviour.
-			Happened: true,
+			Happened: paid,
 		})
 	}
 	if err := stayRows.Err(); err != nil {

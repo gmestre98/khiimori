@@ -16,18 +16,31 @@ import (
 
 // ---- helpers ----------------------------------------------------------------
 
-// insertStay inserts a trip.stays row and returns its id.
+// insertStay inserts a trip.stays row and returns its id. The stay is marked
+// paid so its cost counts as spent — the roll-up only counts happened costs
+// (M12.2 S2); tests that need the estimated bucket set paid explicitly.
 func insertStay(t *testing.T, tripID, name string, cost float64) string {
 	t.Helper()
 	var id string
 	err := testPool.QueryRow(context.Background(), `
-		INSERT INTO trip.stays (trip_id, name, cost)
-		VALUES ($1::uuid, $2, $3)
+		INSERT INTO trip.stays (trip_id, name, cost, paid)
+		VALUES ($1::uuid, $2, $3, true)
 		RETURNING id::text`, tripID, name, cost).Scan(&id)
 	if err != nil {
 		t.Fatalf("insert stay: %v", err)
 	}
 	return id
+}
+
+// setStayPaid updates the paid flag of an existing stay — used by roll-up tests
+// to exercise the spent/estimated bucketing for stays.
+func setStayPaid(t *testing.T, stayID string, paid bool) {
+	t.Helper()
+	_, err := testPool.Exec(context.Background(),
+		`UPDATE trip.stays SET paid = $1 WHERE id = $2::uuid`, paid, stayID)
+	if err != nil {
+		t.Fatalf("set stay paid: %v", err)
+	}
 }
 
 // insertPlanItem inserts a trip.plan_items row and returns its id. The item is
@@ -116,7 +129,7 @@ func (liveDBCostReader) GetTripCosts(ctx context.Context, tripID string) ([]Exte
 	var out []ExternalCost
 
 	stayRows, err := testPool.Query(ctx,
-		`SELECT COALESCE(cost, 0) FROM trip.stays
+		`SELECT COALESCE(cost, 0), paid FROM trip.stays
 		 WHERE trip_id = $1::uuid AND cost IS NOT NULL AND cost > 0`, tripID)
 	if err != nil {
 		return nil, err
@@ -124,10 +137,11 @@ func (liveDBCostReader) GetTripCosts(ctx context.Context, tripID string) ([]Exte
 	defer stayRows.Close()
 	for stayRows.Next() {
 		var amount float64
-		if err := stayRows.Scan(&amount); err != nil {
+		var paid bool
+		if err := stayRows.Scan(&amount, &paid); err != nil {
 			return nil, err
 		}
-		out = append(out, ExternalCost{DayID: "", Category: CategoryStays, Amount: amount, Happened: true})
+		out = append(out, ExternalCost{DayID: "", Category: CategoryStays, Amount: amount, Happened: paid})
 	}
 	if err := stayRows.Err(); err != nil {
 		return nil, err
@@ -283,7 +297,7 @@ func TestIntegration_Rollup_CategoryMapping_Stays(t *testing.T) {
 	ownerID := freshOwnerID(t)
 	srv := newLiveServer(t, ownerID)
 	tripID := insertTrip(t, ownerID)
-	insertStay(t, tripID, "Hotel Ulaanbaatar", 150)
+	stayID := insertStay(t, tripID, "Hotel Ulaanbaatar", 150)
 
 	r := srv.getRollup(t, tripID)
 	if r.ByCategory["Stays"] != 150 {
@@ -291,6 +305,19 @@ func TestIntegration_Rollup_CategoryMapping_Stays(t *testing.T) {
 	}
 	if len(r.ByDay) != 0 {
 		t.Errorf("stay must not appear in ByDay, got %v", r.ByDay)
+	}
+
+	// Unpaid → the cost moves from spent to the estimated bucket (M12.2 S2).
+	setStayPaid(t, stayID, false)
+	r2 := srv.getRollup(t, tripID)
+	if r2.ByCategory["Stays"] != 0 {
+		t.Errorf("unpaid stay must not be spent: Stays=%f, want 0", r2.ByCategory["Stays"])
+	}
+	if r2.EstimatedByCategory["Stays"] != 150 {
+		t.Errorf("unpaid stay must be estimated: est Stays=%f, want 150", r2.EstimatedByCategory["Stays"])
+	}
+	if r2.TripTotal != 0 {
+		t.Errorf("unpaid stay must not be in TripTotal: %f, want 0", r2.TripTotal)
 	}
 }
 

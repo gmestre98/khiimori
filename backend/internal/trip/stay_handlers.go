@@ -36,6 +36,7 @@ type createStayRequest struct {
 	CheckOut string   `json:"check_out"`
 	Cost     *float64 `json:"cost"`
 	Link     *string  `json:"link"`
+	Paid     bool     `json:"paid"`
 }
 
 func (req createStayRequest) toNewStay(tripID string) (NewStay, error) {
@@ -59,6 +60,7 @@ func (req createStayRequest) toNewStay(tripID string) (NewStay, error) {
 		CheckOut: co,
 		Cost:     req.Cost,
 		Link:     req.Link,
+		Paid:     req.Paid,
 	}, nil
 }
 
@@ -70,6 +72,7 @@ type editStayRequest struct {
 	CheckOut string   `json:"check_out"`
 	Cost     *float64 `json:"cost"`
 	Link     *string  `json:"link"`
+	Paid     bool     `json:"paid"`
 }
 
 func (req editStayRequest) toEditStay() (EditStay, error) {
@@ -91,6 +94,7 @@ func (req editStayRequest) toEditStay() (EditStay, error) {
 		CheckOut: co,
 		Cost:     req.Cost,
 		Link:     req.Link,
+		Paid:     req.Paid,
 	}, nil
 }
 
@@ -104,6 +108,7 @@ type stayResponse struct {
 	CheckOut string   `json:"check_out,omitempty"`
 	Cost     *float64 `json:"cost,omitempty"`
 	Link     *string  `json:"link,omitempty"`
+	Paid     bool     `json:"paid"`
 }
 
 func newStayResponse(s Stay) stayResponse {
@@ -114,6 +119,7 @@ func newStayResponse(s Stay) stayResponse {
 		Location: s.Location,
 		Cost:     s.Cost,
 		Link:     s.Link,
+		Paid:     s.Paid,
 	}
 	if s.CheckIn != nil {
 		resp.CheckIn = s.CheckIn.Format(dateLayout)
