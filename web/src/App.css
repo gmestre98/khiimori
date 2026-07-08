@@ -2490,21 +2490,71 @@
 
 /* ── Backlog page ───────────────────────────────────────────────────────────── */
 
+/* Mirrors the trip plan page: a header with an h1/meta, then a stacked list and
+   the quick-add box at the foot. */
+.backlog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+}
+.backlog-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.backlog-back {
+  align-self: flex-start;
+  margin-bottom: 4px;
+  padding: 4px 10px 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--text-h);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.backlog-back:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.backlog-loading,
+.backlog-error,
+.backlog-empty {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin: 0;
+}
+.backlog-error {
+  color: var(--danger);
+}
+.backlog-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .backlog-item {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) 10px;
-  margin-bottom: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
   background: var(--surface);
 }
 .backlog-item-main {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s2);
   flex-wrap: wrap;
 }
 .backlog-item-title {
   font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text-h);
 }
 .backlog-item-type,
 .backlog-item-location {
@@ -2512,7 +2562,7 @@
   color: var(--text-secondary);
 }
 .backlog-item-actions {
-  margin-top: 6px;
+  margin-top: 8px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2567,6 +2617,60 @@
 .backlog-promote-picker-empty {
   font-size: var(--text-sm);
   color: var(--danger);
+}
+
+/* Quick-add box — a bordered card at the foot of the list, matching the stay/
+   plan add affordances rather than a raw input. */
+.backlog-quick-add {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  padding: 12px;
+}
+.backlog-quick-add-row {
+  display: flex;
+  gap: var(--s2);
+}
+.backlog-quick-add-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: var(--text-base);
+  color: var(--text-h);
+}
+.backlog-quick-add-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.backlog-quick-add-submit {
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--r-sm);
+  background: var(--accent);
+  color: var(--accent-on);
+  padding: 8px 14px;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+.backlog-quick-add-submit:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.backlog-quick-add-error {
+  margin: 8px 0 0;
+  font-size: var(--text-sm);
+  color: var(--danger);
+}
+@media (max-width: 560px) {
+  .backlog-quick-add-row {
+    flex-direction: column;
+  }
 }
 
 /* ── Plan item forms ────────────────────────────────────────────────────────── */
