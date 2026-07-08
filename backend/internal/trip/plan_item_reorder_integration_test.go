@@ -135,3 +135,60 @@ func TestReorderPlanItemsTimedUntimedIntegration(t *testing.T) {
 		t.Errorf("items[1] = {id:%q sort_order:%d}, want untimed item at 1", items[1].ID, items[1].SortOrder)
 	}
 }
+
+// getDayItems GETs a day and returns its plan items in server order.
+func getDayItems(t *testing.T, srv *httptest.Server, tripID, date string) []planItemResponse {
+	t.Helper()
+	resp, err := http.Get(fmt.Sprintf("%s%s/%s/days/%s", srv.URL, TripsPath, tripID, date))
+	if err != nil {
+		t.Fatalf("get day: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("get day status = %d, want 200", resp.StatusCode)
+	}
+	var d dayResponse
+	if err := json.NewDecoder(resp.Body).Decode(&d); err != nil {
+		t.Fatalf("decode day: %v", err)
+	}
+	return d.PlanItems
+}
+
+// TestReorderInterleavesUntimedBetweenTimedIntegration verifies the unified
+// timeline (M12.1 S6): an untimed item dragged between two timed items keeps
+// that position when the day is re-fetched — ListByDay honours sort_order, so
+// the untimed item is NOT forced to the end after the timed ones.
+func TestReorderInterleavesUntimedBetweenTimedIntegration(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DATABASE_URL_TEST not set; skipping interleave integration test")
+	}
+
+	srv := newModule(t)
+	tripID := createTripForPlanItemTest(t, srv)
+	date := "2026-09-04"
+	dayID := getDayID(t, srv, tripID, date)
+
+	morning := createPlanItem(t, srv, tripID,
+		fmt.Sprintf(`{"title":"Morning tour","day_id":%q,"start_time":"09:00"}`, dayID))
+	afternoon := createPlanItem(t, srv, tripID,
+		fmt.Sprintf(`{"title":"Afternoon museum","day_id":%q,"start_time":"15:00"}`, dayID))
+	lunch := createPlanItem(t, srv, tripID,
+		fmt.Sprintf(`{"title":"Lunch somewhere","day_id":%q}`, dayID)) // untimed
+
+	// Arrange: morning, lunch (untimed, between), afternoon.
+	reorderBody := fmt.Sprintf(`{"day_id":%q,"item_ids":[%q,%q,%q]}`,
+		dayID, morning.ID, lunch.ID, afternoon.ID)
+	reorderPlanItemsIntegration(t, srv, tripID, reorderBody)
+
+	// Re-fetch the day: the untimed item must remain between the two timed ones.
+	items := getDayItems(t, srv, tripID, date)
+	if len(items) != 3 {
+		t.Fatalf("day has %d items, want 3", len(items))
+	}
+	want := []string{morning.ID, lunch.ID, afternoon.ID}
+	for i, it := range items {
+		if it.ID != want[i] {
+			t.Errorf("items[%d].id = %q (%q), want %q", i, it.ID, it.Title, want[i])
+		}
+	}
+}

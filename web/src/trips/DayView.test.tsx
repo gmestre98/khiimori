@@ -156,38 +156,51 @@ describe('DayView', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Could not load day.')
   })
 
-  it('renders timed items in the Schedule section', async () => {
+  it('renders timed items in the unified timeline', async () => {
     const item = makePlanItem({ id: 'i1', title: 'Morning run', start_time: '07:00:00' })
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
     renderDayView()
-    await waitFor(() => expect(screen.getByText('Schedule')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Timeline')).toBeInTheDocument())
     expect(screen.getByText('Morning run')).toBeInTheDocument()
     expect(screen.getByText('07:00')).toBeInTheDocument()
   })
 
-  it('renders untimed items in the Activities section', async () => {
+  it('renders untimed items in the same timeline', async () => {
     const item = makePlanItem({ id: 'i2', title: 'Buy souvenirs' })
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
     renderDayView()
-    // The planning section header is an h3; scope query to the planning slot.
     await waitFor(() => {
       const planSlot = document.querySelector('[data-slot="planning"]')
       expect(planSlot).not.toBeNull()
-      expect(within(planSlot as HTMLElement).getByText('Activities')).toBeInTheDocument()
+      expect(within(planSlot as HTMLElement).getByText('Timeline')).toBeInTheDocument()
     })
     expect(screen.getByText('Buy souvenirs')).toBeInTheDocument()
   })
 
-  it('does not show Schedule section when no timed items', async () => {
-    const item = makePlanItem({ id: 'i3', title: 'Untimed' })
-    vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+  it('sorts timed items by clock and keeps an untimed item between them', async () => {
+    // Server returns them out of order with the untimed item in the middle slot;
+    // the timeline must read Morning (09:00), then the untimed Lunch, then
+    // Afternoon (15:00) — timed sorted by time, untimed holding its position.
+    const afternoon = makePlanItem({ id: 'a', title: 'Afternoon museum', start_time: '15:00:00' })
+    const lunch = makePlanItem({ id: 'l', title: 'Lunch somewhere' })
+    const morning = makePlanItem({ id: 'm', title: 'Morning tour', start_time: '09:00:00' })
+    vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [afternoon, lunch, morning] }))
     renderDayView()
-    await waitFor(() => {
-      const planSlot = document.querySelector('[data-slot="planning"]')
-      expect(planSlot).not.toBeNull()
-      expect(within(planSlot as HTMLElement).getByText('Activities')).toBeInTheDocument()
-    })
-    expect(screen.queryByText('Schedule')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('Timeline')).toBeInTheDocument())
+
+    const planSlot = document.querySelector('[data-slot="planning"]') as HTMLElement
+    const titles = [...planSlot.querySelectorAll('.plan-item-title, .plan-item-name')].map((n) =>
+      (n.textContent ?? '').trim(),
+    )
+    // Fall back to reading item rows if the title class differs.
+    const order =
+      titles.length >= 3
+        ? titles
+        : [...planSlot.querySelectorAll('li.plan-item')].map((li) => (li.textContent ?? '').trim())
+    const idx = (t: string) => order.findIndex((s) => s.includes(t))
+    expect(idx('Morning tour')).toBeGreaterThanOrEqual(0)
+    expect(idx('Morning tour')).toBeLessThan(idx('Lunch somewhere'))
+    expect(idx('Lunch somewhere')).toBeLessThan(idx('Afternoon museum'))
   })
 
   it('renders stays in the Staying section', async () => {
