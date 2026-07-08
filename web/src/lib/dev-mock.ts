@@ -40,7 +40,8 @@ function richKyotoDay(date: string) {
         location: 'Gion district',
         check_in: addDays(date, -2),
         check_out: addDays(date, 2),
-        cost: 0,
+        cost: 300,
+        paid: false,
       },
     ],
     plan_items: [
@@ -134,11 +135,16 @@ function calmDay(date: string, offset: number) {
 const budgetRollup = {
   trip_total: 640,
   planned_trip_total: 1800,
-  by_category: { stays: 320, transport: 95, food: 170, activities: 55, other: 0 },
-  planned_by_category: { stays: 700, transport: 250, food: 200, activities: 450, other: 200 },
+  // Capitalized keys match the real backend's fixed categories (budget.Category*).
+  by_category: { Stays: 320, Transport: 95, Food: 170, Activities: 55, Other: 0 },
+  planned_by_category: { Stays: 700, Transport: 250, Food: 200, Activities: 450, Other: 200 },
   by_day: { [DAY4_ID]: 43.2 },
   planned_by_day: { [DAY4_ID]: 110 },
-  by_day_category: { [DAY4_ID]: { transport: 7, food: 14.2, activities: 29 } },
+  by_day_category: { [DAY4_ID]: { Transport: 7, Food: 14.2, Activities: 29 } },
+  // Upcoming (not-yet-happened) estimate: an unpaid stay + planned activities (M12.2).
+  estimated_trip_total: 380,
+  estimated_by_category: { Stays: 300, Activities: 65, Food: 15 },
+  estimated_by_day: { [DAY4_ID]: 80 },
 }
 
 const profile = {
@@ -192,7 +198,7 @@ function json(body: unknown, status = 200): Response {
 }
 
 // route handlers, in priority order. Each entry: [RegExp, handler].
-function resolve(path: string, method: string, search: string): Response | null {
+function resolve(path: string, method: string, search: string, body: unknown): Response | null {
   // /me — auth probe
   if (path === '/me') return json(profile)
   if (path === '/trips' && method === 'GET') return null // handled by fetchTrips' own mock branch
@@ -260,6 +266,16 @@ function resolve(path: string, method: string, search: string): Response | null 
       planned_amount: 0,
       actual_amount: 0,
     })
+  // stays (create/update) — echo the request body so the paid toggle, cost, and
+  // other edits reflect immediately in the preview (M12.2).
+  const stayMatch = path.match(/\/stays(?:\/([^/]+))?$/)
+  if (stayMatch && (method === 'POST' || method === 'PATCH')) {
+    const b = (body ?? {}) as Record<string, unknown>
+    return json(
+      { id: stayMatch[1] ?? b.id ?? 'stay-new', trip_id: MOCK_CURRENT_TRIP_ID, ...b },
+      method === 'POST' ? 201 : 200,
+    )
+  }
   // sharing
   if (/\/memberships$/.test(path)) return json(sharingMembers)
   if (/\/invitations$/.test(path)) return json(sharingInvites)
@@ -282,7 +298,15 @@ export function installDevMock() {
         u.pathname.startsWith('/trips') ||
         u.pathname.startsWith('/geo')
       if (isApi) {
-        const res = resolve(u.pathname, method, u.search)
+        let body: unknown = undefined
+        if (typeof init?.body === 'string') {
+          try {
+            body = JSON.parse(init.body)
+          } catch {
+            body = undefined
+          }
+        }
+        const res = resolve(u.pathname, method, u.search, body)
         if (res) return res
         if (u.pathname === '/trips') return realFetch(input as RequestInfo, init)
         return json({}, 200)

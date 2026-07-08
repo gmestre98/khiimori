@@ -2344,6 +2344,34 @@
   border-radius: 999px;
   white-space: nowrap;
 }
+/* Paid vs. upcoming badge on a stay with a cost (M12.2). */
+.stay-paid-badge {
+  display: inline-block;
+  margin-top: var(--s2);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semi);
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: var(--surface-2, rgba(0, 0, 0, 0.06));
+  white-space: nowrap;
+}
+.stay-paid-badge--paid {
+  color: var(--accent-press);
+  background: var(--accent-tint);
+}
+/* "Paid" checkbox row in the stay form. */
+.stay-paid-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.stay-paid-check input {
+  margin-top: 2px;
+}
 .stay-item-actions {
   display: flex;
   gap: var(--s2);
@@ -3053,6 +3081,17 @@
 .rollup-cat-label {
   font-size: 13.5px;
   font-weight: var(--fw-semi);
+}
+
+/* Upcoming (not-yet-happened) estimate hints across the budget views (M12.2). */
+.budget-tile-upcoming,
+.rollup-cat-upcoming,
+.day-rollup-upcoming {
+  color: var(--text-secondary);
+  font-weight: var(--fw-reg);
+}
+.day-rollup-upcoming {
+  margin-top: 2px;
 }
 
 .trip-budget-error {
