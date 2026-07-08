@@ -1,5 +1,18 @@
 # Epic M12.2 — Spent vs. estimated budget & ad-hoc expenses
 
+> **Status:** ✅ Done — all 4 stories shipped across PRs
+> [#446](https://github.com/gmestre98/khiimori/pull/446) (S1 spent/estimated),
+> [#447](https://github.com/gmestre98/khiimori/pull/447) (S2 stay paid),
+> [#448](https://github.com/gmestre98/khiimori/pull/448) (S3 Spent + Upcoming UI),
+> and S4 (ad-hoc expenses). 4/4 ACs satisfied. A cost now counts as **spent**
+> only when it happened — a plan item marked done or a stay marked paid — while
+> idea/planned items and unpaid stays surface as a separate **Upcoming** estimate
+> and skipped/cancelled items drop out entirely. Ad-hoc costs not tied to any
+> activity (street food, water, souvenirs) can be logged from the Budget tab,
+> attached to the whole trip or an optional day. Verified in a browser (budget
+> tiles + by-category upcoming, stay Upcoming→Paid toggle, expense logging with
+> day picker). No new runtime deps; €0-idle posture unchanged.
+
 > Milestone: [12 — Plan redesign](../README.md) · PRD refs: §5.4, §9, §7.0.
 
 ## Description
@@ -23,10 +36,10 @@ a day.
 
 | Story | Title | Status |
 |-------|-------|--------|
-| [S1](S1-backend-spent-estimated.md) | Backend: roll-up splits spent vs. estimated | ⬜ |
-| [S2](S2-backend-stay-paid.md) | Backend: stays get a `paid` flag | ⬜ |
-| [S3](S3-frontend-spent-upcoming.md) | Frontend: Spent + Upcoming display; stay paid toggle | ⬜ |
-| [S4](S4-adhoc-expenses.md) | Ad-hoc expenses on the Budget tab | ⬜ |
+| [S1](S1-backend-spent-estimated.md) | Backend: roll-up splits spent vs. estimated | ✅ Done (#446) |
+| [S2](S2-backend-stay-paid.md) | Backend: stays get a `paid` flag | ✅ Done (#447) |
+| [S3](S3-frontend-spent-upcoming.md) | Frontend: Spent + Upcoming display; stay paid toggle | ✅ Done (#448) |
+| [S4](S4-adhoc-expenses.md) | Ad-hoc expenses on the Budget tab | ✅ Done |
 
 ## Conventions
 

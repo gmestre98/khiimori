@@ -266,6 +266,53 @@ function resolve(path: string, method: string, search: string, body: unknown): R
       planned_amount: 0,
       actual_amount: 0,
     })
+  // cost entries (ad-hoc expenses) — list, plus echo create/update (M12.2 S4).
+  if (/\/cost-entries$/.test(path)) {
+    if (method === 'GET')
+      return json({
+        entries: [
+          {
+            id: 'ce-1',
+            trip_id: MOCK_CURRENT_TRIP_ID,
+            day_id: '',
+            plan_item_id: '',
+            category: 'Food',
+            amount: 6.5,
+            note: 'Street takoyaki',
+            created_at: new Date().toISOString(),
+          },
+          {
+            id: 'ce-2',
+            trip_id: MOCK_CURRENT_TRIP_ID,
+            day_id: DAY4_ID,
+            plan_item_id: '',
+            category: 'Other',
+            amount: 2,
+            note: 'Bottle of water',
+            created_at: new Date().toISOString(),
+          },
+        ],
+      })
+    if (method === 'POST') {
+      const b = (body ?? {}) as Record<string, unknown>
+      return json(
+        {
+          id: 'ce-new',
+          trip_id: MOCK_CURRENT_TRIP_ID,
+          plan_item_id: '',
+          created_at: new Date().toISOString(),
+          ...b,
+        },
+        201,
+      )
+    }
+  }
+  const costEntryMatch = path.match(/\/cost-entries\/([^/]+)$/)
+  if (costEntryMatch && method === 'PATCH') {
+    const b = (body ?? {}) as Record<string, unknown>
+    return json({ id: costEntryMatch[1], trip_id: MOCK_CURRENT_TRIP_ID, plan_item_id: '', ...b })
+  }
+
   // stays (create/update) — echo the request body so the paid toggle, cost, and
   // other edits reflect immediately in the preview (M12.2).
   const stayMatch = path.match(/\/stays(?:\/([^/]+))?$/)

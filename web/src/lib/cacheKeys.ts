@@ -10,6 +10,7 @@ export const cacheKeys = {
   day: (tripId: string, date: string) => `GET /trips/${tripId}/days/${date}`,
   backlog: (tripId: string) => `GET /trips/${tripId}/plan-items/backlog`,
   budgetRollup: (tripId: string) => `GET /trips/${tripId}/budget/rollup`,
+  costEntries: (tripId: string) => `GET /trips/${tripId}/cost-entries`,
   journal: (tripId: string, dayId: string) => `GET /trips/${tripId}/days/${dayId}/journal`,
   photos: (tripId: string, dayId: string) => `GET /trips/${tripId}/days/${dayId}/journal/photos`,
 } as const

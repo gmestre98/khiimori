@@ -685,6 +685,16 @@ export interface UpdateCostEntryInput {
   note?: string
 }
 
+// listCostEntries calls GET /trips/:id/cost-entries and returns the trip's
+// manually-logged expenses (ad-hoc costs, optionally pinned to a day).
+export async function listCostEntries(tripId: string, signal?: AbortSignal): Promise<CostEntry[]> {
+  const res = await apiFetch(`/trips/${tripId}/cost-entries`, { signal })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  const body = (await res.json()) as { entries?: CostEntry[] }
+  return body.entries ?? []
+}
+
 // createCostEntry calls POST /trips/:id/cost-entries.
 export async function createCostEntry(
   tripId: string,
