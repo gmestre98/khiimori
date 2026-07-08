@@ -80,6 +80,7 @@ vi.mock('../lib/api', async (importOriginal) => {
     updatePlanItem: vi.fn(),
     setPlanItemStatus: vi.fn(),
     demotePlanItem: vi.fn(),
+    deletePlanItem: vi.fn(),
     movePlanItem: vi.fn(),
     reorderPlanItems: vi.fn(),
     fetchDayRoute: vi.fn(),
@@ -960,6 +961,40 @@ describe('DayView', () => {
 
       await waitFor(() => expect(screen.queryByText('Visit museum')).not.toBeInTheDocument())
       expect(api.demotePlanItem).toHaveBeenCalledWith('trip-1', 'item-1')
+    })
+
+    it('clicking the bin then confirming deletes the item and removes it', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      vi.mocked(api.deletePlanItem).mockResolvedValue(undefined)
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+
+      // First click only reveals the confirm — it must not delete yet.
+      await user.click(screen.getByRole('button', { name: /Delete Visit museum/ }))
+      expect(api.deletePlanItem).not.toHaveBeenCalled()
+
+      await user.click(screen.getByRole('button', { name: /Confirm delete Visit museum/ }))
+
+      await waitFor(() => expect(screen.queryByText('Visit museum')).not.toBeInTheDocument())
+      expect(api.deletePlanItem).toHaveBeenCalledWith('trip-1', 'item-1')
+    })
+
+    it('cancelling the delete confirm keeps the item', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Delete Visit museum/ }))
+      await user.click(screen.getByRole('button', { name: /Cancel delete/ }))
+
+      expect(api.deletePlanItem).not.toHaveBeenCalled()
+      expect(screen.getByText('Visit museum')).toBeInTheDocument()
     })
 
     it('untimed items render drag handles', async () => {

@@ -13,6 +13,10 @@ vi.mock('../lib/api', async (importOriginal) => {
     createStay: vi.fn(),
     updateStay: vi.fn(),
     deleteStay: vi.fn(),
+    // The stay location now uses the shared LocationField, which runs a live
+    // geocode + Places autocomplete. Stub both so tests don't hit the network.
+    geocodeLocation: vi.fn().mockResolvedValue(null),
+    fetchAutocomplete: vi.fn().mockResolvedValue([]),
   }
 })
 

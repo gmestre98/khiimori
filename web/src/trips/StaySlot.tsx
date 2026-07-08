@@ -12,6 +12,8 @@ import {
 import { enqueue } from '../lib/mutationQueue'
 import { useIsOnline } from '../lib/useIsOnline'
 import { Button, FormField, Input } from '../components/ui'
+import { LocationField } from './LocationField'
+import { coversDay } from './stayCoverage'
 
 // StaySlot is the pinned "where you're staying" panel at the top of a day's
 // plan (M12.1 S4). A stay is where you sleep, so it sits above the timeline and
@@ -46,14 +48,6 @@ function nightContext(stay: Stay, date: string): NightContext | null {
   const night = daysBetween(stay.check_in, date) + 1
   if (night < 1 || night > total) return null
   return { night, total, isCheckIn: date === stay.check_in }
-}
-
-// coversDay reports whether a stay should occupy this day's slot: a dated stay
-// covers [check_in, check_out); a stay with incomplete dates is shown on the day
-// it was entered (it has no defined span yet).
-function coversDay(stay: Stay, date: string): boolean {
-  if (!stay.check_in || !stay.check_out) return true
-  return stay.check_in <= date && date < stay.check_out
 }
 
 // StayFormFields holds the raw string values of the stay form (controlled
@@ -127,6 +121,8 @@ export function StaySlot({
   day,
   tripId,
   setStays,
+  onStaySaved,
+  onStayRemoved,
   selectedId = null,
   pinNumberForId,
   onSelect,
@@ -136,6 +132,13 @@ export function StaySlot({
   // setStays updates this day's stays in the parent's day state so the slot and
   // any sibling view (the day map) stay in sync without a reload.
   setStays: React.Dispatch<React.SetStateAction<Stay[]>>
+  // onStaySaved / onStayRemoved let a parent that holds several days at once (the
+  // whole-trip Plan view) reflect a saved/removed stay across *every* night it
+  // covers — so a two-night stay appears on both days without a reload. When
+  // omitted (the single-day DayView), StaySlot falls back to updating just this
+  // day via setStays.
+  onStaySaved?: (saved: Stay) => void
+  onStayRemoved?: (stayId: string) => void
   selectedId?: string | null
   pinNumberForId?: (id: string) => number | undefined
   onSelect?: (id: string | null) => void
@@ -166,9 +169,15 @@ export function StaySlot({
     setFields((f) => ({ ...f, [key]: value }))
   }
 
-  // reflect places the saved stay into this day's slot, dropping it when its new
-  // dates no longer cover this day (e.g. an edit pushed it to other nights).
+  // reflect places the saved stay into the day view. When a multi-day parent is
+  // wired (onStaySaved), it spreads the stay across every night it now covers;
+  // otherwise it just updates this day, dropping the stay when its new dates no
+  // longer cover this day (e.g. an edit pushed it to other nights).
   function reflect(saved: Stay) {
+    if (onStaySaved) {
+      onStaySaved(saved)
+      return
+    }
     setStays(coversDay(saved, day.date) ? [saved] : [])
   }
 
@@ -245,7 +254,8 @@ export function StaySlot({
       } else {
         await enqueue('deleteStay', { tripId, stayId: stay.id })
       }
-      setStays([])
+      if (onStayRemoved) onStayRemoved(stay.id)
+      else setStays([])
       setMode('view')
     } catch {
       setError('Could not remove the stay.')
@@ -269,15 +279,12 @@ export function StaySlot({
               autoFocus
             />
           </FormField>
-          <FormField label="Location" htmlFor="stay-location">
-            <Input
-              id="stay-location"
-              value={fields.location}
-              onChange={(e) => set('location', e.target.value)}
-              placeholder="Ribeira, Porto"
-              disabled={submitting}
-            />
-          </FormField>
+          <LocationField
+            value={fields.location}
+            onChange={(v) => set('location', v)}
+            disabled={submitting}
+            placeholder="Ribeira, Porto"
+          />
           <div className="stay-form-grid">
             <FormField label="Check in" htmlFor="stay-check-in">
               <Input

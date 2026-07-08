@@ -10,6 +10,7 @@ import {
 } from '../lib/api'
 import { fullDate, shortDate } from '../lib/format'
 import { PlanningSection } from './DayView'
+import { coversDay } from './stayCoverage'
 import { useTripShell } from './useTripShell'
 import { readCache, writeCache } from '../lib/resourceCache'
 import { cacheKeys } from '../lib/cacheKeys'
@@ -127,6 +128,29 @@ export function TripPlanPage() {
     }
   }
 
+  // applyStay spreads a saved stay across every day it now covers and drops it
+  // from days it no longer covers. Because all days are held in memory here, a
+  // two-night stay added on day 1 shows on day 2 immediately — no reload. The
+  // backend already returns a stay on every covered day; this keeps the loaded
+  // list in step after a local add/edit.
+  function applyStay(saved: Stay) {
+    setDays((cur) =>
+      cur
+        ? cur.map((d) => {
+            const rest = d.stays.filter((s) => s.id !== saved.id)
+            return { ...d, stays: coversDay(saved, d.date) ? [saved] : rest }
+          })
+        : cur,
+    )
+  }
+
+  // removeStay drops a deleted stay from every day it occupied.
+  function removeStay(stayId: string) {
+    setDays((cur) =>
+      cur ? cur.map((d) => ({ ...d, stays: d.stays.filter((s) => s.id !== stayId) })) : cur,
+    )
+  }
+
   const selected = days?.find((d) => d.date === selectedDate) ?? null
   const totalItems = (days ?? []).reduce((sum, d) => sum + d.plan_items.length, 0)
 
@@ -208,6 +232,8 @@ export function TripPlanPage() {
                   items={selected.plan_items}
                   setItems={setItemsForDate(selected.date)}
                   setStays={setStaysForDate(selected.date)}
+                  onStaySaved={applyStay}
+                  onStayRemoved={removeStay}
                   tripId={trip.id}
                   title={`Day ${selected.index + 1} · ${fullDate(selected.date)}`}
                   showBacklogLink={false}
@@ -221,6 +247,8 @@ export function TripPlanPage() {
                       items={d.plan_items}
                       setItems={setItemsForDate(d.date)}
                       setStays={setStaysForDate(d.date)}
+                      onStaySaved={applyStay}
+                      onStayRemoved={removeStay}
                       tripId={trip.id}
                       title={`Day ${d.index + 1} · ${shortDate(d.date)}`}
                       showBacklogLink={false}
