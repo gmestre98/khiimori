@@ -44,6 +44,7 @@ func (f *fakeStayStore) CreateStay(_ context.Context, ns NewStay) (Stay, error) 
 		CheckOut: ns.CheckOut,
 		Cost:     ns.Cost,
 		Link:     ns.Link,
+		Paid:     ns.Paid,
 	}, nil
 }
 
@@ -161,7 +162,7 @@ func TestHandleCreateStayWithAllFields(t *testing.T) {
 	m := newStayModule(&fakeTripStore{}, stays)
 
 	cost := 199.99
-	body := `{"name":"Airbnb","location":"Porto","check_in":"2026-07-01","check_out":"2026-07-05","cost":199.99,"link":"https://airbnb.com/rooms/1"}`
+	body := `{"name":"Airbnb","location":"Porto","check_in":"2026-07-01","check_out":"2026-07-05","cost":199.99,"link":"https://airbnb.com/rooms/1","paid":true}`
 	rec := httptest.NewRecorder()
 	m.handleCreateStay(rec, createStayReq("trip-1", "owner-1", body))
 
@@ -169,6 +170,12 @@ func TestHandleCreateStayWithAllFields(t *testing.T) {
 		t.Fatalf("status = %d, want 201; body=%s", rec.Code, rec.Body.String())
 	}
 	ns := stays.gotCreate
+	if !ns.Paid {
+		t.Errorf("paid = %v, want true", ns.Paid)
+	}
+	if resp := rec.Body.String(); !strings.Contains(resp, `"paid":true`) {
+		t.Errorf("response missing paid=true, got %s", resp)
+	}
 	if ns.Location == nil || *ns.Location != "Porto" {
 		t.Errorf("location = %v, want Porto", ns.Location)
 	}
