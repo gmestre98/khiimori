@@ -407,8 +407,8 @@ func TestGetRollup_MixedSources(t *testing.T) {
 	}
 	reader := fakeCostReader{
 		costs: []ExternalCost{
-			{DayID: "", Category: CategoryStays, Amount: 100},
-			{DayID: "day-1", Category: CategoryActivities, Amount: 50},
+			{DayID: "", Category: CategoryStays, Amount: 100, Happened: true},
+			{DayID: "day-1", Category: CategoryActivities, Amount: 50, Happened: true},
 		},
 	}
 	_, mux := newTestModuleWithReader(store, fakeAuthz{allow: true}, reader)

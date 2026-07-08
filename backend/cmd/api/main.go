@@ -325,6 +325,9 @@ func (a tripCostReaderAdapter) GetTripCosts(ctx context.Context, tripID string) 
 			DayID:    "", // trip-level — stays span multiple days
 			Category: budget.CategoryStays,
 			Amount:   amount,
+			// Stays have no paid flag yet (added in M12.2 S2); treat every stay
+			// as spent so this story doesn't change stay behaviour.
+			Happened: true,
 		})
 	}
 	if err := stayRows.Err(); err != nil {
@@ -332,25 +335,30 @@ func (a tripCostReaderAdapter) GetTripCosts(ctx context.Context, tripID string) 
 	}
 
 	// --- Plan items → category mapped from type field ---
+	// A plan item's cost is only spent once the item is done; an idea/planned
+	// item is an upcoming estimate; a skipped/cancelled item never happens and
+	// is dropped from the budget entirely (M12.2 S1).
 	itemRows, err := a.pool.Query(ctx,
-		`SELECT COALESCE(day_id::text, ''), COALESCE(type, ''), COALESCE(cost, 0)
+		`SELECT COALESCE(day_id::text, ''), COALESCE(type, ''), COALESCE(cost, 0), status
 		 FROM trip.plan_items
-		 WHERE trip_id = $1::uuid AND cost IS NOT NULL AND cost > 0`,
+		 WHERE trip_id = $1::uuid AND cost IS NOT NULL AND cost > 0
+		   AND status NOT IN ('skipped', 'cancelled')`,
 		tripID)
 	if err != nil {
 		return nil, fmt.Errorf("tripCostReader: query plan items: %w", err)
 	}
 	defer itemRows.Close()
 	for itemRows.Next() {
-		var dayID, itemType string
+		var dayID, itemType, status string
 		var amount float64
-		if err := itemRows.Scan(&dayID, &itemType, &amount); err != nil {
+		if err := itemRows.Scan(&dayID, &itemType, &amount, &status); err != nil {
 			return nil, fmt.Errorf("tripCostReader: scan plan item: %w", err)
 		}
 		out = append(out, budget.ExternalCost{
 			DayID:    dayID,
 			Category: planItemCategory(itemType),
 			Amount:   amount,
+			Happened: status == "done",
 		})
 	}
 	if err := itemRows.Err(); err != nil {
