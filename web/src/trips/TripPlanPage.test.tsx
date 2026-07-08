@@ -67,8 +67,17 @@ vi.mock('../lib/api', async (importOriginal) => {
     ...orig,
     fetchTrips: vi.fn(),
     fetchDay: vi.fn(),
+    createStay: vi.fn(),
+    // The stay location uses the shared LocationField (live geocode + Places);
+    // stub both so the test doesn't hit the network.
+    geocodeLocation: vi.fn().mockResolvedValue(null),
+    fetchAutocomplete: vi.fn().mockResolvedValue([]),
   }
 })
+
+vi.mock('../lib/mutationQueue', () => ({
+  enqueue: vi.fn().mockResolvedValue(undefined),
+}))
 
 function makeAuthCtx(profile: api.Profile): AuthContextValue {
   return {
@@ -146,6 +155,36 @@ describe('TripPlanPage', () => {
     expect(await screen.findByText('Visit the castle')).toBeInTheDocument()
     const wholeTrip = (await daysNav()).getByRole('button', { name: /whole trip/i })
     expect(wholeTrip).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('adds a two-night stay to every night it covers, not just the first day', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.createStay).mockResolvedValue({
+      id: 'stay-1',
+      trip_id: 'trip-1',
+      name: 'Grand Hotel',
+      check_in: '2026-06-01',
+      check_out: '2026-06-03',
+      paid: false,
+    })
+
+    renderPage()
+    // Whole-trip stack: every day shows an add-stay affordance. Open day 1's.
+    const addButtons = await screen.findAllByRole('button', {
+      name: /add where you're staying/i,
+    })
+    await user.click(addButtons[0])
+
+    await user.type(screen.getByLabelText('Name'), 'Grand Hotel')
+    // Push check-out out to the 3rd so the stay spans nights of the 1st and 2nd.
+    const checkOut = screen.getByLabelText('Check out') as HTMLInputElement
+    await user.clear(checkOut)
+    await user.type(checkOut, '2026-06-03')
+    await user.click(screen.getByRole('button', { name: 'Add stay' }))
+
+    await waitFor(() => expect(api.createStay).toHaveBeenCalledTimes(1))
+    // The stay now appears on both covered days (day 1 and day 2), not only day 1.
+    await waitFor(() => expect(screen.getAllByText('Grand Hotel')).toHaveLength(2))
   })
 
   it('opens a single day planner when a day is selected', async () => {

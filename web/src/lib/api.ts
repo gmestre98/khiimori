@@ -583,6 +583,17 @@ export async function promotePlanItem(
   return (await res.json()) as PlanItem
 }
 
+// deletePlanItem permanently removes a plan item (DELETE /trips/:id/plan-items/
+// :itemId). Idempotent server-side (204 even if already gone), so a double
+// click or a stale row is harmless.
+export async function deletePlanItem(tripId: string, itemId: string): Promise<void> {
+  const res = await apiFetch(`/trips/${tripId}/plan-items/${itemId}`, {
+    method: 'DELETE',
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok && res.status !== 204) throw new Error(`API returned HTTP ${res.status}`)
+}
+
 // demotePlanItem moves a plan item back to the backlog (no day assigned).
 export async function demotePlanItem(tripId: string, itemId: string): Promise<PlanItem> {
   const res = await apiFetch(`/trips/${tripId}/plan-items/${itemId}/demote`, {

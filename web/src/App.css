@@ -2225,6 +2225,51 @@
   background: var(--surface-hover);
 }
 
+/* Small bin button to permanently delete a plan item. It sits with the other
+   row actions and matches their pill sizing; hover reveals the danger colour. */
+.plan-item-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.plan-item-delete-btn:hover {
+  background: var(--surface-hover);
+  color: var(--danger, #b3261e);
+  border-color: var(--danger, #b3261e);
+}
+.plan-item-delete-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.plan-item-delete-yes {
+  font-size: var(--text-sm);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--danger, #b3261e);
+  color: #fff;
+  cursor: pointer;
+}
+.plan-item-delete-yes:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.plan-item-delete-cancel {
+  font-size: var(--text-sm);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+}
+
 .plan-item-move-picker {
   display: inline-flex;
   align-items: center;
@@ -2374,27 +2419,32 @@
 }
 .stay-item-actions {
   display: flex;
-  gap: var(--s2);
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
   margin-top: var(--s2);
 }
+/* Pill-styled actions that match the plan timeline rows so a stay reads as part
+   of the same itinerary, not a separate widget. */
 .stay-action {
-  border: none;
-  background: none;
-  padding: 2px 4px;
   font-size: var(--text-sm);
-  color: var(--accent);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
   cursor: pointer;
 }
 .stay-action:hover {
-  text-decoration: underline;
+  background: var(--surface-hover);
 }
-.stay-action--danger {
+.stay-action--danger:hover {
   color: var(--danger, #b3261e);
+  border-color: var(--danger, #b3261e);
 }
 .stay-action:disabled {
   opacity: 0.5;
   cursor: default;
-  text-decoration: none;
 }
 /* Add-stay affordance shown when the night has no stay yet. */
 .stay-add-btn {
@@ -2867,13 +2917,16 @@
     min-height: 40px;
   }
   .plan-item-move-btn,
-  .plan-item-demote-btn {
+  .plan-item-demote-btn,
+  .plan-item-delete-btn {
     font-size: var(--text-base);
     padding: var(--space-2) var(--space-3);
     min-height: 40px;
   }
   .plan-item-move-confirm,
-  .plan-item-move-cancel {
+  .plan-item-move-cancel,
+  .plan-item-delete-yes,
+  .plan-item-delete-cancel {
     font-size: var(--text-base);
     padding: var(--space-2) var(--space-3);
     min-height: 40px;
