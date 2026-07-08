@@ -3094,6 +3094,99 @@
   margin-top: 2px;
 }
 
+/* Ad-hoc expense logger on the Budget tab (M12.2 S4). */
+.expense-add-btn {
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semi);
+  cursor: pointer;
+}
+.expense-add-btn:hover {
+  text-decoration: underline;
+}
+.expense-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: var(--s3);
+}
+.expense-form-row {
+  display: flex;
+  gap: var(--s2);
+}
+.expense-form-row .expense-amount-input {
+  flex: 1;
+}
+.expense-category,
+.expense-amount-input,
+.expense-note-input,
+.expense-day-select {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm, 6px);
+  background: var(--surface, #fff);
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+.expense-form-actions {
+  display: flex;
+  gap: var(--s2);
+}
+.expense-form-actions button,
+.expense-row-actions button {
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.expense-form-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.expense-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+.expense-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+}
+.expense-category-label {
+  font-weight: var(--fw-semi);
+  font-size: var(--text-sm);
+}
+.expense-amount {
+  font-weight: var(--fw-semi);
+}
+.expense-note {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.expense-day {
+  margin-left: auto;
+}
+.expense-row-actions {
+  display: flex;
+  gap: var(--s1, 4px);
+}
+.expense-error {
+  color: var(--danger);
+  font-size: var(--text-xs);
+  flex-basis: 100%;
+}
+
 .trip-budget-error {
   color: var(--danger);
   font-size: var(--t-body);

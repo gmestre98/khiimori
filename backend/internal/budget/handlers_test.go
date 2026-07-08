@@ -283,6 +283,45 @@ func TestCreateCostEntry_Success(t *testing.T) {
 	}
 }
 
+func TestListCostEntries_Success(t *testing.T) {
+	t.Parallel()
+	store := &fakeBudgetStore{
+		listEntries: []CostEntry{
+			{ID: "e1", TripID: "trip-1", Category: CategoryFood, Amount: 8, Note: "street food"},
+			{ID: "e2", TripID: "trip-1", DayID: "day-1", Category: CategoryOther, Amount: 3, Note: "water"},
+		},
+	}
+	_, mux := newTestModule(store, fakeAuthz{allow: true})
+
+	rec := doRequest(t, mux, http.MethodGet, "/trips/trip-1/cost-entries", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		Entries []costEntryResponse `json:"entries"`
+	}
+	if err := decodeJSON(rec, &out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(out.Entries) != 2 {
+		t.Fatalf("entries: got %d, want 2", len(out.Entries))
+	}
+	if out.Entries[0].ID != "e1" || out.Entries[1].DayID != "day-1" {
+		t.Errorf("unexpected entries: %+v", out.Entries)
+	}
+}
+
+func TestListCostEntries_Unauthorized(t *testing.T) {
+	t.Parallel()
+	store := &fakeBudgetStore{}
+	_, mux := newTestModule(store, fakeAuthz{allow: false})
+
+	rec := doRequest(t, mux, http.MethodGet, "/trips/trip-1/cost-entries", nil)
+	if rec.Code == http.StatusOK {
+		t.Fatalf("expected non-200 for denied read, got 200")
+	}
+}
+
 func TestCreateCostEntry_InvalidCategory(t *testing.T) {
 	t.Parallel()
 	store := &fakeBudgetStore{}

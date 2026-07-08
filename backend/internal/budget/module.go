@@ -40,7 +40,9 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("PUT /trips/{tripID}/days/{dayID}/budget-lines",
 		m.requireAuth(http.HandlerFunc(m.handleSetDayBudgetLine)))
 
-	// Cost entries: POST / PATCH / DELETE
+	// Cost entries: GET / POST / PATCH / DELETE
+	mux.Handle("GET /trips/{tripID}/cost-entries",
+		m.requireAuth(http.HandlerFunc(m.handleListCostEntries)))
 	mux.Handle("POST /trips/{tripID}/cost-entries",
 		m.requireAuth(http.HandlerFunc(m.handleCreateCostEntry)))
 	mux.Handle("PATCH /trips/{tripID}/cost-entries/{entryID}",
