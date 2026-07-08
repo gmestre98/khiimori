@@ -5,6 +5,7 @@ import {
   UnauthorizedError,
   createPlanItem,
   datesInRange,
+  deletePlanItem,
   fetchBacklog,
   fetchDay,
   promotePlanItem,
@@ -57,7 +58,7 @@ function BacklogQuickAdd({
           ref={inputRef}
           className="backlog-quick-add-input"
           type="text"
-          placeholder="Add idea…"
+          placeholder="Add an idea for later…"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           required
@@ -70,7 +71,7 @@ function BacklogQuickAdd({
           disabled={submitting || !title.trim()}
           aria-label="Add idea"
         >
-          Add
+          Add idea
         </button>
       </div>
       {error && (
@@ -163,19 +164,36 @@ function PromotePicker({
   )
 }
 
-// BacklogItem renders a single backlog item with a promote-to-day affordance.
+// BacklogItem renders a single backlog item with promote-to-day and delete
+// affordances. Delete is gated behind a second click (matching plan items on
+// the day view) so a stray tap can't lose an idea.
 function BacklogItem({
   item,
   tripId,
   tripDates,
   onPromoted,
+  onDeleted,
 }: {
   item: PlanItem
   tripId: string
   tripDates: string[]
   onPromoted: (itemId: string) => void
+  onDeleted: (itemId: string) => void
 }) {
   const [showPicker, setShowPicker] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+
+  async function handleDelete() {
+    setDeleteBusy(true)
+    try {
+      await deletePlanItem(tripId, item.id)
+      onDeleted(item.id)
+    } catch {
+      setDeleteBusy(false)
+      setConfirmDelete(false)
+    }
+  }
 
   return (
     <li className="backlog-item">
@@ -197,14 +215,57 @@ function BacklogItem({
             onCancel={() => setShowPicker(false)}
           />
         ) : (
-          <button
-            type="button"
-            className="backlog-promote-btn"
-            onClick={() => setShowPicker(true)}
-            aria-label={`Promote ${item.title} to a day`}
-          >
-            Promote…
-          </button>
+          <>
+            <button
+              type="button"
+              className="backlog-promote-btn"
+              onClick={() => setShowPicker(true)}
+              aria-label={`Promote ${item.title} to a day`}
+            >
+              Promote…
+            </button>
+            {confirmDelete ? (
+              <span className="plan-item-delete-confirm">
+                <button
+                  type="button"
+                  className="plan-item-delete-yes"
+                  onClick={handleDelete}
+                  disabled={deleteBusy}
+                  aria-label={`Confirm delete ${item.title}`}
+                >
+                  Delete?
+                </button>
+                <button
+                  type="button"
+                  className="plan-item-delete-cancel"
+                  onClick={() => setConfirmDelete(false)}
+                  disabled={deleteBusy}
+                  aria-label="Cancel delete"
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="plan-item-delete-btn"
+                onClick={() => setConfirmDelete(true)}
+                aria-label={`Delete ${item.title}`}
+                title="Delete"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7m4 4v6m4-6v6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            )}
+          </>
         )}
       </div>
     </li>
@@ -249,41 +310,53 @@ export function BacklogPage() {
     setItems((prev) => (prev ? prev.filter((i) => i.id !== itemId) : prev))
   }
 
+  function handleDeleted(itemId: string) {
+    setItems((prev) => (prev ? prev.filter((i) => i.id !== itemId) : prev))
+  }
+
   return (
     <section className="backlog-page" aria-label="Ideas backlog">
-      <header className="backlog-header">
-        <button className="backlog-back" aria-label="Back to day" onClick={() => navigate(-1)}>
-          ← Back
-        </button>
-        <h2 className="backlog-title">Ideas backlog</h2>
-      </header>
+      <div className="screen-content backlog-body">
+        <header className="backlog-head">
+          <button className="backlog-back" aria-label="Back to plan" onClick={() => navigate(-1)}>
+            ← Back
+          </button>
+          <h1 className="h1">💡 Ideas backlog</h1>
+          <p className="meta">
+            Park ideas that aren’t tied to a day yet — promote one to a day when you’re ready.
+          </p>
+        </header>
 
-      {loading && (
-        <p className="backlog-loading" aria-busy="true">
-          Loading ideas…
-        </p>
-      )}
-      {error && (
-        <p role="alert" className="backlog-error">
-          {error}
-        </p>
-      )}
-      {items !== null && items.length === 0 && <p className="backlog-empty">No ideas yet.</p>}
-      {items !== null && items.length > 0 && (
-        <ul className="backlog-list">
-          {items.map((item) => (
-            <BacklogItem
-              key={item.id}
-              item={item}
-              tripId={tripId!}
-              tripDates={tripDates}
-              onPromoted={handlePromoted}
-            />
-          ))}
-        </ul>
-      )}
+        {loading && (
+          <p className="backlog-loading" aria-busy="true">
+            Loading ideas…
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="backlog-error">
+            {error}
+          </p>
+        )}
+        {items !== null && items.length === 0 && (
+          <p className="backlog-empty">No ideas yet. Jot down the first one below.</p>
+        )}
+        {items !== null && items.length > 0 && (
+          <ul className="backlog-list">
+            {items.map((item) => (
+              <BacklogItem
+                key={item.id}
+                item={item}
+                tripId={tripId!}
+                tripDates={tripDates}
+                onPromoted={handlePromoted}
+                onDeleted={handleDeleted}
+              />
+            ))}
+          </ul>
+        )}
 
-      {tripId && <BacklogQuickAdd tripId={tripId} onAdded={handleAdded} />}
+        {tripId && <BacklogQuickAdd tripId={tripId} onAdded={handleAdded} />}
+      </div>
     </section>
   )
 }

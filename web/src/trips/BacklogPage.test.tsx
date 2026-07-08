@@ -43,6 +43,7 @@ vi.mock('../lib/api', async (importOriginal) => {
     createPlanItem: vi.fn(),
     fetchDay: vi.fn(),
     promotePlanItem: vi.fn(),
+    deletePlanItem: vi.fn(),
   }
 })
 
@@ -82,7 +83,7 @@ describe('BacklogPage', () => {
   it('shows empty message when backlog is empty', async () => {
     vi.mocked(api.fetchBacklog).mockResolvedValue([])
     renderBacklogPage()
-    await waitFor(() => expect(screen.getByText('No ideas yet.')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/No ideas yet\./)).toBeInTheDocument())
   })
 
   it('shows error message on fetch failure', async () => {
@@ -194,6 +195,41 @@ describe('BacklogPage', () => {
         expect(screen.queryByText('See the Eiffel Tower')).not.toBeInTheDocument(),
       )
       expect(api.promotePlanItem).toHaveBeenCalledWith('trip-1', 'item-1', 'day-1')
+    })
+  })
+
+  describe('delete', () => {
+    it('deletes an idea after confirming and removes it from the list', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem()
+      vi.mocked(api.fetchBacklog).mockResolvedValue([item])
+      vi.mocked(api.deletePlanItem).mockResolvedValue(undefined)
+
+      renderBacklogPage()
+      await waitFor(() => expect(screen.getByText('See the Eiffel Tower')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Delete See the Eiffel Tower/ }))
+      await user.click(screen.getByRole('button', { name: /Confirm delete See the Eiffel Tower/ }))
+
+      await waitFor(() =>
+        expect(screen.queryByText('See the Eiffel Tower')).not.toBeInTheDocument(),
+      )
+      expect(api.deletePlanItem).toHaveBeenCalledWith('trip-1', 'item-1')
+    })
+
+    it('cancelling the delete confirm keeps the item', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem()
+      vi.mocked(api.fetchBacklog).mockResolvedValue([item])
+
+      renderBacklogPage()
+      await waitFor(() => expect(screen.getByText('See the Eiffel Tower')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Delete See the Eiffel Tower/ }))
+      await user.click(screen.getByRole('button', { name: 'Cancel delete' }))
+
+      expect(screen.getByText('See the Eiffel Tower')).toBeInTheDocument()
+      expect(api.deletePlanItem).not.toHaveBeenCalled()
     })
   })
 })
