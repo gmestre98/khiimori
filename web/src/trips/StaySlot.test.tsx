@@ -143,6 +143,27 @@ describe('StaySlot', () => {
     )
   })
 
+  it('marks a stay with a cost paid straight from the card', async () => {
+    const user = userEvent.setup()
+    const stay = makeStay({ cost: 120, paid: false })
+    vi.mocked(api.updateStay).mockResolvedValue({ ...stay, paid: true })
+    const setStays = vi.fn()
+
+    render(<StaySlot day={makeDay({ stays: [stay] })} tripId="trip-1" setStays={setStays} />)
+    // Unpaid cost shows an "Upcoming" badge and a "Mark paid" action.
+    expect(screen.getByText('Upcoming')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Mark paid' }))
+
+    await waitFor(() => expect(api.updateStay).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(api.updateStay).mock.calls[0][2]).toMatchObject({ paid: true, cost: 120 })
+  })
+
+  it('hides the paid toggle when the stay has no cost', () => {
+    render(<StaySlot day={makeDay({ stays: [makeStay()] })} tripId="trip-1" setStays={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /Mark paid/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('Upcoming')).not.toBeInTheDocument()
+  })
+
   it('queues the add offline instead of calling the API', async () => {
     const user = userEvent.setup()
     online = false

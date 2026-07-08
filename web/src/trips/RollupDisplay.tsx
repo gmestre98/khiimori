@@ -15,6 +15,7 @@ const CATEGORY_COLOR: Record<string, string> = {
 // Spent · Remaining (the teal number you watch) · Trip budget.
 export function BudgetSummaryTiles({ rollup }: { rollup: BudgetRollup }) {
   const spent = rollup.trip_total
+  const upcoming = rollup.estimated_trip_total ?? 0
   const budget = rollup.planned_trip_total
   const remaining = budget - spent
   const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0
@@ -24,7 +25,11 @@ export function BudgetSummaryTiles({ rollup }: { rollup: BudgetRollup }) {
       <div className="budget-tile card pad">
         <div className="meta">Spent</div>
         <div className="budget-tile-value num">{fmtWhole(spent)}</div>
-        {budget > 0 && <div className="meta mt1">{pct}% of budget</div>}
+        {upcoming > 0 ? (
+          <div className="meta mt1 budget-tile-upcoming">+{fmtWhole(upcoming)} upcoming</div>
+        ) : (
+          budget > 0 && <div className="meta mt1">{pct}% of budget</div>
+        )}
       </div>
       <div className="budget-tile card pad">
         <div className="meta">Remaining</div>
@@ -111,10 +116,12 @@ function CategoryMeter({
   category,
   spent,
   planned,
+  upcoming = 0,
 }: {
   category: string
   spent: number
   planned: number
+  upcoming?: number
 }) {
   const pct = planned > 0 ? Math.min(100, (spent / planned) * 100) : spent > 0 ? 100 : 0
   const ratio = planned > 0 ? spent / planned : 0
@@ -133,6 +140,9 @@ function CategoryMeter({
         <span className="num meta">
           <b style={{ color: amountColor }}>{fmt(spent)}</b>
           {planned > 0 && <> / {fmt(planned)}</>}
+          {upcoming > 0 && (
+            <span className="rollup-cat-upcoming"> · +{fmt(upcoming)} upcoming</span>
+          )}
         </span>
       </div>
       <div className={['progress', 'thin', state === 'ok' ? '' : state].filter(Boolean).join(' ')}>
@@ -148,10 +158,14 @@ export function TripRollup({ rollup }: { rollup: BudgetRollup }) {
     cat,
     spent: rollup.by_category[cat] ?? 0,
     planned: rollup.planned_by_category[cat] ?? 0,
-  })).filter(({ spent, planned }) => spent > 0 || planned > 0)
+    upcoming: rollup.estimated_by_category?.[cat] ?? 0,
+  })).filter(({ spent, planned, upcoming }) => spent > 0 || planned > 0 || upcoming > 0)
 
   const isEmpty =
-    rollup.trip_total === 0 && rollup.planned_trip_total === 0 && categoryRows.length === 0
+    rollup.trip_total === 0 &&
+    rollup.planned_trip_total === 0 &&
+    (rollup.estimated_trip_total ?? 0) === 0 &&
+    categoryRows.length === 0
 
   return (
     <div className="trip-rollup">
@@ -162,8 +176,14 @@ export function TripRollup({ rollup }: { rollup: BudgetRollup }) {
             <span className="meta">Spent / Planned</span>
           </div>
           <div className="rollup-card-body">
-            {categoryRows.map(({ cat, spent, planned }) => (
-              <CategoryMeter key={cat} category={cat} spent={spent} planned={planned} />
+            {categoryRows.map(({ cat, spent, planned, upcoming }) => (
+              <CategoryMeter
+                key={cat}
+                category={cat}
+                spent={spent}
+                planned={planned}
+                upcoming={upcoming}
+              />
             ))}
           </div>
         </section>
@@ -178,6 +198,7 @@ export function TripRollup({ rollup }: { rollup: BudgetRollup }) {
 export function DayRollup({ rollup, dayId }: { rollup: BudgetRollup; dayId: string }) {
   const daySpent = rollup.by_day[dayId] ?? 0
   const dayPlanned = rollup.planned_by_day[dayId] ?? 0
+  const dayUpcoming = rollup.estimated_by_day?.[dayId] ?? 0
   const dayCategories = rollup.by_day_category[dayId] ?? {}
 
   const catRows = BUDGET_CATEGORIES.map((cat) => ({
@@ -186,11 +207,14 @@ export function DayRollup({ rollup, dayId }: { rollup: BudgetRollup; dayId: stri
     planned: 0, // day-category planned not yet exposed; show spend-only
   })).filter(({ spent }) => spent > 0)
 
-  if (daySpent === 0 && dayPlanned === 0) return null
+  if (daySpent === 0 && dayPlanned === 0 && dayUpcoming === 0) return null
 
   return (
     <div className="day-rollup">
       <RollupRow label="Day total" spent={daySpent} planned={dayPlanned} />
+      {dayUpcoming > 0 && (
+        <div className="day-rollup-upcoming meta">+{fmt(dayUpcoming)} upcoming (not yet done)</div>
+      )}
       {catRows.map(({ cat, spent, planned }) => (
         <RollupRow key={cat} label={cat} spent={spent} planned={planned} />
       ))}

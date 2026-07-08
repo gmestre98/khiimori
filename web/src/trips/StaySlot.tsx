@@ -65,13 +65,22 @@ interface StayFormFields {
   check_out: string
   cost: string
   link: string
+  paid: boolean
 }
 
 function emptyStayFields(date: string): StayFormFields {
   // Default check-in to this day and check-out to the next — the common case is
   // adding the place you sleep tonight.
   const nextDay = new Date(parseYMD(date) + 86_400_000).toISOString().slice(0, 10)
-  return { name: '', location: '', check_in: date, check_out: nextDay, cost: '', link: '' }
+  return {
+    name: '',
+    location: '',
+    check_in: date,
+    check_out: nextDay,
+    cost: '',
+    link: '',
+    paid: false,
+  }
 }
 
 function fieldsFromStay(stay: Stay): StayFormFields {
@@ -82,6 +91,7 @@ function fieldsFromStay(stay: Stay): StayFormFields {
     check_out: stay.check_out ?? '',
     cost: stay.cost != null ? String(stay.cost) : '',
     link: stay.link ?? '',
+    paid: stay.paid ?? false,
   }
 }
 
@@ -93,6 +103,7 @@ function fieldsToStayInput(fields: StayFormFields): StayInput {
     check_out: fields.check_out.trim() || null,
     cost: fields.cost.trim() ? parseFloat(fields.cost) : null,
     link: fields.link.trim() || null,
+    paid: fields.paid,
   }
 }
 
@@ -108,6 +119,7 @@ function tempStay(tripId: string, input: StayInput): Stay {
     check_out: input.check_out ?? undefined,
     cost: input.cost ?? undefined,
     link: input.link ?? undefined,
+    paid: input.paid ?? false,
   }
 }
 
@@ -201,6 +213,28 @@ export function StaySlot({
     }
   }
 
+  // togglePaid flips the stay's paid flag in place (a full-replacement edit
+  // reusing the stay's current fields) so the traveller can mark a booking paid
+  // straight from the card without opening the form.
+  async function togglePaid() {
+    if (!stay) return
+    setSubmitting(true)
+    setError(null)
+    const input: StayInput = { ...fieldsToStayInput(fieldsFromStay(stay)), paid: !stay.paid }
+    try {
+      if (online) {
+        reflect(await updateStay(tripId, stay.id, input))
+      } else {
+        await enqueue('updateStay', { tripId, stayId: stay.id, input })
+        reflect(tempStay(tripId, { ...input, id: stay.id }))
+      }
+    } catch {
+      setError('Could not update the stay.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   async function handleRemove() {
     if (!stay) return
     setSubmitting(true)
@@ -287,6 +321,15 @@ export function StaySlot({
               />
             </FormField>
           </div>
+          <label className="stay-paid-check">
+            <input
+              type="checkbox"
+              checked={fields.paid}
+              onChange={(e) => setFields((f) => ({ ...f, paid: e.target.checked }))}
+              disabled={submitting}
+            />
+            <span>Paid — count this toward spent (otherwise it&rsquo;s an upcoming estimate)</span>
+          </label>
           {error && (
             <p role="alert" className="stay-form-error">
               {error}
@@ -325,6 +368,7 @@ export function StaySlot({
           onSelect={onSelect}
           onEdit={openEdit}
           onRemove={handleRemove}
+          onTogglePaid={togglePaid}
           removing={submitting}
         />
       ) : (
@@ -351,6 +395,7 @@ function StayCard({
   onSelect,
   onEdit,
   onRemove,
+  onTogglePaid,
   removing,
 }: {
   stay: Stay
@@ -360,9 +405,12 @@ function StayCard({
   onSelect?: (id: string | null) => void
   onEdit: () => void
   onRemove: () => void
+  onTogglePaid: () => void
   removing: boolean
 }) {
   const ctx = nightContext(stay, date)
+  // A paid badge only makes sense when there's a cost to count.
+  const hasCost = stay.cost != null && stay.cost > 0
   return (
     <div className={['stay-item', selected ? 'stay-item--selected' : ''].filter(Boolean).join(' ')}>
       <div className="stay-item-main">
@@ -395,7 +443,20 @@ function StayCard({
           {stay.check_in} – {stay.check_out}
         </div>
       )}
+      {hasCost && (
+        <span
+          className={`stay-paid-badge${stay.paid ? ' stay-paid-badge--paid' : ''}`}
+          aria-label={stay.paid ? 'Paid — counts toward spent' : 'Not paid — upcoming estimate'}
+        >
+          {stay.paid ? 'Paid' : 'Upcoming'}
+        </span>
+      )}
       <div className="stay-item-actions">
+        {hasCost && (
+          <button type="button" className="stay-action" onClick={onTogglePaid} disabled={removing}>
+            {stay.paid ? 'Mark unpaid' : 'Mark paid'}
+          </button>
+        )}
         <button type="button" className="stay-action" onClick={onEdit} disabled={removing}>
           Edit
         </button>

@@ -318,6 +318,11 @@ export interface Stay {
   check_out?: string
   cost?: number
   link?: string
+  // paid marks the stay as actually paid for; its cost only counts as spent in
+  // the budget when paid, otherwise it's an upcoming estimate (M12.2). Optional
+  // so cached day data written before the field existed still parses (treat
+  // missing as false).
+  paid?: boolean
 }
 
 // StayInput is the editable payload for creating or updating a stay. Only name
@@ -331,6 +336,7 @@ export interface StayInput {
   check_out?: string | null
   cost?: number | null
   link?: string | null
+  paid?: boolean
 }
 
 // StayValidationError carries the API's 400 message so the form can show it.
@@ -721,6 +727,11 @@ export interface BudgetRollup {
   by_category: Record<string, number>
   by_day: Record<string, number>
   by_day_category: Record<string, Record<string, number>>
+  // Estimated (upcoming) amounts: not-yet-happened costs — idea/planned items
+  // and unpaid stays. Optional so a rollup cached before M12.2 still parses.
+  estimated_trip_total?: number
+  estimated_by_category?: Record<string, number>
+  estimated_by_day?: Record<string, number>
   planned_trip_total: number
   planned_by_category: Record<string, number>
   planned_by_day: Record<string, number>
