@@ -21,7 +21,7 @@ day:
 
 | Epic | Title | Status |
 |------|-------|--------|
-| [01](epic-01-typed-timeline-and-stays/README.md) | Typed timeline & single stays | 🚧 In progress |
+| [01](epic-01-typed-timeline-and-stays/README.md) | Typed timeline & single stays | ✅ Done (PRs #439–#444) |
 
 ## Conventions
 
