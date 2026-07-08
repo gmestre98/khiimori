@@ -66,7 +66,7 @@ func TestComputeRollup_StayPropagation(t *testing.T) {
 	t.Parallel()
 
 	external := []ExternalCost{
-		{DayID: "", Category: CategoryStays, Amount: 200},
+		{DayID: "", Category: CategoryStays, Amount: 200, Happened: true},
 	}
 	r := computeRollup(external, nil, nil)
 	if r.TripTotal != 200 {
@@ -81,7 +81,7 @@ func TestComputeRollup_StayPropagation(t *testing.T) {
 
 	// Simulate "editing" the stay cost (new external value in next request).
 	externalEdited := []ExternalCost{
-		{DayID: "", Category: CategoryStays, Amount: 150},
+		{DayID: "", Category: CategoryStays, Amount: 150, Happened: true},
 	}
 	r2 := computeRollup(externalEdited, nil, nil)
 	if r2.TripTotal != 150 {
@@ -96,7 +96,7 @@ func TestComputeRollup_PlanItemPropagation(t *testing.T) {
 	t.Parallel()
 
 	external := []ExternalCost{
-		{DayID: "d1", Category: CategoryActivities, Amount: 80},
+		{DayID: "d1", Category: CategoryActivities, Amount: 80, Happened: true},
 	}
 	r := computeRollup(external, nil, nil)
 	if r.ByDay["d1"] != 80 {
@@ -110,6 +110,56 @@ func TestComputeRollup_PlanItemPropagation(t *testing.T) {
 	}
 }
 
+// TestComputeRollup_SpentVsEstimated verifies that external costs are bucketed by
+// their Happened flag: happened costs land in the spent totals, not-happened costs
+// land in the estimated totals, and manual cost entries are always spent.
+func TestComputeRollup_SpentVsEstimated(t *testing.T) {
+	t.Parallel()
+
+	external := []ExternalCost{
+		// A done activity — spent.
+		{DayID: "d1", Category: CategoryActivities, Amount: 60, Happened: true},
+		// A planned (not-yet-done) activity on the same day — estimated.
+		{DayID: "d1", Category: CategoryActivities, Amount: 90, Happened: false},
+		// An unpaid stay, trip-level — estimated, must not touch ByDay.
+		{DayID: "", Category: CategoryStays, Amount: 200, Happened: false},
+	}
+	entries := []CostEntry{
+		// Manual cost entries always count as spent.
+		{DayID: "d1", Category: CategoryFood, Amount: 15, CreatedAt: time.Now()},
+	}
+	r := computeRollup(external, entries, nil)
+
+	// Spent = done activity (60) + manual food (15).
+	if r.TripTotal != 75 {
+		t.Errorf("TripTotal (spent) = %f, want 75", r.TripTotal)
+	}
+	if r.ByCategory["Activities"] != 60 {
+		t.Errorf("spent Activities = %f, want 60", r.ByCategory["Activities"])
+	}
+	if r.ByDay["d1"] != 75 {
+		t.Errorf("spent ByDay[d1] = %f, want 75", r.ByDay["d1"])
+	}
+
+	// Estimated = planned activity (90) + unpaid stay (200).
+	if r.EstimatedTripTotal != 290 {
+		t.Errorf("EstimatedTripTotal = %f, want 290", r.EstimatedTripTotal)
+	}
+	if r.EstimatedByCategory["Activities"] != 90 {
+		t.Errorf("estimated Activities = %f, want 90", r.EstimatedByCategory["Activities"])
+	}
+	if r.EstimatedByCategory["Stays"] != 200 {
+		t.Errorf("estimated Stays = %f, want 200", r.EstimatedByCategory["Stays"])
+	}
+	// The unpaid stay is trip-level, so only the planned activity hits ByDay.
+	if r.EstimatedByDay["d1"] != 90 {
+		t.Errorf("estimated ByDay[d1] = %f, want 90", r.EstimatedByDay["d1"])
+	}
+	if _, ok := r.EstimatedByDay[""]; ok {
+		t.Errorf("estimated ByDay must not contain a trip-level key")
+	}
+}
+
 // TestComputeRollup_ConsistentWithinRequest verifies that a single computeRollup
 // call is internally consistent: ByDay sums and ByCategory sums agree with
 // TripTotal.
@@ -117,9 +167,9 @@ func TestComputeRollup_ConsistentWithinRequest(t *testing.T) {
 	t.Parallel()
 
 	external := []ExternalCost{
-		{DayID: "", Category: CategoryStays, Amount: 100},
-		{DayID: "d1", Category: CategoryActivities, Amount: 60},
-		{DayID: "d2", Category: CategoryFood, Amount: 40},
+		{DayID: "", Category: CategoryStays, Amount: 100, Happened: true},
+		{DayID: "d1", Category: CategoryActivities, Amount: 60, Happened: true},
+		{DayID: "d2", Category: CategoryFood, Amount: 40, Happened: true},
 	}
 	entries := []CostEntry{
 		{DayID: "d1", Category: CategoryTransport, Amount: 25, CreatedAt: time.Now()},

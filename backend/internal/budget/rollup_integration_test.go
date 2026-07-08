@@ -30,26 +30,40 @@ func insertStay(t *testing.T, tripID, name string, cost float64) string {
 	return id
 }
 
-// insertPlanItem inserts a trip.plan_items row and returns its id.
+// insertPlanItem inserts a trip.plan_items row and returns its id. The item is
+// marked done so its cost counts as spent — the roll-up only counts happened
+// costs (M12.2 S1); tests that need estimated/skipped behaviour set status
+// explicitly via setPlanItemStatus.
 func insertPlanItem(t *testing.T, tripID, dayID, itemType string, cost float64) string {
 	t.Helper()
 	var id string
 	var err error
 	if dayID == "" {
 		err = testPool.QueryRow(context.Background(), `
-			INSERT INTO trip.plan_items (trip_id, title, type, cost)
-			VALUES ($1::uuid, 'item', $2, $3)
+			INSERT INTO trip.plan_items (trip_id, title, type, cost, status)
+			VALUES ($1::uuid, 'item', $2, $3, 'done')
 			RETURNING id::text`, tripID, itemType, cost).Scan(&id)
 	} else {
 		err = testPool.QueryRow(context.Background(), `
-			INSERT INTO trip.plan_items (trip_id, day_id, title, type, cost)
-			VALUES ($1::uuid, $2::uuid, 'item', $3, $4)
+			INSERT INTO trip.plan_items (trip_id, day_id, title, type, cost, status)
+			VALUES ($1::uuid, $2::uuid, 'item', $3, $4, 'done')
 			RETURNING id::text`, tripID, dayID, itemType, cost).Scan(&id)
 	}
 	if err != nil {
 		t.Fatalf("insert plan item: %v", err)
 	}
 	return id
+}
+
+// setPlanItemStatus updates the lifecycle status of an existing plan item — used
+// by roll-up tests to exercise the spent/estimated/excluded bucketing.
+func setPlanItemStatus(t *testing.T, itemID, status string) {
+	t.Helper()
+	_, err := testPool.Exec(context.Background(),
+		`UPDATE trip.plan_items SET status = $1 WHERE id = $2::uuid`, status, itemID)
+	if err != nil {
+		t.Fatalf("set plan item status: %v", err)
+	}
 }
 
 // updateStayCost updates the cost field of an existing stay.
@@ -113,27 +127,35 @@ func (liveDBCostReader) GetTripCosts(ctx context.Context, tripID string) ([]Exte
 		if err := stayRows.Scan(&amount); err != nil {
 			return nil, err
 		}
-		out = append(out, ExternalCost{DayID: "", Category: CategoryStays, Amount: amount})
+		out = append(out, ExternalCost{DayID: "", Category: CategoryStays, Amount: amount, Happened: true})
 	}
 	if err := stayRows.Err(); err != nil {
 		return nil, err
 	}
 
+	// Mirror the composition-root reader (M12.2 S1): drop skipped/cancelled and
+	// mark a cost spent only when the item is done.
 	itemRows, err := testPool.Query(ctx,
-		`SELECT COALESCE(day_id::text, ''), COALESCE(type, ''), COALESCE(cost, 0)
+		`SELECT COALESCE(day_id::text, ''), COALESCE(type, ''), COALESCE(cost, 0), status
 		 FROM trip.plan_items
-		 WHERE trip_id = $1::uuid AND cost IS NOT NULL AND cost > 0`, tripID)
+		 WHERE trip_id = $1::uuid AND cost IS NOT NULL AND cost > 0
+		   AND status NOT IN ('skipped', 'cancelled')`, tripID)
 	if err != nil {
 		return nil, err
 	}
 	defer itemRows.Close()
 	for itemRows.Next() {
-		var dayID, itemType string
+		var dayID, itemType, status string
 		var amount float64
-		if err := itemRows.Scan(&dayID, &itemType, &amount); err != nil {
+		if err := itemRows.Scan(&dayID, &itemType, &amount, &status); err != nil {
 			return nil, err
 		}
-		out = append(out, ExternalCost{DayID: dayID, Category: planItemCategoryTest(itemType), Amount: amount})
+		out = append(out, ExternalCost{
+			DayID:    dayID,
+			Category: planItemCategoryTest(itemType),
+			Amount:   amount,
+			Happened: status == "done",
+		})
 	}
 	return out, itemRows.Err()
 }
@@ -356,6 +378,47 @@ func TestIntegration_Rollup_Propagation_PlanItem(t *testing.T) {
 	r3 := srv.getRollup(t, tripID)
 	if _, ok := r3.ByDay[dayID]; ok {
 		t.Fatalf("after delete: day should not appear in ByDay, got %v", r3.ByDay)
+	}
+}
+
+// TestIntegration_Rollup_SpentVsEstimated verifies end-to-end that a plan item's
+// cost only counts as spent once it is done: an idea/planned item is estimated,
+// a skipped item drops out entirely, and marking it done moves the cost from
+// estimated to spent (M12.2 S1).
+func TestIntegration_Rollup_SpentVsEstimated(t *testing.T) {
+	ownerID := freshOwnerID(t)
+	srv := newLiveServer(t, ownerID)
+	tripID := insertTrip(t, ownerID)
+	dayID := insertDay(t, tripID)
+
+	// insertPlanItem creates the item as done; put it back to planned so it is
+	// an upcoming estimate rather than spent.
+	itemID := insertPlanItem(t, tripID, dayID, "activity", 60)
+	setPlanItemStatus(t, itemID, "planned")
+
+	r1 := srv.getRollup(t, tripID)
+	if r1.TripTotal != 0 {
+		t.Fatalf("planned item must not be spent: TripTotal=%f, want 0", r1.TripTotal)
+	}
+	if r1.EstimatedByDay[dayID] != 60 {
+		t.Fatalf("planned item must be estimated: EstimatedByDay=%f, want 60", r1.EstimatedByDay[dayID])
+	}
+
+	// Mark done → moves to spent.
+	setPlanItemStatus(t, itemID, "done")
+	r2 := srv.getRollup(t, tripID)
+	if r2.ByDay[dayID] != 60 {
+		t.Fatalf("done item must be spent: ByDay=%f, want 60", r2.ByDay[dayID])
+	}
+	if r2.EstimatedTripTotal != 0 {
+		t.Fatalf("done item must leave estimated: EstimatedTripTotal=%f, want 0", r2.EstimatedTripTotal)
+	}
+
+	// Skip → drops out of both spent and estimated.
+	setPlanItemStatus(t, itemID, "skipped")
+	r3 := srv.getRollup(t, tripID)
+	if r3.TripTotal != 0 || r3.EstimatedTripTotal != 0 {
+		t.Fatalf("skipped item must vanish: spent=%f estimated=%f, want 0/0", r3.TripTotal, r3.EstimatedTripTotal)
 	}
 }
 

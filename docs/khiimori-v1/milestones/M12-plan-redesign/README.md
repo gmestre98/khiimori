@@ -22,6 +22,7 @@ day:
 | Epic | Title | Status |
 |------|-------|--------|
 | [01](epic-01-typed-timeline-and-stays/README.md) | Typed timeline & single stays | ✅ Done (PRs #439–#444) |
+| [02](epic-02-spent-vs-estimated-budget/README.md) | Spent vs. estimated budget & ad-hoc expenses | 🚧 In progress |
 
 ## Conventions
 

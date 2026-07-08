@@ -191,7 +191,7 @@ func TestIntegration_Propagation_ExternalCosts(t *testing.T) {
 
 	reader := staticCostReader{
 		costs: []ExternalCost{
-			{DayID: "", Category: CategoryStays, Amount: 200},
+			{DayID: "", Category: CategoryStays, Amount: 200, Happened: true},
 		},
 	}
 	srv := newRollupServer(t, ownerID, reader)
@@ -218,8 +218,8 @@ func TestIntegration_Propagation_MultipleSourcesConsistent(t *testing.T) {
 
 	reader := staticCostReader{
 		costs: []ExternalCost{
-			{DayID: "", Category: CategoryStays, Amount: 150},
-			{DayID: dayID, Category: CategoryActivities, Amount: 40},
+			{DayID: "", Category: CategoryStays, Amount: 150, Happened: true},
+			{DayID: dayID, Category: CategoryActivities, Amount: 40, Happened: true},
 		},
 	}
 	srv := newRollupServer(t, ownerID, reader)
