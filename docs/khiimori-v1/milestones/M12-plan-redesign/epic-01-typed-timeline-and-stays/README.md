@@ -1,6 +1,18 @@
 # Epic M12.1 — Typed timeline & single stays
 
-> **Status:** 🚧 In progress.
+> **Status:** ✅ Done — all 6 stories shipped across PRs
+> [#439](https://github.com/gmestre98/khiimori/pull/439) (S1 kind),
+> [#440](https://github.com/gmestre98/khiimori/pull/440) (S2 transport),
+> [#441](https://github.com/gmestre98/khiimori/pull/441) (S3 single stay),
+> [#442](https://github.com/gmestre98/khiimori/pull/442) (S4 stay slot),
+> [#443](https://github.com/gmestre98/khiimori/pull/443) (S5 kind picker), and
+> [#444](https://github.com/gmestre98/khiimori/pull/444) (S6 drag timeline).
+> 6/6 ACs satisfied. Each PR was reviewed by a separate agent and its findings
+> fixed (S1 edit dropped `kind`; S4 stay 4xx replay marked transient; S5 stale
+> hidden `cost` submitted to the budget), and the frontend stories were verified
+> in a browser (pinned stay slot with per-night badges, kind picker with per-kind
+> fields, one unified Timeline with timed pinned by clock + untimed drag handles).
+> No new runtime deps; €0-idle posture unchanged.
 
 > Milestone: [12 — Plan redesign](../README.md) · PRD refs: §5.2, §9, §7.0.
 
@@ -21,19 +33,19 @@ concrete problems with the current surface:
 
 ## Acceptance Criteria
 
-- [ ] Plan items carry a first-class **`kind`** (activity | transport | food |
+- [x] Plan items carry a first-class **`kind`** (activity | transport | food |
       note) independent of their budget category; the API accepts/returns it and
       it defaults to `activity` for older payloads. — **S1**
-- [ ] **Transport** items support an origin, a destination, and an arrival time
+- [x] **Transport** items support an origin, a destination, and an arrival time
       end-to-end (API + storage). — **S2**
-- [ ] Only **one stay per night** is allowed; overlapping stays are rejected by
+- [x] Only **one stay per night** is allowed; overlapping stays are rejected by
       the API (and the UI edits rather than adds). — **S3**
-- [ ] The day plan shows a **single pinned stay slot** on top, editable inline,
+- [x] The day plan shows a **single pinned stay slot** on top, editable inline,
       with add/edit and per-night context. — **S4**
-- [ ] Add/edit uses a **kind picker** with per-kind fields (transport
+- [x] Add/edit uses a **kind picker** with per-kind fields (transport
       origin→destination), and **cost category is decoupled** from kind
       (auto-suggested, overridable). — **S5**
-- [ ] Timed and untimed items render in **one drag-ordered timeline**; untimed
+- [x] Timed and untimed items render in **one drag-ordered timeline**; untimed
       items can be placed anywhere, including between timed items. — **S6**
 
 ## User stories
