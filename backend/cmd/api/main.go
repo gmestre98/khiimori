@@ -247,7 +247,22 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 		mux.HandleFunc("/debug/trigger-error", debugTriggerError)
 	}
 
-	return mux
+	// Expose every route under an `/api` prefix in addition to the root, so the
+	// same handlers answer both `/me` and `/api/me`. This lets the web app reach
+	// the API same-origin: Firebase Hosting rewrites `/api/**` to this service, so
+	// from the browser's perspective the API lives on the web app's own origin and
+	// the session cookie the OAuth callback sets is FIRST-party — not the
+	// cross-site third-party cookie that Safari (and increasingly Chrome/Firefox)
+	// drop by default, which silently signed users back out (the /me 401 → back to
+	// sign-in loop). The root routes stay registered so the Cloud Run health probes
+	// and the deployed E2E/smoke checks can keep hitting the service URL directly.
+	// `/api/` is a more specific pattern than `/`, so ServeMux routes prefixed
+	// requests here and everything else falls through to the bare mux.
+	root := http.NewServeMux()
+	root.Handle("/", mux)
+	root.Handle("/api/", http.StripPrefix("/api", mux))
+
+	return root
 }
 
 // membershipAuthzAdapter adapts *sharing.MembershipAuthorizer to trip.Authorizer.

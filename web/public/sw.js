@@ -44,7 +44,7 @@
  * Versioning: bump CACHE_VERSION to invalidate the caches on the next activate.
  */
 
-const CACHE_VERSION = 'v1'
+const CACHE_VERSION = 'v2'
 const CACHE_NAME = `khiimori-shell-${CACHE_VERSION}`
 const DATA_CACHE = `khiimori-data-${CACHE_VERSION}`
 
@@ -73,8 +73,8 @@ let activeTripId = null
 let cachedTripId = null
 
 // isCacheableRead reports whether a request is a GET we cache for offline
-// current-trip viewing (on any origin — the API is a separate origin from the
-// shell):
+// current-trip viewing. Matches on path suffix so it works whether the API is
+// same-origin (the web app's /api/** rewrite) or a separate origin:
 //   • the trips listing (`…/trips`) — small, and TripShell needs it to resolve
 //     the open trip's name/dates when reloaded offline;
 //   • any `/trips/<activeTripId>/…` path — days, plan items, budget, journal.
@@ -200,13 +200,22 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url)
 
-  // Current-trip API reads (may be cross-origin) → network-first data cache.
+  // Current-trip API reads (same-origin under /api, or cross-origin) →
+  // network-first data cache.
   if (isCacheableRead(request, url)) {
     event.respondWith(networkFirstData(request))
     return
   }
 
-  // Other cross-origin (API for non-active trips, tiles, fonts) → network.
+  // Any other API call is same-origin now (Firebase Hosting rewrites /api/** to
+  // Cloud Run) but must NOT be treated as the app shell or a static asset: it is
+  // dynamic, auth-bearing data. Pass it straight to the network. Without this the
+  // OAuth GET navigations (/api/auth/login, /api/auth/callback) would fall into
+  // the app-shell fallback and break sign-in, and reads like /api/me would land
+  // in the cache-first asset store and be served stale indefinitely.
+  if (url.pathname.startsWith('/api/')) return
+
+  // Other cross-origin (map tiles, fonts) → network.
   if (url.origin !== self.location.origin) return
 
   // Navigations → app shell (network-first).

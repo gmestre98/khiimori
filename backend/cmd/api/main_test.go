@@ -78,6 +78,20 @@ func TestHealthzIgnoresDB(t *testing.T) {
 	}
 }
 
+// The web app reaches the API same-origin through Firebase Hosting's `/api/**`
+// rewrite, so every route must answer under an `/api` prefix as well as at the
+// root. Health probes and the deployed E2E/smoke checks still hit the root paths
+// directly, so both must work. /readyz stands in for "any route".
+func TestAPIPrefixAliasesRootRoutes(t *testing.T) {
+	h := newRouter(fakePinger{nil}, nil, config.Config{}, journal.NoopMediaStore{})
+
+	for _, path := range []string{"/readyz", "/api/readyz"} {
+		if rec := get(t, h, path); rec.Code != http.StatusOK {
+			t.Errorf("GET %s status = %d, want 200 (root and /api prefix must both route)", path, rec.Code)
+		}
+	}
+}
+
 func TestDebugTriggerErrorWhenEnabled(t *testing.T) {
 	h := newRouter(fakePinger{nil}, nil, config.Config{DebugErrorTrigger: true}, journal.NoopMediaStore{})
 
