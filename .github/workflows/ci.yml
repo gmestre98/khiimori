@@ -417,17 +417,20 @@ jobs:
         working-directory: web
         run: npm ci
 
-      # Inject the API base URL at build time — no hardcoded prod URL (aligns with
-      # M01.6 S1). The variable is the Cloud Run service URL.
+      # Build the web app to call the API SAME-ORIGIN at `/api`, which Firebase
+      # Hosting rewrites to the Cloud Run service (see firebase.json). Same-origin
+      # is deliberate: it makes the session cookie the OAuth callback sets
+      # first-party to the web app, so browsers keep it — a cross-site cookie to
+      # the raw run.app URL is a third-party cookie that Safari (and increasingly
+      # Chrome/Firefox) drop, silently signing users back out. Relative, so still
+      # no hardcoded host baked into the bundle. (The absolute run.app URL lives on
+      # in the API_BASE_URL repo var, which the E2E job still uses as its
+      # non-browser test-login target where third-party-cookie rules don't apply.)
       - name: Build web (production)
         working-directory: web
         env:
-          VITE_API_BASE_URL: ${{ vars.API_BASE_URL }}
-        # Fail loudly rather than ship a bundle with an empty API base URL (a
-        # silent prod misconfig once M01.6 consumes it).
-        run: |
-          test -n "$VITE_API_BASE_URL" || { echo "API_BASE_URL repo variable is empty — refusing to build the web app without an API base URL"; exit 1; }
-          npm run build
+          VITE_API_BASE_URL: /api
+        run: npm run build
 
       # Atomic release to the M01.4 Hosting site (target in firebase.json). The
       # CLI prints the Hosting URL, satisfying the "report the URL" AC.

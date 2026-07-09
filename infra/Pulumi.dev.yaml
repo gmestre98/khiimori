@@ -22,7 +22,13 @@ config:
   khiimori:oauthClientSecret:
     secure: AAABAKgz22QQnLJbwWbFW9TMAXCfAuW5UIXjHdzdyxiTsc/FYZmUCi7R5Hiju9tXarGBjLarzYK9L4E45oEhiRobWA==
   khiimori:oauthClientId: 717279394743-jiqhjvvthsq0t80haclvr0mh7l80n5b6.apps.googleusercontent.com
-  khiimori:oauthRedirectUri: https://khiimori-api-qectzihgmq-nw.a.run.app/auth/callback
+  # Callback lives on the WEB APP origin (via the Firebase Hosting → Cloud Run
+  # `/api/**` rewrite), not the raw run.app URL, so the session cookie the
+  # callback sets is first-party to the web app and browsers keep it (a
+  # cross-site third-party cookie is dropped by Safari et al., silently signing
+  # users back out). This exact URI must also be an authorized redirect URI on
+  # the Google OAuth client.
+  khiimori:oauthRedirectUri: https://intricate-reef-424222-d6-web.web.app/api/auth/callback
   khiimori:mapsApiKey:
     secure: AAABADlJ76UE/hOw5Dpd4CSWeLM4iOvv7EQg+s1HFr3lIIJgJ56TT61L2bcYT59N0FYOmf3W
   khiimori:databaseUrlDirect:
