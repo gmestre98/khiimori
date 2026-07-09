@@ -7,9 +7,12 @@
 // suite can be pointed at a dedicated staging/preview environment by changing
 // these variables alone — no code change:
 //
-//   E2E_WEB_URL       base URL of the web app (Firebase Hosting)   → baseURL
-//   E2E_API_URL       base URL of the API (Cloud Run service)      → test-login target
+//   E2E_WEB_URL       base URL of the web app (Firebase Hosting)   → baseURL,
+//                     and the API's same-origin base (${E2E_WEB_URL}/api)
 //   E2E_LOGIN_SECRET  shared secret for the guarded test-login endpoint (M10.1)
+//
+// (E2E_API_URL — the raw Cloud Run URL — is used only by the bash /readyz smoke,
+// e2e/smoke.sh; the TS suite reaches the API same-origin via the web app's /api.)
 //
 // No secret is embedded in the repo: E2E_LOGIN_SECRET is supplied at run time
 // (CI secrets / Secret Manager), mirroring the value configured on the target
@@ -41,8 +44,16 @@ function requiredURL(name: string): string {
 // webBaseURL is where the browser loads the app (Playwright's baseURL).
 export const webBaseURL = requiredURL('E2E_WEB_URL')
 
-// apiBaseURL is where the auth setup posts the test-login request.
-export const apiBaseURL = requiredURL('E2E_API_URL')
+// apiBaseURL is where the suite reaches the API — the web app's own `/api`
+// origin, which Firebase Hosting rewrites to the Cloud Run service. Hitting the
+// API same-origin (rather than the raw Cloud Run URL) is deliberate: it scopes
+// the session cookie the harness mints to the web app, exactly as a real
+// browser's is, so the stored session works both for direct API assertions here
+// AND when loaded into a browser context. A cookie set on the raw Cloud Run host
+// is a cross-site third-party cookie the browser would not send back to the web
+// app (the very bug this suite must exercise, not paper over). E2E_API_URL is no
+// longer read here (the bash smoke still uses it to probe /readyz directly).
+export const apiBaseURL = `${webBaseURL}/api`
 
 // e2eLoginSecret is the shared secret the harness presents to /auth/test-login.
 // Read lazily (via a function) so specs that don't authenticate — e.g. the

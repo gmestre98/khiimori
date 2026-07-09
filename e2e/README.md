@@ -80,11 +80,11 @@ on the **same** `E2E_LOGIN_SECRET` — production (secret unset) exposes neither
 Config-driven, so the suite can be pointed at a dedicated staging/preview
 environment by changing these variables alone — **no code change**:
 
-| Var                | Meaning                                           | Source (CI)                |
-| ------------------ | ------------------------------------------------- | -------------------------- |
-| `E2E_WEB_URL`      | Web base URL (Firebase Hosting) → Playwright base | `vars.WEB_BASE_URL`        |
-| `E2E_API_URL`      | API base URL (Cloud Run) → test-login target      | `vars.API_BASE_URL`        |
-| `E2E_LOGIN_SECRET` | Shared secret for the guarded test-login endpoint | `secrets.E2E_LOGIN_SECRET` |
+| Var                | Meaning                                                                                                              | Source (CI)                |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `E2E_WEB_URL`      | Web base URL (Firebase Hosting) → Playwright base, and the API's same-origin `/api` base                             | `vars.WEB_BASE_URL`        |
+| `E2E_API_URL`      | Raw Cloud Run URL → the bash `/readyz` smoke only (the TS suite reaches the API same-origin at `${E2E_WEB_URL}/api`) | `vars.API_BASE_URL`        |
+| `E2E_LOGIN_SECRET` | Shared secret for the guarded test-login endpoint                                                                    | `secrets.E2E_LOGIN_SECRET` |
 
 > v1 has a single environment, so these currently point at it. When a separate
 > preview/staging environment exists, repoint the variables — no code change.
