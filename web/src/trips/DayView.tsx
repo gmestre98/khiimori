@@ -503,26 +503,20 @@ function PlanItemForm({
           leg (from → to), a note has no place, everything else has a location. */}
       {fields.kind === 'transport' ? (
         <div className="plan-item-form-grid">
-          <FormField label="From" htmlFor={`${fid}-origin`}>
-            <Input
-              id={`${fid}-origin`}
-              type="text"
-              value={fields.origin}
-              onChange={(e) => set('origin', e.target.value)}
-              placeholder="Lisbon"
-              disabled={submitting}
-            />
-          </FormField>
-          <FormField label="To" htmlFor={`${fid}-dest`}>
-            <Input
-              id={`${fid}-dest`}
-              type="text"
-              value={fields.destination}
-              onChange={(e) => set('destination', e.target.value)}
-              placeholder="Porto"
-              disabled={submitting}
-            />
-          </FormField>
+          <LocationField
+            label="From"
+            value={fields.origin}
+            onChange={(v) => set('origin', v)}
+            disabled={submitting}
+            placeholder="Lisbon"
+          />
+          <LocationField
+            label="To"
+            value={fields.destination}
+            onChange={(v) => set('destination', v)}
+            disabled={submitting}
+            placeholder="Porto"
+          />
         </div>
       ) : fields.kind === 'note' ? null : (
         <LocationField
