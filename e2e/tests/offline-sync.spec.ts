@@ -77,8 +77,17 @@ test('offline plan + journal edits sync on reconnect with no loss or duplication
   const journal = page.getByRole('region', { name: 'Journal' })
 
   await test.step('open the day and go offline', async () => {
+    // Arm the wait before navigating so we catch the journal fetch the editor
+    // fires on mount. The journal editor only becomes save-capable once that load
+    // resolves (its auto-save is gated on loadedDayId === dayId). If we go offline
+    // while it is still in flight, the fetch resolves as a synthetic offline 503,
+    // the editor stays un-loaded, and the offline edit never queues. Real users
+    // open a day online, let it load, then go offline — wait for that here so the
+    // test exercises the same path (and isn't sensitive to API round-trip latency).
+    const journalLoaded = page.waitForResponse((r) => /\/days\/[^/]+\/journal(\?|$)/.test(r.url()))
     await page.goto(`/trips/${createdTripId}/days/${startDate}`)
     await expect(planning.getByLabel('Title', { exact: true })).toBeVisible()
+    await journalLoaded
 
     await page.context().setOffline(true)
     // The app registers the offline state before we start editing.
