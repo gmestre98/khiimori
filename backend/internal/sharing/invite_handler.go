@@ -89,8 +89,12 @@ func (m *Module) handleCreateInvitation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if req.Email == "" {
-		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusBadRequest, "bad_request", "email is required"))
+	// Normalize + validate the email before persisting: an invitation whose
+	// email can't be matched by a verified sign-in is unacceptable forever, so a
+	// typo or stray whitespace must be rejected here rather than silently stored.
+	email, ok := normalizeEmail(req.Email)
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusBadRequest, "bad_request", "a valid email address is required"))
 		return
 	}
 
@@ -103,7 +107,7 @@ func (m *Module) handleCreateInvitation(w http.ResponseWriter, r *http.Request) 
 	// Generate an unguessable token.
 	token := uuid.New().String()
 
-	inv, err := m.invCreate.Create(r.Context(), tripID, req.Email, token, role)
+	inv, err := m.invCreate.Create(r.Context(), tripID, email, token, role)
 	if err != nil {
 		log.Error("create invitation", "err", err.Error())
 		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusInternalServerError, "internal_error", "could not create invitation"))
@@ -115,7 +119,7 @@ func (m *Module) handleCreateInvitation(w http.ResponseWriter, r *http.Request) 
 	tripName, inviterName := m.resolveTripAndInviter(r.Context(), tripID, principal.UserID, log)
 
 	if err := m.emailSender.SendInvite(r.Context(), InviteEmailParams{
-		ToEmail:     req.Email,
+		ToEmail:     email,
 		TripName:    tripName,
 		InviterName: inviterName,
 		Role:        role,

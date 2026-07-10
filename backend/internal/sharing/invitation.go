@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/mail"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -199,7 +200,29 @@ func (inv *Invitations) RevokeInvitation(ctx context.Context, invitationID strin
 	return nil
 }
 
-// emailsEqual compares two email addresses case-insensitively.
+// emailsEqual compares two email addresses case-insensitively, ignoring any
+// surrounding whitespace. Google emails are case-insensitive by convention, and
+// trimming guards against a stray space slipping into either side (a mismatch
+// here silently locks the recipient out of the trip).
 func emailsEqual(a, b string) bool {
-	return strings.EqualFold(a, b)
+	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
+}
+
+// normalizeEmail trims surrounding whitespace and lowercases an email address so
+// invitations are stored in the same shape a recipient's verified sign-in email
+// compares against. It returns ok=false when raw is empty or not a syntactically
+// valid address, so a typo can't create an invitation nobody can ever accept.
+func normalizeEmail(raw string) (email string, ok bool) {
+	addr, err := mail.ParseAddress(strings.TrimSpace(raw))
+	if err != nil {
+		return "", false
+	}
+	// Require a dotted domain (e.g. example.com): net/mail on its own accepts
+	// dotless hosts like "user@localhost" that no real recipient would sign in
+	// with, which is exactly the un-acceptable invite we're guarding against.
+	at := strings.LastIndex(addr.Address, "@")
+	if at < 0 || !strings.Contains(addr.Address[at+1:], ".") {
+		return "", false
+	}
+	return strings.ToLower(addr.Address), true
 }

@@ -104,6 +104,64 @@ func TestHandleCreateInvitation_InvalidRole(t *testing.T) {
 	}
 }
 
+// TestHandleCreateInvitation_InvalidEmail verifies that a malformed or empty
+// email is rejected with 400 and never creates an invitation — otherwise the
+// recipient could never accept it.
+func TestHandleCreateInvitation_InvalidEmail(t *testing.T) {
+	t.Parallel()
+	for _, email := range []string{"", "   ", "not-an-email", "missing@tld", "a@b@c.com"} {
+		authz := &fakeAuthz{allowed: map[string]bool{"owner-1:manage:trip-1": true}}
+		creator := &fakeInvitationsCreator{}
+		m := newTestModule(authz, &NoopEmailSender{}, creator)
+
+		body, _ := json.Marshal(map[string]string{"email": email, "role": "editor"})
+		req := httptest.NewRequest(http.MethodPost, "/trips/trip-1/invitations", bytes.NewReader(body))
+		req.SetPathValue("tripID", "trip-1")
+		ctx := authn.WithPrincipal(req.Context(), authn.Principal{UserID: "owner-1"})
+		req = req.WithContext(ctx)
+
+		rr := httptest.NewRecorder()
+		m.handleCreateInvitation(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("email %q: want 400, got %d", email, rr.Code)
+		}
+		if len(creator.created) != 0 {
+			t.Errorf("email %q: want no invitation created, got %d", email, len(creator.created))
+		}
+	}
+}
+
+// TestHandleCreateInvitation_NormalizesEmail verifies the stored + emailed
+// address is trimmed and lowercased, so a recipient whose verified email differs
+// only by case/whitespace can still accept.
+func TestHandleCreateInvitation_NormalizesEmail(t *testing.T) {
+	t.Parallel()
+	authz := &fakeAuthz{allowed: map[string]bool{"owner-1:manage:trip-1": true}}
+	noop := &NoopEmailSender{}
+	creator := &fakeInvitationsCreator{}
+	m := newTestModule(authz, noop, creator)
+
+	body, _ := json.Marshal(map[string]string{"email": "  Friend@Example.COM  ", "role": "viewer"})
+	req := httptest.NewRequest(http.MethodPost, "/trips/trip-1/invitations", bytes.NewReader(body))
+	req.SetPathValue("tripID", "trip-1")
+	ctx := authn.WithPrincipal(req.Context(), authn.Principal{UserID: "owner-1"})
+	req = req.WithContext(ctx)
+
+	rr := httptest.NewRecorder()
+	m.handleCreateInvitation(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("want 201, got %d (body: %s)", rr.Code, rr.Body.String())
+	}
+	if len(creator.created) != 1 || creator.created[0].Email != "friend@example.com" {
+		t.Errorf("want stored email friend@example.com, got %+v", creator.created)
+	}
+	if len(noop.Sent) != 1 || noop.Sent[0].ToEmail != "friend@example.com" {
+		t.Errorf("want emailed friend@example.com, got %+v", noop.Sent)
+	}
+}
+
 // TestHandleCreateInvitation_OwnerSuccess verifies that an owner with valid
 // input gets 201 and the noop sender records the send.
 func TestHandleCreateInvitation_OwnerSuccess(t *testing.T) {
