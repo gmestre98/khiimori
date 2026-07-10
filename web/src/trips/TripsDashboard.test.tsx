@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { TripsDashboard } from './TripsDashboard'
-import type { TripsResponse } from '../lib/api'
+import type { PendingInvitation, TripsResponse } from '../lib/api'
 import { writeCache } from '../lib/resourceCache'
 import { cacheKeys } from '../lib/cacheKeys'
 
@@ -11,10 +11,28 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function mockFetchTrips(response: TripsResponse) {
-  vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-    new Response(JSON.stringify(response), { status: 200 }),
-  )
+// jsonResponse builds a fresh Response per call — bodies are single-use, so the
+// dashboard's several mount requests can't share one instance.
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(body === null ? null : JSON.stringify(body), { status })
+}
+
+// urlOf normalizes the fetch input to a string URL for routing.
+function urlOf(input: RequestInfo | URL): string {
+  if (typeof input === 'string') return input
+  if (input instanceof URL) return input.toString()
+  return (input as Request).url
+}
+
+// mockFetchTrips routes by URL so the mock is robust to the dashboard fetching
+// trips *and* the invitation inbox (GET /invitations) on mount.
+function mockFetchTrips(response: TripsResponse, invitations: PendingInvitation[] = []) {
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    if (urlOf(input as RequestInfo | URL).includes('/invitations')) {
+      return Promise.resolve(jsonResponse({ invitations }))
+    }
+    return Promise.resolve(jsonResponse(response))
+  })
 }
 
 const emptyResponse: TripsResponse = { current: [], upcoming: [], past: [] }
@@ -211,15 +229,14 @@ describe('TripsDashboard', () => {
   })
 
   it('archives a trip: removes from upcoming and appears on Past tab', async () => {
-    mockFetchTrips({ current: [], upcoming: [tripA], past: [] })
-
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ current: [], upcoming: [tripA], past: [] }), { status: 200 }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ...tripA, status: 'archived' }), { status: 200 }),
-      )
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = urlOf(input as RequestInfo | URL)
+      if (url.includes('/invitations')) return Promise.resolve(jsonResponse({ invitations: [] }))
+      if (url.includes('/archive')) {
+        return Promise.resolve(jsonResponse({ ...tripA, status: 'archived' }))
+      }
+      return Promise.resolve(jsonResponse({ current: [], upcoming: [tripA], past: [] }))
+    })
 
     render(
       <MemoryRouter>
@@ -243,13 +260,13 @@ describe('TripsDashboard', () => {
   })
 
   it('deletes a trip: removes from dashboard after confirmation', async () => {
-    mockFetchTrips({ current: [], upcoming: [tripA], past: [] })
-
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ current: [], upcoming: [tripA], past: [] }), { status: 200 }),
-      )
-      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = urlOf(input as RequestInfo | URL)
+      const method = (init?.method ?? 'GET').toUpperCase()
+      if (url.includes('/invitations')) return Promise.resolve(jsonResponse({ invitations: [] }))
+      if (method === 'DELETE') return Promise.resolve(jsonResponse(null, 204))
+      return Promise.resolve(jsonResponse({ current: [], upcoming: [tripA], past: [] }))
+    })
 
     render(
       <MemoryRouter>
@@ -297,5 +314,45 @@ describe('TripsDashboard', () => {
     )
 
     expect(screen.getByText(/loading trips/i)).toBeInTheDocument()
+  })
+
+  it('shows a pending invitation and joins the trip on accept', async () => {
+    const invite: PendingInvitation = {
+      id: 'inv-1',
+      trip_id: 'trip-9',
+      trip_name: 'Shared Trip',
+      role: 'viewer',
+    }
+    let accepted = false
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = urlOf(input as RequestInfo | URL)
+      const method = (init?.method ?? 'GET').toUpperCase()
+      if (url.includes('/invitations') && url.includes('/accept') && method === 'POST') {
+        accepted = true
+        return Promise.resolve(
+          jsonResponse({ trip_id: 'trip-9', role: 'viewer', status: 'accepted' }),
+        )
+      }
+      if (url.includes('/invitations')) {
+        return Promise.resolve(jsonResponse({ invitations: accepted ? [] : [invite] }))
+      }
+      return Promise.resolve(jsonResponse(emptyResponse))
+    })
+
+    render(
+      <MemoryRouter>
+        <TripsDashboard />
+      </MemoryRouter>,
+    )
+
+    // The invitation surfaces in-app without any email.
+    await waitFor(() => screen.getByText('Shared Trip'))
+    const acceptBtn = screen.getByRole('button', { name: /accept invitation to shared trip/i })
+
+    fireEvent.click(acceptBtn)
+
+    // Accepting joins the trip and clears the invitation from the inbox.
+    await waitFor(() => expect(accepted).toBe(true))
+    await waitFor(() => expect(screen.queryByText('Shared Trip')).not.toBeInTheDocument())
   })
 })

@@ -119,40 +119,71 @@ func (inv *Invitations) ForTrip(ctx context.Context, tripID string) ([]Invitatio
 	return out, nil
 }
 
-// AcceptInTx marks the invitation as accepted and creates a TripMembership
-// within the caller-supplied transaction. The accepting user's email must
-// match the invitation's email exactly (case-insensitive). Returns
-// ErrEmailMismatch on a mismatch and ErrInvitationAlreadyClaimed if the
-// invitation is not in 'sent' state.
+// AcceptInTx marks the invitation identified by token as accepted and creates a
+// TripMembership within the caller-supplied transaction. This backs the
+// email-link accept flow. See acceptLocked for the matching rules.
 func (inv *Invitations) AcceptInTx(ctx context.Context, tx pgx.Tx, token, userID, userEmail string) (Invitation, error) {
-	// Lock the invitation row for update to prevent concurrent accepts.
 	const lockQuery = `
 		SELECT id::text, trip_id::text, email, role, status, token
 		FROM sharing.invitations
 		WHERE token = $1
 		FOR UPDATE`
+	i, err := scanLockedInvitation(tx.QueryRow(ctx, lockQuery, token))
+	if err != nil {
+		return Invitation{}, err
+	}
+	return inv.acceptLocked(ctx, tx, i, userID, userEmail)
+}
+
+// AcceptByIDInTx is AcceptInTx keyed on the invitation's id instead of its
+// opaque token. It backs the in-app invitation inbox, where a recipient accepts
+// an invitation surfaced by PendingForEmail and so never has the token (which
+// only ever travels in the invite email). The email match in acceptLocked is
+// still the real authorization: id alone does not grant access.
+func (inv *Invitations) AcceptByIDInTx(ctx context.Context, tx pgx.Tx, invitationID, userID, userEmail string) (Invitation, error) {
+	const lockQuery = `
+		SELECT id::text, trip_id::text, email, role, status, token
+		FROM sharing.invitations
+		WHERE id = $1::uuid
+		FOR UPDATE`
+	i, err := scanLockedInvitation(tx.QueryRow(ctx, lockQuery, invitationID))
+	if err != nil {
+		return Invitation{}, err
+	}
+	return inv.acceptLocked(ctx, tx, i, userID, userEmail)
+}
+
+// scanLockedInvitation scans a FOR UPDATE lock row into an Invitation, mapping a
+// missing row to ErrInvitationNotFound.
+func scanLockedInvitation(row pgx.Row) (Invitation, error) {
 	var i Invitation
 	var roleStr, statusStr string
-	err := tx.QueryRow(ctx, lockQuery, token).
-		Scan(&i.ID, &i.TripID, &i.Email, &roleStr, &statusStr, &i.Token)
+	err := row.Scan(&i.ID, &i.TripID, &i.Email, &roleStr, &statusStr, &i.Token)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Invitation{}, ErrInvitationNotFound
 	}
 	if err != nil {
-		return Invitation{}, fmt.Errorf("sharing: accept invitation lock: %w", err)
+		return Invitation{}, fmt.Errorf("sharing: lock invitation: %w", err)
 	}
 	i.Role = Role(roleStr)
 	i.Status = InvitationStatus(statusStr)
+	return i, nil
+}
 
+// acceptLocked applies the accept transition to an already-locked invitation
+// row: the accepting user's email must match the invitation's (case-insensitive,
+// whitespace-trimmed) and the invitation must still be in 'sent' state. It marks
+// the invitation accepted and creates the membership in the same transaction.
+// Returns ErrEmailMismatch on a mismatch and ErrInvitationAlreadyClaimed if the
+// invitation is not 'sent'.
+func (inv *Invitations) acceptLocked(ctx context.Context, tx pgx.Tx, i Invitation, userID, userEmail string) (Invitation, error) {
 	if i.Status != StatusSent {
 		return Invitation{}, ErrInvitationAlreadyClaimed
 	}
-	// Case-insensitive email match (Google emails are case-insensitive by convention).
 	if !emailsEqual(i.Email, userEmail) {
 		return Invitation{}, ErrEmailMismatch
 	}
 
-	// Mark invitation accepted.
 	const acceptQuery = `
 		UPDATE sharing.invitations
 		SET status = 'accepted', updated_at = now()
@@ -161,7 +192,6 @@ func (inv *Invitations) AcceptInTx(ctx context.Context, tx pgx.Tx, token, userID
 		return Invitation{}, fmt.Errorf("sharing: accept invitation update: %w", err)
 	}
 
-	// Create the membership within the same transaction.
 	const memberQuery = `
 		INSERT INTO sharing.trip_memberships (trip_id, user_id, role)
 		VALUES ($1::uuid, $2::uuid, $3)
@@ -172,6 +202,49 @@ func (inv *Invitations) AcceptInTx(ctx context.Context, tx pgx.Tx, token, userID
 
 	i.Status = StatusAccepted
 	return i, nil
+}
+
+// PendingInvitation is a still-pending invitation joined with its trip's name,
+// for the in-app inbox that lists invitations waiting for the signed-in user.
+type PendingInvitation struct {
+	ID       string
+	TripID   string
+	TripName string
+	Role     Role
+}
+
+// PendingForEmail returns every still-pending (status='sent') invitation
+// addressed to email, joined with the trip name for display, newest last. The
+// match is case-insensitive (Google emails are), so it surfaces invites
+// regardless of how the owner typed the address. This is the read side of the
+// in-app invitation inbox: a recipient can join a shared trip by opening the app
+// even when no invite email was ever delivered.
+func (inv *Invitations) PendingForEmail(ctx context.Context, email string) ([]PendingInvitation, error) {
+	const query = `
+		SELECT i.id::text, i.trip_id::text, COALESCE(t.name, ''), i.role
+		FROM sharing.invitations i
+		JOIN trip.trips t ON t.id = i.trip_id
+		WHERE i.status = 'sent' AND lower(i.email) = lower($1)
+		ORDER BY i.created_at`
+	rows, err := inv.pool.Query(ctx, query, email)
+	if err != nil {
+		return nil, fmt.Errorf("sharing: pending invitations for email: %w", err)
+	}
+	defer rows.Close()
+	var out []PendingInvitation
+	for rows.Next() {
+		var p PendingInvitation
+		var roleStr string
+		if err := rows.Scan(&p.ID, &p.TripID, &p.TripName, &roleStr); err != nil {
+			return nil, fmt.Errorf("sharing: scan pending invitation: %w", err)
+		}
+		p.Role = Role(roleStr)
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("sharing: pending invitations rows: %w", err)
+	}
+	return out, nil
 }
 
 // RevokeInvitation sets a pending invitation's status to 'revoked'. Returns
