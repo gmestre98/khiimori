@@ -24,10 +24,17 @@ import (
 // tamper-evident. The cookie is HttpOnly + SameSite=Lax (so it survives the
 // top-level GET navigation back from Google) and Secure in production.
 const (
-	stateCookieName = "khiimori_oauth_state"
+	// Named "__session" and scoped to "/" so it survives the Firebase Hosting →
+	// Cloud Run rewrite and reaches the callback. Firebase strips every request
+	// cookie except "__session" (see session.go), and the callback now lives at
+	// /api/auth/callback — which the old "/auth" path scope would not even match.
+	// This shares the session cookie's "__session" slot, which is safe because the
+	// two never coexist on a request: the state is set at login and cleared by the
+	// callback before the session is issued, and login overwrites any prior session
+	// so the callback only ever sees the single state value.
+	stateCookieName = "__session"
 	stateCookieTTL  = 10 * time.Minute
-	// Scoped to /auth so the cookie is sent on /auth/callback but nowhere else.
-	stateCookiePath = "/auth"
+	stateCookiePath = "/"
 	// 32 bytes = 256 bits of entropy per value.
 	stateTokenBytes = 32
 )

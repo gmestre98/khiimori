@@ -40,4 +40,12 @@ check "API readiness" "${E2E_API_URL%/}/readyz"
 # Web shell loads (Firebase Hosting serves index.html).
 check "Web shell" "${E2E_WEB_URL%/}/"
 
+# Same-origin API rewrite is live from THIS runner's edge. The app (and the whole
+# Playwright suite) reaches the API via Firebase Hosting's /api/** → Cloud Run
+# rewrite, so the session cookie stays first-party. This gates the browser tests
+# on that path actually serving the API (JSON), not the SPA index.html: a lagging
+# Hosting edge that hadn't picked up the rewrite once served index.html here and
+# failed the whole run. The retry loop absorbs edge-propagation after a deploy.
+check "Web API rewrite" "${E2E_WEB_URL%/}/api/readyz"
+
 echo "Smoke checks passed."

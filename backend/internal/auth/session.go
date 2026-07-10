@@ -22,7 +22,17 @@ import (
 // its trade-offs (notably: sign-out is client-side; there is no server-side
 // revocation list in v1).
 const (
-	sessionCookieName = "khiimori_session"
+	// The cookie is named "__session" — not a khiimori-specific name — because the
+	// web app reaches the API through Firebase Hosting's /api/** → Cloud Run
+	// rewrite, and Firebase Hosting strips EVERY request cookie except one named
+	// exactly "__session" before forwarding to the backend. A differently-named
+	// session cookie is silently dropped, so the middleware never sees it and every
+	// authenticated call 401s (users bounced back to sign-in). The OAuth state
+	// cookie (state.go) shares this same name for the same reason; the two are only
+	// ever set/read on disjoint requests (state during the login→callback hop,
+	// session everywhere after — the callback clears the state and issues the
+	// session), so a single "__session" slot carries whichever is live.
+	sessionCookieName = "__session"
 	// Sent on every API call (not just /auth), so the middleware can authenticate
 	// any route.
 	sessionCookiePath = "/"

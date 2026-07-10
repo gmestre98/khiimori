@@ -33,8 +33,13 @@ export interface SignedInIdentity {
 // via the guarded test-login endpoint. Throws a descriptive error if the endpoint
 // is not enabled on the target or the secret mismatches.
 export async function signInIdentity(name: IdentityName): Promise<SignedInIdentity> {
-  const ctx = await playwrightRequest.newContext({ baseURL: apiBaseURL })
-  const res = await ctx.post(`/auth/test-login?identity=${name}`, {
+  // No baseURL: apiBaseURL is `${webBaseURL}/api`, and Playwright resolves a
+  // leading-slash request path against the ORIGIN — which would drop the `/api`
+  // segment and miss the Firebase rewrite. So every call on this context uses a
+  // full `${apiBaseURL}/…` URL (as the other specs do), keeping the session cookie
+  // first-party to the web app for both direct API assertions and browser reuse.
+  const ctx = await playwrightRequest.newContext()
+  const res = await ctx.post(`${apiBaseURL}/auth/test-login?identity=${name}`, {
     headers: { [e2eLoginSecretHeader]: e2eLoginSecret() },
   })
   if (!res.ok()) {

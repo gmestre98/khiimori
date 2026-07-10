@@ -14,14 +14,22 @@ func testSessions() *sessionManager {
 	return newSessionManager([]byte("test-session-key"), false, sessionTTL)
 }
 
-// readSessionCookie returns the session cookie from a recorder, or nil.
+// readSessionCookie returns the LAST "__session" cookie on the response — the one
+// a browser's cookie jar ends up holding after applying every Set-Cookie in
+// order. This matters because the OAuth state cookie shares the "__session" name
+// (Firebase Hosting forwards only that name; see session.go), so a single callback
+// response can carry the state clear (a deletion) followed by the issued session;
+// the browser keeps the last, so the last is what callers must inspect. A trailing
+// deletion (empty value / MaxAge<0) is returned as-is; callers that care about a
+// *live* session check the value/MaxAge. Returns nil when no "__session" is set.
 func readSessionCookie(rec *httptest.ResponseRecorder) *http.Cookie {
+	var last *http.Cookie
 	for _, c := range rec.Result().Cookies() {
 		if c.Name == sessionCookieName {
-			return c
+			last = c
 		}
 	}
-	return nil
+	return last
 }
 
 // TestSessionIssueEncodesUserAndRoundTrips: issuing a session writes an httpOnly
@@ -246,8 +254,10 @@ func TestCompleteSignInSessionUnconfigured(t *testing.T) {
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want 500", rec.Code)
 	}
-	if readSessionCookie(rec) != nil {
-		t.Error("a session cookie was set despite the missing signing key")
+	// The state clear leaves a "__session" deletion on the response (shared name),
+	// so assert no *live* session was issued rather than no cookie at all.
+	if c := readSessionCookie(rec); c != nil && c.Value != "" && c.MaxAge >= 0 {
+		t.Error("a live session cookie was set despite the missing signing key")
 	}
 	if strings.Contains(rec.Body.String(), "signed_in") {
 		t.Error("returned signed_in without issuing a session")
