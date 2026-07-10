@@ -70,6 +70,13 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	// Never let an error response be cached. This matters in front of Firebase
+	// Hosting, whose CDN otherwise applies a default max-age to a rewrite response
+	// that carries no Cache-Control and serves it to later requests: a cached 404
+	// (e.g. a journal day with no entry yet) would then survive a subsequent write,
+	// breaking read-after-write, and a cached 401 could be served to another
+	// caller. Success responses already set no-store on their own writers.
+	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(errorBody{Error: detail})
 }

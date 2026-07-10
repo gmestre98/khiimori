@@ -32,6 +32,11 @@ func TestWriteErrorTypedAPIError(t *testing.T) {
 	if ct := res.Header.Get("Content-Type"); ct != "application/json" {
 		t.Errorf("Content-Type = %q, want application/json", ct)
 	}
+	// Error responses must be uncacheable: fronted by a CDN (Firebase Hosting), a
+	// cacheable 404 would survive a later write and break read-after-write.
+	if cc := res.Header.Get("Cache-Control"); cc != "no-store" {
+		t.Errorf("Cache-Control = %q, want no-store", cc)
+	}
 	detail := decodeError(t, rec.Body.Bytes())
 	if detail.Code != "not_found" || detail.Message != "trip not found" {
 		t.Errorf("body = %+v, want code=not_found message=\"trip not found\"", detail)
