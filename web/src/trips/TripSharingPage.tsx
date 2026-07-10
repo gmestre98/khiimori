@@ -30,6 +30,14 @@ function avatarColor(role: string): string {
   return 'var(--amber)'
 }
 
+// isValidEmail does a light structural check so we don't send an invite to an
+// address the recipient could never sign in with — a typo would otherwise create
+// a pending invite that can never be accepted. The server re-validates; this is
+// only fast, in-form feedback.
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
 export function TripSharingPage() {
   const { trip } = useOutletContext<OutletCtx>()
   const { tripId } = useParams<{ tripId: string }>()
@@ -73,11 +81,25 @@ export function TripSharingPage() {
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault()
-    if (!inviteEmail.trim()) return
+    const email = inviteEmail.trim().toLowerCase()
+    if (!email) return
+    if (!isValidEmail(email)) {
+      setInviteError('Enter a valid email address, e.g. name@example.com.')
+      return
+    }
+    // Warn before re-inviting an email that already has a pending invite —
+    // otherwise it silently stacks a second invitation for the same person.
+    const alreadyInvited = data?.invitations.some(
+      (inv) => inv.status === 'sent' && inv.email.toLowerCase() === email,
+    )
+    if (alreadyInvited) {
+      setInviteError('That email already has a pending invite for this trip.')
+      return
+    }
     setInviting(true)
     setInviteError(null)
     try {
-      await sendInvitation(id, inviteEmail.trim(), inviteRole)
+      await sendInvitation(id, email, inviteRole)
       setInviteEmail('')
       setRefetch((n) => n + 1)
     } catch (err: unknown) {
@@ -153,7 +175,10 @@ export function TripSharingPage() {
                   type="email"
                   placeholder="companion@example.com"
                   value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
+                  onChange={(e) => {
+                    setInviteEmail(e.target.value)
+                    if (inviteError) setInviteError(null)
+                  }}
                   required
                   disabled={inviting}
                   autoComplete="off"
