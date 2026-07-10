@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from '@playwright/test'
-import { webBaseURL } from '../env'
+import { apiBaseURL, webBaseURL } from '../env'
 import { signInIdentity, type SignedInIdentity } from '../lib/identities'
 
 // Role-based access E2E (M10.2 S1): prove the server-side authorization guarantee
@@ -49,7 +49,7 @@ async function invite(
   email: string,
   role: 'editor' | 'viewer',
 ): Promise<void> {
-  const res = await ctx.post(`/trips/${tripId}/invitations`, { data: { email, role } })
+  const res = await ctx.post(`${apiBaseURL}/trips/${tripId}/invitations`, { data: { email, role } })
   expect(res.ok(), `invite ${email} as ${role}: HTTP ${res.status()}`).toBeTruthy()
 }
 
@@ -63,7 +63,7 @@ async function acceptInvite(
     token,
     `no invitation token for ${who.email} — is ExposeInviteTokens enabled on the target? (M10.2)`,
   ).toBeTruthy()
-  const res = await who.ctx.post(`/invite/accept?token=${token}`)
+  const res = await who.ctx.post(`${apiBaseURL}/invite/accept?token=${token}`)
   expect(res.ok(), `accept invite for ${who.email}: HTTP ${res.status()}`).toBeTruthy()
 }
 
@@ -75,7 +75,7 @@ test.beforeAll(async () => {
 
   // Owner creates the trip (its owner membership is written server-side in the
   // same transaction), then we resolve today's generated day id.
-  const createRes = await owner.ctx.post('/trips', {
+  const createRes = await owner.ctx.post(`${apiBaseURL}/trips`, {
     data: {
       name: tripName,
       destinations: ['Lisbon'],
@@ -87,7 +87,7 @@ test.beforeAll(async () => {
   expect(createRes.ok(), `create trip: HTTP ${createRes.status()}`).toBeTruthy()
   tripId = ((await createRes.json()) as { id: string }).id
 
-  const dayRes = await owner.ctx.get(`/trips/${tripId}/days/${startDate}`)
+  const dayRes = await owner.ctx.get(`${apiBaseURL}/trips/${tripId}/days/${startDate}`)
   expect(dayRes.ok(), `resolve day: HTTP ${dayRes.status()}`).toBeTruthy()
   dayId = ((await dayRes.json()) as { id: string }).id
 
@@ -95,7 +95,7 @@ test.beforeAll(async () => {
   await invite(owner.ctx, editor.email, 'editor')
   await invite(owner.ctx, viewer.email, 'viewer')
 
-  const listRes = await owner.ctx.get(`/trips/${tripId}/invitations`)
+  const listRes = await owner.ctx.get(`${apiBaseURL}/trips/${tripId}/invitations`)
   expect(listRes.ok(), `list invitations: HTTP ${listRes.status()}`).toBeTruthy()
   const { invitations } = (await listRes.json()) as {
     invitations: Array<{ email: string; token?: string }>
@@ -112,7 +112,7 @@ test.afterAll(async () => {
   // Owner deletes the trip (cascades to days, plan items, costs, journal,
   // memberships, invitations) so reruns stay clean, then dispose every context.
   if (tripId && owner) {
-    await owner.ctx.delete(`/trips/${tripId}`).catch(() => {})
+    await owner.ctx.delete(`${apiBaseURL}/trips/${tripId}`).catch(() => {})
   }
   for (const who of [owner, editor, viewer, nonmember]) {
     await who?.ctx.dispose()
@@ -120,17 +120,17 @@ test.afterAll(async () => {
 })
 
 test('editor can edit plan, budget, and journal (server accepts writes)', async () => {
-  const plan = await editor.ctx.post(`/trips/${tripId}/plan-items`, {
+  const plan = await editor.ctx.post(`${apiBaseURL}/trips/${tripId}/plan-items`, {
     data: { title: `Editor plan ${runId}`, day_id: dayId },
   })
   expect(plan.status(), 'editor plan-item create should be allowed').toBe(201)
 
-  const cost = await editor.ctx.post(`/trips/${tripId}/cost-entries`, {
+  const cost = await editor.ctx.post(`${apiBaseURL}/trips/${tripId}/cost-entries`, {
     data: { day_id: dayId, category: 'Other', amount: 12.5, note: `Editor cost ${runId}` },
   })
   expect(cost.status(), 'editor cost create should be allowed').toBe(201)
 
-  const journal = await editor.ctx.put(`/trips/${tripId}/days/${dayId}/journal`, {
+  const journal = await editor.ctx.put(`${apiBaseURL}/trips/${tripId}/days/${dayId}/journal`, {
     data: { body: { text: `Editor journal ${runId}` }, rating: null, weather: '', mood: '' },
   })
   expect(
@@ -141,31 +141,31 @@ test('editor can edit plan, budget, and journal (server accepts writes)', async 
 
 test('viewer can read but every write is rejected server-side', async () => {
   // Read is allowed.
-  const day = await viewer.ctx.get(`/trips/${tripId}/days/${startDate}`)
+  const day = await viewer.ctx.get(`${apiBaseURL}/trips/${tripId}/days/${startDate}`)
   expect(day.status(), 'viewer should be able to read the day').toBe(200)
 
   // Writes are rejected (deny-by-default → 404, no existence leak).
-  const plan = await viewer.ctx.post(`/trips/${tripId}/plan-items`, {
+  const plan = await viewer.ctx.post(`${apiBaseURL}/trips/${tripId}/plan-items`, {
     data: { title: `Viewer plan ${runId}`, day_id: dayId },
   })
   expect(plan.status(), 'viewer plan-item create must be rejected').toBe(404)
 
-  const cost = await viewer.ctx.post(`/trips/${tripId}/cost-entries`, {
+  const cost = await viewer.ctx.post(`${apiBaseURL}/trips/${tripId}/cost-entries`, {
     data: { day_id: dayId, category: 'Other', amount: 5 },
   })
   expect(cost.status(), 'viewer cost create must be rejected').toBe(404)
 
-  const journal = await viewer.ctx.put(`/trips/${tripId}/days/${dayId}/journal`, {
+  const journal = await viewer.ctx.put(`${apiBaseURL}/trips/${tripId}/days/${dayId}/journal`, {
     data: { body: { text: `Viewer journal ${runId}` } },
   })
   expect(journal.status(), 'viewer journal upsert must be rejected').toBe(404)
 })
 
 test('non-member is denied — cannot read or write', async () => {
-  const day = await nonmember.ctx.get(`/trips/${tripId}/days/${startDate}`)
+  const day = await nonmember.ctx.get(`${apiBaseURL}/trips/${tripId}/days/${startDate}`)
   expect(day.status(), 'non-member must not read the day').toBe(404)
 
-  const cost = await nonmember.ctx.post(`/trips/${tripId}/cost-entries`, {
+  const cost = await nonmember.ctx.post(`${apiBaseURL}/trips/${tripId}/cost-entries`, {
     data: { day_id: dayId, category: 'Other', amount: 5 },
   })
   expect(cost.status(), 'non-member write must be rejected').toBe(404)

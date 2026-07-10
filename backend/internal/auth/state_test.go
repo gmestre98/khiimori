@@ -63,7 +63,7 @@ func TestIssueSetsSignedCookie(t *testing.T) {
 		t.Errorf("cookie MAC = %q, want %q", parts[2], wantMAC)
 	}
 
-	// Security attributes: HttpOnly, Secure (prod), SameSite=Lax, scoped to /auth.
+	// Security attributes: HttpOnly, Secure (prod), SameSite=Lax, path "/".
 	if !c.HttpOnly {
 		t.Error("state cookie must be HttpOnly")
 	}
