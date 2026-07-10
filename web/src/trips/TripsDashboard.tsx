@@ -4,9 +4,12 @@ import {
   UnauthorizedError,
   fetchBudgetRollup,
   fetchTrips,
+  fetchMyInvitations,
+  acceptInvitation,
   archiveTrip,
   deleteTrip,
   type BudgetRollup,
+  type PendingInvitation,
   type Trip,
   type TripsResponse,
 } from '../lib/api'
@@ -168,6 +171,11 @@ export function TripsDashboard() {
   // hint so the dashboard never blocks on the backend cold start.
   const [fromCache, setFromCache] = useState(false)
   const [validating, setValidating] = useState(false)
+  // Pending invitations waiting for this user (in-app inbox). The invite email
+  // is best-effort, so this is how a shared-with user actually finds the trip.
+  const [invites, setInvites] = useState<PendingInvitation[]>([])
+  const [acceptingId, setAcceptingId] = useState<string | null>(null)
+  const [inviteError, setInviteError] = useState<string | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -227,6 +235,37 @@ export function TripsDashboard() {
       controller.abort()
     }
   }, [])
+
+  // Load the invitations addressed to this user. Best-effort: a failure just
+  // hides the inbox (the trips list is the primary content).
+  useEffect(() => {
+    const controller = new AbortController()
+    fetchMyInvitations(controller.signal)
+      .then(setInvites)
+      .catch(() => {})
+    return () => controller.abort()
+  }, [])
+
+  // handleAccept joins the trip behind an invitation, then refreshes the trips
+  // list so the newly-joined trip appears without a manual reload.
+  async function handleAccept(inv: PendingInvitation) {
+    setAcceptingId(inv.id)
+    setInviteError(null)
+    try {
+      await acceptInvitation(inv.id)
+      setInvites((prev) => prev.filter((i) => i.id !== inv.id))
+      const trips = await fetchTrips()
+      setData(trips)
+      void writeCache(cacheKeys.trips(), trips)
+    } catch (err: unknown) {
+      if (err instanceof UnauthorizedError) return
+      setInviteError(
+        err instanceof Error ? err.message : `Could not accept the invitation. Please try again.`,
+      )
+    } finally {
+      setAcceptingId(null)
+    }
+  }
 
   const handleCancel = useCallback(() => setPending(null), [])
 
@@ -310,6 +349,48 @@ export function TripsDashboard() {
           <p role="alert" className="trips-error">
             {actionError}
           </p>
+        )}
+
+        {/* Invitations inbox — trips someone has shared with you, awaiting your
+            accept. Shown regardless of email delivery so sharing always works. */}
+        {invites.length > 0 && (
+          <section className="trip-invites" aria-label="Trip invitations">
+            <h2 className="trips-section-title">Invitations</h2>
+            {inviteError && (
+              <p role="alert" className="trips-error">
+                {inviteError}
+              </p>
+            )}
+            <div className="trip-invites-list">
+              {invites.map((inv) => (
+                <div
+                  key={inv.id}
+                  className="card pad trip-invite-row"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    marginBottom: 'var(--s3)',
+                  }}
+                >
+                  <div>
+                    <strong>{inv.trip_name || 'A trip'}</strong>
+                    <span className="meta"> · you're invited as {inv.role}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={acceptingId === inv.id}
+                    onClick={() => handleAccept(inv)}
+                    aria-label={`Accept invitation to ${inv.trip_name || 'trip'}`}
+                  >
+                    {acceptingId === inv.id ? 'Joining…' : 'Accept'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
 
         {/* Tab bar */}

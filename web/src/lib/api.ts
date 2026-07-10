@@ -1014,6 +1014,38 @@ export async function fetchSharingData(tripId: string, signal?: AbortSignal): Pr
   }
 }
 
+// PendingInvitation is a still-pending invitation waiting for the signed-in
+// user, returned by GET /invitations (the in-app inbox).
+export interface PendingInvitation {
+  id: string
+  trip_id: string
+  trip_name: string
+  role: TripRole
+}
+
+// fetchMyInvitations loads the invitations addressed to the signed-in user's
+// email that they haven't accepted yet (GET /invitations). This is how an
+// invited person discovers a shared trip in-app without relying on the email.
+export async function fetchMyInvitations(signal?: AbortSignal): Promise<PendingInvitation[]> {
+  const res = await apiFetch('/invitations', { signal })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  const body = (await res.json()) as { invitations: PendingInvitation[] }
+  return body.invitations ?? []
+}
+
+// acceptInvitation accepts one of the caller's pending invitations by id
+// (POST /invitations/:id/accept), joining the trip. Throws UnauthorizedError on
+// 401 and a message-bearing Error on other failures.
+export async function acceptInvitation(invitationId: string): Promise<void> {
+  const res = await apiFetch(`/invitations/${invitationId}/accept`, { method: 'POST' })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new Error(body?.error?.message ?? `API returned HTTP ${res.status}`)
+  }
+}
+
 // sendInvitation calls POST /trips/:id/invitations. Throws UnauthorizedError on
 // 401 and a generic Error on other failures.
 export async function sendInvitation(

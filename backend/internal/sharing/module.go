@@ -17,7 +17,9 @@ type Module struct {
 	invitations *Invitations
 	invCreate   invitationCreator
 	// invList is the read seam used by the list handler; defaults to invitations.
-	invList     invitationLister
+	invList invitationLister
+	// pendingList is the read seam for the in-app inbox; defaults to invitations.
+	pendingList pendingInvitationLister
 	authz       invitationAuthorizer
 	emailSender EmailSender
 	// requireAuth is the auth middleware injected by the composition root.
@@ -70,6 +72,7 @@ func New(pool *pgxpool.Pool, opts Options) *Module {
 		invitations:        inv,
 		invCreate:          inv,
 		invList:            inv,
+		pendingList:        inv,
 		authz:              opts.Authz,
 		emailSender:        opts.EmailSender,
 		requireAuth:        opts.RequireAuth,
@@ -99,6 +102,10 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 		mux.Handle("POST "+InvitationsPath, m.requireAuth(http.HandlerFunc(m.handleCreateInvitation)))
 		mux.Handle("DELETE "+InvitationItemPath, m.requireAuth(http.HandlerFunc(m.handleRevokeInvitation)))
 		mux.Handle("POST "+AcceptInvitePath, m.requireAuth(http.HandlerFunc(m.handleAcceptInvitation)))
+		// User-scoped invitation inbox: discover and accept invites in-app, no
+		// email required (the invite email is best-effort).
+		mux.Handle("GET "+MyInvitationsPath, m.requireAuth(http.HandlerFunc(m.handleListMyInvitations)))
+		mux.Handle("POST "+MyInvitationAcceptPath, m.requireAuth(http.HandlerFunc(m.handleAcceptMyInvitation)))
 		mux.Handle("PATCH "+MembershipPath, m.requireAuth(http.HandlerFunc(m.handleChangeRole)))
 		mux.Handle("DELETE "+MembershipPath, m.requireAuth(http.HandlerFunc(m.handleRevokeMembership)))
 	}
