@@ -1597,7 +1597,10 @@ export function PlanningSection({
   }
 
   function handleReordered(newOrder: PlanItem[]) {
-    setItems(newOrder)
+    // The timeline only reorders the plan (non-done) items, so newOrder omits
+    // done items — merge them back so a drag/reorder doesn't drop "what
+    // happened" entries from the in-memory list (and the map).
+    setItems((prev) => [...newOrder, ...prev.filter((i) => i.status === 'done')])
   }
 
   // An item shows under "Plan" until it's marked done, then it moves to "what

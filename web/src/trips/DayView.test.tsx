@@ -948,6 +948,29 @@ describe('DayView', () => {
         expect(api.reorderPlanItems).toHaveBeenCalledWith('trip-1', 'day-1', ['i2', 'i1']),
       )
     })
+
+    it('reordering the plan keeps done items in "What happened"', async () => {
+      setMobile(true)
+      const user = userEvent.setup()
+      const items = [
+        makePlanItem({ id: 'i1', title: 'First', sort_order: 0 }),
+        makePlanItem({ id: 'i2', title: 'Second', sort_order: 1 }),
+        makePlanItem({ id: 'd1', title: 'Kayak done', status: 'done', sort_order: 2 }),
+      ]
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
+      vi.mocked(api.reorderPlanItems).mockResolvedValue()
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Kayak done')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Move Second up/ }))
+
+      // The reorder only sends the two plan items, and the done item must not
+      // vanish from the list (regression: it was dropped from state).
+      await waitFor(() =>
+        expect(api.reorderPlanItems).toHaveBeenCalledWith('trip-1', 'day-1', ['i2', 'i1']),
+      )
+      expect(screen.getByText('Kayak done')).toBeInTheDocument()
+    })
   })
 
   describe('re-planning affordances', () => {
