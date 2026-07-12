@@ -187,6 +187,19 @@ function emptyFields(): PlanItemFormFields {
 // stay open once a user has chosen to see them — no re-clicking on every add.
 const DETAILS_OPEN_KEY = 'khiimori:planDetailsOpen'
 
+// PLAN_HIDDEN_KEY persists whether the Plan group is collapsed, so someone
+// reliving a past trip can keep the itinerary tucked away and read "what
+// happened" without re-hiding it on every day.
+const PLAN_HIDDEN_KEY = 'khiimori:planHidden'
+
+function readPlanHidden(): boolean {
+  try {
+    return localStorage.getItem(PLAN_HIDDEN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 // hasDetailValues reports whether any of the fields tucked behind "More details"
 // are set. Title and Location live in the always-visible composer, so they're
 // excluded. Used to auto-open the disclosure when editing an item that has them.
@@ -263,7 +276,7 @@ function fieldsFromItem(item: PlanItem): PlanItemFormFields {
 // A page reload after sync then shows the authoritative server item.
 function tempPlanItem(tripId: string, dayId: string | null, input: PlanItemInput): PlanItem {
   return {
-    id: crypto.randomUUID(),
+    id: input.id ?? crypto.randomUUID(),
     trip_id: tripId,
     day_id: dayId ?? undefined,
     title: input.title,
@@ -1208,22 +1221,62 @@ function PlanItemRow({
   )
 }
 
-// QuickAddForm is the inline add form shown at the bottom of the planning
-// section. On mobile it renders as a large "+" FAB button that opens a
-// BottomSheet; on desktop the form is always visible inline.
+// QuickAddForm is the add form for a day. In the default (plan) mode it renders
+// as an always-visible inline form on desktop and a "+" FAB → BottomSheet on
+// mobile. In logDone mode it captures a thing you actually did — a "Log
+// something you did" button reveals the same form (inline on desktop, sheet on
+// mobile) and the created item is set to status "done" so it lands in the "what
+// happened" group and, if it has a place, on the map.
 function QuickAddForm({
   tripId,
   dayId,
   onAdded,
+  logDone = false,
 }: {
   tripId: string
   dayId: string | null
   onAdded: (item: PlanItem) => void
+  // logDone captures a done item (a thing you did) instead of a plan item.
+  logDone?: boolean
 }) {
   const mobile = useMobile()
   const online = useIsOnline()
   const [sheetOpen, setSheetOpen] = useState(false)
+  // open drives the desktop inline disclosure in logDone mode (the plan form is
+  // always visible; the log form hides behind its button until asked for).
+  const [open, setOpen] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
+
+  function close() {
+    setSheetOpen(false)
+    setOpen(false)
+    setAddError(null)
+  }
+
+  // handleLogDone creates an item and marks it done in one gesture. It uses a
+  // client-generated id so the same row is targeted by both the create and the
+  // set-status call online, and by both queued writes offline (replayed on
+  // reconnect). Split is not offered when logging — a thing you did is one item.
+  async function handleLogDone(fields: PlanItemFormFields) {
+    setAddError(null)
+    const input: PlanItemInput = { ...fieldsToInput(fields, dayId), id: crypto.randomUUID() }
+    try {
+      if (!online) {
+        await enqueue('createPlanItem', { tripId, input })
+        await enqueue('setPlanItemStatus', { tripId, itemId: input.id as string, status: 'done' })
+        onAdded({ ...tempPlanItem(tripId, dayId, input), status: 'done' })
+        close()
+        return
+      }
+      const created = await createPlanItem(tripId, input)
+      const done = await setPlanItemStatus(tripId, created.id, 'done')
+      onAdded(done)
+      close()
+    } catch (err) {
+      if (err instanceof PlanItemValidationError) setAddError(err.message)
+      else setAddError('Could not log item.')
+    }
+  }
 
   async function handleAdd(fields: PlanItemFormFields, splitParts: number) {
     setAddError(null)
@@ -1265,43 +1318,59 @@ function QuickAddForm({
     }
   }
 
+  const submit = logDone ? (fields: PlanItemFormFields) => handleLogDone(fields) : handleAdd
+  const submitLabel = logDone ? 'Log it' : 'Add to plan'
+
   if (mobile) {
     return (
       <>
         <button
           type="button"
-          className="plan-item-fab"
-          aria-label="Add activity"
+          className={logDone ? 'plan-log-btn' : 'plan-item-fab'}
+          aria-label={logDone ? 'Log something you did' : 'Add activity'}
           onClick={() => setSheetOpen(true)}
         >
-          +
+          {logDone ? '+ Log something you did' : '+'}
         </button>
         <BottomSheet
           open={sheetOpen}
-          onClose={() => {
-            setSheetOpen(false)
-            setAddError(null)
-          }}
-          label="Add to plan"
+          onClose={close}
+          label={logDone ? 'Log something you did' : 'Add to plan'}
         >
           <PlanItemForm
-            submitLabel="Add to plan"
-            onSubmit={handleAdd}
+            submitLabel={submitLabel}
+            onSubmit={submit}
             error={addError}
             actionsPlacement="footer"
-            onCancel={() => {
-              setSheetOpen(false)
-              setAddError(null)
-            }}
+            onCancel={close}
           />
         </BottomSheet>
       </>
     )
   }
 
+  // Desktop: the plan form is always visible; the log form hides behind a button.
+  if (logDone && !open) {
+    return (
+      <button
+        type="button"
+        className="plan-log-btn"
+        aria-label="Log something you did"
+        onClick={() => setOpen(true)}
+      >
+        + Log something you did
+      </button>
+    )
+  }
+
   return (
     <div className="plan-item-quick-add">
-      <PlanItemForm submitLabel="Add" onSubmit={handleAdd} error={addError} />
+      <PlanItemForm
+        submitLabel={logDone ? submitLabel : 'Add'}
+        onSubmit={submit}
+        error={addError}
+        onCancel={logDone ? close : undefined}
+      />
     </div>
   )
 }
@@ -1502,6 +1571,7 @@ export function PlanningSection({
 }) {
   const { trip } = useTripShell()
   const tripDates = datesInRange(trip.start_date, trip.end_date)
+  const [planHidden, setPlanHidden] = useState(readPlanHidden)
 
   // Build a lookup from item/stay id → pin number (1-based) using the same
   // ordering as collectLocatedItems so badges match the map legend. Only needed
@@ -1527,7 +1597,29 @@ export function PlanningSection({
   }
 
   function handleReordered(newOrder: PlanItem[]) {
-    setItems(newOrder)
+    // The timeline only reorders the plan (non-done) items, so newOrder omits
+    // done items — merge them back so a drag/reorder doesn't drop "what
+    // happened" entries from the in-memory list (and the map).
+    setItems((prev) => [...newOrder, ...prev.filter((i) => i.status === 'done')])
+  }
+
+  // An item shows under "Plan" until it's marked done, then it moves to "what
+  // happened" (grouped by status only — no separate list on the map). Skipped
+  // and cancelled items stay under Plan so their status control is still
+  // reachable to change them back.
+  const planItems = items.filter((i) => i.status !== 'done')
+  const doneItems = items.filter((i) => i.status === 'done')
+
+  function togglePlanHidden() {
+    setPlanHidden((h) => {
+      const next = !h
+      try {
+        localStorage.setItem(PLAN_HIDDEN_KEY, next ? '1' : '0')
+      } catch {
+        // ignore storage failures — the toggle still works in-session
+      }
+      return next
+    })
   }
 
   return (
@@ -1543,23 +1635,80 @@ export function PlanningSection({
         pinNumberForId={pinNumberForId}
         onSelect={onSelect}
       />
-      <TimelineSection
-        items={items}
-        tripId={tripId}
-        day={day}
-        tripDates={tripDates}
-        selectedId={selectedId}
-        pinNumberForId={pinNumberForId}
-        onSelect={onSelect}
-        onUpdated={handleUpdated}
-        onAdded={handleAdded}
-        onRemoved={handleRemoved}
-        onReordered={handleReordered}
-      />
-      {items.length === 0 && day.stays.length === 0 && (
-        <p className="day-plan-empty">Nothing planned yet.</p>
-      )}
-      <QuickAddForm tripId={tripId} dayId={day.id} onAdded={handleAdded} />
+
+      <div className="day-plan-group">
+        <div className="day-plan-group-head">
+          <h3 className="day-plan-group-title">Plan</h3>
+          <button
+            type="button"
+            className="day-plan-group-toggle"
+            onClick={togglePlanHidden}
+            aria-expanded={!planHidden}
+          >
+            {planHidden ? 'Show plan' : 'Hide plan'}
+          </button>
+        </div>
+        {planHidden ? (
+          <button type="button" className="day-plan-collapsed" onClick={togglePlanHidden}>
+            {planItems.length === 0
+              ? 'Plan hidden'
+              : `Plan hidden · ${planItems.length} ${planItems.length === 1 ? 'item' : 'items'}`}
+            {' · Show'}
+          </button>
+        ) : (
+          <>
+            <TimelineSection
+              items={planItems}
+              tripId={tripId}
+              day={day}
+              tripDates={tripDates}
+              selectedId={selectedId}
+              pinNumberForId={pinNumberForId}
+              onSelect={onSelect}
+              onUpdated={handleUpdated}
+              onAdded={handleAdded}
+              onRemoved={handleRemoved}
+              onReordered={handleReordered}
+            />
+            {planItems.length === 0 && day.stays.length === 0 && (
+              <p className="day-plan-empty">Nothing planned yet.</p>
+            )}
+            <QuickAddForm tripId={tripId} dayId={day.id} onAdded={handleAdded} />
+          </>
+        )}
+      </div>
+
+      <div className="day-plan-group">
+        <div className="day-plan-group-head">
+          <h3 className="day-plan-group-title">What happened</h3>
+        </div>
+        {doneItems.length === 0 ? (
+          <p className="day-plan-empty">Nothing logged yet — add what you actually did.</p>
+        ) : (
+          <ol className="plan-item-list">
+            {doneItems.map((item) => (
+              <PlanItemRow
+                key={item.id}
+                item={item}
+                tripId={tripId}
+                day={day}
+                tripDates={tripDates}
+                draggable={false}
+                isSelected={selectedId === item.id}
+                pinNumber={pinNumberForId?.(item.id)}
+                onSelect={
+                  onSelect ? () => onSelect(selectedId === item.id ? null : item.id) : undefined
+                }
+                onUpdated={handleUpdated}
+                onAdded={handleAdded}
+                onRemoved={handleRemoved}
+              />
+            ))}
+          </ol>
+        )}
+        <QuickAddForm tripId={tripId} dayId={day.id} onAdded={handleAdded} logDone />
+      </div>
+
       {showBacklogLink && <BacklogLink tripId={tripId} />}
     </section>
   )
