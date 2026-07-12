@@ -34,9 +34,6 @@ const TripPlanPage = lazy(() =>
 const TripMapPage = lazy(() =>
   import('./trips/TripMapPage').then((m) => ({ default: m.TripMapPage })),
 )
-const TripJournalPage = lazy(() =>
-  import('./trips/TripJournalPage').then((m) => ({ default: m.TripJournalPage })),
-)
 const TripSharingPage = lazy(() =>
   import('./trips/TripSharingPage').then((m) => ({ default: m.TripSharingPage })),
 )
@@ -147,14 +144,9 @@ function App() {
                     </Suspense>
                   }
                 />
-                <Route
-                  path="journal"
-                  element={
-                    <Suspense fallback={<RouteLoading />}>
-                      <TripJournalPage />
-                    </Suspense>
-                  }
-                />
+                {/* Journal folded into the merged Day tab (/plan). Keep the old
+                    path as a redirect so bookmarks and in-app links still land. */}
+                <Route path="journal" element={<Navigate to="../plan" replace />} />
                 <Route
                   path="budget"
                   element={

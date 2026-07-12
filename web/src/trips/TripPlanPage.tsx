@@ -10,6 +10,7 @@ import {
 } from '../lib/api'
 import { fullDate, shortDate } from '../lib/format'
 import { PlanningSection } from './DayView'
+import { JournalEditor } from '../journal/JournalEditor'
 import { coversDay } from './stayCoverage'
 import { useTripShell } from './useTripShell'
 import { readCache, writeCache } from '../lib/resourceCache'
@@ -42,6 +43,8 @@ function dayCaption(day: Day): string {
 export function TripPlanPage() {
   const { trip } = useTripShell()
   const dates = datesInRange(trip.start_date, trip.end_date)
+  // A past trip's journal is read-only (matches the day view's behaviour).
+  const isPast = trip.end_date < new Date().toISOString().slice(0, 10)
 
   const [days, setDays] = useState<Day[] | null>(null)
   const [error, setError] = useState(false)
@@ -155,11 +158,13 @@ export function TripPlanPage() {
   const totalItems = (days ?? []).reduce((sum, d) => sum + d.plan_items.length, 0)
 
   return (
-    <article className="trip-plan-page" aria-label={`Plan for ${trip.name}`}>
+    <article className="trip-plan-page" aria-label={`Days for ${trip.name}`}>
       <div className="screen-content trip-plan-body">
         <header className="trip-plan-head">
-          <h1 className="h1">Trip plan</h1>
-          <p className="meta">Build your itinerary day by day, or scan the whole trip at once.</p>
+          <h1 className="h1">Your trip, day by day</h1>
+          <p className="meta">
+            Plan a day, log what you actually did, and journal it — or scan the whole trip at once.
+          </p>
         </header>
 
         {error ? (
@@ -226,18 +231,29 @@ export function TripPlanPage() {
 
             <div className="trip-plan-panel">
               {selected ? (
-                <PlanningSection
-                  key={selected.id}
-                  day={selected}
-                  items={selected.plan_items}
-                  setItems={setItemsForDate(selected.date)}
-                  setStays={setStaysForDate(selected.date)}
-                  onStaySaved={applyStay}
-                  onStayRemoved={removeStay}
-                  tripId={trip.id}
-                  title={`Day ${selected.index + 1} · ${fullDate(selected.date)}`}
-                  showBacklogLink={false}
-                />
+                <div className="trip-day-panel">
+                  <PlanningSection
+                    key={selected.id}
+                    day={selected}
+                    items={selected.plan_items}
+                    setItems={setItemsForDate(selected.date)}
+                    setStays={setStaysForDate(selected.date)}
+                    onStaySaved={applyStay}
+                    onStayRemoved={removeStay}
+                    tripId={trip.id}
+                    title={`Day ${selected.index + 1} · ${fullDate(selected.date)}`}
+                    showBacklogLink={false}
+                  />
+                  <section className="trip-day-journal" aria-label="Journal">
+                    <h2 className="day-slot-title">Journal</h2>
+                    <JournalEditor
+                      key={`journal-${selected.id}`}
+                      tripId={trip.id}
+                      dayId={selected.id}
+                      readOnly={isPast}
+                    />
+                  </section>
+                </div>
               ) : (
                 <div className="trip-plan-feed">
                   {days.map((d) => (

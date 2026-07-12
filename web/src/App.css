@@ -2044,6 +2044,18 @@
   gap: var(--s5);
 }
 
+/* A selected day: its planner (plan + what happened) with the journal below,
+   the two stacked on one surface as the merged Day tab. */
+.trip-day-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+}
+.trip-day-journal {
+  border-top: 1px solid var(--line);
+  padding-top: var(--s5);
+}
+
 .plan-item-pin-badge {
   width: 20px;
   height: 20px;

@@ -123,11 +123,21 @@ async function daysNav() {
 }
 
 describe('TripPlanPage', () => {
-  it('shows the Trip plan heading', async () => {
+  it('shows the day-by-day heading', async () => {
     renderPage()
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'Trip plan' })).toBeInTheDocument(),
+      expect(screen.getByRole('heading', { name: 'Your trip, day by day' })).toBeInTheDocument(),
     )
+  })
+
+  it('reveals the journal below the plan when a day is selected', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const nav = await daysNav()
+    // The whole-trip stack is plan-only; a selected day adds the journal.
+    expect(screen.queryByRole('region', { name: 'Journal' })).not.toBeInTheDocument()
+    await user.click(nav.getByRole('button', { name: /day 1/i }))
+    expect(await screen.findByRole('region', { name: 'Journal' })).toBeInTheDocument()
   })
 
   it('lists every day plus a Whole trip option and the ideas backlog', async () => {
