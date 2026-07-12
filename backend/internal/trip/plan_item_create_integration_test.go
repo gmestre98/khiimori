@@ -208,3 +208,26 @@ func TestPlanItemCreateTransportFieldsIntegration(t *testing.T) {
 		t.Errorf("arrive_time = %v, want 11:20:00", pi.ArriveTime)
 	}
 }
+
+// TestPlanItemCreateNoteIntegration asserts a free-text note survives the round
+// trip through the DB and is returned on the wire — the storage backing a logged
+// "what happened" item's context line (Day-tab refactor).
+func TestPlanItemCreateNoteIntegration(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DATABASE_URL_TEST not set; skipping plan item note integration test")
+	}
+
+	srv := newModule(t)
+	tripID := createTripForPlanItemTest(t, srv)
+	dayID := fetchDayID(t, srv, tripID, "2026-09-01")
+
+	body := fmt.Sprintf(`{
+		"title":"Sunset kayak on the Tagus","day_id":%q,
+		"note":"Spontaneous — met a guide at the dock. Best two hours."
+	}`, dayID)
+	pi := createPlanItem(t, srv, tripID, body)
+
+	if pi.Note == nil || *pi.Note != "Spontaneous — met a guide at the dock. Best two hours." {
+		t.Errorf("note = %v, want the logged note", pi.Note)
+	}
+}

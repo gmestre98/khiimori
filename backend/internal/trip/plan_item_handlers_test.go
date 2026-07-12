@@ -104,6 +104,7 @@ func (f *fakePlanItemStore) CreatePlanItem(_ context.Context, n NewPlanItem) (Pl
 		Origin:        n.Origin,
 		Destination:   n.Destination,
 		ArriveTime:    n.ArriveTime,
+		Note:          n.Note,
 		SortOrder:     0,
 		Status:        status,
 	}, nil
@@ -134,6 +135,7 @@ func (f *fakePlanItemStore) UpdatePlanItem(_ context.Context, tripID, itemID str
 		Origin:        e.Origin,
 		Destination:   e.Destination,
 		ArriveTime:    e.ArriveTime,
+		Note:          e.Note,
 		Status:        "planned",
 	}, nil
 }
@@ -356,7 +358,8 @@ func TestHandleCreatePlanItemAllFields(t *testing.T) {
 		"title":"Boat trip","day_id":"day-1",
 		"type":"activity","start_time":"14:00","duration":"PT3H",
 		"location":"Marina","booking_status":"confirmed",
-		"cost":49.99,"link":"https://example.com/booking"
+		"cost":49.99,"link":"https://example.com/booking",
+		"note":"Turned out amazing — went twice"
 	}`
 	rec := httptest.NewRecorder()
 	m.handleCreatePlanItem(rec, createPlanItemReq("trip-1", "owner-1", body))
@@ -379,6 +382,27 @@ func TestHandleCreatePlanItemAllFields(t *testing.T) {
 	}
 	if n.Link == nil || *n.Link != "https://example.com/booking" {
 		t.Errorf("link = %v, want https://example.com/booking", n.Link)
+	}
+	if n.Note == nil || *n.Note != "Turned out amazing — went twice" {
+		t.Errorf("note = %v, want the logged note", n.Note)
+	}
+}
+
+// TestHandleCreatePlanItemRejectsLongNote asserts a note over the length bound
+// is rejected with 400 rather than silently truncated or stored.
+func TestHandleCreatePlanItemRejectsLongNote(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	longNote := strings.Repeat("a", maxPlanItemNoteLen+1)
+	body := `{"title":"Kayak","note":"` + longNote + `"}`
+	rec := httptest.NewRecorder()
+	m.handleCreatePlanItem(rec, createPlanItemReq("trip-1", "owner-1", body))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", rec.Code, rec.Body.String())
 	}
 }
 

@@ -12,6 +12,7 @@ const (
 	maxPlanItemLocationLen = 500
 	maxPlanItemLinkLen     = 2048
 	maxPlanItemTypeLen     = 100
+	maxPlanItemNoteLen     = 2000
 )
 
 // planItemKinds is the set of allowed plan-item kinds (M12.1). Kind describes
@@ -76,6 +77,7 @@ type PlanItem struct {
 	Origin      *string // optional; where a transport leg starts
 	Destination *string // optional; where a transport leg ends
 	ArriveTime  *string // optional; "HH:MM" arrival — departure is StartTime
+	Note        *string // optional; free-text context, surfaced on "what happened" items
 	SortOrder   int
 	Status      string // "idea"|"planned"|"done"|"skipped"|"cancelled"
 }
@@ -99,6 +101,7 @@ type NewPlanItem struct {
 	Origin        *string
 	Destination   *string
 	ArriveTime    *string
+	Note          *string
 }
 
 // EditPlanItem is the validated input to edit a plan item. The update is a
@@ -119,6 +122,7 @@ type EditPlanItem struct {
 	Origin        *string
 	Destination   *string
 	ArriveTime    *string
+	Note          *string
 }
 
 // PromotePlanItemInput is the validated input to promote a backlog item to a
@@ -162,7 +166,7 @@ func validatePlanItemStatus(status string) error {
 
 // validatePlanItemFields checks the client-supplied plan-item fields. It
 // returns a client-safe error describing the first problem found.
-func validatePlanItemFields(title string, itemType, startTime, duration, location, link *string) error {
+func validatePlanItemFields(title string, itemType, startTime, duration, location, link, note *string) error {
 	if strings.TrimSpace(title) == "" {
 		return errors.New("title is required")
 	}
@@ -191,6 +195,9 @@ func validatePlanItemFields(title string, itemType, startTime, duration, locatio
 		if _, err := url.ParseRequestURI(*link); err != nil {
 			return errors.New("link must be a valid URL")
 		}
+	}
+	if note != nil && len(*note) > maxPlanItemNoteLen {
+		return fmt.Errorf("note must be at most %d characters", maxPlanItemNoteLen)
 	}
 	return nil
 }

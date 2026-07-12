@@ -30,10 +30,11 @@ type createPlanItemRequest struct {
 	Origin        *string  `json:"origin"`
 	Destination   *string  `json:"destination"`
 	ArriveTime    *string  `json:"arrive_time"`
+	Note          *string  `json:"note"`
 }
 
 func (req createPlanItemRequest) toNewPlanItem(tripID string) (NewPlanItem, error) {
-	if err := validatePlanItemFields(req.Title, req.Type, req.StartTime, req.Duration, req.Location, req.Link); err != nil {
+	if err := validatePlanItemFields(req.Title, req.Type, req.StartTime, req.Duration, req.Location, req.Link, req.Note); err != nil {
 		return NewPlanItem{}, err
 	}
 	if err := validateTransportFields(req.Origin, req.Destination, req.ArriveTime); err != nil {
@@ -59,6 +60,7 @@ func (req createPlanItemRequest) toNewPlanItem(tripID string) (NewPlanItem, erro
 		Origin:        req.Origin,
 		Destination:   req.Destination,
 		ArriveTime:    req.ArriveTime,
+		Note:          req.Note,
 	}, nil
 }
 
@@ -79,6 +81,7 @@ type planItemResponse struct {
 	Origin        *string  `json:"origin,omitempty"`
 	Destination   *string  `json:"destination,omitempty"`
 	ArriveTime    *string  `json:"arrive_time,omitempty"`
+	Note          *string  `json:"note,omitempty"`
 	SortOrder     int      `json:"sort_order"`
 	Status        string   `json:"status"`
 }
@@ -104,10 +107,11 @@ type editPlanItemRequest struct {
 	Origin        *string  `json:"origin"`
 	Destination   *string  `json:"destination"`
 	ArriveTime    *string  `json:"arrive_time"`
+	Note          *string  `json:"note"`
 }
 
 func (req editPlanItemRequest) toEditPlanItem() (EditPlanItem, error) {
-	if err := validatePlanItemFields(req.Title, req.Type, req.StartTime, req.Duration, req.Location, req.Link); err != nil {
+	if err := validatePlanItemFields(req.Title, req.Type, req.StartTime, req.Duration, req.Location, req.Link, req.Note); err != nil {
 		return EditPlanItem{}, err
 	}
 	if err := validateTransportFields(req.Origin, req.Destination, req.ArriveTime); err != nil {
@@ -130,6 +134,7 @@ func (req editPlanItemRequest) toEditPlanItem() (EditPlanItem, error) {
 		Origin:        req.Origin,
 		Destination:   req.Destination,
 		ArriveTime:    req.ArriveTime,
+		Note:          req.Note,
 	}, nil
 }
 
