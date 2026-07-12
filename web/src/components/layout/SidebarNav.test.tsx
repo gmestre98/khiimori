@@ -66,12 +66,12 @@ describe('SidebarNav', () => {
   })
 
   it('highlights only the most-specific destination on a nested trip route', () => {
-    // On /trips/abc/budget, the parent Map/Journal links (/trips/abc) must not
+    // On /trips/abc/budget, the parent Days/Map links (/trips/abc) must not
     // stay highlighted alongside Budget — only Budget should be active.
     renderNav('/trips/abc/budget', buildSidebarNavItems('abc'))
     expect(screen.getByRole('link', { name: /budget/i })).toHaveClass('sidebar-nav-link--active')
     expect(screen.getByRole('link', { name: /^map$/i })).not.toHaveClass('sidebar-nav-link--active')
-    expect(screen.getByRole('link', { name: /journal/i })).not.toHaveClass(
+    expect(screen.getByRole('link', { name: /^days$/i })).not.toHaveClass(
       'sidebar-nav-link--active',
     )
     expect(screen.getByRole('link', { name: /sharing/i })).not.toHaveClass(
@@ -80,10 +80,10 @@ describe('SidebarNav', () => {
   })
 
   it('highlights no trip facet on the bare day route', () => {
-    // Map, Journal, and Budget each have their own subtab route now, so none of
-    // them is active on the day view itself.
+    // Days, Map, and Budget each have their own subtab route, so none of them is
+    // active on the day view itself.
     renderNav('/trips/abc/days/2026-07-02', buildSidebarNavItems('abc'))
-    expect(screen.getByRole('link', { name: /journal/i })).not.toHaveClass(
+    expect(screen.getByRole('link', { name: /^days$/i })).not.toHaveClass(
       'sidebar-nav-link--active',
     )
     expect(screen.getByRole('link', { name: /^map$/i })).not.toHaveClass('sidebar-nav-link--active')
@@ -92,25 +92,16 @@ describe('SidebarNav', () => {
     )
   })
 
-  it('highlights Plan on its own trip subtab route', () => {
+  it('highlights Days on the merged plan + journal subtab route', () => {
     renderNav('/trips/abc/plan', buildSidebarNavItems('abc'))
-    expect(screen.getByRole('link', { name: /^plan$/i })).toHaveClass('sidebar-nav-link--active')
+    expect(screen.getByRole('link', { name: /^days$/i })).toHaveClass('sidebar-nav-link--active')
     expect(screen.getByRole('link', { name: /^map$/i })).not.toHaveClass('sidebar-nav-link--active')
   })
 
   it('highlights Map on its own trip subtab route', () => {
     renderNav('/trips/abc/map', buildSidebarNavItems('abc'))
     expect(screen.getByRole('link', { name: /^map$/i })).toHaveClass('sidebar-nav-link--active')
-    expect(screen.getByRole('link', { name: /journal/i })).not.toHaveClass(
-      'sidebar-nav-link--active',
-    )
-  })
-
-  it('highlights Journal on its own trip subtab route', () => {
-    renderNav('/trips/abc/journal', buildSidebarNavItems('abc'))
-    expect(screen.getByRole('link', { name: /journal/i })).toHaveClass('sidebar-nav-link--active')
-    expect(screen.getByRole('link', { name: /^map$/i })).not.toHaveClass('sidebar-nav-link--active')
-    expect(screen.getByRole('link', { name: /budget/i })).not.toHaveClass(
+    expect(screen.getByRole('link', { name: /^days$/i })).not.toHaveClass(
       'sidebar-nav-link--active',
     )
   })

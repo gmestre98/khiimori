@@ -62,9 +62,11 @@ const ICONS = {
   admin: ic('M3 5h18M3 12h18M3 19h18'),
 }
 
-// Plan / Map / Journal / Budget / Sharing are facets of a single trip, so when a
-// trip is active these point into it. Each has its own trip subtab route. With no
-// active trip they fall back to the dashboard.
+// Days / Map / Budget / Sharing are facets of a single trip, so when a trip is
+// active these point into it. Each has its own trip subtab route. With no active
+// trip they fall back to the dashboard. "Days" is the merged plan + journal
+// surface (plan a day, log what you did, journal it); the old standalone Journal
+// tab folds into it, and /journal redirects to /plan.
 // From any trip screen the "← Trips" crumb returns to the dashboard to pick a
 // different trip.
 function tripPath(activeTripId: string | null, suffix = ''): string {
@@ -80,9 +82,8 @@ export const TRIP_TAB_ICON = ICONS.trip
 export function buildSidebarNavItems(activeTripId: string | null): BottomNavItem[] {
   return [
     { to: '/', label: 'My Trips', icon: ICONS.trips },
-    { to: tripPath(activeTripId, '/plan'), label: 'Plan', icon: ICONS.plan },
+    { to: tripPath(activeTripId, '/plan'), label: 'Days', icon: ICONS.journal },
     { to: tripPath(activeTripId, '/map'), label: 'Map', icon: ICONS.map },
-    { to: tripPath(activeTripId, '/journal'), label: 'Journal', icon: ICONS.journal },
     { to: tripPath(activeTripId, '/budget'), label: 'Budget', icon: ICONS.budget },
     { to: tripPath(activeTripId, '/sharing'), label: 'Sharing', icon: ICONS.sharing },
   ]
