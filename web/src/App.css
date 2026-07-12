@@ -1562,6 +1562,11 @@
   background: var(--accent);
   color: var(--accent-on);
 }
+/* Pins for things that didn't happen (not done) fade back so they read apart
+   from the ones that did. A selected pin is never faint (guarded in pinIcon). */
+.day-map-marker--faint {
+  opacity: 0.4;
+}
 
 .day-map-pins {
   display: flex;
@@ -1600,6 +1605,10 @@
   background: var(--accent);
   color: var(--accent-on);
 }
+/* Badge for a pin whose thing didn't happen — fades back to match its marker. */
+.day-map-pin--faint {
+  opacity: 0.45;
+}
 
 /* ── Trip map (whole-trip Map subtab) ───────────────────────────────────────── */
 
@@ -1613,6 +1622,27 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+/* "Hide what didn't happen" — a quiet self-aligned toggle under the map header. */
+.trip-map-toggle {
+  align-self: flex-start;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-full);
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.trip-map-toggle:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.trip-map-toggle[aria-pressed='true'] {
+  background: var(--accent-subtle);
+  border-color: var(--accent-border);
+  color: var(--accent);
 }
 
 .trip-map-loading,
@@ -1738,6 +1768,11 @@
 .trip-map-marker--selected {
   background: var(--pin-color, var(--accent));
   color: #fff;
+}
+/* Pins for things that didn't happen (not done) fade back; selection is never
+   faint (guarded in pinIcon). */
+.trip-map-marker--faint {
+  opacity: 0.4;
 }
 
 /* ── Trip journal (whole-trip Journal subtab) ───────────────────────────────── */

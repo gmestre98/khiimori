@@ -179,4 +179,35 @@ describe('TripMapPage', () => {
     // Two located days → two markers.
     expect(screen.getAllByTestId('map-marker')).toHaveLength(2)
   })
+
+  it('hides pins for things that didn’t happen when toggled', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    // Both located days are status 'confirmed' (not done) → nothing "happened".
+    await waitFor(() => expect(screen.getAllByTestId('map-marker')).toHaveLength(2))
+
+    await user.click(screen.getByRole('button', { name: 'Hide what didn’t happen' }))
+    expect(screen.queryAllByTestId('map-marker')).toHaveLength(0)
+    expect(screen.getByText(/Nothing here happened yet/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Show what didn’t happen' }))
+    expect(screen.getAllByTestId('map-marker')).toHaveLength(2)
+  })
+
+  it('keeps done pins visible when hiding what didn’t happen', async () => {
+    vi.mocked(api.fetchDay).mockImplementation(async (_tripId, date) => {
+      const idx = ['2026-06-01', '2026-06-02', '2026-06-03'].indexOf(date)
+      const day = makeDay(date, idx, idx < 2 ? `City ${idx}` : null)
+      // Day 1's stop actually happened; Day 2's did not.
+      if (idx === 0 && day.plan_items[0]) day.plan_items[0].status = 'done'
+      return day
+    })
+    const user = userEvent.setup()
+    renderPage()
+    await waitFor(() => expect(screen.getAllByTestId('map-marker')).toHaveLength(2))
+
+    await user.click(screen.getByRole('button', { name: 'Hide what didn’t happen' }))
+    // Only the done day's pin remains.
+    expect(screen.getAllByTestId('map-marker')).toHaveLength(1)
+  })
 })

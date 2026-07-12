@@ -113,6 +113,9 @@ export function TripMapPage() {
   // map and the day list.
   const [selectedDates, setSelectedDates] = useState<Set<string>>(() => new Set())
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // hideNotHappened drops pins for things that didn't happen (not done), leaving
+  // only what actually took place — a cleaner read of a past trip.
+  const [hideNotHappened, setHideNotHappened] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -150,6 +153,25 @@ export function TripMapPage() {
   )
   const hasAnyPlace = mapDays.length > 0
 
+  // When hiding what didn't happen, keep only done pins per day — filtering items
+  // and waypoints together so they stay positionally aligned — and drop days left
+  // with nothing to draw.
+  const shownDays: TripDayMarkers[] = useMemo(() => {
+    if (!hideNotHappened) return mapDays
+    return mapDays
+      .map((d) => {
+        const keep = d.items.map((it, j) => (it.done ? j : -1)).filter((j) => j >= 0)
+        return {
+          ...d,
+          items: keep.map((j) => d.items[j]),
+          waypoints: keep.map((j) => d.waypoints[j]),
+        }
+      })
+      .filter((d) => d.waypoints.length > 0)
+  }, [mapDays, hideNotHappened])
+  // A pin exists but everything shown got hidden — tell the user why the map is empty.
+  const allHidden = hasAnyPlace && shownDays.length === 0
+
   // Toggle a day in/out of the selection. An empty selection means "all days".
   const toggleDay = (date: string) => {
     setSelectedDates((cur) => {
@@ -171,6 +193,14 @@ export function TripMapPage() {
         <header className="trip-map-head">
           <h1 className="h1">Trip map</h1>
           <p className="meta">Every day’s places on one map. Toggle days to compare a few.</p>
+          <button
+            type="button"
+            className="trip-map-toggle"
+            aria-pressed={hideNotHappened}
+            onClick={() => setHideNotHappened((h) => !h)}
+          >
+            {hideNotHappened ? 'Show what didn’t happen' : 'Hide what didn’t happen'}
+          </button>
         </header>
 
         {error ? (
@@ -232,7 +262,7 @@ export function TripMapPage() {
                 }
               >
                 <TripMap
-                  days={mapDays}
+                  days={shownDays}
                   selectedDates={selectedDates}
                   selectedId={selectedId}
                   onSelect={setSelectedId}
@@ -241,6 +271,11 @@ export function TripMapPage() {
               {!hasAnyPlace && (
                 <p className="trip-map-caption">
                   No places yet. Add a location to a stay or activity and its pin appears here.
+                </p>
+              )}
+              {allHidden && (
+                <p className="trip-map-caption">
+                  Nothing here happened yet. Turn off “Hide what didn’t happen” to see the plan.
                 </p>
               )}
             </div>
