@@ -160,7 +160,10 @@ export function TripMapPage() {
     if (!hideNotHappened) return mapDays
     return mapDays
       .map((d) => {
-        const keep = d.items.map((it, j) => (it.done ? j : -1)).filter((j) => j >= 0)
+        // Iterate the waypoints (the drawn set) so we never index past them when
+        // a day has more located items than placeable waypoints; items[j] is the
+        // label for waypoint j.
+        const keep = d.waypoints.map((_, j) => (d.items[j]?.done ? j : -1)).filter((j) => j >= 0)
         return {
           ...d,
           items: keep.map((j) => d.items[j]),
