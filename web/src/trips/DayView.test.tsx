@@ -333,6 +333,28 @@ describe('DayView', () => {
       )
     })
 
+    it('sends a typed note with the create payload', async () => {
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      vi.mocked(api.createPlanItem).mockResolvedValue(makePlanItem({ id: 'n1', title: 'Kayak' }))
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+
+      const form = screen.getByRole('group', { name: 'Kind' }).closest('form') as HTMLElement
+      await user.type(within(form).getByLabelText('Title'), 'Kayak')
+      // Note lives behind the "More details" disclosure.
+      await user.click(within(form).getByRole('button', { name: /More details/ }))
+      await user.type(within(form).getByLabelText('Note'), 'Best two hours of the trip')
+      await user.click(within(form).getByRole('button', { name: 'Add' }))
+
+      await waitFor(() => expect(api.createPlanItem).toHaveBeenCalled())
+      expect(api.createPlanItem).toHaveBeenCalledWith(
+        'trip-1',
+        expect.objectContaining({ note: 'Best two hours of the trip' }),
+      )
+    })
+
     it('note kind hides location and the budget category', async () => {
       const user = userEvent.setup()
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
