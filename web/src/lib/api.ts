@@ -429,6 +429,11 @@ export interface PlanItem {
   origin?: string
   destination?: string
   arrive_time?: string
+  // note is optional free-text context, surfaced on "what happened" items (a
+  // thing you actually did, often logged after the fact). Independent of type
+  // (budget category) and booking_status. Optional here for the same
+  // instant-render cache reason as kind — payloads predating the column omit it.
+  note?: string
   sort_order: number
   status: string
 }
@@ -481,6 +486,7 @@ export interface PlanItemInput {
   origin?: string | null
   destination?: string | null
   arrive_time?: string | null
+  note?: string | null
 }
 
 // PlanItemValidationError carries the API's 400 message so the form can show it.

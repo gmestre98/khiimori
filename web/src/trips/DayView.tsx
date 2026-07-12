@@ -161,6 +161,8 @@ interface PlanItemFormFields {
   origin: string
   destination: string
   arrive_time: string
+  // note is a free-text context line, most useful on a thing you actually did.
+  note: string
 }
 
 function emptyFields(): PlanItemFormFields {
@@ -177,6 +179,7 @@ function emptyFields(): PlanItemFormFields {
     origin: '',
     destination: '',
     arrive_time: '',
+    note: '',
   }
 }
 
@@ -197,7 +200,8 @@ function hasDetailValues(f: PlanItemFormFields): boolean {
     f.link ||
     f.origin ||
     f.destination ||
-    f.arrive_time
+    f.arrive_time ||
+    f.note
   )
 }
 
@@ -248,6 +252,7 @@ function fieldsFromItem(item: PlanItem): PlanItemFormFields {
     origin: item.origin ?? '',
     destination: item.destination ?? '',
     arrive_time: item.arrive_time ? item.arrive_time.slice(0, 5) : '',
+    note: item.note ?? '',
   }
 }
 
@@ -273,6 +278,7 @@ function tempPlanItem(tripId: string, dayId: string | null, input: PlanItemInput
     origin: input.origin ?? undefined,
     destination: input.destination ?? undefined,
     arrive_time: input.arrive_time ?? undefined,
+    note: input.note ?? undefined,
     sort_order: Number.MAX_SAFE_INTEGER,
     status: 'planned',
   }
@@ -304,6 +310,8 @@ function fieldsToInput(
     origin: isTransport ? fields.origin.trim() || null : null,
     destination: isTransport ? fields.destination.trim() || null : null,
     arrive_time: isTransport ? fields.arrive_time.trim() || null : null,
+    // note is kind-independent — a line of context that survives on any item.
+    note: fields.note.trim() || null,
   }
 }
 
@@ -706,6 +714,18 @@ function PlanItemForm({
               />
             </FormField>
           </div>
+
+          <FormField label="Note" htmlFor={`${fid}-note`}>
+            <textarea
+              id={`${fid}-note`}
+              className="plan-item-form-note"
+              value={fields.note}
+              onChange={(e) => set('note', e.target.value)}
+              placeholder="How it went, who you were with…"
+              rows={2}
+              disabled={submitting}
+            />
+          </FormField>
         </div>
       )}
 
@@ -1091,6 +1111,7 @@ function PlanItemRow({
           </span>
           {item.location && <span className="plan-item-location">{item.location}</span>}
           {label && <span className="plan-item-status-badge">{label}</span>}
+          {item.note && <span className="plan-item-note">{item.note}</span>}
         </button>
       </div>
 

@@ -2183,6 +2183,14 @@
   font-size: var(--t-sm);
   color: var(--muted);
 }
+/* Note breaks to its own line under the title (flex-basis 100% forces a wrap in
+   the flex-wrap edit button) — a quiet context line for a thing you did. */
+.plan-item-note {
+  flex-basis: 100%;
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}
 
 /* Status badge uses accent — sanctioned use case */
 .plan-item-status-badge {
@@ -2753,6 +2761,34 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: var(--space-3);
+}
+/* Note textarea in the form details — mirrors the journal body input. */
+.plan-item-form-note {
+  font: inherit;
+  font-size: var(--t-body);
+  line-height: 1.5;
+  padding: 8px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--ink);
+  resize: vertical;
+  min-height: 56px;
+  width: 100%;
+  box-sizing: border-box;
+  transition:
+    border-color var(--dur),
+    background var(--dur);
+}
+.plan-item-form-note:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}
+.plan-item-form-note:disabled {
+  background: var(--bg-muted);
+  cursor: default;
 }
 
 /* Split-cost helper: an inline modifier of the Cost field. A toggle reveals a
