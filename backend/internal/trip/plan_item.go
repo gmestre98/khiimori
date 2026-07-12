@@ -78,8 +78,12 @@ type PlanItem struct {
 	Destination *string // optional; where a transport leg ends
 	ArriveTime  *string // optional; "HH:MM" arrival — departure is StartTime
 	Note        *string // optional; free-text context, surfaced on "what happened" items
-	SortOrder   int
-	Status      string // "idea"|"planned"|"done"|"skipped"|"cancelled"
+	// Unplanned is true for an item logged after the fact ("log something you
+	// did") rather than planned ahead. Lets the Day tab keep the intended plan
+	// apart from what actually happened. Set at creation; not editable.
+	Unplanned bool
+	SortOrder int
+	Status    string // "idea"|"planned"|"done"|"skipped"|"cancelled"
 }
 
 // NewPlanItem is the validated input to create a plan item. ClientID, when
@@ -102,6 +106,7 @@ type NewPlanItem struct {
 	Destination   *string
 	ArriveTime    *string
 	Note          *string
+	Unplanned     bool
 }
 
 // EditPlanItem is the validated input to edit a plan item. The update is a

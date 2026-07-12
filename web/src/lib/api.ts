@@ -434,6 +434,10 @@ export interface PlanItem {
   // (budget category) and booking_status. Optional here for the same
   // instant-render cache reason as kind — payloads predating the column omit it.
   note?: string
+  // unplanned is true for an item logged after the fact ("log something you
+  // did") rather than planned ahead. Lets the Day tab keep the intended plan
+  // apart from what happened. Optional/absent → treated as planned (false).
+  unplanned?: boolean
   sort_order: number
   status: string
 }
@@ -491,6 +495,7 @@ export interface PlanItemInput {
   destination?: string | null
   arrive_time?: string | null
   note?: string | null
+  unplanned?: boolean
 }
 
 // PlanItemValidationError carries the API's 400 message so the form can show it.
