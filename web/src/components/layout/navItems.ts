@@ -88,11 +88,20 @@ export function buildSidebarNavItems(activeTripId: string | null): BottomNavItem
   ]
 }
 
-// Profile and Admin are user-level, never trip-scoped.
-export const SIDEBAR_SECONDARY_ITEMS: BottomNavItem[] = [
-  { to: '/profile', label: 'Profile', icon: ICONS.profile },
-  { to: '/admin', label: 'Admin', icon: ICONS.admin },
-]
+// Profile and Admin are user-level, never trip-scoped. Admin is only a real
+// destination for is_admin users — RequireAdmin bounces everyone else back to
+// the home ("My Trips") page, so showing the tab to non-admins looks like the
+// Admin link silently defaulting to My Trips. Gate it on the admin flag.
+export function buildSidebarSecondaryItems(isAdmin: boolean): BottomNavItem[] {
+  const items: BottomNavItem[] = [{ to: '/profile', label: 'Profile', icon: ICONS.profile }]
+  if (isAdmin) {
+    items.push({ to: '/admin', label: 'Admin', icon: ICONS.admin })
+  }
+  return items
+}
+
+// Static default (admin) — used by tests and as a stable fallback.
+export const SIDEBAR_SECONDARY_ITEMS: BottomNavItem[] = buildSidebarSecondaryItems(true)
 
 // buildPrimaryNavItems returns the mobile bottom-nav items in the thumb zone.
 // Only the two true global destinations live here: Trips and Me. A trip's facets

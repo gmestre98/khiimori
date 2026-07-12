@@ -6,7 +6,7 @@ import { AppLayout } from './AppLayout'
 import { SidebarNav } from './SidebarNav'
 import { OfflineBanner } from './OfflineBanner'
 import { SyncStatus } from './SyncStatus'
-import { buildPrimaryNavItems, buildSidebarNavItems, SIDEBAR_SECONDARY_ITEMS } from './navItems'
+import { buildPrimaryNavItems, buildSidebarNavItems, buildSidebarSecondaryItems } from './navItems'
 
 export function AuthenticatedLayout() {
   const { signOut, user } = useAuth()
@@ -21,7 +21,7 @@ export function AuthenticatedLayout() {
   const sidebar = (
     <SidebarNav
       items={buildSidebarNavItems(activeTripId)}
-      secondaryItems={SIDEBAR_SECONDARY_ITEMS}
+      secondaryItems={buildSidebarSecondaryItems(user?.is_admin ?? false)}
       tripSwitcher={tripSwitcher}
       userName={userName}
       userMeta="EUR · Lisbon"
