@@ -33,11 +33,21 @@ function accentColor(): string {
 }
 
 // pinIcon builds a numbered Leaflet divIcon styled to match the itinerary pins.
-// Selected pins get a modifier class so the map highlight mirrors the list.
-function pinIcon(n: number, selected: boolean): L.DivIcon {
+// Selected pins get a modifier class so the map highlight mirrors the list; pins
+// for things that didn't happen (not done) fade back so they read apart from the
+// ones that did.
+function pinIcon(n: number, selected: boolean, done: boolean): L.DivIcon {
+  const cls = [
+    'day-map-marker',
+    selected ? 'day-map-marker--selected' : '',
+    // A selected pin is never faint — clicking it emphasises it.
+    !done && !selected ? 'day-map-marker--faint' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
   return L.divIcon({
     className: 'day-map-marker-wrap',
-    html: `<span class="day-map-marker${selected ? ' day-map-marker--selected' : ''}">${n}</span>`,
+    html: `<span class="${cls}">${n}</span>`,
     iconSize: [28, 28],
     iconAnchor: [14, 14],
   })
@@ -172,7 +182,7 @@ export default function DayMap({
             <Marker
               key={item?.id ?? `${wp.lat},${wp.lng}`}
               position={[wp.lat, wp.lng]}
-              icon={pinIcon(i + 1, isSelected)}
+              icon={pinIcon(i + 1, isSelected, item?.done ?? true)}
               eventHandlers={{
                 click: () => item && onSelect(selectedId === item.id ? null : item.id),
               }}
@@ -192,7 +202,11 @@ export default function DayMap({
             <button
               key={item.id}
               type="button"
-              className={['day-map-pin', selectedId === item.id ? 'day-map-pin--selected' : '']
+              className={[
+                'day-map-pin',
+                selectedId === item.id ? 'day-map-pin--selected' : '',
+                item.done ? '' : 'day-map-pin--faint',
+              ]
                 .filter(Boolean)
                 .join(' ')}
               aria-label={`Pin ${i + 1}: ${item.label}`}

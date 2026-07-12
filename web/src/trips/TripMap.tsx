@@ -27,12 +27,27 @@ const DEFAULT_ZOOM = 2
 const DIM_OPACITY = 0.25
 
 // pinIcon builds a numbered Leaflet divIcon tinted to the day's colour. Selected
-// pins fill solid; dimmed pins (non-focused day) fade back.
-function pinIcon(n: number, color: string, selected: boolean, dimmed: boolean): L.DivIcon {
+// pins fill solid; dimmed pins (non-focused day) fade back; pins for things that
+// didn't happen (not done) render faint so they read apart from the ones that did.
+function pinIcon(
+  n: number,
+  color: string,
+  selected: boolean,
+  dimmed: boolean,
+  done: boolean,
+): L.DivIcon {
   const style = `--pin-color:${color};${dimmed ? 'opacity:' + DIM_OPACITY + ';' : ''}`
+  const cls = [
+    'trip-map-marker',
+    selected ? 'trip-map-marker--selected' : '',
+    // A selected pin is never faint — clicking it emphasises it.
+    !done && !selected ? 'trip-map-marker--faint' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
   return L.divIcon({
     className: 'trip-map-marker-wrap',
-    html: `<span class="trip-map-marker${selected ? ' trip-map-marker--selected' : ''}" style="${style}">${n}</span>`,
+    html: `<span class="${cls}" style="${style}">${n}</span>`,
     iconSize: [28, 28],
     iconAnchor: [14, 14],
   })
@@ -144,7 +159,7 @@ export default function TripMap({
                   <Marker
                     key={item?.id ?? `${day.date}:${wp.lat},${wp.lng}`}
                     position={[wp.lat, wp.lng]}
-                    icon={pinIcon(i + 1, day.color, isSelected, dimmed)}
+                    icon={pinIcon(i + 1, day.color, isSelected, dimmed, item?.done ?? true)}
                     eventHandlers={{
                       click: () => item && onSelect(selectedId === item.id ? null : item.id),
                     }}
