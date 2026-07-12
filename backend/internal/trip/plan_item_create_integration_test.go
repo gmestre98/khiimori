@@ -231,3 +231,27 @@ func TestPlanItemCreateNoteIntegration(t *testing.T) {
 		t.Errorf("note = %v, want the logged note", pi.Note)
 	}
 }
+
+// TestPlanItemCreateUnplannedIntegration asserts the unplanned flag survives the
+// DB round trip (default false, true when logged) — backs the Day tab telling
+// the intended plan apart from what actually happened.
+func TestPlanItemCreateUnplannedIntegration(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DATABASE_URL_TEST not set; skipping plan item unplanned integration test")
+	}
+
+	srv := newModule(t)
+	tripID := createTripForPlanItemTest(t, srv)
+	dayID := fetchDayID(t, srv, tripID, "2026-09-01")
+
+	planned := createPlanItem(t, srv, tripID, fmt.Sprintf(`{"title":"Belém Tower","day_id":%q}`, dayID))
+	if planned.Unplanned {
+		t.Error("planned item unplanned = true, want false")
+	}
+
+	logged := createPlanItem(t, srv, tripID,
+		fmt.Sprintf(`{"title":"Sunset kayak","day_id":%q,"unplanned":true}`, dayID))
+	if !logged.Unplanned {
+		t.Error("logged item unplanned = false, want true")
+	}
+}

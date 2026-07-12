@@ -59,7 +59,7 @@ const planItemColumns = `
 	id::text, trip_id::text, day_id::text,
 	title, kind, type, start_time::text, duration::text,
 	location, booking_status, cost, link,
-	origin, destination, arrive_time::text, note,
+	origin, destination, arrive_time::text, note, unplanned,
 	sort_order, status`
 
 // scanPlanItem scans a trip.plan_items row (in planItemColumns order) into p.
@@ -68,7 +68,7 @@ func scanPlanItem(row pgx.Row, p *PlanItem) error {
 		&p.ID, &p.TripID, &p.DayID,
 		&p.Title, &p.Kind, &p.Type, &p.StartTime, &p.Duration,
 		&p.Location, &p.BookingStatus, &p.Cost, &p.Link,
-		&p.Origin, &p.Destination, &p.ArriveTime, &p.Note,
+		&p.Origin, &p.Destination, &p.ArriveTime, &p.Note, &p.Unplanned,
 		&p.SortOrder, &p.Status,
 	)
 }
@@ -91,11 +91,11 @@ func (s *pgxPlanItemStore) CreatePlanItem(ctx context.Context, n NewPlanItem) (P
 			INSERT INTO trip.plan_items
 				(id, trip_id, day_id, title, kind, type, start_time, duration,
 				 location, booking_status, cost, link,
-				 origin, destination, arrive_time, note, sort_order, status)
+				 origin, destination, arrive_time, note, unplanned, sort_order, status)
 			VALUES
 				($1::uuid, $2::uuid, $3::uuid,  $4, $5, $6, $7::time, $8::interval,
 				 $9, $10, $11, $12,
-				 $13, $14, $15::time, $16,
+				 $13, $14, $15::time, $16, $17,
 				 (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM trip.plan_items
 				  WHERE trip_id = $2::uuid AND day_id IS NOT DISTINCT FROM $3::uuid),
 				 CASE WHEN $3::uuid IS NULL THEN 'idea' ELSE 'planned' END)
@@ -112,24 +112,25 @@ func (s *pgxPlanItemStore) CreatePlanItem(ctx context.Context, n NewPlanItem) (P
 				    origin         = EXCLUDED.origin,
 				    destination    = EXCLUDED.destination,
 				    arrive_time    = EXCLUDED.arrive_time,
-				    note           = EXCLUDED.note
+				    note           = EXCLUDED.note,
+				    unplanned      = EXCLUDED.unplanned
 			WHERE trip.plan_items.trip_id = EXCLUDED.trip_id
 			RETURNING ` + planItemColumns
 		args = []any{
 			n.ClientID, n.TripID, n.DayID, n.Title, n.Kind, n.Type,
 			n.StartTime, n.Duration, n.Location, n.BookingStatus, n.Cost, n.Link,
-			n.Origin, n.Destination, n.ArriveTime, n.Note,
+			n.Origin, n.Destination, n.ArriveTime, n.Note, n.Unplanned,
 		}
 	} else {
 		q = `
 			INSERT INTO trip.plan_items
 				(trip_id, day_id, title, kind, type, start_time, duration,
 				 location, booking_status, cost, link,
-				 origin, destination, arrive_time, note, sort_order, status)
+				 origin, destination, arrive_time, note, unplanned, sort_order, status)
 			VALUES
 				($1::uuid, $2::uuid, $3, $4, $5, $6::time, $7::interval,
 				 $8, $9, $10, $11,
-				 $12, $13, $14::time, $15,
+				 $12, $13, $14::time, $15, $16,
 				 (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM trip.plan_items
 				  WHERE trip_id = $1::uuid AND day_id IS NOT DISTINCT FROM $2::uuid),
 				 CASE WHEN $2::uuid IS NULL THEN 'idea' ELSE 'planned' END)
@@ -137,7 +138,7 @@ func (s *pgxPlanItemStore) CreatePlanItem(ctx context.Context, n NewPlanItem) (P
 		args = []any{
 			n.TripID, n.DayID, n.Title, n.Kind, n.Type,
 			n.StartTime, n.Duration, n.Location, n.BookingStatus, n.Cost, n.Link,
-			n.Origin, n.Destination, n.ArriveTime, n.Note,
+			n.Origin, n.Destination, n.ArriveTime, n.Note, n.Unplanned,
 		}
 	}
 

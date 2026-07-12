@@ -31,6 +31,7 @@ type createPlanItemRequest struct {
 	Destination   *string  `json:"destination"`
 	ArriveTime    *string  `json:"arrive_time"`
 	Note          *string  `json:"note"`
+	Unplanned     bool     `json:"unplanned"`
 }
 
 func (req createPlanItemRequest) toNewPlanItem(tripID string) (NewPlanItem, error) {
@@ -61,6 +62,7 @@ func (req createPlanItemRequest) toNewPlanItem(tripID string) (NewPlanItem, erro
 		Destination:   req.Destination,
 		ArriveTime:    req.ArriveTime,
 		Note:          req.Note,
+		Unplanned:     req.Unplanned,
 	}, nil
 }
 
@@ -82,6 +84,7 @@ type planItemResponse struct {
 	Destination   *string  `json:"destination,omitempty"`
 	ArriveTime    *string  `json:"arrive_time,omitempty"`
 	Note          *string  `json:"note,omitempty"`
+	Unplanned     bool     `json:"unplanned"`
 	SortOrder     int      `json:"sort_order"`
 	Status        string   `json:"status"`
 }

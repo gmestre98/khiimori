@@ -217,10 +217,11 @@ describe('DayView', () => {
     const item = makePlanItem({ id: 'i4', title: 'Done task', status: 'done' })
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
     renderDayView()
-    await waitFor(() => expect(screen.getByText('Done task')).toBeInTheDocument())
-    // The badge is in a .plan-item-status-badge span; the select also has a "Done" option.
+    // A planned item marked done shows in both Plan and What happened, so it
+    // renders twice — each with the Done badge.
+    await waitFor(() => expect(screen.getAllByText('Done task').length).toBe(2))
     expect(document.querySelector('.plan-item-status-badge')).toHaveTextContent('Done')
-    expect(screen.getByLabelText(/Done task — Done/)).toBeInTheDocument()
+    expect(screen.getAllByLabelText(/Done task — Done/)).toHaveLength(2)
   })
 
   it('shows skipped badge on skipped items', async () => {
@@ -246,16 +247,26 @@ describe('DayView', () => {
   })
 
   describe('plan vs what happened', () => {
-    it('groups a done item under "What happened", not "Plan"', async () => {
-      const planned = makePlanItem({ id: 'p1', title: 'Belém Tower', status: 'planned' })
-      const done = makePlanItem({ id: 'd1', title: 'Sunset kayak', status: 'done' })
-      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [planned, done] }))
+    it('keeps a planned-done item in both Plan and What happened, but a logged one only in What happened', async () => {
+      // Planned then done: stays in the plan (to compare) and shows under what
+      // happened. Logged after the fact (unplanned): only under what happened.
+      const planDone = makePlanItem({ id: 'p1', title: 'Belém Tower', status: 'done' })
+      const logged = makePlanItem({
+        id: 'd1',
+        title: 'Sunset kayak',
+        status: 'done',
+        unplanned: true,
+      })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [planDone, logged] }))
       renderDayView()
       await waitFor(() => expect(screen.getByText('Sunset kayak')).toBeInTheDocument())
 
       const planTimeline = screen.getByRole('region', { name: 'Day timeline' })
+      // The planned item is in the plan; the logged one is not.
       expect(within(planTimeline).getByText('Belém Tower')).toBeInTheDocument()
       expect(within(planTimeline).queryByText('Sunset kayak')).not.toBeInTheDocument()
+      // Both show under what happened, so each done title appears there.
+      expect(screen.getAllByText('Belém Tower')).toHaveLength(2)
       expect(screen.getByText('What happened')).toBeInTheDocument()
     })
 
@@ -295,10 +306,11 @@ describe('DayView', () => {
       await waitFor(() =>
         expect(api.setPlanItemStatus).toHaveBeenCalledWith('trip-1', 'log1', 'done'),
       )
-      // The create carried a client id so the set-status targets the same row.
+      // The create carried a client id (so set-status targets the same row) and
+      // the unplanned flag (so it stays out of the Plan list).
       expect(api.createPlanItem).toHaveBeenCalledWith(
         'trip-1',
-        expect.objectContaining({ title: 'Gelato run', id: expect.any(String) }),
+        expect.objectContaining({ title: 'Gelato run', id: expect.any(String), unplanned: true }),
       )
     })
   })
@@ -949,27 +961,34 @@ describe('DayView', () => {
       )
     })
 
-    it('reordering the plan keeps done items in "What happened"', async () => {
+    it('reordering the plan keeps logged items in "What happened"', async () => {
       setMobile(true)
       const user = userEvent.setup()
       const items = [
         makePlanItem({ id: 'i1', title: 'First', sort_order: 0 }),
         makePlanItem({ id: 'i2', title: 'Second', sort_order: 1 }),
-        makePlanItem({ id: 'd1', title: 'Kayak done', status: 'done', sort_order: 2 }),
+        // Logged after the fact — not in the plan timeline, so a reorder must not
+        // drop it from state (regression: it was dropped on merge-back).
+        makePlanItem({
+          id: 'd1',
+          title: 'Kayak logged',
+          status: 'done',
+          unplanned: true,
+          sort_order: 2,
+        }),
       ]
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
       vi.mocked(api.reorderPlanItems).mockResolvedValue()
       renderDayView()
-      await waitFor(() => expect(screen.getByText('Kayak done')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('Kayak logged')).toBeInTheDocument())
 
       await user.click(screen.getByRole('button', { name: /Move Second up/ }))
 
-      // The reorder only sends the two plan items, and the done item must not
-      // vanish from the list (regression: it was dropped from state).
+      // The reorder only sends the two planned items; the logged one is untouched.
       await waitFor(() =>
         expect(api.reorderPlanItems).toHaveBeenCalledWith('trip-1', 'day-1', ['i2', 'i1']),
       )
-      expect(screen.getByText('Kayak done')).toBeInTheDocument()
+      expect(screen.getByText('Kayak logged')).toBeInTheDocument()
     })
   })
 

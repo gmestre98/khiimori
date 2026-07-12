@@ -292,6 +292,7 @@ function tempPlanItem(tripId: string, dayId: string | null, input: PlanItemInput
     destination: input.destination ?? undefined,
     arrive_time: input.arrive_time ?? undefined,
     note: input.note ?? undefined,
+    unplanned: input.unplanned ?? false,
     sort_order: Number.MAX_SAFE_INTEGER,
     status: 'planned',
   }
@@ -1259,7 +1260,13 @@ function QuickAddForm({
   // reconnect). Split is not offered when logging — a thing you did is one item.
   async function handleLogDone(fields: PlanItemFormFields) {
     setAddError(null)
-    const input: PlanItemInput = { ...fieldsToInput(fields, dayId), id: crypto.randomUUID() }
+    const input: PlanItemInput = {
+      ...fieldsToInput(fields, dayId),
+      id: crypto.randomUUID(),
+      // Logged after the fact — not part of the intended plan, so it shows only
+      // under "what happened", never in the Plan list.
+      unplanned: true,
+    }
     try {
       if (!online) {
         await enqueue('createPlanItem', { tripId, input })
@@ -1597,18 +1604,20 @@ export function PlanningSection({
   }
 
   function handleReordered(newOrder: PlanItem[]) {
-    // The timeline only reorders the plan (non-done) items, so newOrder omits
-    // done items — merge them back so a drag/reorder doesn't drop "what
-    // happened" entries from the in-memory list (and the map).
-    setItems((prev) => [...newOrder, ...prev.filter((i) => i.status === 'done')])
+    // The timeline only reorders the planned items — items logged after the fact
+    // (unplanned) aren't in it, so newOrder omits them. Merge them back so a
+    // drag/reorder doesn't drop logged entries from the in-memory list (and map).
+    setItems((prev) => [...newOrder, ...prev.filter((i) => i.unplanned)])
   }
 
-  // An item shows under "Plan" until it's marked done, then it moves to "what
-  // happened" (grouped by status only — no separate list on the map). Skipped
-  // and cancelled items stay under Plan so their status control is still
-  // reachable to change them back.
-  const planItems = items.filter((i) => i.status !== 'done')
-  const doneItems = items.filter((i) => i.status === 'done')
+  // "Plan" is the itinerary you intended: every item except ones logged after
+  // the fact (unplanned). "What happened" is what actually occurred — done items
+  // plus anything logged spontaneously. A planned item you did shows in BOTH, so
+  // you can compare the plan against what happened; a spontaneous log shows only
+  // under what happened (a no-plan day keeps an empty Plan). Skipped/cancelled
+  // planned items stay under Plan so their status control is still reachable.
+  const planItems = items.filter((i) => !i.unplanned)
+  const doneItems = items.filter((i) => i.status === 'done' || i.unplanned)
 
   function togglePlanHidden() {
     setPlanHidden((h) => {

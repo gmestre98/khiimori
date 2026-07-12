@@ -105,6 +105,7 @@ func (f *fakePlanItemStore) CreatePlanItem(_ context.Context, n NewPlanItem) (Pl
 		Destination:   n.Destination,
 		ArriveTime:    n.ArriveTime,
 		Note:          n.Note,
+		Unplanned:     n.Unplanned,
 		SortOrder:     0,
 		Status:        status,
 	}, nil
@@ -385,6 +386,31 @@ func TestHandleCreatePlanItemAllFields(t *testing.T) {
 	}
 	if n.Note == nil || *n.Note != "Turned out amazing — went twice" {
 		t.Errorf("note = %v, want the logged note", n.Note)
+	}
+}
+
+// TestHandleCreatePlanItemUnplanned asserts the unplanned flag is forwarded to
+// the store (set by "log something you did") and defaults to false when omitted.
+func TestHandleCreatePlanItemUnplanned(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	rec := httptest.NewRecorder()
+	m.handleCreatePlanItem(rec, createPlanItemReq("trip-1", "owner-1",
+		`{"title":"Sunset kayak","unplanned":true}`))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201; body=%s", rec.Code, rec.Body.String())
+	}
+	if !pi.gotCreate.Unplanned {
+		t.Error("unplanned = false, want true")
+	}
+
+	rec = httptest.NewRecorder()
+	m.handleCreatePlanItem(rec, createPlanItemReq("trip-1", "owner-1", `{"title":"Museum"}`))
+	if pi.gotCreate.Unplanned {
+		t.Error("unplanned = true, want false when omitted")
 	}
 }
 
