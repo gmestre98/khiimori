@@ -11,6 +11,7 @@ import {
 import { fullDate, shortDate } from '../lib/format'
 import { PlanningSection } from './DayView'
 import { JournalEditor } from '../journal/JournalEditor'
+import { TripTravelogue } from './TripTravelogue'
 import { coversDay } from './stayCoverage'
 import { useTripShell } from './useTripShell'
 import { readCache, writeCache } from '../lib/resourceCache'
@@ -255,22 +256,26 @@ export function TripPlanPage() {
                   </section>
                 </div>
               ) : (
-                <div className="trip-plan-feed">
-                  {days.map((d) => (
-                    <PlanningSection
-                      key={d.id}
-                      day={d}
-                      items={d.plan_items}
-                      setItems={setItemsForDate(d.date)}
-                      setStays={setStaysForDate(d.date)}
-                      onStaySaved={applyStay}
-                      onStayRemoved={removeStay}
-                      tripId={trip.id}
-                      title={`Day ${d.index + 1} · ${shortDate(d.date)}`}
-                      showBacklogLink={false}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className="trip-plan-feed">
+                    {days.map((d) => (
+                      <PlanningSection
+                        key={d.id}
+                        day={d}
+                        items={d.plan_items}
+                        setItems={setItemsForDate(d.date)}
+                        setStays={setStaysForDate(d.date)}
+                        onStaySaved={applyStay}
+                        onStayRemoved={removeStay}
+                        tripId={trip.id}
+                        title={`Day ${d.index + 1} · ${shortDate(d.date)}`}
+                        showBacklogLink={false}
+                      />
+                    ))}
+                  </div>
+                  {/* Read the whole trip as a diary, below the plan stack. */}
+                  <TripTravelogue />
+                </>
               )}
             </div>
           </div>

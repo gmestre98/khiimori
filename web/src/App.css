@@ -2090,6 +2090,12 @@
   border-top: 1px solid var(--line);
   padding-top: var(--s5);
 }
+/* The whole-trip travelogue sits below the plan stack, set off by a rule. */
+.trip-travelogue {
+  border-top: 1px solid var(--line);
+  margin-top: var(--s5);
+  padding-top: var(--s5);
+}
 
 .plan-item-pin-badge {
   width: 20px;

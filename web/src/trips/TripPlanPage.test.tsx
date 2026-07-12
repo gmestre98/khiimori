@@ -72,6 +72,10 @@ vi.mock('../lib/api', async (importOriginal) => {
     // stub both so the test doesn't hit the network.
     geocodeLocation: vi.fn().mockResolvedValue(null),
     fetchAutocomplete: vi.fn().mockResolvedValue([]),
+    // Journal reads: the per-day editor and the whole-trip travelogue both fetch
+    // entries + photos. Stub so tests don't hit the network.
+    fetchJournalEntry: vi.fn(),
+    listPhotos: vi.fn().mockResolvedValue([]),
   }
 })
 
@@ -116,6 +120,9 @@ beforeEach(() => {
   vi.mocked(api.fetchDay).mockImplementation(async (_tripId, date) =>
     makeDay(date, DATES.indexOf(date)),
   )
+  // Default: no journal entry on any day (travelogue empty, editor blank).
+  vi.mocked(api.fetchJournalEntry).mockRejectedValue(new api.JournalEntryNotFoundError())
+  vi.mocked(api.listPhotos).mockResolvedValue([])
 })
 
 async function daysNav() {
@@ -134,10 +141,34 @@ describe('TripPlanPage', () => {
     const user = userEvent.setup()
     renderPage()
     const nav = await daysNav()
-    // The whole-trip stack is plan-only; a selected day adds the journal.
+    // The whole-trip view shows the travelogue, not the per-day Journal editor;
+    // selecting a day adds the editor.
     expect(screen.queryByRole('region', { name: 'Journal' })).not.toBeInTheDocument()
     await user.click(nav.getByRole('button', { name: /day 1/i }))
     expect(await screen.findByRole('region', { name: 'Journal' })).toBeInTheDocument()
+  })
+
+  it('shows the travelogue with journal entries in the whole-trip view', async () => {
+    vi.mocked(api.fetchJournalEntry).mockImplementation(async (_tripId, dayId) => {
+      if (dayId !== 'day-0') throw new api.JournalEntryNotFoundError()
+      return {
+        id: 'e1',
+        day_id: 'day-0',
+        author_id: 'user-owner',
+        body: 'Best day of the trip — sunset kayak.',
+        rating: 5,
+        weather: 'sunny',
+        mood: 'happy',
+        created_at: '2026-06-01T00:00:00Z',
+        updated_at: '2026-06-01T00:00:00Z',
+      }
+    })
+    renderPage()
+    // Whole-trip is the default view; the travelogue stitches in written days.
+    const travelogue = await screen.findByRole('region', { name: 'Travelogue' })
+    expect(
+      await within(travelogue).findByText('Best day of the trip — sunset kayak.'),
+    ).toBeInTheDocument()
   })
 
   it('lists every day plus a Whole trip option and the ideas backlog', async () => {
