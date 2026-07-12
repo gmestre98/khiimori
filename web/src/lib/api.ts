@@ -473,6 +473,10 @@ export async function fetchBacklog(tripId: string, signal?: AbortSignal): Promis
 // Only title is required; all other fields are optional. Omit day_id to create
 // a backlog item (no day assigned).
 export interface PlanItemInput {
+  // id is an optional client-generated UUID used as the row id (upsert), so a
+  // multi-step create (e.g. "log a done item" = create then set-status) can
+  // reference the same item id online and offline. Omit it for a plain add.
+  id?: string
   title: string
   day_id?: string | null
   kind?: PlanItemKind | null

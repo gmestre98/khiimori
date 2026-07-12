@@ -245,6 +245,64 @@ describe('DayView', () => {
     await waitFor(() => expect(screen.getByText('Nothing planned yet.')).toBeInTheDocument())
   })
 
+  describe('plan vs what happened', () => {
+    it('groups a done item under "What happened", not "Plan"', async () => {
+      const planned = makePlanItem({ id: 'p1', title: 'Belém Tower', status: 'planned' })
+      const done = makePlanItem({ id: 'd1', title: 'Sunset kayak', status: 'done' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [planned, done] }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Sunset kayak')).toBeInTheDocument())
+
+      const planTimeline = screen.getByRole('region', { name: 'Day timeline' })
+      expect(within(planTimeline).getByText('Belém Tower')).toBeInTheDocument()
+      expect(within(planTimeline).queryByText('Sunset kayak')).not.toBeInTheDocument()
+      expect(screen.getByText('What happened')).toBeInTheDocument()
+    })
+
+    it('hides the plan when "Hide plan" is clicked', async () => {
+      const planned = makePlanItem({ id: 'p1', title: 'Belém Tower', status: 'planned' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [planned] }))
+      const user = userEvent.setup()
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Belém Tower')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: 'Hide plan' }))
+      expect(screen.queryByText('Belém Tower')).not.toBeInTheDocument()
+      expect(screen.getByText(/Plan hidden/)).toBeInTheDocument()
+    })
+
+    it('logs a done item via "Log something you did"', async () => {
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      vi.mocked(api.createPlanItem).mockResolvedValue(
+        makePlanItem({ id: 'log1', title: 'Gelato run', status: 'planned' }),
+      )
+      vi.mocked(api.setPlanItemStatus).mockResolvedValue(
+        makePlanItem({ id: 'log1', title: 'Gelato run', status: 'done' }),
+      )
+      const user = userEvent.setup()
+      renderDayView()
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Log something you did' })).toBeInTheDocument(),
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Log something you did' }))
+      // Two forms are visible now (plan quick-add + log); scope to the one with
+      // the "Log it" submit.
+      const form = screen.getByRole('button', { name: 'Log it' }).closest('form') as HTMLElement
+      await user.type(within(form).getByLabelText('Title'), 'Gelato run')
+      await user.click(within(form).getByRole('button', { name: 'Log it' }))
+
+      await waitFor(() =>
+        expect(api.setPlanItemStatus).toHaveBeenCalledWith('trip-1', 'log1', 'done'),
+      )
+      // The create carried a client id so the set-status targets the same row.
+      expect(api.createPlanItem).toHaveBeenCalledWith(
+        'trip-1',
+        expect.objectContaining({ title: 'Gelato run', id: expect.any(String) }),
+      )
+    })
+  })
+
   it('renders backlog link', async () => {
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
     renderDayView()
