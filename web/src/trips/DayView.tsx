@@ -21,7 +21,6 @@ import {
   updatePlanItem,
   datesInRange,
   BUDGET_CATEGORIES,
-  type BudgetLine,
   type BudgetRollup,
   type CostEntry,
   type Day,
@@ -30,16 +29,14 @@ import {
   type PlanItemKind,
   type Stay,
 } from '../lib/api'
-import { fullDate } from '../lib/format'
+import { fullDate, euroWhole } from '../lib/format'
 import { enqueue } from '../lib/mutationQueue'
 import { useIsOnline } from '../lib/useIsOnline'
 import { readCache, writeCache } from '../lib/resourceCache'
 import { cacheKeys } from '../lib/cacheKeys'
 import { CacheStatus } from '../components/CacheStatus'
 import { JournalEditor } from '../journal/JournalEditor'
-import { DayBudgetEditor } from './BudgetEditor'
 import { FastAddCost } from './FastAddCost'
-import { DayRollup } from './RollupDisplay'
 import { useTripShell } from './useTripShell'
 
 const DayMap = lazy(() => import('./DayMap'))
@@ -1724,9 +1721,13 @@ export function PlanningSection({
 }
 
 // BudgetSlot renders the per-day budget editor, rollup display, and fast-add form.
-function BudgetSlot({ tripId, day }: { tripId: string; day: Day }) {
+// DayBudgetStrip is the compact budget presence on the streamlined day screen: a
+// one-line "spent · upcoming" glance for the day plus quick-add for a cost, with
+// a link to the whole-trip Budget tab for deeper editing. It deliberately drops
+// the full per-day line editor (that lives on the Budget tab) so the day screen
+// stays lighter than the dedicated tabs.
+function DayBudgetStrip({ tripId, day }: { tripId: string; day: Day }) {
   const [rollup, setRollup] = useState<BudgetRollup | null>(null)
-  const [lines, setLines] = useState<BudgetLine[]>([])
   const [entries, setEntries] = useState<CostEntry[]>([])
 
   const loadRollup = useCallback(
@@ -1760,19 +1761,6 @@ function BudgetSlot({ tripId, day }: { tripId: string; day: Day }) {
     }
   }, [loadRollup, day.id, tripId])
 
-  function handleLineUpdated(line: BudgetLine) {
-    setLines((prev) => {
-      const idx = prev.findIndex((l) => l.id === line.id)
-      if (idx >= 0) {
-        const next = [...prev]
-        next[idx] = line
-        return next
-      }
-      return [...prev, line]
-    })
-    loadRollup()
-  }
-
   function handleEntryAdded(entry: CostEntry) {
     setEntries((prev) => [...prev, entry])
     loadRollup()
@@ -1788,22 +1776,25 @@ function BudgetSlot({ tripId, day }: { tripId: string; day: Day }) {
     loadRollup()
   }
 
-  // Build lines list seeded with actual_amount from rollup for display
-  const displayLines: BudgetLine[] = lines.map((l) => ({
-    ...l,
-    actual_amount: rollup?.by_day_category?.[day.id]?.[l.category] ?? l.actual_amount,
-  }))
+  const daySpent = rollup?.by_day?.[day.id] ?? 0
+  const dayUpcoming = rollup?.estimated_by_day?.[day.id] ?? 0
 
   return (
     <section className="day-slot day-slot-budget" aria-label="Budget" data-slot="budget">
-      <h2 className="day-slot-title">Budget</h2>
-      {rollup && <DayRollup rollup={rollup} dayId={day.id} />}
-      <DayBudgetEditor
-        tripId={tripId}
-        dayId={day.id}
-        lines={displayLines}
-        onUpdated={handleLineUpdated}
-      />
+      <div className="day-slot-title-row">
+        <h2 className="day-slot-title">Budget</h2>
+        <Link to={`/trips/${tripId}/budget`} className="day-budget-more">
+          Open Budget ↗
+        </Link>
+      </div>
+      <div className="day-budget-glance">
+        <span className="day-budget-spent">
+          Spent <b className="num">{euroWhole(daySpent)}</b>
+        </span>
+        {dayUpcoming > 0 && (
+          <span className="day-budget-upcoming meta">+{euroWhole(dayUpcoming)} upcoming</span>
+        )}
+      </div>
       <FastAddCost
         tripId={tripId}
         dayId={day.id}
@@ -1871,11 +1862,13 @@ function MapSlot({
 // switched with a segmented control (a trip's facets aren't top-level nav
 // destinations, so they live here rather than in the bottom bar). On laptop/
 // tablet all four render together in the two-column grid.
+// The day screen's facets. Plan, "what happened", and Journal fuse into one
+// scrollable "Day" facet (streamlined so it doesn't duplicate the whole-trip
+// Days tab); Map stays its own facet. Deep budget lives on the Budget tab, with
+// a compact strip inside Day.
 const FACETS = [
-  { key: 'plan', label: 'Plan' },
+  { key: 'day', label: 'Day' },
   { key: 'map', label: 'Map' },
-  { key: 'budget', label: 'Budget' },
-  { key: 'journal', label: 'Journal' },
 ] as const
 type Facet = (typeof FACETS)[number]['key']
 
@@ -1916,7 +1909,7 @@ export function DayView() {
   // On phones only one facet shows at a time; `view` tracks which. It lives in
   // component state (not the URL) so it persists as the user flips between days
   // — DayView stays mounted across date changes.
-  const [view, setView] = useState<Facet>('plan')
+  const [view, setView] = useState<Facet>('day')
 
   const [day, setDay] = useState<Day | null>(null)
   // planItems is the live source of truth for the day's plan items, lifted out of
@@ -2058,9 +2051,9 @@ export function DayView() {
               <h2 className="day-slot-title">Plan</h2>
             </section>
           )
-        const budgetSlot =
+        const budgetStrip =
           day && tripId ? (
-            <BudgetSlot tripId={tripId} day={day} />
+            <DayBudgetStrip tripId={tripId} day={day} />
           ) : (
             <section className="day-slot day-slot-budget" aria-label="Budget" data-slot="budget">
               <h2 className="day-slot-title">Budget</h2>
@@ -2076,32 +2069,37 @@ export function DayView() {
             </section>
           )
 
-        // Phones: a segmented control switches a single full-width facet.
+        // Phones: a segmented control switches between the Day scroll (plan +
+        // what happened + journal + a compact budget strip) and the Map.
         if (mobile) {
           return (
             <div className="day-facets">
               <FacetTabs value={view} onChange={setView} />
               <div className="day-facet-panel">
-                {view === 'plan' && planningSlot}
+                {view === 'day' && (
+                  <>
+                    {planningSlot}
+                    {journalSlot}
+                    {budgetStrip}
+                  </>
+                )}
                 {view === 'map' && mapSlot}
-                {view === 'budget' && budgetSlot}
-                {view === 'journal' && journalSlot}
               </div>
             </div>
           )
         }
 
-        // Laptop/tablet: two-column layout (design reference §07) — living
-        // itinerary + day budget on the left, map + journal on the right.
+        // Laptop/tablet: two columns — the merged Day (plan + what happened +
+        // journal) on the left, the map with the compact budget strip on the right.
         return (
           <div className="day-grid">
             <div className="day-grid-col day-grid-left">
               {planningSlot}
-              {budgetSlot}
+              {journalSlot}
             </div>
             <div className="day-grid-col day-grid-right">
               {mapSlot}
-              {journalSlot}
+              {budgetStrip}
             </div>
           </div>
         )

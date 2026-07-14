@@ -808,7 +808,7 @@ describe('DayView', () => {
 
     afterEach(() => setMobile(false))
 
-    it('shows facet tabs and switches the visible section on mobile', async () => {
+    it('shows only Day and Map facets, with plan + journal + budget merged into Day', async () => {
       setMobile(true)
       const user = userEvent.setup()
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
@@ -816,14 +816,50 @@ describe('DayView', () => {
       await waitFor(() =>
         expect(screen.getByRole('tablist', { name: 'Trip sections' })).toBeInTheDocument(),
       )
-      // Default facet is Plan; the map/journal are not simultaneously mounted.
+      // The four old facets collapse to two — Plan/Journal/Budget are no longer
+      // their own tabs.
+      expect(screen.getByRole('tab', { name: 'Day' })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Map' })).toBeInTheDocument()
+      expect(screen.queryByRole('tab', { name: 'Plan' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('tab', { name: 'Journal' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('tab', { name: 'Budget' })).not.toBeInTheDocument()
+
+      // The Day facet (default) stacks plan + journal + the budget strip together.
       expect(screen.getByRole('region', { name: 'Planning' })).toBeInTheDocument()
+      expect(screen.getByRole('region', { name: 'Journal' })).toBeInTheDocument()
+      expect(screen.getByRole('region', { name: 'Budget' })).toBeInTheDocument()
       expect(screen.queryByRole('region', { name: 'Map' })).not.toBeInTheDocument()
 
-      // Switching to Map reveals it and hides Plan.
+      // Switching to Map reveals it and hides the Day scroll.
       await user.click(screen.getByRole('tab', { name: 'Map' }))
       expect(screen.getByRole('region', { name: 'Map' })).toBeInTheDocument()
       expect(screen.queryByRole('region', { name: 'Planning' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Journal' })).not.toBeInTheDocument()
+    })
+
+    it('shows a compact budget strip with a spent glance and a link to the Budget tab', async () => {
+      setMobile(false)
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      vi.mocked(api.fetchBudgetRollup).mockResolvedValue({
+        trip_total: 0,
+        planned_trip_total: 0,
+        estimated_trip_total: 0,
+        by_category: {},
+        planned_by_category: {},
+        estimated_by_category: {},
+        by_day: { 'day-1': 48 },
+        planned_by_day: {},
+        estimated_by_day: { 'day-1': 20 },
+        by_day_category: {},
+      } as unknown as api.BudgetRollup)
+      renderDayView()
+
+      // The "Open Budget" link only exists once the loaded strip mounts (the
+      // placeholder has just a title), so wait on it before asserting figures.
+      const link = await screen.findByRole('link', { name: /Open Budget/ })
+      expect(link).toHaveAttribute('href', '/trips/trip-1/budget')
+      expect(await screen.findByText('€48')).toBeInTheDocument()
+      expect(screen.getByText(/\+€20 upcoming/)).toBeInTheDocument()
     })
 
     it('does not render facet tabs on desktop (combined grid instead)', async () => {
