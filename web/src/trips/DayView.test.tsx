@@ -837,7 +837,7 @@ describe('DayView', () => {
       expect(screen.queryByRole('region', { name: 'Journal' })).not.toBeInTheDocument()
     })
 
-    it('shows a compact budget strip with a spent glance and a link to the Budget tab', async () => {
+    it('shows the day budget (spent + upcoming) with a link to the Budget tab', async () => {
       setMobile(false)
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
       vi.mocked(api.fetchBudgetRollup).mockResolvedValue({
@@ -858,8 +858,9 @@ describe('DayView', () => {
       // placeholder has just a title), so wait on it before asserting figures.
       const link = await screen.findByRole('link', { name: /Open Budget/ })
       expect(link).toHaveAttribute('href', '/trips/trip-1/budget')
-      expect(await screen.findByText('€48')).toBeInTheDocument()
-      expect(screen.getByText(/\+€20 upcoming/)).toBeInTheDocument()
+      // DayRollup shows the day's spend and its upcoming (not-yet-done) estimate.
+      expect(await screen.findByText(/48/)).toBeInTheDocument()
+      expect(screen.getByText(/20.*upcoming/i)).toBeInTheDocument()
     })
 
     it('does not render facet tabs on desktop (combined grid instead)', async () => {

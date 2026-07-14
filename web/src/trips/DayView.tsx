@@ -29,7 +29,7 @@ import {
   type PlanItemKind,
   type Stay,
 } from '../lib/api'
-import { fullDate, euroWhole } from '../lib/format'
+import { fullDate } from '../lib/format'
 import { enqueue } from '../lib/mutationQueue'
 import { useIsOnline } from '../lib/useIsOnline'
 import { readCache, writeCache } from '../lib/resourceCache'
@@ -37,6 +37,7 @@ import { cacheKeys } from '../lib/cacheKeys'
 import { CacheStatus } from '../components/CacheStatus'
 import { JournalEditor } from '../journal/JournalEditor'
 import { FastAddCost } from './FastAddCost'
+import { DayRollup } from './RollupDisplay'
 import { useTripShell } from './useTripShell'
 
 const DayMap = lazy(() => import('./DayMap'))
@@ -1720,12 +1721,11 @@ export function PlanningSection({
   )
 }
 
-// BudgetSlot renders the per-day budget editor, rollup display, and fast-add form.
-// DayBudgetStrip is the compact budget presence on the streamlined day screen: a
-// one-line "spent · upcoming" glance for the day plus quick-add for a cost, with
-// a link to the whole-trip Budget tab for deeper editing. It deliberately drops
-// the full per-day line editor (that lives on the Budget tab) so the day screen
-// stays lighter than the dedicated tabs.
+// DayBudgetStrip is the budget presence on the streamlined day screen: how the
+// day is doing against its budget (spent vs planned, per category, via
+// DayRollup) plus quick-add for a cost, with a link to the whole-trip Budget tab
+// for deeper setup. The full per-day budget *editor* lives on the Budget tab, so
+// the day screen shows the day's budget without re-hosting the setup UI.
 function DayBudgetStrip({ tripId, day }: { tripId: string; day: Day }) {
   const [rollup, setRollup] = useState<BudgetRollup | null>(null)
   const [entries, setEntries] = useState<CostEntry[]>([])
@@ -1777,7 +1777,11 @@ function DayBudgetStrip({ tripId, day }: { tripId: string; day: Day }) {
   }
 
   const daySpent = rollup?.by_day?.[day.id] ?? 0
+  const dayPlanned = rollup?.planned_by_day?.[day.id] ?? 0
   const dayUpcoming = rollup?.estimated_by_day?.[day.id] ?? 0
+  // DayRollup renders nothing when the day has no spend/plan/estimate; mirror its
+  // condition so we can show a hint instead of an empty budget section.
+  const hasBudgetData = daySpent > 0 || dayPlanned > 0 || dayUpcoming > 0
 
   return (
     <section className="day-slot day-slot-budget" aria-label="Budget" data-slot="budget">
@@ -1787,14 +1791,11 @@ function DayBudgetStrip({ tripId, day }: { tripId: string; day: Day }) {
           Open Budget ↗
         </Link>
       </div>
-      <div className="day-budget-glance">
-        <span className="day-budget-spent">
-          Spent <b className="num">{euroWhole(daySpent)}</b>
-        </span>
-        {dayUpcoming > 0 && (
-          <span className="day-budget-upcoming meta">+{euroWhole(dayUpcoming)} upcoming</span>
-        )}
-      </div>
+      {rollup && hasBudgetData ? (
+        <DayRollup rollup={rollup} dayId={day.id} />
+      ) : (
+        <p className="day-budget-empty meta">Nothing spent or budgeted for this day yet.</p>
+      )}
       <FastAddCost
         tripId={tripId}
         dayId={day.id}
