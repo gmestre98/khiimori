@@ -2097,6 +2097,29 @@
   padding-top: var(--s5);
 }
 
+/* Compact day budget strip (streamlined day screen): a title row with a link to
+   the full Budget tab, a one-line spent/upcoming glance, then quick-add. */
+.day-slot-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.day-budget-more {
+  font-size: var(--text-sm);
+  color: var(--accent);
+}
+.day-budget-glance {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: var(--space-2) 0;
+  font-size: var(--text-base);
+}
+.day-budget-upcoming {
+  font-size: var(--text-sm);
+}
+
 .plan-item-pin-badge {
   width: 20px;
   height: 20px;
