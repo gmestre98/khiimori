@@ -32,17 +32,17 @@ func (s *pgxBudgetStore) Upsert(ctx context.Context, line SetBudgetLine) (Budget
 	// NULLIF converts the empty-string DayID sentinel to NULL so NULL goes into
 	// day_id for trip-level lines.
 	const q = `
-		INSERT INTO budget.budget_lines (trip_id, day_id, category, planned_amount)
-		VALUES ($1::uuid, NULLIF($2, '')::uuid, $3, $4)
-		ON CONFLICT ON CONSTRAINT budget_lines_trip_day_category_unique
+		INSERT INTO budget.budget_lines (trip_id, day_id, category, scope, planned_amount)
+		VALUES ($1::uuid, NULLIF($2, '')::uuid, $3, $4, $5)
+		ON CONFLICT ON CONSTRAINT budget_lines_trip_day_category_scope_unique
 		DO UPDATE SET planned_amount = EXCLUDED.planned_amount
 		RETURNING id::text, trip_id::text, COALESCE(day_id::text, ''), category,
-		          planned_amount, actual_amount`
+		          scope, planned_amount, actual_amount`
 
 	var bl BudgetLine
 	err := s.pool.QueryRow(ctx, q,
-		line.TripID, line.DayID, string(line.Category), line.PlannedAmount,
-	).Scan(&bl.ID, &bl.TripID, &bl.DayID, &bl.Category, &bl.PlannedAmount, &bl.ActualAmount)
+		line.TripID, line.DayID, string(line.Category), string(line.Scope), line.PlannedAmount,
+	).Scan(&bl.ID, &bl.TripID, &bl.DayID, &bl.Category, &bl.Scope, &bl.PlannedAmount, &bl.ActualAmount)
 	if err != nil {
 		return BudgetLine{}, fmt.Errorf("budget: upsert: %w", err)
 	}
@@ -112,10 +112,10 @@ func (s *pgxBudgetStore) DeleteCostEntry(ctx context.Context, entryID, tripID st
 func (s *pgxBudgetStore) ListBudgetLines(ctx context.Context, tripID string) ([]BudgetLine, error) {
 	const q = `
 		SELECT id::text, trip_id::text, COALESCE(day_id::text, ''), category,
-		       planned_amount, actual_amount
+		       scope, planned_amount, actual_amount
 		FROM budget.budget_lines
 		WHERE trip_id = $1::uuid
-		ORDER BY COALESCE(day_id::text, ''), category`
+		ORDER BY COALESCE(day_id::text, ''), category, scope`
 
 	rows, err := s.pool.Query(ctx, q, tripID)
 	if err != nil {
@@ -127,7 +127,7 @@ func (s *pgxBudgetStore) ListBudgetLines(ctx context.Context, tripID string) ([]
 	for rows.Next() {
 		var bl BudgetLine
 		if err := rows.Scan(&bl.ID, &bl.TripID, &bl.DayID, &bl.Category,
-			&bl.PlannedAmount, &bl.ActualAmount); err != nil {
+			&bl.Scope, &bl.PlannedAmount, &bl.ActualAmount); err != nil {
 			return nil, fmt.Errorf("budget: scan budget line: %w", err)
 		}
 		out = append(out, bl)

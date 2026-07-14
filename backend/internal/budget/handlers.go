@@ -21,7 +21,11 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 // setBudgetLineRequest is the wire shape for setting/updating a budget line.
 // Amounts are always EUR (PRD §5.4, §11.5); no currency field is accepted.
 type setBudgetLineRequest struct {
-	Category      string  `json:"category"`
+	Category string `json:"category"`
+	// Scope is optional on the trip endpoint: "" or "trip" sets the whole-trip
+	// lump, "daily" sets the per-day allowance. Ignored on the day endpoint
+	// (day lines are always the 'day' extra).
+	Scope         string  `json:"scope"`
 	PlannedAmount float64 `json:"planned_amount"`
 }
 
@@ -31,6 +35,7 @@ type budgetLineResponse struct {
 	TripID        string  `json:"trip_id"`
 	DayID         string  `json:"day_id,omitempty"` // absent for trip-level lines
 	Category      string  `json:"category"`
+	Scope         string  `json:"scope"`
 	PlannedAmount float64 `json:"planned_amount"`
 	ActualAmount  float64 `json:"actual_amount"`
 }
@@ -41,6 +46,7 @@ func lineToResponse(bl BudgetLine) budgetLineResponse {
 		TripID:        bl.TripID,
 		DayID:         bl.DayID,
 		Category:      string(bl.Category),
+		Scope:         string(bl.Scope),
 		PlannedAmount: bl.PlannedAmount,
 		ActualAmount:  bl.ActualAmount,
 	}
@@ -95,10 +101,17 @@ func (m *Module) handleSetTripBudgetLine(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Trip-level: default to the whole-trip lump; "daily" sets the per-day
+	// allowance. Any other value is rejected by validate().
+	scope := Scope(req.Scope)
+	if scope == "" {
+		scope = ScopeTrip
+	}
 	input := SetBudgetLine{
 		TripID:        tripID,
 		DayID:         "",
 		Category:      Category(req.Category),
+		Scope:         scope,
 		PlannedAmount: req.PlannedAmount,
 	}
 	if err := input.validate(); err != nil {
@@ -138,10 +151,12 @@ func (m *Module) handleSetDayBudgetLine(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// A per-day line is always the single-day extra (scope 'day').
 	input := SetBudgetLine{
 		TripID:        tripID,
 		DayID:         dayID,
 		Category:      Category(req.Category),
+		Scope:         ScopeDay,
 		PlannedAmount: req.PlannedAmount,
 	}
 	if err := input.validate(); err != nil {
