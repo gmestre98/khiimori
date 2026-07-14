@@ -57,9 +57,19 @@ type RollupResult struct {
 	EstimatedByDay      map[string]float64 `json:"estimated_by_day"`
 
 	// Planned amounts from budget_lines — zero/absent when no line is set.
+	// These are the raw per-scope amounts; the client composes the effective day
+	// and trip budgets (day = daily + day extra; trip = lump + daily×days +
+	// extras) since it knows the day count.
+	//
+	// PlannedTripTotal / PlannedByCategory are the whole-trip lumps (scope 'trip').
 	PlannedTripTotal  float64            `json:"planned_trip_total"`
 	PlannedByCategory map[string]float64 `json:"planned_by_category"`
-	PlannedByDay      map[string]float64 `json:"planned_by_day"`
+	// PlannedByDay / PlannedByDayCategory are the single-day extras (scope 'day').
+	PlannedByDay         map[string]float64            `json:"planned_by_day"`
+	PlannedByDayCategory map[string]map[string]float64 `json:"planned_by_day_category"`
+	// DailyByCategory is the per-day allowance per category (scope 'daily') — the
+	// amount that applies to every day of the trip.
+	DailyByCategory map[string]float64 `json:"daily_by_category"`
 }
 
 // computeRollup aggregates spend from external costs (stays + plan items) and
@@ -70,13 +80,15 @@ type RollupResult struct {
 // amount fields; pass nil when not needed.
 func computeRollup(external []ExternalCost, entries []CostEntry, lines []BudgetLine) RollupResult {
 	result := RollupResult{
-		ByCategory:          make(map[string]float64),
-		ByDay:               make(map[string]float64),
-		ByCategoryDay:       make(map[string]map[string]float64),
-		EstimatedByCategory: make(map[string]float64),
-		EstimatedByDay:      make(map[string]float64),
-		PlannedByCategory:   make(map[string]float64),
-		PlannedByDay:        make(map[string]float64),
+		ByCategory:           make(map[string]float64),
+		ByDay:                make(map[string]float64),
+		ByCategoryDay:        make(map[string]map[string]float64),
+		EstimatedByCategory:  make(map[string]float64),
+		EstimatedByDay:       make(map[string]float64),
+		PlannedByCategory:    make(map[string]float64),
+		PlannedByDay:         make(map[string]float64),
+		PlannedByDayCategory: make(map[string]map[string]float64),
+		DailyByCategory:      make(map[string]float64),
 	}
 
 	addSpent := func(dayID string, cat Category, amount float64) {
@@ -111,13 +123,23 @@ func computeRollup(external []ExternalCost, entries []CostEntry, lines []BudgetL
 	}
 
 	for _, bl := range lines {
-		if bl.DayID == "" {
-			// Trip-level line: contributes to trip total and by-category planned.
-			result.PlannedTripTotal += bl.PlannedAmount
-			result.PlannedByCategory[string(bl.Category)] += bl.PlannedAmount
-		} else {
-			// Day-level line: contributes to per-day planned total.
+		cat := string(bl.Category)
+		switch bl.Scope {
+		case ScopeDaily:
+			// Per-day allowance: applies to every day. The client multiplies by
+			// the day count for the trip total and fans it out per day.
+			result.DailyByCategory[cat] += bl.PlannedAmount
+		case ScopeDay:
+			// Single-day extra: per-day planned total and per (day, category).
 			result.PlannedByDay[bl.DayID] += bl.PlannedAmount
+			if result.PlannedByDayCategory[bl.DayID] == nil {
+				result.PlannedByDayCategory[bl.DayID] = make(map[string]float64)
+			}
+			result.PlannedByDayCategory[bl.DayID][cat] += bl.PlannedAmount
+		default:
+			// Whole-trip lump (ScopeTrip).
+			result.PlannedTripTotal += bl.PlannedAmount
+			result.PlannedByCategory[cat] += bl.PlannedAmount
 		}
 	}
 

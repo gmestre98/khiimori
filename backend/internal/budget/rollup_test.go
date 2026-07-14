@@ -5,6 +5,38 @@ import (
 	"time"
 )
 
+// TestComputeRollup_BudgetLineScopes verifies the three budget-line scopes land
+// in the right planned buckets: a whole-trip lump in PlannedByCategory, a per-day
+// allowance in DailyByCategory, and a single-day extra in PlannedByDay(Category).
+// The client composes the effective budgets from these raw amounts.
+func TestComputeRollup_BudgetLineScopes(t *testing.T) {
+	t.Parallel()
+
+	lines := []BudgetLine{
+		{TripID: "t1", DayID: "", Category: CategoryFood, Scope: ScopeTrip, PlannedAmount: 50},
+		{TripID: "t1", DayID: "", Category: CategoryStays, Scope: ScopeDaily, PlannedAmount: 25},
+		{TripID: "t1", DayID: "d1", Category: CategoryActivities, Scope: ScopeDay, PlannedAmount: 40},
+	}
+	r := computeRollup(nil, nil, lines)
+
+	if r.PlannedByCategory["Food"] != 50 {
+		t.Errorf("lump: PlannedByCategory[Food] = %v, want 50", r.PlannedByCategory["Food"])
+	}
+	if r.PlannedTripTotal != 50 {
+		t.Errorf("lump: PlannedTripTotal = %v, want 50 (daily/day excluded)", r.PlannedTripTotal)
+	}
+	if r.DailyByCategory["Stays"] != 25 {
+		t.Errorf("allowance: DailyByCategory[Stays] = %v, want 25", r.DailyByCategory["Stays"])
+	}
+	if r.PlannedByDay["d1"] != 40 {
+		t.Errorf("extra: PlannedByDay[d1] = %v, want 40", r.PlannedByDay["d1"])
+	}
+	if r.PlannedByDayCategory["d1"]["Activities"] != 40 {
+		t.Errorf("extra: PlannedByDayCategory[d1][Activities] = %v, want 40",
+			r.PlannedByDayCategory["d1"]["Activities"])
+	}
+}
+
 // TestComputeRollup_EditPropagation verifies that changing an entry's amount in
 // the input slice is immediately reflected in the computed result (compute-on-read
 // propagation is inherent — no cache to invalidate).

@@ -201,6 +201,79 @@ func TestIntegration_SetTripBudgetLine(t *testing.T) {
 	}
 }
 
+func TestIntegration_SetDailyAllowanceAndReject(t *testing.T) {
+	ownerID := freshOwnerID(t)
+	srv := newIntegrationServer(t, ownerID)
+	tripID := insertTrip(t, ownerID)
+
+	// A per-day allowance (scope 'daily') coexists with the trip lump for the
+	// same category — both are trip-level but distinct rows.
+	resp, err := putJSON(srv, "/trips/"+tripID+"/budget-lines", map[string]any{
+		"category":       "Stays",
+		"scope":          "daily",
+		"planned_amount": 25.00,
+	})
+	if err != nil {
+		t.Fatalf("put daily: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("daily allowance: expected 200, got %d", resp.StatusCode)
+	}
+	var out budgetLineResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if out.Scope != "daily" {
+		t.Errorf("scope: got %q, want daily", out.Scope)
+	}
+
+	// A lump for the same category must not collide with the allowance.
+	lump, err := putJSON(srv, "/trips/"+tripID+"/budget-lines", map[string]any{
+		"category":       "Stays",
+		"planned_amount": 100.00,
+	})
+	if err != nil {
+		t.Fatalf("put lump: %v", err)
+	}
+	defer lump.Body.Close()
+	if lump.StatusCode != http.StatusOK {
+		t.Fatalf("lump: expected 200, got %d", lump.StatusCode)
+	}
+
+	// The rollup surfaces the allowance in daily_by_category and the lump in
+	// planned_by_category — the client composes the rest.
+	roll, err := http.Get(srv.URL + "/trips/" + tripID + "/budget/rollup")
+	if err != nil {
+		t.Fatalf("rollup: %v", err)
+	}
+	defer roll.Body.Close()
+	var rr RollupResult
+	if err := json.NewDecoder(roll.Body).Decode(&rr); err != nil {
+		t.Fatalf("decode rollup: %v", err)
+	}
+	if rr.DailyByCategory["Stays"] != 25 {
+		t.Errorf("daily_by_category[Stays] = %v, want 25", rr.DailyByCategory["Stays"])
+	}
+	if rr.PlannedByCategory["Stays"] != 100 {
+		t.Errorf("planned_by_category[Stays] = %v, want 100", rr.PlannedByCategory["Stays"])
+	}
+
+	// A 'day' scope on the trip endpoint is rejected (no day to attach to).
+	bad, err := putJSON(srv, "/trips/"+tripID+"/budget-lines", map[string]any{
+		"category":       "Food",
+		"scope":          "day",
+		"planned_amount": 10.00,
+	})
+	if err != nil {
+		t.Fatalf("put bad: %v", err)
+	}
+	defer bad.Body.Close()
+	if bad.StatusCode != http.StatusBadRequest {
+		t.Errorf("scope=day at trip endpoint: expected 400, got %d", bad.StatusCode)
+	}
+}
+
 func TestIntegration_SetDayBudgetLine(t *testing.T) {
 	ownerID := freshOwnerID(t)
 	srv := newIntegrationServer(t, ownerID)
