@@ -130,9 +130,9 @@ function TripShell() {
             to={`/trips/${trip.id}/plan`}
             state={{ trip }}
             className="btn btn-ghost btn-sm"
-            aria-label={`Plan for ${trip.name}`}
+            aria-label={`Days for ${trip.name}`}
           >
-            Plan
+            Days
           </Link>
           <Link
             to={`/trips/${trip.id}/map`}
@@ -141,14 +141,6 @@ function TripShell() {
             aria-label={`Map for ${trip.name}`}
           >
             Map
-          </Link>
-          <Link
-            to={`/trips/${trip.id}/journal`}
-            state={{ trip }}
-            className="btn btn-ghost btn-sm"
-            aria-label={`Journal for ${trip.name}`}
-          >
-            Journal
           </Link>
           <Link
             to={`/trips/${trip.id}/budget`}
