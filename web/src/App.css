@@ -2109,14 +2109,8 @@
   font-size: var(--text-sm);
   color: var(--accent);
 }
-.day-budget-glance {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
+.day-budget-empty {
   margin: var(--space-2) 0;
-  font-size: var(--text-base);
-}
-.day-budget-upcoming {
   font-size: var(--text-sm);
 }
 
