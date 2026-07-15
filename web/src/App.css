@@ -3246,6 +3246,43 @@
   color: var(--text-h);
 }
 
+/* Trip budget setup table: Category · Per day · Whole trip · Budget · Spent. */
+.budget-setup-scroll {
+  overflow-x: auto;
+}
+.budget-setup {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.budget-setup th {
+  text-align: left;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  padding: 0 var(--space-2) var(--space-1);
+  border-bottom: 1px solid var(--border);
+}
+.budget-setup th.r,
+.budget-setup td.r {
+  text-align: right;
+}
+.budget-setup td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 0.5px solid var(--border);
+}
+.budget-setup tfoot td {
+  border-bottom: none;
+  border-top: 1px solid var(--border);
+  font-weight: 600;
+  padding-top: var(--space-2);
+}
+.budget-setup-total {
+  font-variant-numeric: tabular-nums;
+}
+
 .budget-editor-header-row {
   display: grid;
   grid-template-columns: 1fr 90px 90px;

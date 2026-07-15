@@ -23,6 +23,7 @@ import { useTripShell } from './useTripShell'
 export function TripBudgetPage() {
   const { tripId } = useParams<{ tripId: string }>()
   const { trip } = useTripShell()
+  const tripDates = datesInRange(trip.start_date, trip.end_date)
   const [rollup, setRollup] = useState<BudgetRollup | null>(null)
   const [lines, setLines] = useState<BudgetLine[]>([])
   const [entries, setEntries] = useState<CostEntry[]>([])
@@ -180,9 +181,9 @@ export function TripBudgetPage() {
           </p>
         )}
 
-        {rollup && <BudgetSummaryTiles rollup={rollup} />}
+        {rollup && <BudgetSummaryTiles rollup={rollup} dayCount={tripDates.length} />}
 
-        {rollup && <TripRollup rollup={rollup} />}
+        {rollup && <TripRollup rollup={rollup} dayCount={tripDates.length} />}
 
         <TripExpenses
           tripId={tripId}
@@ -193,7 +194,13 @@ export function TripBudgetPage() {
           onDeleted={handleEntryDeleted}
         />
 
-        <TripBudgetEditor tripId={tripId} lines={lines} onUpdated={handleLineUpdated} />
+        <TripBudgetEditor
+          tripId={tripId}
+          lines={lines}
+          rollup={rollup}
+          dayCount={tripDates.length}
+          onUpdated={handleLineUpdated}
+        />
       </div>
     </article>
   )
