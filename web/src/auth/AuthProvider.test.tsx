@@ -3,6 +3,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { AuthProvider } from './AuthProvider'
 import { useAuth } from './AuthContext'
 import { apiFetch } from '../lib/api'
+import { cacheKeys } from '../lib/cacheKeys'
+import { readCache, writeCache } from '../lib/resourceCache'
 
 // A tiny consumer that renders the auth state, so tests assert what the context
 // exposes to the app.
@@ -75,6 +77,83 @@ describe('AuthProvider', () => {
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('authenticated'))
     const init = fetchSpy.mock.calls[0][1]
     expect(init?.credentials).toBe('include')
+  })
+
+  it('caches the profile after a successful session check', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(profile), { status: 200 }),
+    )
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>,
+    )
+
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('authenticated'))
+    await waitFor(async () =>
+      expect((await readCache(cacheKeys.profile()))?.data).toMatchObject({ name: 'Ann' }),
+    )
+  })
+
+  it('stays authenticated offline by falling back to the cached profile', async () => {
+    // A previous session left a profile in the on-device cache…
+    await writeCache(cacheKeys.profile(), profile)
+    // …and now the network is down: GET /me rejects instead of returning 401.
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'))
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>,
+    )
+
+    // No forced re-login: the app trusts the cached profile and stays signed in.
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('authenticated'))
+    expect(screen.getByTestId('user')).toHaveTextContent('Ann')
+  })
+
+  it('is anonymous offline when there is no cached profile', async () => {
+    // Nothing cached (first-ever use, or signed out) + network down.
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'))
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>,
+    )
+
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('anonymous'))
+    expect(screen.getByTestId('user')).toHaveTextContent('')
+  })
+
+  it('clears the cached profile on sign-out', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(profile), { status: 200 }),
+    )
+
+    function Probe() {
+      const { status, signOut } = useAuth()
+      return (
+        <div>
+          <span data-testid="status">{status}</span>
+          <button onClick={() => void signOut()}>sign out</button>
+        </div>
+      )
+    }
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    )
+
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('authenticated'))
+    await waitFor(async () => expect(await readCache(cacheKeys.profile())).not.toBeNull())
+
+    fireEvent.click(screen.getByRole('button', { name: 'sign out' }))
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('anonymous'))
+    expect(await readCache(cacheKeys.profile())).toBeNull()
   })
 
   it('flips to anonymous when an authenticated call later returns 401 (S4 re-auth)', async () => {
