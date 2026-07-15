@@ -6,6 +6,7 @@
 // so they are stable and human-auditable in devtools.
 
 export const cacheKeys = {
+  profile: () => 'GET /me',
   trips: () => 'GET /trips',
   day: (tripId: string, date: string) => `GET /trips/${tripId}/days/${date}`,
   backlog: (tripId: string) => `GET /trips/${tripId}/plan-items/backlog`,
