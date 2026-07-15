@@ -6,6 +6,8 @@ import { DayView } from './DayView'
 import * as api from '../lib/api'
 import type { Day, PlanItem, Stay, Trip } from '../lib/api'
 import { enqueue } from '../lib/mutationQueue'
+import { readCache } from '../lib/resourceCache'
+import { cacheKeys } from '../lib/cacheKeys'
 
 function makeTrip(overrides?: Partial<Trip>): Trip {
   return {
@@ -502,6 +504,15 @@ describe('DayView', () => {
         }),
       )
       expect(api.createPlanItem).not.toHaveBeenCalled()
+
+      // The optimistic item is persisted to the on-device day cache so an offline
+      // reload keeps showing it (the queued write is safe, but a reload would
+      // otherwise re-render only the last server-synced day). Regression guard for
+      // the "lost all my offline data on pull-to-refresh" bug.
+      await waitFor(async () => {
+        const cached = await readCache<Day>(cacheKeys.day('trip-1', '2026-06-01'))
+        expect(cached?.data.plan_items.some((i) => i.title === 'Offline activity')).toBe(true)
+      })
 
       onLine.mockRestore()
     })
