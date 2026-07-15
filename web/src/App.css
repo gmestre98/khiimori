@@ -2113,6 +2113,32 @@
   margin: var(--space-2) 0;
   font-size: var(--text-sm);
 }
+/* "Add extra to a category" — a quiet toggle revealing the day-extra editor. */
+.day-budget-extra-toggle {
+  font-size: 13px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: var(--space-1) 0;
+  cursor: pointer;
+}
+.day-extra-editor {
+  margin: var(--space-1) 0 var(--space-2);
+}
+.day-extra-list {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+}
+.day-extra-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: 0.5px solid var(--border);
+  font-size: var(--text-sm);
+}
 
 .plan-item-pin-badge {
   width: 20px;

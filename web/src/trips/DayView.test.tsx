@@ -83,6 +83,7 @@ vi.mock('../lib/api', async (importOriginal) => {
     deletePlanItem: vi.fn(),
     movePlanItem: vi.fn(),
     reorderPlanItems: vi.fn(),
+    setDayBudgetLine: vi.fn(),
     fetchDayRoute: vi.fn(),
     geocodeLocation: vi.fn().mockResolvedValue(null),
     fetchAutocomplete: vi.fn().mockResolvedValue([]),
@@ -861,6 +862,36 @@ describe('DayView', () => {
       // DayRollup shows the day's spend and its upcoming (not-yet-done) estimate.
       expect(await screen.findByText(/48/)).toBeInTheDocument()
       expect(screen.getByText(/20.*upcoming/i)).toBeInTheDocument()
+    })
+
+    it('sets a day extra on a category from the day budget', async () => {
+      setMobile(false)
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      vi.mocked(api.setDayBudgetLine).mockResolvedValue({
+        id: 'bl1',
+        trip_id: 'trip-1',
+        day_id: 'day-1',
+        category: 'Activities',
+        scope: 'day',
+        planned_amount: 30,
+        actual_amount: 0,
+      })
+      renderDayView()
+
+      await user.click(await screen.findByRole('button', { name: /Add extra to a category/ }))
+      // The amount is a button until clicked; then it becomes a labelled input.
+      await user.click(await screen.findByRole('button', { name: /Extra budget for Activities/ }))
+      const input = await screen.findByLabelText('Extra budget for Activities')
+      await user.type(input, '30')
+      await user.tab() // blur commits
+
+      await waitFor(() =>
+        expect(api.setDayBudgetLine).toHaveBeenCalledWith('trip-1', 'day-1', {
+          category: 'Activities',
+          planned_amount: 30,
+        }),
+      )
     })
 
     it('does not render facet tabs on desktop (combined grid instead)', async () => {
