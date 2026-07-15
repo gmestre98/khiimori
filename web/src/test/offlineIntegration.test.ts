@@ -54,41 +54,60 @@ describe('offline shell — sw.js contract', () => {
   })
 })
 
-// ── 2. Offline current-trip view — isCacheableRead logic ─────────────────────
+// ── 2. Offline view — isCacheableRead logic ──────────────────────────────────
 // Extract the predicate's logic to verify it in-process (the actual SW runs in
-// a worker context not available under jsdom).
+// a worker context not available under jsdom). Mirrors sw.js: all trips are
+// cacheable now (not just an active one), plus /me and /invitations — but only
+// for API requests (same-origin under /api, or a cross-origin dev API), never
+// the app's own SPA navigations which share the /trips/<id>/… path space.
+const APP_ORIGIN = 'https://app.example'
 
-function isCacheableRead(method: string, pathname: string, activeTripId: string | null): boolean {
+function isCacheableRead(method: string, urlStr: string): boolean {
   if (method !== 'GET') return false
-  if (pathname.endsWith('/trips')) return true
-  return activeTripId !== null && pathname.includes(`/trips/${activeTripId}/`)
+  const url = new URL(urlStr)
+  const isApi = url.origin !== APP_ORIGIN || url.pathname.startsWith('/api/')
+  if (!isApi) return false
+  const p = url.pathname
+  if (p.endsWith('/trips')) return true
+  if (p.endsWith('/me') || p.endsWith('/invitations')) return true
+  return p.includes('/trips/')
 }
 
-describe('offline current-trip view — isCacheableRead', () => {
-  it('caches the trips listing regardless of active trip', () => {
-    expect(isCacheableRead('GET', '/api/trips', null)).toBe(true)
+describe('offline view — isCacheableRead', () => {
+  const u = (path: string) => `${APP_ORIGIN}${path}`
+
+  it('caches the trips listing', () => {
+    expect(isCacheableRead('GET', u('/api/trips'))).toBe(true)
   })
 
-  it('caches reads for the active trip', () => {
-    expect(isCacheableRead('GET', '/api/trips/abc-123/days/2025-06-01', 'abc-123')).toBe(true)
-    expect(isCacheableRead('GET', '/api/trips/abc-123/plan-items/backlog', 'abc-123')).toBe(true)
+  it('caches reads for any trip (not just an active one)', () => {
+    expect(isCacheableRead('GET', u('/api/trips/abc-123/days/2025-06-01'))).toBe(true)
+    expect(isCacheableRead('GET', u('/api/trips/abc-123/plan-items/backlog'))).toBe(true)
+    expect(isCacheableRead('GET', u('/api/trips/other-trip/days/2025-06-01'))).toBe(true)
   })
 
-  it('does not cache reads for a different trip', () => {
-    expect(isCacheableRead('GET', '/api/trips/other-trip/days/2025-06-01', 'abc-123')).toBe(false)
+  it('caches the profile and the invitation inbox', () => {
+    expect(isCacheableRead('GET', u('/api/me'))).toBe(true)
+    expect(isCacheableRead('GET', u('/api/invitations'))).toBe(true)
   })
 
-  it('does not cache when no active trip is set', () => {
-    expect(isCacheableRead('GET', '/api/trips/abc-123/days/2025-06-01', null)).toBe(false)
+  it('caches reads from a cross-origin dev API', () => {
+    expect(isCacheableRead('GET', 'http://localhost:8080/trips/abc-123/days/2025-06-01')).toBe(true)
+  })
+
+  it('does NOT cache the app’s own SPA navigation to a trip route', () => {
+    // A hard reload / deep link of /trips/<id>/... is a same-origin document
+    // request that shares the path space but must fall through to the app shell.
+    expect(isCacheableRead('GET', u('/trips/abc-123/days/2025-06-01'))).toBe(false)
+    expect(isCacheableRead('GET', u('/trips/new'))).toBe(false)
   })
 
   it('does not intercept non-GET requests (writes go to the queue)', () => {
-    expect(isCacheableRead('POST', '/api/trips/abc-123/plan-items', 'abc-123')).toBe(false)
+    expect(isCacheableRead('POST', u('/api/trips/abc-123/plan-items'))).toBe(false)
   })
 
-  it('does not match a trip whose id is a prefix of the active one', () => {
-    // activeTripId='ab' must not match '/trips/abc-123/…'
-    expect(isCacheableRead('GET', '/api/trips/abc-123/days/2025-06-01', 'ab')).toBe(false)
+  it('does not cache unrelated API GETs (geo proxy)', () => {
+    expect(isCacheableRead('GET', u('/api/geo/autocomplete'))).toBe(false)
   })
 })
 

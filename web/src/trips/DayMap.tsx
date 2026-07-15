@@ -2,7 +2,8 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import L from 'leaflet'
 import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import { fetchDayRoute, UnauthorizedError, type Day, type LatLng } from '../lib/api'
+import { UnauthorizedError, type Day, type LatLng } from '../lib/api'
+import { loadDayRoute } from '../lib/dayRouteCache'
 import { buildFeatures, collectLocatedItems, collectLocations, featureList } from './locatedItems'
 
 // DEFAULT_CENTER / DEFAULT_ZOOM frame a gentle world view when the day has no
@@ -125,10 +126,12 @@ export default function DayMap({
     // from the async callbacks below, so the effect never setState synchronously.
     if (!hasAnyLocation) return
     const controller = new AbortController()
-    fetchDayRoute(locations, controller.signal)
+    // Network-first with an offline fallback to cached waypoints (dayRouteCache),
+    // so the day's pins still render without a connection.
+    loadDayRoute(day.trip_id, day.date, locations, controller.signal)
       .then((res) => {
         if (controller.signal.aborted) return
-        setWaypoints(res.waypoints)
+        setWaypoints(res)
         setError(false)
       })
       .catch((err: unknown) => {

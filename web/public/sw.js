@@ -16,14 +16,17 @@
  *     online load; stale ones are dropped when the cache version bumps.
  *   • Other same-origin static files (icons, manifest, favicon): cache-first
  *     so the installed shell renders offline.
- *   • Current-trip API reads (S3): NETWORK-FIRST scoped to the active trip.
- *     GET requests for `/trips/<activeTripId>/…` are served from the network
- *     when online (and cached), and from the cache when offline. The active
- *     trip is set by the app via postMessage; switching trips clears the data
- *     cache so storage stays bounded to one trip (not the whole history).
+ *   • Trip API reads: NETWORK-FIRST across ALL of the user's trips. GET requests
+ *     for `/trips`, `/trips/<id>/…`, `/me` and `/invitations` are served from the
+ *     network when online (and cached), and from the cache when offline. Unlike
+ *     the earlier active-trip-only scheme, the data cache is NOT bounded to one
+ *     trip and is NOT wiped on trip switch: every trip the app has loaded (the
+ *     app pre-warms them all on launch — see offlinePrefetch.ts) stays available
+ *     offline. Trip JSON is small (tens of KB per trip), so holding the whole
+ *     history costs a few MB at most.
  *
- * Other cross-origin requests (maps, fonts) and non-active-trip API calls are
- * left to the network. Update/version handling is refined in S5.
+ * Other cross-origin requests (map tiles, fonts) are left to the network.
+ * Update/version handling is refined in S5.
  *
  * Update / version handling (M09.4 S5)
  * ─────────────────────────────────────
@@ -44,7 +47,7 @@
  * Versioning: bump CACHE_VERSION to invalidate the caches on the next activate.
  */
 
-const CACHE_VERSION = 'v2'
+const CACHE_VERSION = 'v3'
 const CACHE_NAME = `khiimori-shell-${CACHE_VERSION}`
 const DATA_CACHE = `khiimori-data-${CACHE_VERSION}`
 
@@ -62,29 +65,32 @@ const SHELL_URLS = [
   '/apple-touch-icon.png',
 ]
 
-// The trip whose API reads are currently being cached. Set by the app via a
-// SET_ACTIVE_TRIP message; null when no trip screen is open. Gates whether trip
-// reads are intercepted.
-let activeTripId = null
-
-// The trip whose data is currently held in DATA_CACHE. Distinct from
-// activeTripId so that leaving a trip (activeTripId → null) keeps its cached
-// data viewable later; the cache is only dropped when a *different* trip opens.
-let cachedTripId = null
-
 // isCacheableRead reports whether a request is a GET we cache for offline
-// current-trip viewing. Matches on path suffix so it works whether the API is
-// same-origin (the web app's /api/** rewrite) or a separate origin:
+// viewing. Matches on path suffix so it works whether the API is same-origin
+// (the web app's /api/** rewrite) or a separate origin. We cache the user's
+// account- and trip-scoped reads across ALL trips (not just an active one) so
+// every trip the app has loaded stays available offline:
 //   • the trips listing (`…/trips`) — small, and TripShell needs it to resolve
-//     the open trip's name/dates when reloaded offline;
-//   • any `/trips/<activeTripId>/…` path — days, plan items, budget, journal.
-// The trailing slash on the trip path avoids matching a different trip whose id
-// is a prefix of the active one. Bounded to the active trip (switching clears
-// the data cache), so storage never grows to the whole history.
+//     a trip's name/dates when reloaded offline;
+//   • any `…/trips/<id>/…` path — days, plan items, budget, journal, for any id;
+//   • `…/me` (the profile) and `…/invitations` (the in-app invite inbox).
+// The app pre-warms these for every trip on launch (offlinePrefetch.ts), so an
+// offline start finds them all cached. Trip JSON is small, so caching the whole
+// history is only a few MB.
+//
+// Only API requests qualify — never the app's own SPA navigations, which share
+// the `/trips/<id>/…` path space. Same-origin API lives under `/api/**` (the
+// Hosting → Cloud Run rewrite); the dev API is a separate origin. A same-origin
+// document request to `/trips/<id>/days/<date>` (a hard reload or deep link) is
+// therefore NOT cacheable here and falls through to the app-shell handler.
 function isCacheableRead(request, url) {
   if (request.method !== 'GET') return false
-  if (url.pathname.endsWith('/trips')) return true
-  return activeTripId !== null && url.pathname.includes(`/trips/${activeTripId}/`)
+  const isApi = url.origin !== self.location.origin || url.pathname.startsWith('/api/')
+  if (!isApi) return false
+  const p = url.pathname
+  if (p.endsWith('/trips')) return true
+  if (p.endsWith('/me') || p.endsWith('/invitations')) return true
+  return p.includes('/trips/')
 }
 
 // install: precache the shell. waitUntil keeps the worker alive until done.
@@ -131,13 +137,6 @@ self.addEventListener('message', (event) => {
   if (!data) return
   if (data.type === 'SKIP_WAITING') {
     self.skipWaiting()
-    return
-  }
-  if (data.type !== 'SET_ACTIVE_TRIP') return
-  activeTripId = data.tripId
-  if (activeTripId !== null && activeTripId !== cachedTripId) {
-    cachedTripId = activeTripId
-    event.waitUntil(caches.delete(DATA_CACHE))
   }
 })
 
@@ -200,8 +199,8 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url)
 
-  // Current-trip API reads (same-origin under /api, or cross-origin) →
-  // network-first data cache.
+  // Cacheable API reads (same-origin under /api, or cross-origin) → network-first
+  // data cache, across all trips (see isCacheableRead).
   if (isCacheableRead(request, url)) {
     event.respondWith(networkFirstData(request))
     return
@@ -211,8 +210,8 @@ self.addEventListener('fetch', (event) => {
   // Cloud Run) but must NOT be treated as the app shell or a static asset: it is
   // dynamic, auth-bearing data. Pass it straight to the network. Without this the
   // OAuth GET navigations (/api/auth/login, /api/auth/callback) would fall into
-  // the app-shell fallback and break sign-in, and reads like /api/me would land
-  // in the cache-first asset store and be served stale indefinitely.
+  // the app-shell fallback and break sign-in. (Data reads worth keeping offline
+  // are handled by isCacheableRead above; the rest stay network-only.)
   if (url.pathname.startsWith('/api/')) return
 
   // Other cross-origin (map tiles, fonts) → network.

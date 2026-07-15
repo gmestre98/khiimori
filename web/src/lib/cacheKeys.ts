@@ -14,4 +14,9 @@ export const cacheKeys = {
   costEntries: (tripId: string) => `GET /trips/${tripId}/cost-entries`,
   journal: (tripId: string, dayId: string) => `GET /trips/${tripId}/days/${dayId}/journal`,
   photos: (tripId: string, dayId: string) => `GET /trips/${tripId}/days/${dayId}/journal/photos`,
+  // Geocoded map waypoints for a day. Derived from a POST (/geo/day-route), which
+  // the service worker can't cache, so the map's pins are cached app-side here
+  // keyed by trip+date. Stored with the locations that produced them so a stale
+  // cache from different locations is ignored (see dayRouteCache).
+  dayRoute: (tripId: string, date: string) => `POST /geo/day-route ${tripId}/${date}`,
 } as const

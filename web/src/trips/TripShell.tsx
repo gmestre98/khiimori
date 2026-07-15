@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react'
 import { Link, Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { UnauthorizedError, datesInRange, fetchTrips, type Trip } from '../lib/api'
 import { shortDate } from '../lib/format'
-import { useActiveTripOffline } from '../lib/activeTripSync'
 import { useCachedResource } from '../lib/useCachedResource'
 import { cacheKeys } from '../lib/cacheKeys'
 import { CacheStatus } from '../components/CacheStatus'
@@ -41,10 +40,6 @@ function TripShell() {
   const location = useLocation()
   // Trip may be passed via Link state (from the dashboard) to avoid a refetch.
   const stateTrip = (location.state as { trip?: Trip } | null)?.trip ?? null
-
-  // Register this trip with the service worker so its API reads are cached for
-  // offline viewing (M09.4 S3); leaving the trip clears the cache.
-  useActiveTripOffline(tripId ?? null)
 
   // Resolve the trip from the user's trips list via the instant-render cache: a
   // previously-loaded trips list renders the name/dates immediately (no wait for
