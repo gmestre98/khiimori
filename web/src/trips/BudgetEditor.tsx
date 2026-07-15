@@ -293,15 +293,15 @@ export function TripDayExtra({
   dayOptions: DayOption[]
   onChanged: () => void
 }) {
-  const [selectedDayId, setSelectedDayId] = useState('')
-  // Default to the first day once the picker loads (and recover if the current
-  // selection falls out of the list, e.g. trip dates changed).
-  useEffect(() => {
-    if (dayOptions.length === 0) return
-    if (!dayOptions.some((d) => d.id === selectedDayId)) {
-      setSelectedDayId(dayOptions[0].id)
-    }
-  }, [dayOptions, selectedDayId])
+  const [chosenDayId, setChosenDayId] = useState<string | null>(null)
+  // Derive the effective day rather than storing a default via an effect: the
+  // user's pick if it's still a valid day, otherwise the first day. This keeps
+  // the selection correct when the picker loads or the trip's days change,
+  // without a setState-in-effect cascade.
+  const selectedDayId =
+    chosenDayId && dayOptions.some((d) => d.id === chosenDayId)
+      ? chosenDayId
+      : (dayOptions[0]?.id ?? '')
 
   return (
     <div className="budget-editor">
@@ -315,7 +315,7 @@ export function TripDayExtra({
             <select
               className="expense-day-select day-extra-day-select"
               value={selectedDayId}
-              onChange={(e) => setSelectedDayId(e.target.value)}
+              onChange={(e) => setChosenDayId(e.target.value)}
               aria-label="Day to add extra to"
             >
               {dayOptions.map((d) => (
