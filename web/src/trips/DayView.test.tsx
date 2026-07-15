@@ -1100,6 +1100,63 @@ describe('DayView', () => {
       )
     })
 
+    it('marks a plan item done offline: queues the status write, no server call, badge updates', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum', status: 'planned' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Status: planned')).toBeInTheDocument())
+
+      await user.selectOptions(screen.getByLabelText('Status: planned'), 'done')
+
+      // Queued, not sent; the badge reflects the optimistic status immediately.
+      await waitFor(() =>
+        expect(enqueue).toHaveBeenCalledWith('setPlanItemStatus', {
+          tripId: 'trip-1',
+          itemId: 'item-1',
+          status: 'done',
+        }),
+      )
+      expect(api.setPlanItemStatus).not.toHaveBeenCalled()
+      await waitFor(() =>
+        expect(document.querySelector('.plan-item-status-badge')).toHaveTextContent('Done'),
+      )
+
+      // Persisted to the day cache so an offline reload keeps the done status.
+      await waitFor(async () => {
+        const cached = await readCache<Day>(cacheKeys.day('trip-1', '2026-06-01'))
+        expect(cached?.data.plan_items.find((i) => i.id === 'item-1')?.status).toBe('done')
+      })
+
+      onLine.mockRestore()
+    })
+
+    it('deletes a plan item offline: queues the delete and removes it from view', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum', status: 'planned' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Delete Visit museum/ }))
+      await user.click(screen.getByRole('button', { name: /Confirm delete Visit museum/ }))
+
+      await waitFor(() =>
+        expect(enqueue).toHaveBeenCalledWith('deletePlanItem', {
+          tripId: 'trip-1',
+          itemId: 'item-1',
+        }),
+      )
+      expect(api.deletePlanItem).not.toHaveBeenCalled()
+      await waitFor(() => expect(screen.queryByText('Visit museum')).not.toBeInTheDocument())
+
+      onLine.mockRestore()
+    })
+
     it('renders a Move… button on each plan item', async () => {
       const item = makePlanItem({ title: 'Visit museum' })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))

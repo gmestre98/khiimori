@@ -16,6 +16,8 @@ import { TripExpenses, type DayOption } from './TripExpenses'
 import { readCache, writeCache } from '../lib/resourceCache'
 import { cacheKeys } from '../lib/cacheKeys'
 import { shortDate } from '../lib/format'
+import { useIsOnline } from '../lib/useIsOnline'
+import { patchRollupPlanned } from './budgetModel'
 import { useTripShell } from './useTripShell'
 
 // TripBudgetPage renders the trip-level budget editor, rollup display, and the
@@ -23,6 +25,7 @@ import { useTripShell } from './useTripShell'
 export function TripBudgetPage() {
   const { tripId } = useParams<{ tripId: string }>()
   const { trip } = useTripShell()
+  const online = useIsOnline()
   const tripDates = datesInRange(trip.start_date, trip.end_date)
   const [rollup, setRollup] = useState<BudgetRollup | null>(null)
   const [lines, setLines] = useState<BudgetLine[]>([])
@@ -120,6 +123,21 @@ export function TripBudgetPage() {
     }
   }, [tripId, trip.start_date, trip.end_date])
 
+  // applyOfflineLine reflects a budget line saved offline into the rollup (and its
+  // cache) without a server round-trip, so the composed budget updates in-session
+  // and survives an offline reload. The authoritative rollup replaces it when the
+  // queued write syncs on reconnect. See patchRollupPlanned.
+  const applyOfflineLine = useCallback(
+    (line: BudgetLine) => {
+      setRollup((cur) => {
+        const patched = patchRollupPlanned(cur, line)
+        if (patched && tripId) void writeCache(cacheKeys.budgetRollup(tripId), patched)
+        return patched
+      })
+    },
+    [tripId],
+  )
+
   function handleLineUpdated(line: BudgetLine) {
     setLines((prev) => {
       const idx = prev.findIndex((l) => l.id === line.id)
@@ -130,6 +148,10 @@ export function TripBudgetPage() {
       }
       return [...prev, line]
     })
+    if (!online) {
+      applyOfflineLine(line)
+      return
+    }
     // Re-fetch rollup so planned totals reflect the new line immediately.
     loadRollup()
   }
@@ -198,7 +220,7 @@ export function TripBudgetPage() {
           tripId={tripId}
           rollup={rollup}
           dayOptions={dayOptions}
-          onChanged={loadRollup}
+          onChanged={(line) => (line ? applyOfflineLine(line) : loadRollup())}
         />
 
         <TripBudgetEditor

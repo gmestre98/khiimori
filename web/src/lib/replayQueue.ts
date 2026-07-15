@@ -80,6 +80,11 @@ interface DemotePlanItemPayload {
   itemId: string
 }
 
+interface DeletePlanItemPayload {
+  tripId: string
+  itemId: string
+}
+
 interface SetPlanItemStatusPayload {
   tripId: string
   itemId: string
@@ -193,6 +198,11 @@ async function dispatch(m: QueuedMutation): Promise<void> {
     case 'demotePlanItem': {
       const { tripId, itemId } = p as unknown as DemotePlanItemPayload
       await api.demotePlanItem(tripId, itemId)
+      return
+    }
+    case 'deletePlanItem': {
+      const { tripId, itemId } = p as unknown as DeletePlanItemPayload
+      await api.deletePlanItem(tripId, itemId)
       return
     }
     case 'setPlanItemStatus': {
