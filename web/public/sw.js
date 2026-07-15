@@ -25,7 +25,13 @@
  *     offline. Trip JSON is small (tens of KB per trip), so holding the whole
  *     history costs a few MB at most.
  *
- * Other cross-origin requests (map tiles, fonts) are left to the network.
+ *   • OSM map tiles (cross-origin `*.tile.openstreetmap.org`): CACHE-FIRST in a
+ *     dedicated, size-bounded tile cache so a trip's maps render offline once its
+ *     tiles have been pre-fetched (offlinePrefetch → tilePrefetch) or viewed
+ *     online. Subdomains are normalised to one key; the cache survives app
+ *     updates (tiles are immutable) and is pruned to a max entry count.
+ *
+ * Other cross-origin requests (fonts, etc.) are left to the network.
  * Update/version handling is refined in S5.
  *
  * Update / version handling (M09.4 S5)
@@ -50,6 +56,22 @@
 const CACHE_VERSION = 'v3'
 const CACHE_NAME = `khiimori-shell-${CACHE_VERSION}`
 const DATA_CACHE = `khiimori-data-${CACHE_VERSION}`
+
+// TILE_CACHE holds OpenStreetMap raster tiles for offline maps. Kept separate
+// from the data cache (different lifecycle, and it's the one cache we bound by
+// size). Deliberately NOT suffixed with CACHE_VERSION: tiles are effectively
+// immutable and expensive to re-fetch, so they survive app updates instead of
+// being thrown away on every deploy. It is pruned by MAX_TILE_ENTRIES below.
+const TILE_CACHE = 'khiimori-tiles'
+
+// MAX_TILE_ENTRIES caps how many tiles we keep so opportunistic caching (tiles
+// fetched as the user pans while online) plus pre-fetch can't grow without
+// bound. At ~20 KB/tile this holds the tile cache near ~50 MB. When exceeded we
+// evict the oldest entries (Cache API preserves insertion order in keys()).
+const MAX_TILE_ENTRIES = 2500
+
+// TILE_HOST_RE matches OSM tile requests (any a/b/c subdomain or the bare host).
+const TILE_HOST_RE = /(^|\.)tile\.openstreetmap\.org$/
 
 // The minimal shell precached on install. Hashed JS/CSS are intentionally NOT
 // listed (their names are unknown at author time) — they are runtime-cached on
@@ -106,7 +128,7 @@ self.addEventListener('install', (event) => {
 // immediately (without waiting for a full page reload per-client).
 // Broadcasts SW_ACTIVATED so the app can reload and pick up the new shell.
 self.addEventListener('activate', (event) => {
-  const keep = new Set([CACHE_NAME, DATA_CACHE])
+  const keep = new Set([CACHE_NAME, DATA_CACHE, TILE_CACHE])
   event.waitUntil(
     caches
       .keys()
@@ -152,6 +174,49 @@ async function cacheFirst(request) {
     cache.put(request, response.clone())
   }
   return response
+}
+
+// tileCacheKey normalises an OSM tile request to a single subdomain-less key so
+// the a/b/c subdomains Leaflet rotates through (and the bare host the pre-fetcher
+// uses) all resolve to one cache entry — otherwise the same tile could be stored
+// up to four times and a pre-fetched tile would miss when Leaflet asked for it
+// via a different subdomain. Keyed by URL string (GET), which cache.match accepts.
+function tileCacheKey(url) {
+  return `https://tile.openstreetmap.org${url.pathname}`
+}
+
+// cacheFirstTile serves an OSM tile from the tile cache, falling back to the
+// network and caching the result. Tiles are cross-origin and load as opaque
+// responses (status 0, type 'opaque') — we cache those too (can't inspect them,
+// but they render fine), which is why this is separate from cacheFirst. After a
+// network store we prune the cache back under MAX_TILE_ENTRIES (oldest first).
+// On a network failure with nothing cached we just propagate the failure so
+// Leaflet shows its usual blank tile — no synthetic response needed.
+async function cacheFirstTile(request, url) {
+  const cache = await caches.open(TILE_CACHE)
+  const key = tileCacheKey(url)
+  const cached = await cache.match(key)
+  if (cached) return cached
+  const response = await fetch(request)
+  // Cache successful basic/opaque responses; skip error statuses (a 404/timeout
+  // opaque response still has status 0, so also require the fetch not to reject).
+  if (response.status === 200 || response.type === 'opaque') {
+    await cache.put(key, response.clone())
+    void pruneTileCache(cache)
+  }
+  return response
+}
+
+// pruneTileCache evicts the oldest entries when the tile cache grows past
+// MAX_TILE_ENTRIES. keys() yields entries in insertion order, so the front of
+// the list is the oldest. Best-effort; runs after a put and never blocks it.
+async function pruneTileCache(cache) {
+  const keys = await cache.keys()
+  const overflow = keys.length - MAX_TILE_ENTRIES
+  if (overflow <= 0) return
+  for (let i = 0; i < overflow; i++) {
+    await cache.delete(keys[i])
+  }
 }
 
 // networkFirstShell: try the network (fresh shell), fall back to the cached
@@ -214,7 +279,14 @@ self.addEventListener('fetch', (event) => {
   // are handled by isCacheableRead above; the rest stay network-only.)
   if (url.pathname.startsWith('/api/')) return
 
-  // Other cross-origin (map tiles, fonts) → network.
+  // OSM map tiles (cross-origin) → cache-first tile cache, so a trip's maps work
+  // offline once its tiles have been pre-fetched (tilePrefetch) or viewed online.
+  if (TILE_HOST_RE.test(url.hostname)) {
+    event.respondWith(cacheFirstTile(request, url))
+    return
+  }
+
+  // Other cross-origin (fonts, etc.) → network.
   if (url.origin !== self.location.origin) return
 
   // Navigations → app shell (network-first).

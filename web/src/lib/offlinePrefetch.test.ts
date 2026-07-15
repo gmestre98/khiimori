@@ -16,9 +16,11 @@ vi.mock('./api', async (importActual) => {
   }
 })
 vi.mock('./dayRouteCache', () => ({ warmDayRoute: vi.fn() }))
+vi.mock('./tilePrefetch', () => ({ prefetchTiles: vi.fn() }))
 
 import * as api from './api'
 import { warmDayRoute } from './dayRouteCache'
+import { prefetchTiles } from './tilePrefetch'
 import { prefetchAllTripsForOffline, resetPrefetchForTest } from './offlinePrefetch'
 
 const fetchTrips = vi.mocked(api.fetchTrips)
@@ -28,6 +30,7 @@ const fetchBudgetRollup = vi.mocked(api.fetchBudgetRollup)
 const listCostEntries = vi.mocked(api.listCostEntries)
 const fetchJournalEntry = vi.mocked(api.fetchJournalEntry)
 const warmDayRouteMock = vi.mocked(warmDayRoute)
+const prefetchTilesMock = vi.mocked(prefetchTiles)
 
 function trip(id: string, start: string, end: string): Trip {
   return {
@@ -90,6 +93,7 @@ beforeEach(() => {
     updated_at: '',
   })
   warmDayRouteMock.mockResolvedValue([])
+  prefetchTilesMock.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
@@ -115,6 +119,21 @@ describe('prefetchAllTripsForOffline', () => {
     // Per-day reads: 3 + 1 = 4 days.
     expect(fetchDay).toHaveBeenCalledTimes(4)
     expect(warmDayRouteMock).toHaveBeenCalledTimes(4)
+  })
+
+  it('warms map tiles with the geocoded waypoints from every day', async () => {
+    fetchTrips.mockResolvedValue({
+      ...emptyTrips(),
+      current: [trip('t1', '2026-07-01', '2026-07-02')], // 2 days
+    })
+    warmDayRouteMock.mockResolvedValue([{ lat: 38.7, lng: -9.1 }])
+
+    await prefetchAllTripsForOffline()
+
+    expect(prefetchTilesMock).toHaveBeenCalledTimes(1)
+    const [points] = prefetchTilesMock.mock.calls[0]
+    // One waypoint per day × 2 days = 2 points collected.
+    expect(points).toHaveLength(2)
   })
 
   it('runs only once per session', async () => {
