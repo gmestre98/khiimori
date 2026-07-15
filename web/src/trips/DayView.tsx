@@ -38,6 +38,7 @@ import { CacheStatus } from '../components/CacheStatus'
 import { JournalEditor } from '../journal/JournalEditor'
 import { FastAddCost } from './FastAddCost'
 import { DayRollup } from './RollupDisplay'
+import { dayBudgetTotal } from './budgetModel'
 import { useTripShell } from './useTripShell'
 
 const DayMap = lazy(() => import('./DayMap'))
@@ -1777,11 +1778,11 @@ function DayBudgetStrip({ tripId, day }: { tripId: string; day: Day }) {
   }
 
   const daySpent = rollup?.by_day?.[day.id] ?? 0
-  const dayPlanned = rollup?.planned_by_day?.[day.id] ?? 0
+  const dayBudget = rollup ? dayBudgetTotal(rollup, day.id) : 0
   const dayUpcoming = rollup?.estimated_by_day?.[day.id] ?? 0
-  // DayRollup renders nothing when the day has no spend/plan/estimate; mirror its
-  // condition so we can show a hint instead of an empty budget section.
-  const hasBudgetData = daySpent > 0 || dayPlanned > 0 || dayUpcoming > 0
+  // DayRollup renders nothing when the day has no spend/budget/estimate; mirror
+  // its condition so we can show a hint instead of an empty budget section.
+  const hasBudgetData = daySpent > 0 || dayBudget > 0 || dayUpcoming > 0
 
   return (
     <section className="day-slot day-slot-budget" aria-label="Budget" data-slot="budget">

@@ -641,17 +641,26 @@ export async function setPlanItemStatus(
 export const BUDGET_CATEGORIES = ['Stays', 'Transport', 'Food', 'Activities', 'Other'] as const
 export type BudgetCategory = (typeof BUDGET_CATEGORIES)[number]
 
+// BudgetScope is how a budget line applies: a whole-trip lump ('trip'), a
+// per-day allowance applied to every day ('daily'), or an extra on one day
+// ('day'). Optional on cached shapes predating the column → treated as 'trip'.
+export type BudgetScope = 'trip' | 'daily' | 'day'
+
 export interface BudgetLine {
   id: string
   trip_id: string
   day_id: string | null
   category: BudgetCategory
+  scope?: BudgetScope
   planned_amount: number
   actual_amount: number
 }
 
 export interface SetBudgetLineInput {
   category: BudgetCategory
+  // scope is optional on the trip endpoint: omitted/'trip' sets the whole-trip
+  // lump, 'daily' sets the per-day allowance. Ignored on the day endpoint.
+  scope?: BudgetScope
   planned_amount: number
 }
 
@@ -768,9 +777,16 @@ export interface BudgetRollup {
   estimated_trip_total?: number
   estimated_by_category?: Record<string, number>
   estimated_by_day?: Record<string, number>
+  // Raw per-scope planned amounts. The client composes effective budgets from
+  // these (day = daily + day extra; trip = lump + daily×days + extras).
+  // planned_by_category / planned_trip_total are the whole-trip lumps.
   planned_trip_total: number
   planned_by_category: Record<string, number>
+  // planned_by_day / planned_by_day_category are the single-day extras.
   planned_by_day: Record<string, number>
+  planned_by_day_category?: Record<string, Record<string, number>>
+  // daily_by_category is the per-day allowance per category (applies every day).
+  daily_by_category?: Record<string, number>
 }
 
 // fetchBudgetRollup calls GET /trips/:id/budget/rollup.

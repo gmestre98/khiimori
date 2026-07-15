@@ -1,6 +1,12 @@
 import type { BudgetRollup } from '../lib/api'
 import { BUDGET_CATEGORIES } from '../lib/api'
 import { euro as fmt, euroWhole as fmtWhole } from '../lib/format'
+import {
+  dayBudgetForCategory,
+  dayBudgetTotal,
+  tripBudgetForCategory,
+  tripBudgetTotal,
+} from './budgetModel'
 
 // Category swatch colors map to the design tokens (--cat-*).
 const CATEGORY_COLOR: Record<string, string> = {
@@ -13,10 +19,17 @@ const CATEGORY_COLOR: Record<string, string> = {
 
 // BudgetSummaryTiles renders the three headline tiles from the design reference:
 // Spent · Remaining (the teal number you watch) · Trip budget.
-export function BudgetSummaryTiles({ rollup }: { rollup: BudgetRollup }) {
+export function BudgetSummaryTiles({
+  rollup,
+  dayCount,
+}: {
+  rollup: BudgetRollup
+  dayCount: number
+}) {
   const spent = rollup.trip_total
   const upcoming = rollup.estimated_trip_total ?? 0
-  const budget = rollup.planned_trip_total
+  // The trip budget is composed: lumps + daily allowances × days + day extras.
+  const budget = tripBudgetTotal(rollup, dayCount)
   const remaining = budget - spent
   const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0
 
@@ -152,18 +165,19 @@ function CategoryMeter({
   )
 }
 
-// TripRollup shows the full three-level rollup: trip total, by category, by day.
-export function TripRollup({ rollup }: { rollup: BudgetRollup }) {
+// TripRollup shows the by-category rollup: spent vs the composed category budget
+// (lump + daily allowance × days + day extras).
+export function TripRollup({ rollup, dayCount }: { rollup: BudgetRollup; dayCount: number }) {
   const categoryRows = BUDGET_CATEGORIES.map((cat) => ({
     cat,
     spent: rollup.by_category[cat] ?? 0,
-    planned: rollup.planned_by_category[cat] ?? 0,
+    planned: tripBudgetForCategory(rollup, dayCount, cat),
     upcoming: rollup.estimated_by_category?.[cat] ?? 0,
   })).filter(({ spent, planned, upcoming }) => spent > 0 || planned > 0 || upcoming > 0)
 
   const isEmpty =
     rollup.trip_total === 0 &&
-    rollup.planned_trip_total === 0 &&
+    tripBudgetTotal(rollup, dayCount) === 0 &&
     (rollup.estimated_trip_total ?? 0) === 0 &&
     categoryRows.length === 0
 
@@ -194,24 +208,25 @@ export function TripRollup({ rollup }: { rollup: BudgetRollup }) {
   )
 }
 
-// DayRollup shows the per-day rollup for a single day: per-category breakdown.
+// DayRollup shows a single day's budget: spent vs the day budget (daily
+// allowance + that day's extra) per category, and the day total.
 export function DayRollup({ rollup, dayId }: { rollup: BudgetRollup; dayId: string }) {
   const daySpent = rollup.by_day[dayId] ?? 0
-  const dayPlanned = rollup.planned_by_day[dayId] ?? 0
+  const dayBudget = dayBudgetTotal(rollup, dayId)
   const dayUpcoming = rollup.estimated_by_day?.[dayId] ?? 0
   const dayCategories = rollup.by_day_category[dayId] ?? {}
 
   const catRows = BUDGET_CATEGORIES.map((cat) => ({
     cat,
     spent: dayCategories[cat] ?? 0,
-    planned: 0, // day-category planned not yet exposed; show spend-only
-  })).filter(({ spent }) => spent > 0)
+    planned: dayBudgetForCategory(rollup, dayId, cat),
+  })).filter(({ spent, planned }) => spent > 0 || planned > 0)
 
-  if (daySpent === 0 && dayPlanned === 0 && dayUpcoming === 0) return null
+  if (daySpent === 0 && dayBudget === 0 && dayUpcoming === 0) return null
 
   return (
     <div className="day-rollup">
-      <RollupRow label="Day total" spent={daySpent} planned={dayPlanned} />
+      <RollupRow label="Day total" spent={daySpent} planned={dayBudget} />
       {dayUpcoming > 0 && (
         <div className="day-rollup-upcoming meta">+{fmt(dayUpcoming)} upcoming (not yet done)</div>
       )}
