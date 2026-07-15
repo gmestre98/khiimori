@@ -1,5 +1,5 @@
 import './App.css'
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { ThemeProvider } from './design/ThemeProvider'
 import { SignIn } from './auth/SignIn'
@@ -7,6 +7,8 @@ import { PostLoginRedirect, RequireAuth } from './auth/RequireAuth'
 import { RequireAdmin } from './auth/RequireAdmin'
 import { AuthenticatedLayout } from './components/layout/AuthenticatedLayout'
 import { InstallPrompt } from './components/InstallPrompt'
+import { useAuth } from './auth/AuthContext'
+import { prefetchAllTripsForOffline } from './lib/offlinePrefetch'
 
 // Route-level code-splitting (M09.5 S2): each lazy() call produces a separate
 // JS chunk so the browser only fetches what's needed for the current route.
@@ -57,6 +59,23 @@ function RouteLoading() {
   )
 }
 
+// OfflinePrewarm kicks off the launch-time pre-warm of every trip's data for
+// offline use, once the user is authenticated. It renders nothing; the pre-warm
+// runs in the background, self-limits to one run per session, and skips itself
+// offline or on a metered connection (see offlinePrefetch). Placed here (inside
+// the auth context, above the routes) so it starts regardless of the first
+// screen the user lands on.
+function OfflinePrewarm() {
+  const { status } = useAuth()
+  useEffect(() => {
+    if (status !== 'authenticated') return
+    const controller = new AbortController()
+    void prefetchAllTripsForOffline(controller.signal)
+    return () => controller.abort()
+  }, [status])
+  return null
+}
+
 // App is the shell and route table. Public route: /signin (rendered bare). Gated
 // routes (everything under RequireAuth) require a valid session and redirect
 // anonymous users to /signin; they render inside AuthenticatedLayout, which
@@ -67,6 +86,7 @@ function App() {
   return (
     <ThemeProvider>
       <PostLoginRedirect />
+      <OfflinePrewarm />
       <div className="app-root">
         <Routes>
           <Route path="/signin" element={<SignIn />} />

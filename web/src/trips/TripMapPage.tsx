@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import { datesInRange, fetchDay, fetchDayRoute, UnauthorizedError, type LatLng } from '../lib/api'
+import { datesInRange, fetchDay, UnauthorizedError, type LatLng } from '../lib/api'
+import { loadDayRoute } from '../lib/dayRouteCache'
 import { shortDate } from '../lib/format'
 import { collectLocatedItems, collectLocations, type LocatedItem } from './locatedItems'
 import { useTripShell } from './useTripShell'
@@ -48,7 +49,8 @@ async function loadDay(
   const locations = collectLocations(day)
   if (locations.length === 0) return { ...base, items, status: 'no-places' }
   try {
-    const { waypoints } = await fetchDayRoute(locations, signal)
+    // Network-first with an offline fallback to cached waypoints (dayRouteCache).
+    const waypoints = await loadDayRoute(tripId, date, locations, signal)
     return {
       ...base,
       items,
