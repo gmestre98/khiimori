@@ -1,22 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import L from 'leaflet'
 import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { fetchDayRoute, UnauthorizedError, type Day, type LatLng } from '../lib/api'
-import { collectLocatedItems, type LocatedItem } from './locatedItems'
-
-// collectLocations builds the raw location string list passed to fetchDayRoute,
-// including empty strings for location-less items (the server skips them). The
-// order matches collectLocatedItems so returned waypoints line up positionally
-// with located items (waypoints[i] ↔ locatedItems[i]).
-function collectLocations(day: Day): string[] {
-  return [
-    ...(day.stays ?? []).map((s) => s.location ?? ''),
-    ...[...(day.plan_items ?? [])]
-      .sort((a, b) => a.sort_order - b.sort_order)
-      .map((i) => i.location ?? ''),
-  ]
-}
+import { buildFeatures, collectLocatedItems, collectLocations, featureList } from './locatedItems'
 
 // DEFAULT_CENTER / DEFAULT_ZOOM frame a gentle world view when the day has no
 // located stops yet — the map stays visible ("always available") rather than
@@ -53,14 +40,33 @@ function pinIcon(n: number, selected: boolean, done: boolean): L.DivIcon {
   })
 }
 
+// endpointIcon builds the small dot dropped on a transport leg's start and
+// finish. The number lives on the leg's ball at the arrow midpoint, so the ends
+// are unlabelled markers that just show where the leg begins and lands.
+function endpointIcon(selected: boolean, done: boolean): L.DivIcon {
+  const cls = [
+    'day-map-endpoint',
+    selected ? 'day-map-endpoint--selected' : '',
+    !done && !selected ? 'day-map-endpoint--faint' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+  return L.divIcon({
+    className: 'day-map-marker-wrap',
+    html: `<span class="${cls}"></span>`,
+    iconSize: [12, 12],
+    iconAnchor: [6, 6],
+  })
+}
+
 // MapController syncs the imperative Leaflet map with React state: it fits the
-// view to the day's waypoints and pans to the selected pin when it changes.
+// view to the day's waypoints and pans to the selected feature when it changes.
 function MapController({
   waypoints,
-  selectedIndex,
+  selectedAnchor,
 }: {
   waypoints: LatLng[]
-  selectedIndex: number
+  selectedAnchor: LatLng | null
 }) {
   const map = useMap()
 
@@ -78,10 +84,9 @@ function MapController({
   }, [map, waypoints])
 
   useEffect(() => {
-    if (selectedIndex < 0 || selectedIndex >= waypoints.length) return
-    const wp = waypoints[selectedIndex]
-    map.panTo([wp.lat, wp.lng])
-  }, [map, selectedIndex, waypoints])
+    if (!selectedAnchor) return
+    map.panTo([selectedAnchor.lat, selectedAnchor.lng])
+  }, [map, selectedAnchor])
 
   return null
 }
@@ -91,8 +96,11 @@ function MapController({
 // location; markers are clickable and wired to the shared selection state
 // (Epic 04 S1), so clicking a pin on the map highlights the matching list item.
 //
-// Items without a location are excluded (the geo proxy skips empty strings).
-// Exported as the default so React.lazy can load the map bundle on demand.
+// A transport leg shows both its ends — a small marker on the start and finish —
+// joined by the route line, with the leg's single numbered ball sitting on the
+// arrow midpoint. Items without a location are excluded (the geo proxy skips
+// empty strings). Exported as the default so React.lazy can load the map bundle
+// on demand.
 export default function DayMap({
   day,
   selectedId,
@@ -102,9 +110,9 @@ export default function DayMap({
   selectedId: string | null
   onSelect: (id: string | null) => void
 }) {
-  const locations = collectLocations(day)
-  const locatedItems = collectLocatedItems(day)
-  const hasAnyLocation = locations.some((l) => l !== '')
+  const locatedItems = useMemo(() => collectLocatedItems(day), [day])
+  const locations = useMemo(() => collectLocations(day), [day])
+  const hasAnyLocation = locations.length > 0
 
   // Skip the async fetch when nothing has a location: start "resolved empty".
   const [waypoints, setWaypoints] = useState<LatLng[] | null>(hasAnyLocation ? null : [])
@@ -137,9 +145,13 @@ export default function DayMap({
   // Derive displayed points from hasAnyLocation so clearing the last location
   // immediately empties the map without needing to reset fetched state.
   const points = hasAnyLocation ? (waypoints ?? []) : []
-  const selectedIndex = useMemo(
-    () => (selectedId ? locatedItems.findIndex((it) => it.id === selectedId) : -1),
-    [selectedId, locatedItems],
+  // Render features group the expanded points back into numbered pins (a leg's
+  // two ends become one ball at their midpoint plus an endpoint marker on each).
+  const features = useMemo(() => buildFeatures(locatedItems, points), [locatedItems, points])
+  const legend = useMemo(() => featureList(locatedItems), [locatedItems])
+  const selectedAnchor = useMemo(
+    () => features.find((f) => f.id === selectedId)?.anchor ?? null,
+    [features, selectedId],
   )
   const routeColor = useMemo(() => accentColor(), [])
 
@@ -175,45 +187,54 @@ export default function DayMap({
             pathOptions={{ color: routeColor, weight: 3, opacity: 0.5 }}
           />
         )}
-        {points.map((wp, i) => {
-          const item: LocatedItem | undefined = locatedItems[i]
-          const isSelected = !!item && selectedId === item.id
+        {features.map((f) => {
+          const isSelected = selectedId === f.id
+          const select = () => onSelect(selectedId === f.id ? null : f.id)
           return (
-            <Marker
-              key={item?.id ?? `${wp.lat},${wp.lng}`}
-              position={[wp.lat, wp.lng]}
-              icon={pinIcon(i + 1, isSelected, item?.done ?? true)}
-              eventHandlers={{
-                click: () => item && onSelect(selectedId === item.id ? null : item.id),
-              }}
-            >
-              {item && <Tooltip>{item.label}</Tooltip>}
-            </Marker>
+            <Fragment key={f.id}>
+              {f.ends.map((end) => (
+                <Marker
+                  key={`${f.id}:${end.role}`}
+                  position={[end.coord.lat, end.coord.lng]}
+                  icon={endpointIcon(isSelected, f.done)}
+                  eventHandlers={{ click: select }}
+                >
+                  <Tooltip>{`${end.role === 'from' ? 'From' : 'To'} ${end.location}`}</Tooltip>
+                </Marker>
+              ))}
+              <Marker
+                position={[f.anchor.lat, f.anchor.lng]}
+                icon={pinIcon(f.number, isSelected, f.done)}
+                eventHandlers={{ click: select }}
+              >
+                <Tooltip>{f.label}</Tooltip>
+              </Marker>
+            </Fragment>
           )
         })}
-        <MapController waypoints={points} selectedIndex={selectedIndex} />
+        <MapController waypoints={points} selectedAnchor={selectedAnchor} />
       </MapContainer>
 
       {caption && <p className="day-map-caption">{caption}</p>}
 
-      {locatedItems.length > 0 && (
+      {legend.length > 0 && (
         <nav className="day-map-pins" aria-label="Map pins">
-          {locatedItems.map((item, i) => (
+          {legend.map((f) => (
             <button
-              key={item.id}
+              key={f.id}
               type="button"
               className={[
                 'day-map-pin',
-                selectedId === item.id ? 'day-map-pin--selected' : '',
-                item.done ? '' : 'day-map-pin--faint',
+                selectedId === f.id ? 'day-map-pin--selected' : '',
+                f.done ? '' : 'day-map-pin--faint',
               ]
                 .filter(Boolean)
                 .join(' ')}
-              aria-label={`Pin ${i + 1}: ${item.label}`}
-              aria-pressed={selectedId === item.id}
-              onClick={() => onSelect(selectedId === item.id ? null : item.id)}
+              aria-label={`Pin ${f.number}: ${f.label}`}
+              aria-pressed={selectedId === f.id}
+              onClick={() => onSelect(selectedId === f.id ? null : f.id)}
             >
-              {i + 1}
+              {f.number}
             </button>
           ))}
         </nav>

@@ -1567,6 +1567,20 @@
 .day-map-marker--faint {
   opacity: 0.4;
 }
+/* Endpoint dots for a transport leg's start and finish. The leg's numbered ball
+   sits on the arrow midpoint, so the ends are small unlabelled markers. */
+.day-map-endpoint {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--surface, #fff);
+  background: var(--accent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.day-map-endpoint--faint {
+  opacity: 0.4;
+}
 
 .day-map-pins {
   display: flex;
@@ -1772,6 +1786,20 @@
 /* Pins for things that didn't happen (not done) fade back; selection is never
    faint (guarded in pinIcon). */
 .trip-map-marker--faint {
+  opacity: 0.4;
+}
+/* Endpoint dots for a transport leg on the whole-trip map — tinted to the day
+   colour, mirroring the day map's day-map-endpoint. */
+.trip-map-endpoint {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--surface, #fff);
+  background: var(--pin-color, var(--accent));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.trip-map-endpoint--faint {
   opacity: 0.4;
 }
 
@@ -2167,6 +2195,23 @@
 .plan-item-pin-badge--selected {
   background: var(--accent);
   color: var(--accent-on);
+}
+
+/* A transport leg's badge is a pill — a start dot, the leg's single number, and
+   a finish dot — reading as a route between two ends rather than one place. */
+.plan-item-pin-badge--transport {
+  width: auto;
+  min-width: 20px;
+  padding: 0 5px;
+  gap: 3px;
+  border-radius: 10px;
+}
+.plan-item-pin-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+  flex-shrink: 0;
 }
 
 .plan-item--selected {

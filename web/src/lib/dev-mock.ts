@@ -73,6 +73,21 @@ function richKyotoDay(date: string) {
         status: 'active',
       },
       {
+        id: 'pi-transport',
+        trip_id: MOCK_CURRENT_TRIP_ID,
+        day_id: DAY4_ID,
+        title: 'Train to Arashiyama',
+        kind: 'transport',
+        type: 'transport',
+        start_time: '13:30',
+        origin: 'Nishiki',
+        destination: 'Arashiyama',
+        arrive_time: '14:00',
+        cost: 4.5,
+        sort_order: 2.5,
+        status: 'active',
+      },
+      {
         id: 'pi-3',
         trip_id: MOCK_CURRENT_TRIP_ID,
         day_id: DAY4_ID,
@@ -225,15 +240,23 @@ function resolve(path: string, method: string, search: string, body: unknown): R
     return json({ suggestions })
   }
 
-  // Day route geo proxy
+  // Day route geo proxy. Return one waypoint per non-empty input location, spread
+  // deterministically around Kyoto, so waypoints line up positionally with the
+  // located points the caller sent (including a transport leg's two ends).
   if (path === '/geo/day-route') {
-    return json({
-      waypoints: [
-        { lat: 34.967, lng: 135.772 },
-        { lat: 35.005, lng: 135.765 },
-        { lat: 34.998, lng: 135.78 },
-      ],
-    })
+    const locations = Array.isArray((body as { locations?: unknown })?.locations)
+      ? ((body as { locations: string[] }).locations ?? [])
+      : []
+    const waypoints = locations
+      .filter((l) => l && l.trim() !== '')
+      .map((loc) => {
+        let h = 0
+        for (let i = 0; i < loc.length; i++) h = (h * 31 + loc.charCodeAt(i)) | 0
+        const lat = 34.98 + ((h % 60) / 60) * 0.06
+        const lng = 135.74 + (((h >> 6) % 60) / 60) * 0.08
+        return { lat, lng }
+      })
+    return json({ waypoints })
   }
 
   // /trips/:id/days/:date/journal/photos
