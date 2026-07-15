@@ -2153,6 +2153,16 @@
 .day-extra-editor {
   margin: var(--space-1) 0 var(--space-2);
 }
+.day-extra-day-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.day-extra-day-select {
+  width: 100%;
+}
 .day-extra-list {
   list-style: none;
   margin: var(--space-1) 0 0;

@@ -10,7 +10,7 @@ import {
   type BudgetRollup,
   type CostEntry,
 } from '../lib/api'
-import { TripBudgetEditor } from './BudgetEditor'
+import { TripBudgetEditor, TripDayExtra } from './BudgetEditor'
 import { TripRollup, BudgetSummaryTiles } from './RollupDisplay'
 import { TripExpenses, type DayOption } from './TripExpenses'
 import { readCache, writeCache } from '../lib/resourceCache'
@@ -192,6 +192,13 @@ export function TripBudgetPage() {
           onAdded={handleEntryAdded}
           onUpdated={handleEntryUpdated}
           onDeleted={handleEntryDeleted}
+        />
+
+        <TripDayExtra
+          tripId={tripId}
+          rollup={rollup}
+          dayOptions={dayOptions}
+          onChanged={loadRollup}
         />
 
         <TripBudgetEditor

@@ -12,6 +12,7 @@ import {
 import { enqueue } from '../lib/mutationQueue'
 import { useIsOnline } from '../lib/useIsOnline'
 import { tripBudgetForCategory, tripBudgetTotal } from './budgetModel'
+import type { DayOption } from './TripExpenses'
 
 // formatEUR formats a number as a compact EUR string, e.g. "€12.50".
 function formatEUR(amount: number): string {
@@ -273,6 +274,67 @@ export function DayExtraEditor({
           </li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+// TripDayExtra brings the single-day extra editor to the Budget tab: pick a day
+// from the dropdown, then set a per-category top-up for it. The day picker
+// reuses the day list the Budget page already loads for the expense logger, and
+// the editor itself is the same DayExtraEditor the day screen uses.
+export function TripDayExtra({
+  tripId,
+  rollup,
+  dayOptions,
+  onChanged,
+}: {
+  tripId: string
+  rollup: BudgetRollup | null
+  dayOptions: DayOption[]
+  onChanged: () => void
+}) {
+  const [chosenDayId, setChosenDayId] = useState<string | null>(null)
+  // Derive the effective day rather than storing a default via an effect: the
+  // user's pick if it's still a valid day, otherwise the first day. This keeps
+  // the selection correct when the picker loads or the trip's days change,
+  // without a setState-in-effect cascade.
+  const selectedDayId =
+    chosenDayId && dayOptions.some((d) => d.id === chosenDayId)
+      ? chosenDayId
+      : (dayOptions[0]?.id ?? '')
+
+  return (
+    <div className="budget-editor">
+      <h3 className="budget-editor-heading">Extra for a day</h3>
+      {dayOptions.length === 0 ? (
+        <p className="budget-editor-hint">No days to add an extra to yet.</p>
+      ) : (
+        <>
+          <label className="day-extra-day-label">
+            Day
+            <select
+              className="expense-day-select day-extra-day-select"
+              value={selectedDayId}
+              onChange={(e) => setChosenDayId(e.target.value)}
+              aria-label="Day to add extra to"
+            >
+              {dayOptions.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {selectedDayId && (
+            <DayExtraEditor
+              tripId={tripId}
+              dayId={selectedDayId}
+              rollup={rollup}
+              onChanged={onChanged}
+            />
+          )}
+        </>
+      )}
     </div>
   )
 }
