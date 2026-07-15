@@ -1,14 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import {
-  datesInRange,
-  fetchDay,
-  fetchDayRoute,
-  UnauthorizedError,
-  type Day,
-  type LatLng,
-} from '../lib/api'
+import { datesInRange, fetchDay, fetchDayRoute, UnauthorizedError, type LatLng } from '../lib/api'
 import { shortDate } from '../lib/format'
-import { collectLocatedItems, type LocatedItem } from './locatedItems'
+import { collectLocatedItems, collectLocations, type LocatedItem } from './locatedItems'
 import { useTripShell } from './useTripShell'
 import type { TripDayMarkers } from './TripMap'
 
@@ -20,18 +13,6 @@ const DAY_COLORS = ['#1d9e75', '#378add', '#d85a30', '#ba7517', '#7f77dd', '#d45
 
 function dayColor(index: number): string {
   return DAY_COLORS[index % DAY_COLORS.length]
-}
-
-// collectLocations mirrors DayMap: all stay + plan-item locations in the same
-// order as collectLocatedItems, with empty strings for location-less entries
-// (the geo proxy skips them so waypoints line up with the located items).
-function collectLocations(day: Day): string[] {
-  return [
-    ...(day.stays ?? []).map((s) => s.location ?? ''),
-    ...[...(day.plan_items ?? [])]
-      .sort((a, b) => a.sort_order - b.sort_order)
-      .map((i) => i.location ?? ''),
-  ]
 }
 
 // DayEntry is the per-day state the page tracks: the located items, the geocoded
@@ -65,7 +46,7 @@ async function loadDay(
   const day = await fetchDay(tripId, date, signal)
   const items = collectLocatedItems(day)
   const locations = collectLocations(day)
-  if (!locations.some((l) => l !== '')) return { ...base, items, status: 'no-places' }
+  if (locations.length === 0) return { ...base, items, status: 'no-places' }
   try {
     const { waypoints } = await fetchDayRoute(locations, signal)
     return {

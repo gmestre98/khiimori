@@ -1099,14 +1099,25 @@ function PlanItemRow({
         {pinNumber != null && onSelect && (
           <button
             type="button"
-            className={['plan-item-pin-badge', isSelected ? 'plan-item-pin-badge--selected' : '']
+            className={[
+              'plan-item-pin-badge',
+              // A transport leg shows its single number between a start and finish
+              // dot (a mini of the map's start→finish arrow) so the badge reads as
+              // a route, not a place.
+              item.kind === 'transport' ? 'plan-item-pin-badge--transport' : '',
+              isSelected ? 'plan-item-pin-badge--selected' : '',
+            ]
               .filter(Boolean)
               .join(' ')}
             aria-label={`Map pin ${pinNumber} for ${item.title}`}
             aria-pressed={isSelected}
             onClick={onSelect}
           >
+            {item.kind === 'transport' && <span className="plan-item-pin-dot" aria-hidden="true" />}
             {pinNumber}
+            {item.kind === 'transport' && (
+              <span className="plan-item-pin-dot plan-item-pin-dot--to" aria-hidden="true" />
+            )}
           </button>
         )}
         <button
@@ -1581,13 +1592,15 @@ export function PlanningSection({
   const [planHidden, setPlanHidden] = useState(readPlanHidden)
 
   // Build a lookup from item/stay id → pin number (1-based) using the same
-  // ordering as collectLocatedItems so badges match the map legend. Only needed
-  // when a map is present (onSelect wired) — otherwise no badges are shown.
+  // numbering as collectLocatedItems so badges match the map legend. A transport
+  // leg is one numbered feature spanning two located points, so we read the
+  // shared `feature` rather than the point's array index. Only needed when a map
+  // is present (onSelect wired) — otherwise no badges are shown.
   const locatedItems = collectLocatedItems({ ...day, plan_items: items })
   const pinNumberForId = onSelect
     ? (id: string): number | undefined => {
-        const idx = locatedItems.findIndex((li) => li.id === id)
-        return idx >= 0 ? idx + 1 : undefined
+        const li = locatedItems.find((it) => it.id === id)
+        return li ? li.feature + 1 : undefined
       }
     : undefined
 

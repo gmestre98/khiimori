@@ -3,7 +3,7 @@ import L from 'leaflet'
 import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { LatLng } from '../lib/api'
-import type { LocatedItem } from './locatedItems'
+import { buildFeatures, type LocatedItem, type RenderFeature } from './locatedItems'
 
 // TripDayMarkers is the per-day geocoded data the overview map renders. waypoints
 // line up positionally with items (waypoints[i] ↔ items[i]), mirroring DayMap.
@@ -53,6 +53,27 @@ function pinIcon(
   })
 }
 
+// endpointIcon builds the small dot dropped on a transport leg's start and finish
+// — tinted to the day's colour. The number lives on the leg's ball at the arrow
+// midpoint, so the ends are unlabelled markers.
+function endpointIcon(color: string, dimmed: boolean, done: boolean): L.DivIcon {
+  const style = `--pin-color:${color};${dimmed ? 'opacity:' + DIM_OPACITY + ';' : ''}`
+  const cls = ['trip-map-endpoint', !done ? 'trip-map-endpoint--faint' : '']
+    .filter(Boolean)
+    .join(' ')
+  return L.divIcon({
+    className: 'trip-map-marker-wrap',
+    html: `<span class="${cls}" style="${style}"></span>`,
+    iconSize: [12, 12],
+    iconAnchor: [6, 6],
+  })
+}
+
+// dayFeatures memo-key friendly: derive each day's render features once.
+interface DayFeatures extends TripDayMarkers {
+  features: RenderFeature[]
+}
+
 // allPoints flattens every day's waypoints into a single list for whole-trip
 // bounds fitting.
 function allPoints(days: TripDayMarkers[]): LatLng[] {
@@ -98,11 +119,13 @@ function MapController({
 }
 
 // TripMap renders one interactive OpenStreetMap view for the whole trip: every
-// day's located stops, colour-coded by day, with a per-day route polyline. When
-// a subset of days is selected the others dim back and the view fits to the
-// selection (an empty selection means all days). Markers are wired to the shared
-// selection state so clicking a pin highlights the matching day-list row.
-// Exported as default so React.lazy can defer the map bundle.
+// day's located stops, colour-coded by day, with a per-day route polyline. A
+// transport leg shows both ends (a small day-tinted marker on each) joined by
+// the route line, with its numbered ball on the arrow midpoint. When a subset of
+// days is selected the others dim back and the view fits to the selection (an
+// empty selection means all days). Markers are wired to the shared selection
+// state so clicking a pin highlights the matching day-list row. Exported as
+// default so React.lazy can defer the map bundle.
 export default function TripMap({
   days,
   selectedDates,
@@ -114,15 +137,20 @@ export default function TripMap({
   selectedId: string | null
   onSelect: (id: string | null) => void
 }) {
-  // Coordinates of the currently selected pin (across all days), used to pan.
+  const dayFeatures = useMemo<DayFeatures[]>(
+    () => days.map((d) => ({ ...d, features: buildFeatures(d.items, d.waypoints) })),
+    [days],
+  )
+
+  // Coordinates of the currently selected feature (across all days), used to pan.
   const selected = useMemo<LatLng | null>(() => {
     if (!selectedId) return null
-    for (const day of days) {
-      const i = day.items.findIndex((it) => it.id === selectedId)
-      if (i >= 0 && i < day.waypoints.length) return day.waypoints[i]
+    for (const day of dayFeatures) {
+      const f = day.features.find((it) => it.id === selectedId)
+      if (f) return f.anchor
     }
     return null
-  }, [selectedId, days])
+  }, [selectedId, dayFeatures])
 
   return (
     <div className="trip-map">
@@ -137,7 +165,7 @@ export default function TripMap({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {days.map((day) => {
+        {dayFeatures.map((day) => {
           const dimmed = selectedDates.size > 0 && !selectedDates.has(day.date)
           const positions = day.waypoints.map((w) => [w.lat, w.lng] as [number, number])
           return (
@@ -152,24 +180,33 @@ export default function TripMap({
                   }}
                 />
               )}
-              {day.waypoints.map((wp, i) => {
-                const item: LocatedItem | undefined = day.items[i]
-                const isSelected = !!item && selectedId === item.id
+              {day.features.map((f) => {
+                const isSelected = selectedId === f.id
+                const select = () => onSelect(selectedId === f.id ? null : f.id)
                 return (
-                  <Marker
-                    key={item?.id ?? `${day.date}:${wp.lat},${wp.lng}`}
-                    position={[wp.lat, wp.lng]}
-                    icon={pinIcon(i + 1, day.color, isSelected, dimmed, item?.done ?? true)}
-                    eventHandlers={{
-                      click: () => item && onSelect(selectedId === item.id ? null : item.id),
-                    }}
-                  >
-                    {item && (
+                  <Fragment key={`${day.date}:${f.id}`}>
+                    {f.ends.map((end) => (
+                      <Marker
+                        key={`${f.id}:${end.role}`}
+                        position={[end.coord.lat, end.coord.lng]}
+                        icon={endpointIcon(day.color, dimmed, f.done)}
+                        eventHandlers={{ click: select }}
+                      >
+                        <Tooltip>
+                          Day {day.index + 1} · {end.role === 'from' ? 'From' : 'To'} {end.location}
+                        </Tooltip>
+                      </Marker>
+                    ))}
+                    <Marker
+                      position={[f.anchor.lat, f.anchor.lng]}
+                      icon={pinIcon(f.number, day.color, isSelected, dimmed, f.done)}
+                      eventHandlers={{ click: select }}
+                    >
                       <Tooltip>
-                        Day {day.index + 1} · {item.label}
+                        Day {day.index + 1} · {f.label}
                       </Tooltip>
-                    )}
-                  </Marker>
+                    </Marker>
+                  </Fragment>
                 )
               })}
             </Fragment>

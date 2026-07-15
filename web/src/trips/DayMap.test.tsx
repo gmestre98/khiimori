@@ -190,7 +190,7 @@ describe('DayMap — route and omission (S3)', () => {
     vi.resetAllMocks()
   })
 
-  it('passes location-less items as empty strings so the server can skip them', async () => {
+  it('omits location-less items from the route request (only located stops are sent)', async () => {
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
     renderDayMap(
       makeDay({
@@ -218,8 +218,8 @@ describe('DayMap — route and omission (S3)', () => {
     )
     await waitFor(() => {
       expect(api.fetchDayRoute).toHaveBeenCalledWith(
-        // location-less item passes '' (server skips it); located item passes its value
-        ['', 'Paris'],
+        // location-less items are dropped up front; only located stops are sent
+        ['Paris'],
         expect.any(AbortSignal),
       )
     })
