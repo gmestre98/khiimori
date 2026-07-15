@@ -37,6 +37,7 @@ import { cacheKeys } from '../lib/cacheKeys'
 import { CacheStatus } from '../components/CacheStatus'
 import { JournalEditor } from '../journal/JournalEditor'
 import { FastAddCost } from './FastAddCost'
+import { DayExtraEditor } from './BudgetEditor'
 import { DayRollup } from './RollupDisplay'
 import { dayBudgetTotal } from './budgetModel'
 import { useTripShell } from './useTripShell'
@@ -1730,6 +1731,7 @@ export function PlanningSection({
 function DayBudgetStrip({ tripId, day }: { tripId: string; day: Day }) {
   const [rollup, setRollup] = useState<BudgetRollup | null>(null)
   const [entries, setEntries] = useState<CostEntry[]>([])
+  const [extraOpen, setExtraOpen] = useState(false)
 
   const loadRollup = useCallback(
     (signal?: AbortSignal) => {
@@ -1796,6 +1798,17 @@ function DayBudgetStrip({ tripId, day }: { tripId: string; day: Day }) {
         <DayRollup rollup={rollup} dayId={day.id} />
       ) : (
         <p className="day-budget-empty meta">Nothing spent or budgeted for this day yet.</p>
+      )}
+      <button
+        type="button"
+        className="day-budget-extra-toggle"
+        onClick={() => setExtraOpen((o) => !o)}
+        aria-expanded={extraOpen}
+      >
+        {extraOpen ? 'Done' : '+ Add extra to a category'}
+      </button>
+      {extraOpen && (
+        <DayExtraEditor tripId={tripId} dayId={day.id} rollup={rollup} onChanged={loadRollup} />
       )}
       <FastAddCost
         tripId={tripId}
