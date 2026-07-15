@@ -2010,6 +2010,20 @@ export function DayView() {
   // planning list share one source of truth — adding a stop updates both at once.
   const liveDay = day ? { ...day, plan_items: planItems } : null
 
+  // Persist every optimistic day mutation (adds, edits, status changes, stays)
+  // to the on-device cache so an offline reload keeps showing them. Without this,
+  // a pull-to-refresh while offline would re-render only the last server-synced
+  // day and appear to drop everything entered offline — the queued writes are
+  // safe in the mutation queue, but the read view wouldn't reflect them until
+  // they replayed on reconnect. Syncing here mirrors the fetch-success writeCache
+  // above and JournalEditor's offline cache write, and covers all mutation sites
+  // at once (they all funnel through `day`/`planItems`). Guard on the date so a
+  // stale day mid-navigation never overwrites the cache for the wrong date.
+  useEffect(() => {
+    if (!tripId || !day || day.date !== date) return
+    void writeCache(cacheKeys.day(tripId, date), { ...day, plan_items: planItems })
+  }, [tripId, date, day, planItems])
+
   // setStays updates the fetched day's stays in place so the pinned stay slot
   // and the day map reflect an add/edit/remove without a reload.
   const setStays: React.Dispatch<React.SetStateAction<Stay[]>> = (action) => {
