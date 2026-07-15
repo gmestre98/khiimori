@@ -77,8 +77,16 @@ const SHELL_URLS = [
 // The app pre-warms these for every trip on launch (offlinePrefetch.ts), so an
 // offline start finds them all cached. Trip JSON is small, so caching the whole
 // history is only a few MB.
+//
+// Only API requests qualify — never the app's own SPA navigations, which share
+// the `/trips/<id>/…` path space. Same-origin API lives under `/api/**` (the
+// Hosting → Cloud Run rewrite); the dev API is a separate origin. A same-origin
+// document request to `/trips/<id>/days/<date>` (a hard reload or deep link) is
+// therefore NOT cacheable here and falls through to the app-shell handler.
 function isCacheableRead(request, url) {
   if (request.method !== 'GET') return false
+  const isApi = url.origin !== self.location.origin || url.pathname.startsWith('/api/')
+  if (!isApi) return false
   const p = url.pathname
   if (p.endsWith('/trips')) return true
   if (p.endsWith('/me') || p.endsWith('/invitations')) return true
