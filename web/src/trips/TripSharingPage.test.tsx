@@ -237,4 +237,30 @@ describe('TripSharingPage', () => {
     // The DayNav select is present in TripShell; ensure no role-change select exists.
     expect(screen.queryByRole('combobox', { name: /Change role/i })).not.toBeInTheDocument()
   })
+
+  it('shows members by name/email with an avatar, not the raw id', async () => {
+    vi.mocked(api.fetchSharingData).mockResolvedValue({
+      members: [
+        {
+          id: 'mem-1',
+          trip_id: 'trip-1',
+          user_id: 'user-owner',
+          role: 'owner',
+          name: 'Ada Lovelace',
+          email: 'ada@example.com',
+          avatar: 'https://example.com/ada.png',
+        },
+      ],
+      invitations: [],
+    })
+    renderPage()
+
+    await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument())
+    // Email shown as secondary line; raw user id never rendered.
+    expect(screen.getByText('ada@example.com')).toBeInTheDocument()
+    expect(screen.queryByText('user-owner')).not.toBeInTheDocument()
+    // Avatar renders the profile picture.
+    const avatar = document.querySelector('img.avatar') as HTMLImageElement | null
+    expect(avatar?.src).toBe('https://example.com/ada.png')
+  })
 })

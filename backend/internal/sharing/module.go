@@ -36,6 +36,9 @@ type Module struct {
 	// userEmails resolves the signed-in user's verified email for invitation
 	// acceptance. Nil when not wired; accept handler returns 500.
 	userEmails userEmailReader
+	// memberProfiles batch-resolves member display identities (email/name/avatar)
+	// for the members list. Nil when not wired: the list falls back to user ids.
+	memberProfiles memberProfileReader
 	// exposeInviteTokens, when true, includes each invitation's opaque accept
 	// token in the owner-only invitations list response. It is enabled ONLY on an
 	// E2E-targeted environment (gated on the same E2E_LOGIN_SECRET as test-login,
@@ -58,6 +61,8 @@ type Options struct {
 	TripNames    tripNameReader
 	InviterNames inviterNameReader
 	UserEmails   userEmailReader
+	// MemberProfiles batch-resolves member display identities for the members list.
+	MemberProfiles memberProfileReader
 	// ExposeInviteTokens enables returning invitation accept tokens in the
 	// owner-only list response. Set only on an E2E-targeted environment so the
 	// harness can accept invites without an email inbox (M10.2).
@@ -81,6 +86,7 @@ func New(pool *pgxpool.Pool, opts Options) *Module {
 		tripNames:          opts.TripNames,
 		inviterNames:       opts.InviterNames,
 		userEmails:         opts.UserEmails,
+		memberProfiles:     opts.MemberProfiles,
 		exposeInviteTokens: opts.ExposeInviteTokens,
 		pool:               pool,
 	}

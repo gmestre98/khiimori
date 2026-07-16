@@ -25,12 +25,34 @@ const MembershipsListPath = "/trips/{tripID}/memberships"
 // GET returns all invitations for the trip.
 const InvitationsListPath = "/trips/{tripID}/invitations"
 
+// MemberProfile carries a member's display identity (resolved from the auth
+// users table) so the sharing UI can show a person, not a raw user id. Avatar
+// follows the profile module's precedence: a custom uploaded avatar (in prefs)
+// wins over the Google-sourced avatar column. Exported so the composition-root
+// adapter (which lives outside this package) can construct it.
+type MemberProfile struct {
+	Email  string
+	Name   string
+	Avatar string
+}
+
+// memberProfileReader batch-resolves member display identities by user id. It is
+// injected by the composition root so the sharing module never imports auth.
+type memberProfileReader interface {
+	ProfilesByIDs(ctx context.Context, userIDs []string) (map[string]MemberProfile, error)
+}
+
 // membershipResponse is the wire shape for a single membership in the list.
+// UserID is kept for client-side identity matching (self, role changes); Email,
+// Name, and Avatar give the UI a human-friendly member to display.
 type membershipResponse struct {
 	ID     string `json:"id"`
 	TripID string `json:"trip_id"`
 	UserID string `json:"user_id"`
 	Role   string `json:"role"`
+	Email  string `json:"email"`
+	Name   string `json:"name"`
+	Avatar string `json:"avatar"`
 }
 
 // invitationListResponse is the wire shape for a single invitation in the list.
@@ -83,13 +105,33 @@ func (m *Module) handleListMemberships(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Resolve each member's display identity (email/name/avatar) in one batch.
+	// A lookup failure is non-fatal: the list still renders, just without the
+	// enriched identity, so a profile-store hiccup doesn't hide the members.
+	var profiles map[string]MemberProfile
+	if m.memberProfiles != nil {
+		ids := make([]string, 0, len(members))
+		for _, mb := range members {
+			ids = append(ids, mb.UserID)
+		}
+		profiles, err = m.memberProfiles.ProfilesByIDs(r.Context(), ids)
+		if err != nil {
+			log.Error("resolve member profiles", "err", err.Error())
+			profiles = nil
+		}
+	}
+
 	out := make([]membershipResponse, 0, len(members))
 	for _, mb := range members {
+		p := profiles[mb.UserID]
 		out = append(out, membershipResponse{
 			ID:     mb.ID,
 			TripID: mb.TripID,
 			UserID: mb.UserID,
 			Role:   string(mb.Role),
+			Email:  p.Email,
+			Name:   p.Name,
+			Avatar: p.Avatar,
 		})
 	}
 

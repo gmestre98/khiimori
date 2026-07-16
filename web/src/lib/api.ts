@@ -997,11 +997,16 @@ export async function fetchTripUsage(tripId: string, signal?: AbortSignal): Prom
 export type TripRole = 'owner' | 'editor' | 'viewer'
 
 // TripMember is a single membership returned by GET /trips/:id/memberships.
+// email/name/avatar are the member's display identity (resolved server-side from
+// their profile); optional so older cached responses and tests stay valid.
 export interface TripMember {
   id: string
   trip_id: string
   user_id: string
   role: TripRole
+  email?: string
+  name?: string
+  avatar?: string
 }
 
 // TripInvitation is a single invitation returned by GET /trips/:id/invitations.
