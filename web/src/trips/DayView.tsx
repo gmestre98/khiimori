@@ -808,6 +808,7 @@ function MoveToDayPicker({
   onMoved: (itemId: string) => void
   onCancel: () => void
 }) {
+  const online = useIsOnline()
   const otherDates = tripDates.filter((d) => d !== currentDate)
   const [selectedDate, setSelectedDate] = useState(otherDates[0] ?? '')
   const [busy, setBusy] = useState(false)
@@ -818,6 +819,29 @@ function MoveToDayPicker({
     setBusy(true)
     setError(null)
     try {
+      if (!online) {
+        // Offline: resolve the target day's id from the cache (fetchDay would
+        // fail), queue the move, and add the item to the target day's cache so it
+        // shows there immediately and survives an offline reload. Removal from the
+        // current day is handled by onMoved (its cache write lives in DayView).
+        const cached = await readCache<Day>(cacheKeys.day(tripId, selectedDate))
+        if (!cached) {
+          setError("That day isn't cached for offline use yet.")
+          return
+        }
+        await enqueue('movePlanItem', { tripId, itemId: item.id, dayId: cached.data.id })
+        const moved: PlanItem = {
+          ...item,
+          day_id: cached.data.id,
+          sort_order: Number.MAX_SAFE_INTEGER,
+        }
+        void writeCache(cacheKeys.day(tripId, selectedDate), {
+          ...cached.data,
+          plan_items: [...cached.data.plan_items, moved],
+        })
+        onMoved(item.id)
+        return
+      }
       const targetDay = await fetchDay(tripId, selectedDate)
       await movePlanItem(tripId, item.id, targetDay.id)
       onMoved(item.id)
@@ -1499,6 +1523,7 @@ function TimelineSection({
   onRemoved: (itemId: string) => void
   onReordered: (newOrder: PlanItem[]) => void
 }) {
+  const online = useIsOnline()
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const display = orderTimeline(items)
 
@@ -1506,11 +1531,14 @@ function TimelineSection({
     const finalOrder = orderTimeline(reordered)
     const snapshot = items
     onReordered(finalOrder)
-    reorderPlanItems(
-      tripId,
-      day.id,
-      finalOrder.map((i) => i.id),
-    ).catch(() => onReordered(snapshot))
+    const itemIds = finalOrder.map((i) => i.id)
+    if (!online) {
+      // Offline: queue the reorder (replayed on reconnect) and keep the optimistic
+      // order — the day-cache write in DayView persists it across an offline reload.
+      void enqueue('reorderPlanItems', { tripId, dayId: day.id, itemIds })
+      return
+    }
+    reorderPlanItems(tripId, day.id, itemIds).catch(() => onReordered(snapshot))
   }
 
   function handleDragStart(e: React.DragEvent, itemId: string) {
