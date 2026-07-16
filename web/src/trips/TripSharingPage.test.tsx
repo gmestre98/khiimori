@@ -165,6 +165,42 @@ describe('TripSharingPage', () => {
     )
   })
 
+  it('flags a malformed email on blur and blocks send', async () => {
+    const user = userEvent.setup()
+    renderPage(ownerProfile)
+    await waitFor(() => expect(screen.getByLabelText('Email address')).toBeInTheDocument())
+
+    const field = screen.getByLabelText('Email address')
+    await user.type(field, 'not-an-email')
+    await user.tab() // blur
+
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByText(/valid email address/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Send Invite' })).toBeDisabled()
+    expect(api.sendInvitation).not.toHaveBeenCalled()
+  })
+
+  it('clears the malformed-email flag once the address becomes valid', async () => {
+    const user = userEvent.setup()
+    renderPage(ownerProfile)
+    await waitFor(() => expect(screen.getByLabelText('Email address')).toBeInTheDocument())
+
+    const field = screen.getByLabelText('Email address')
+    await user.type(field, 'bad')
+    await user.tab()
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+
+    await user.type(field, '@example.com')
+    expect(field).not.toHaveAttribute('aria-invalid')
+    expect(screen.getByRole('button', { name: 'Send Invite' })).toBeEnabled()
+  })
+
+  it('enables native email autocomplete on the invite field', async () => {
+    renderPage(ownerProfile)
+    await waitFor(() => expect(screen.getByLabelText('Email address')).toBeInTheDocument())
+    expect(screen.getByLabelText('Email address')).toHaveAttribute('autocomplete', 'email')
+  })
+
   it('shows error when invite fails', async () => {
     vi.mocked(api.sendInvitation).mockRejectedValue(new Error('rate limited'))
     const user = userEvent.setup()

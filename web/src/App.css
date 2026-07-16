@@ -4569,6 +4569,11 @@
   color: var(--danger);
   font-size: var(--t-sm);
 }
+.sharing-invite-hint {
+  color: var(--danger);
+  font-size: var(--t-sm);
+  margin: 0;
+}
 @media (max-width: 560px) {
   .sharing-invite-form {
     flex-direction: column;
