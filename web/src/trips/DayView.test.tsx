@@ -6,7 +6,7 @@ import { DayView } from './DayView'
 import * as api from '../lib/api'
 import type { Day, PlanItem, Stay, Trip } from '../lib/api'
 import { enqueue } from '../lib/mutationQueue'
-import { readCache } from '../lib/resourceCache'
+import { readCache, writeCache } from '../lib/resourceCache'
 import { cacheKeys } from '../lib/cacheKeys'
 
 function makeTrip(overrides?: Partial<Trip>): Trip {
@@ -1040,6 +1040,38 @@ describe('DayView', () => {
       )
     })
 
+    it('reorders offline: queues reorderPlanItems, no server call, order persists to cache', async () => {
+      setMobile(true)
+      const user = userEvent.setup()
+      const items = [
+        makePlanItem({ id: 'i1', title: 'First', sort_order: 0 }),
+        makePlanItem({ id: 'i2', title: 'Second', sort_order: 1 }),
+      ]
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
+      const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Second')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Move Second up/ }))
+
+      await waitFor(() =>
+        expect(enqueue).toHaveBeenCalledWith('reorderPlanItems', {
+          tripId: 'trip-1',
+          dayId: 'day-1',
+          itemIds: ['i2', 'i1'],
+        }),
+      )
+      expect(api.reorderPlanItems).not.toHaveBeenCalled()
+      // New order is written to the day cache so an offline reload keeps it.
+      await waitFor(async () => {
+        const cached = await readCache<Day>(cacheKeys.day('trip-1', '2026-06-01'))
+        expect(cached?.data.plan_items.map((i) => i.id)).toEqual(['i2', 'i1'])
+      })
+
+      onLine.mockRestore()
+    })
+
     it('reordering the plan keeps logged items in "What happened"', async () => {
       setMobile(true)
       const user = userEvent.setup()
@@ -1194,6 +1226,41 @@ describe('DayView', () => {
 
       await waitFor(() => expect(screen.queryByText('Visit museum')).not.toBeInTheDocument())
       expect(api.movePlanItem).toHaveBeenCalledWith('trip-1', 'item-1', 'day-2')
+    })
+
+    it('moves offline: queues movePlanItem, removes from this day, adds to target day cache', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      // The target day must be cached for an offline move (fetchDay can't run).
+      await writeCache(cacheKeys.day('trip-1', '2026-06-02'), {
+        ...makeDay({ id: 'day-2', date: '2026-06-02', plan_items: [] }),
+      })
+      const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Move Visit museum to another day/ }))
+      await user.click(screen.getByRole('button', { name: 'Move' }))
+
+      await waitFor(() =>
+        expect(enqueue).toHaveBeenCalledWith('movePlanItem', {
+          tripId: 'trip-1',
+          itemId: 'item-1',
+          dayId: 'day-2',
+        }),
+      )
+      expect(api.movePlanItem).not.toHaveBeenCalled()
+      // Gone from the current day…
+      await waitFor(() => expect(screen.queryByText('Visit museum')).not.toBeInTheDocument())
+      // …and added to the target day's cache so it's there on reload.
+      await waitFor(async () => {
+        const cached = await readCache<Day>(cacheKeys.day('trip-1', '2026-06-02'))
+        expect(cached?.data.plan_items.some((i) => i.id === 'item-1')).toBe(true)
+      })
+
+      onLine.mockRestore()
     })
 
     it('renders a → Backlog button on each plan item', async () => {
