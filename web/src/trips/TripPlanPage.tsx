@@ -148,6 +148,22 @@ export function TripPlanPage() {
     )
   }
 
+  // insertMovedItem adds an item moved off another day to its new day in place,
+  // so the target day's planner and the rail count reflect the move immediately —
+  // no reload. The source day drops it via its own setItems (onRemoved). Guard
+  // against a double-insert if the same item somehow lands twice.
+  function insertMovedItem(targetDate: string, item: PlanItem) {
+    setDays((cur) =>
+      cur
+        ? cur.map((d) =>
+            d.date === targetDate && !d.plan_items.some((i) => i.id === item.id)
+              ? { ...d, plan_items: [...d.plan_items, item] }
+              : d,
+          )
+        : cur,
+    )
+  }
+
   // removeStay drops a deleted stay from every day it occupied.
   function removeStay(stayId: string) {
     setDays((cur) =>
@@ -241,6 +257,7 @@ export function TripPlanPage() {
                     setStays={setStaysForDate(selected.date)}
                     onStaySaved={applyStay}
                     onStayRemoved={removeStay}
+                    onItemMoved={insertMovedItem}
                     tripId={trip.id}
                     title={`Day ${selected.index + 1} · ${fullDate(selected.date)}`}
                     showBacklogLink={false}
@@ -267,6 +284,7 @@ export function TripPlanPage() {
                         setStays={setStaysForDate(d.date)}
                         onStaySaved={applyStay}
                         onStayRemoved={removeStay}
+                        onItemMoved={insertMovedItem}
                         tripId={trip.id}
                         title={`Day ${d.index + 1} · ${shortDate(d.date)}`}
                         showBacklogLink={false}
