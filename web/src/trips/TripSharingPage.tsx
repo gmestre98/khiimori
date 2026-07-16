@@ -80,6 +80,14 @@ export function TripSharingPage() {
   const [inviteRole, setInviteRole] = useState<'editor' | 'viewer'>('viewer')
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
+  // inviteTouched flips once the field is blurred, so we only flag a malformed
+  // address after the user has stopped typing — not on every keystroke.
+  const [inviteTouched, setInviteTouched] = useState(false)
+
+  const trimmedInvite = inviteEmail.trim()
+  // Live, in-form validity feedback: only complain about a non-empty address the
+  // user has already left, and only when it's structurally malformed.
+  const inviteMalformed = inviteTouched && trimmedInvite !== '' && !isValidEmail(trimmedInvite)
 
   // Confirm revoke state
   const [revokeTarget, setRevokeTarget] = useState<
@@ -107,6 +115,7 @@ export function TripSharingPage() {
     const email = inviteEmail.trim().toLowerCase()
     if (!email) return
     if (!isValidEmail(email)) {
+      setInviteTouched(true)
       setInviteError('Enter a valid email address, e.g. name@example.com.')
       return
     }
@@ -124,6 +133,7 @@ export function TripSharingPage() {
     try {
       await sendInvitation(id, email, inviteRole)
       setInviteEmail('')
+      setInviteTouched(false)
       setRefetch((n) => n + 1)
     } catch (err: unknown) {
       setInviteError(err instanceof Error ? err.message : 'Could not send invitation.')
@@ -202,10 +212,20 @@ export function TripSharingPage() {
                     setInviteEmail(e.target.value)
                     if (inviteError) setInviteError(null)
                   }}
+                  onBlur={() => setInviteTouched(true)}
                   required
                   disabled={inviting}
-                  autoComplete="off"
+                  autoComplete="email"
+                  inputMode="email"
+                  spellCheck={false}
+                  aria-invalid={inviteMalformed || undefined}
+                  aria-describedby={inviteMalformed ? 'invite-email-hint' : undefined}
                 />
+                {inviteMalformed && (
+                  <p id="invite-email-hint" className="sharing-invite-hint" role="alert">
+                    Enter a valid email address, e.g. name@example.com.
+                  </p>
+                )}
               </div>
               <div className="field sharing-invite-role-field">
                 <label htmlFor="invite-role">Role</label>
@@ -223,7 +243,7 @@ export function TripSharingPage() {
               <button
                 type="submit"
                 className="btn btn-primary"
-                disabled={inviting || !inviteEmail.trim()}
+                disabled={inviting || !trimmedInvite || inviteMalformed}
               >
                 {inviting ? 'Sending…' : 'Send Invite'}
               </button>
