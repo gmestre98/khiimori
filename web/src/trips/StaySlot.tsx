@@ -434,39 +434,48 @@ function StayCard({
             {pinNumber}
           </button>
         )}
-        <div className="stay-name">{stay.name}</div>
-        {ctx && (
-          <span className="stay-night-badge">
-            {ctx.isCheckIn ? 'checking in' : `night ${ctx.night} of ${ctx.total}`}
+        {/* The card body is the edit trigger — tap anywhere on it to open the
+            form, mirroring how a plan-item row opens its editor (no separate
+            "Edit" button to hunt for on a phone). */}
+        <button
+          type="button"
+          className="stay-edit-btn"
+          aria-label={`Edit ${stay.name}`}
+          onClick={onEdit}
+        >
+          <span className="stay-edit-head">
+            <span className="stay-name">{stay.name}</span>
+            {ctx && (
+              <span className="stay-night-badge">
+                {ctx.isCheckIn ? 'checking in' : `night ${ctx.night} of ${ctx.total}`}
+              </span>
+            )}
           </span>
-        )}
+          {stay.location && <span className="stay-location">{stay.location}</span>}
+          {stay.check_in && stay.check_out && (
+            <span
+              className="stay-dates"
+              aria-label={`Check in ${stay.check_in}, check out ${stay.check_out}`}
+            >
+              {stay.check_in} – {stay.check_out}
+            </span>
+          )}
+          {hasCost && (
+            <span
+              className={`stay-paid-badge${stay.paid ? ' stay-paid-badge--paid' : ''}`}
+              aria-label={stay.paid ? 'Paid — counts toward spent' : 'Not paid — upcoming estimate'}
+            >
+              {stay.paid ? 'Paid' : 'Upcoming'}
+            </span>
+          )}
+        </button>
       </div>
-      {stay.location && <div className="stay-location">{stay.location}</div>}
-      {stay.check_in && stay.check_out && (
-        <div
-          className="stay-dates"
-          aria-label={`Check in ${stay.check_in}, check out ${stay.check_out}`}
-        >
-          {stay.check_in} – {stay.check_out}
-        </div>
-      )}
-      {hasCost && (
-        <span
-          className={`stay-paid-badge${stay.paid ? ' stay-paid-badge--paid' : ''}`}
-          aria-label={stay.paid ? 'Paid — counts toward spent' : 'Not paid — upcoming estimate'}
-        >
-          {stay.paid ? 'Paid' : 'Upcoming'}
-        </span>
-      )}
       <div className="stay-item-actions">
         {hasCost && (
           <button type="button" className="stay-action" onClick={onTogglePaid} disabled={removing}>
             {stay.paid ? 'Mark unpaid' : 'Mark paid'}
           </button>
         )}
-        <button type="button" className="stay-action" onClick={onEdit} disabled={removing}>
-          Edit
-        </button>
         <button
           type="button"
           className="stay-action stay-action--danger"

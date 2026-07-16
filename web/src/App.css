@@ -2236,8 +2236,32 @@
 
 .stay-item-main {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
+}
+/* The stay card body is a tappable edit trigger (mirrors .plan-item-edit-btn):
+   the whole block opens the form so there's no small "Edit" target to hit on a
+   phone. Stacks name/location/dates like the old read-only layout. */
+.stay-edit-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+.stay-edit-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
 }
 
 /* ── Plan item rows ─────────────────────────────────────────────────────────── */

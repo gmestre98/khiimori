@@ -110,7 +110,7 @@ describe('StaySlot', () => {
     const setStays = vi.fn()
 
     render(<StaySlot day={makeDay({ stays: [stay] })} tripId="trip-1" setStays={setStays} />)
-    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    await user.click(screen.getByRole('button', { name: 'Edit Hotel Paris' }))
     const name = screen.getByLabelText('Name')
     await user.clear(name)
     await user.type(name, 'Hotel Lisboa')
