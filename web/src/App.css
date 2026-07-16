@@ -4603,6 +4603,7 @@
 }
 
 .sharing-member-id,
+.sharing-member-name,
 .sharing-invitation-email {
   font-size: 13.5px;
   font-weight: var(--fw-semi);

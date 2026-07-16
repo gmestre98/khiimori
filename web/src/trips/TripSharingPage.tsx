@@ -17,10 +17,33 @@ import { ConfirmModal } from '../components/ConfirmModal'
 
 type OutletCtx = { trip: Trip }
 
-// initialOf returns an uppercase initial for an avatar from an id or email.
+// initialOf returns an uppercase initial for an avatar from a name, email, or id.
 function initialOf(idOrEmail: string): string {
   const cleaned = idOrEmail.replace(/^user-/, '')
   return (cleaned[0] ?? '?').toUpperCase()
+}
+
+// MemberAvatar shows the member's profile picture, falling back to a coloured
+// initial when there's no avatar (or the image fails to load).
+function MemberAvatar({ member }: { member: TripMember }) {
+  const [imgOk, setImgOk] = useState(true)
+  const label = member.name || member.email || member.user_id
+  if (member.avatar && imgOk) {
+    return (
+      <img
+        className="avatar"
+        src={member.avatar}
+        alt=""
+        style={{ objectFit: 'cover' }}
+        onError={() => setImgOk(false)}
+      />
+    )
+  }
+  return (
+    <div className="avatar" style={{ background: avatarColor(member.role) }}>
+      {initialOf(label)}
+    </div>
+  )
 }
 
 // avatarColor maps a role to its avatar fill (owner = ink, others accent/amber).
@@ -222,10 +245,15 @@ export function TripSharingPage() {
             <ul className="card sharing-members-list">
               {data.members.map((member) => (
                 <li key={member.id} className="sharing-member-item">
-                  <div className="avatar" style={{ background: avatarColor(member.role) }}>
-                    {initialOf(member.user_id)}
+                  <MemberAvatar member={member} />
+                  <div className="grow">
+                    <div className="sharing-member-name">
+                      {member.name || member.email || member.user_id}
+                    </div>
+                    {member.name && member.email ? (
+                      <div className="meta">{member.email}</div>
+                    ) : null}
                   </div>
-                  <span className="sharing-member-id grow">{member.user_id}</span>
                   {member.role === 'owner' ? (
                     <span className="chip solid">Owner</span>
                   ) : isOwner ? (
@@ -233,7 +261,7 @@ export function TripSharingPage() {
                       <select
                         className="sharing-role-select"
                         value={member.role}
-                        aria-label={`Change role for ${member.user_id}`}
+                        aria-label={`Change role for ${member.name || member.email || member.user_id}`}
                         onChange={(e) =>
                           handleChangeRole(member.user_id, e.target.value as 'editor' | 'viewer')
                         }
@@ -244,7 +272,7 @@ export function TripSharingPage() {
                       <button
                         className="sharing-revoke-btn"
                         onClick={() => setRevokeTarget({ kind: 'member', member })}
-                        aria-label={`Revoke access for ${member.user_id}`}
+                        aria-label={`Revoke access for ${member.name || member.email || member.user_id}`}
                       >
                         Revoke
                       </button>

@@ -11,6 +11,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -216,14 +217,15 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 		budget.New(pool, authModule.RequireAuth, membershipBudgetAuthzAdapter{tripAuthz}, tripCostReaderAdapter{pool: pool}),
 		journal.New(pool, authModule.RequireAuth, membershipJournalAuthzAdapter{tripAuthz}, mediaStore),
 		sharing.New(pool, sharing.Options{
-			Authz:        tripAuthz,
-			EmailSender:  sharing.NewResendSender(cfg.ResendAPIKey, "Khiimori <noreply@mail.khiimori.app>"),
-			RequireAuth:  authModule.RequireAuth,
-			RequireAdmin: authModule.RequireAdmin,
-			WebAppURL:    cfg.WebAppURL,
-			TripNames:    &pgxTripNameReader{pool: pool},
-			InviterNames: &pgxUserNameReader{pool: pool},
-			UserEmails:   &pgxUserEmailReader{pool: pool},
+			Authz:          tripAuthz,
+			EmailSender:    sharing.NewResendSender(cfg.ResendAPIKey, "Khiimori <noreply@mail.khiimori.app>"),
+			RequireAuth:    authModule.RequireAuth,
+			RequireAdmin:   authModule.RequireAdmin,
+			WebAppURL:      cfg.WebAppURL,
+			TripNames:      &pgxTripNameReader{pool: pool},
+			InviterNames:   &pgxUserNameReader{pool: pool},
+			UserEmails:     &pgxUserEmailReader{pool: pool},
+			MemberProfiles: &pgxUserProfileReader{pool: pool},
 			// Expose invitation accept tokens on the owner-only list ONLY on an
 			// E2E-targeted environment — gated on the same secret as test-login so
 			// the role E2E (M10.2) can drive the real invite→accept flow without an
@@ -455,6 +457,56 @@ func (r *pgxUserEmailReader) EmailByID(ctx context.Context, userID string) (stri
 		return "", fmt.Errorf("user email by id: %w", err)
 	}
 	return email, nil
+}
+
+// pgxUserProfileReader batch-resolves member display identities (email, name,
+// avatar) from auth.users for the sharing members list. It lives in the
+// composition root so the sharing module never imports the auth module. The
+// avatar mirrors the profile module's precedence: a custom uploaded avatar
+// (stored in prefs, surviving the Google identity refresh) wins over the
+// Google-sourced avatar column.
+type pgxUserProfileReader struct{ pool *pgxpool.Pool }
+
+func (r *pgxUserProfileReader) ProfilesByIDs(ctx context.Context, userIDs []string) (map[string]sharing.MemberProfile, error) {
+	out := make(map[string]sharing.MemberProfile, len(userIDs))
+	if len(userIDs) == 0 {
+		return out, nil
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT id::text, email, name, avatar, prefs FROM auth.users WHERE id = ANY($1::uuid[])`,
+		userIDs)
+	if err != nil {
+		return nil, fmt.Errorf("user profiles by ids: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, email, name, avatar string
+		var prefs []byte
+		if err := rows.Scan(&id, &email, &name, &avatar, &prefs); err != nil {
+			return nil, fmt.Errorf("scan user profile: %w", err)
+		}
+		if custom := customAvatarFromPrefs(prefs); custom != "" {
+			avatar = custom
+		}
+		out[id] = sharing.MemberProfile{Email: email, Name: name, Avatar: avatar}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("user profiles rows: %w", err)
+	}
+	return out, nil
+}
+
+// customAvatarFromPrefs reads a user-uploaded avatar out of the prefs JSONB
+// (empty when unset). Mirrors the auth profile module's avatarFromPrefs.
+func customAvatarFromPrefs(raw []byte) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var p struct {
+		Avatar string `json:"avatar"`
+	}
+	_ = json.Unmarshal(raw, &p)
+	return p.Avatar
 }
 
 // buildGeoProvider constructs the server-side MapProvider from the Maps API key.
