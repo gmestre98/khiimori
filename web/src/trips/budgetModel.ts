@@ -1,4 +1,9 @@
-import { BUDGET_CATEGORIES, type BudgetCategory, type BudgetRollup } from '../lib/api'
+import {
+  BUDGET_CATEGORIES,
+  type BudgetCategory,
+  type BudgetLine,
+  type BudgetRollup,
+} from '../lib/api'
 
 // budgetModel composes the effective budgets from a rollup's raw per-scope
 // amounts (whole-trip lumps, per-day allowances, single-day extras). It lives in
@@ -61,4 +66,36 @@ export function tripBudgetTotal(rollup: BudgetRollup, dayCount: number): number 
     (sum, c: BudgetCategory) => sum + tripBudgetForCategory(rollup, dayCount, c),
     0,
   )
+}
+
+// patchRollupPlanned applies a just-saved budget line's planned amount to a rollup
+// and returns a new rollup, without a server round-trip. It updates only the raw
+// per-scope map the line targets — a whole-trip lump (planned_by_category), a
+// per-day allowance (daily_by_category), or a single-day extra
+// (planned_by_day_category) — which is exactly what the budget helpers above
+// recompose from. That lets an offline budget edit be reflected immediately and
+// persisted to the cache so it survives an offline reload (the authoritative
+// server rollup replaces it once the queued write syncs). Returns null unchanged
+// when there is no rollup baseline to patch.
+export function patchRollupPlanned(
+  rollup: BudgetRollup | null,
+  line: BudgetLine,
+): BudgetRollup | null {
+  if (!rollup) return null
+  const { category, scope, day_id, planned_amount } = line
+  if (day_id) {
+    const byDay = { ...(rollup.planned_by_day_category ?? {}) }
+    byDay[day_id] = { ...(byDay[day_id] ?? {}), [category]: planned_amount }
+    return { ...rollup, planned_by_day_category: byDay }
+  }
+  if (scope === 'daily') {
+    return {
+      ...rollup,
+      daily_by_category: { ...(rollup.daily_by_category ?? {}), [category]: planned_amount },
+    }
+  }
+  return {
+    ...rollup,
+    planned_by_category: { ...(rollup.planned_by_category ?? {}), [category]: planned_amount },
+  }
 }

@@ -359,6 +359,16 @@ describe('replayQueue — all mutation kinds', () => {
     )
   })
 
+  it('dispatches deletePlanItem', async () => {
+    await enqueue('deletePlanItem', { tripId, itemId })
+    const [r] = await replayQueue()
+    expect(r.outcome).toBe('success')
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining(`plan-items/${itemId}`),
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
+
   it('dispatches createStay', async () => {
     await enqueue('createStay', { tripId, input: { id: 's-1', name: 'Hotel' } })
     const [r] = await replayQueue()

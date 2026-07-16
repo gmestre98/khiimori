@@ -3,9 +3,11 @@ import type { BudgetRollup } from '../lib/api'
 import {
   dayBudgetForCategory,
   dayBudgetTotal,
+  patchRollupPlanned,
   tripBudgetForCategory,
   tripBudgetTotal,
 } from './budgetModel'
+import type { BudgetLine } from '../lib/api'
 
 function rollup(over?: Partial<BudgetRollup>): BudgetRollup {
   return {
@@ -48,5 +50,55 @@ describe('budgetModel', () => {
     const r = rollup({ planned_by_category: { Other: 80 } })
     expect(dayBudgetForCategory(r, 'day-1', 'Other')).toBe(0)
     expect(tripBudgetForCategory(r, 5, 'Other')).toBe(80)
+  })
+})
+
+describe('patchRollupPlanned (offline budget edits)', () => {
+  function line(over: Partial<BudgetLine>): BudgetLine {
+    return {
+      id: '',
+      trip_id: 'trip-1',
+      day_id: null,
+      category: 'Food',
+      planned_amount: 0,
+      actual_amount: 0,
+      ...over,
+    }
+  }
+
+  it('returns null when there is no rollup baseline to patch', () => {
+    expect(patchRollupPlanned(null, line({ planned_amount: 10 }))).toBeNull()
+  })
+
+  it('patches a whole-trip lump and recomposes the budget from it', () => {
+    const r = rollup()
+    const next = patchRollupPlanned(
+      r,
+      line({ category: 'Food', scope: 'trip', planned_amount: 60 }),
+    )!
+    expect(next.planned_by_category.Food).toBe(60)
+    expect(tripBudgetForCategory(next, 5, 'Food')).toBe(60)
+    // Immutable: the original rollup is untouched.
+    expect(r.planned_by_category.Food ?? 0).toBe(0)
+  })
+
+  it('patches a per-day allowance so it applies across every day', () => {
+    const next = patchRollupPlanned(
+      rollup(),
+      line({ category: 'Stays', scope: 'daily', planned_amount: 25 }),
+    )!
+    expect(next.daily_by_category?.Stays).toBe(25)
+    expect(tripBudgetForCategory(next, 4, 'Stays')).toBe(100) // 25 × 4 days
+  })
+
+  it('patches a single-day extra for the target day only', () => {
+    const next = patchRollupPlanned(
+      rollup({ planned_by_day_category: { 'day-2': { Activities: 5 } } }),
+      line({ category: 'Activities', day_id: 'day-1', planned_amount: 40 }),
+    )!
+    expect(next.planned_by_day_category?.['day-1']?.Activities).toBe(40)
+    expect(dayBudgetForCategory(next, 'day-1', 'Activities')).toBe(40)
+    // A different day's existing extra is preserved.
+    expect(next.planned_by_day_category?.['day-2']?.Activities).toBe(5)
   })
 })

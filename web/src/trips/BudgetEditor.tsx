@@ -242,7 +242,10 @@ export function DayExtraEditor({
   tripId: string
   dayId: string
   rollup: BudgetRollup | null
-  onChanged: () => void
+  // onChanged runs after a save. Offline it carries the just-saved line so the
+  // parent can patch its cached rollup (a server refetch would fail); online it
+  // is called with no argument and the parent refetches the authoritative rollup.
+  onChanged: (line?: BudgetLine) => void
 }) {
   const isOnline = useIsOnline()
   const extras = rollup?.planned_by_day_category?.[dayId] ?? {}
@@ -251,7 +254,14 @@ export function DayExtraEditor({
     const input: SetBudgetLineInput = { category, planned_amount: amount }
     if (!isOnline) {
       await enqueue('setDayBudgetLine', { tripId, dayId, input })
-      onChanged()
+      onChanged({
+        id: '',
+        trip_id: tripId,
+        day_id: dayId,
+        category,
+        planned_amount: amount,
+        actual_amount: 0,
+      })
       throw new Error('queued')
     }
     await setDayBudgetLine(tripId, dayId, input)
@@ -291,7 +301,7 @@ export function TripDayExtra({
   tripId: string
   rollup: BudgetRollup | null
   dayOptions: DayOption[]
-  onChanged: () => void
+  onChanged: (line?: BudgetLine) => void
 }) {
   const [chosenDayId, setChosenDayId] = useState<string | null>(null)
   // Derive the effective day rather than storing a default via an effect: the

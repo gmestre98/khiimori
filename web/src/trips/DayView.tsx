@@ -21,6 +21,7 @@ import {
   updatePlanItem,
   datesInRange,
   BUDGET_CATEGORIES,
+  type BudgetLine,
   type BudgetRollup,
   type CostEntry,
   type Day,
@@ -39,7 +40,7 @@ import { JournalEditor } from '../journal/JournalEditor'
 import { FastAddCost } from './FastAddCost'
 import { DayExtraEditor } from './BudgetEditor'
 import { DayRollup } from './RollupDisplay'
-import { dayBudgetTotal } from './budgetModel'
+import { dayBudgetTotal, patchRollupPlanned } from './budgetModel'
 import { useTripShell } from './useTripShell'
 
 const DayMap = lazy(() => import('./DayMap'))
@@ -295,6 +296,20 @@ function tempPlanItem(tripId: string, dayId: string | null, input: PlanItemInput
     unplanned: input.unplanned ?? false,
     sort_order: Number.MAX_SAFE_INTEGER,
     status: 'planned',
+  }
+}
+
+// mergeInput synthesises the edited plan item for an offline update so the row
+// reflects the change immediately (the authoritative server row lands when the
+// queued updatePlanItem replays). It reuses tempPlanItem to map the input fields,
+// then restores the fields an edit must preserve — the item's status, sort order
+// and unplanned flag are not part of the edit form.
+function mergeInput(item: PlanItem, tripId: string, input: PlanItemInput): PlanItem {
+  return {
+    ...tempPlanItem(tripId, item.day_id ?? null, { ...input, id: item.id }),
+    status: item.status,
+    sort_order: item.sort_order,
+    unplanned: item.unplanned,
   }
 }
 
@@ -900,6 +915,7 @@ function PlanItemRow({
   onMoveDown?: () => void
 }) {
   const mobile = useMobile()
+  const online = useIsOnline()
   const [editing, setEditing] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [showMovePicker, setShowMovePicker] = useState(false)
@@ -934,20 +950,40 @@ function PlanItemRow({
         // into N parts. Part 1 reuses this item (keeping its id, day, status and
         // order); the remaining parts become new sibling items on the same day.
         const shares = splitAmount(base.cost, splitParts)
-        const first = await updatePlanItem(tripId, item.id, {
+        const firstInput = {
           ...base,
           title: `${base.title} (part 1/${splitParts})`,
           cost: shares[0],
-        })
+        }
+        const partInputs = Array.from({ length: splitParts - 1 }, (_, i) => ({
+          ...base,
+          title: `${base.title} (part ${i + 2}/${splitParts})`,
+          cost: shares[i + 1],
+        }))
+        if (!online) {
+          // Offline: queue the update + each new part, reflecting them optimistically.
+          await enqueue('updatePlanItem', { tripId, itemId: item.id, input: firstInput })
+          onUpdated(mergeInput(item, tripId, firstInput))
+          for (const input of partInputs) {
+            const withId = { ...input, id: crypto.randomUUID() }
+            await enqueue('createPlanItem', { tripId, input: withId })
+            onAdded(tempPlanItem(tripId, item.day_id ?? null, withId))
+          }
+          setEditing(false)
+          return
+        }
+        const first = await updatePlanItem(tripId, item.id, firstInput)
         onUpdated(first)
-        for (let i = 1; i < splitParts; i++) {
-          const created = await createPlanItem(tripId, {
-            ...base,
-            title: `${base.title} (part ${i + 1}/${splitParts})`,
-            cost: shares[i],
-          })
+        for (const input of partInputs) {
+          const created = await createPlanItem(tripId, input)
           onAdded(created)
         }
+        setEditing(false)
+        return
+      }
+      if (!online) {
+        await enqueue('updatePlanItem', { tripId, itemId: item.id, input: base })
+        onUpdated(mergeInput(item, tripId, base))
         setEditing(false)
         return
       }
@@ -965,16 +1001,30 @@ function PlanItemRow({
 
   const handleAutoSave = useCallback(
     async (fields: PlanItemFormFields) => {
-      const updated = await updatePlanItem(tripId, item.id, fieldsToInput(fields, item.day_id))
+      const input = fieldsToInput(fields, item.day_id)
+      if (!online) {
+        await enqueue('updatePlanItem', { tripId, itemId: item.id, input })
+        onUpdated(mergeInput(item, tripId, input))
+        return
+      }
+      const updated = await updatePlanItem(tripId, item.id, input)
       onUpdated(updated)
     },
-    [tripId, item.id, item.day_id, onUpdated],
+    [tripId, item, online, onUpdated],
   )
 
   async function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const newStatus = e.target.value
     setStatusBusy(true)
     try {
+      if (!online) {
+        // Offline: queue the status change (replayed on reconnect) and reflect it
+        // optimistically so "mark as done" works without a connection. The day
+        // cache write (see DayView) persists it across an offline reload.
+        await enqueue('setPlanItemStatus', { tripId, itemId: item.id, status: newStatus })
+        onUpdated({ ...item, status: newStatus })
+        return
+      }
       const updated = await setPlanItemStatus(tripId, item.id, newStatus)
       onUpdated(updated)
     } catch {
@@ -987,6 +1037,11 @@ function PlanItemRow({
   async function handleDemote() {
     setDemoteBusy(true)
     try {
+      if (!online) {
+        await enqueue('demotePlanItem', { tripId, itemId: item.id })
+        onRemoved(item.id)
+        return
+      }
       await demotePlanItem(tripId, item.id)
       onRemoved(item.id)
     } catch {
@@ -997,6 +1052,11 @@ function PlanItemRow({
   async function handleDelete() {
     setDeleteBusy(true)
     try {
+      if (!online) {
+        await enqueue('deletePlanItem', { tripId, itemId: item.id })
+        onRemoved(item.id)
+        return
+      }
       await deletePlanItem(tripId, item.id)
       onRemoved(item.id)
     } catch {
@@ -1760,6 +1820,19 @@ function DayBudgetStrip({ tripId, day }: { tripId: string; day: Day }) {
     [tripId],
   )
 
+  // applyOfflineLine reflects a day extra saved offline into the rollup + cache so
+  // it shows immediately and survives an offline reload (mirrors TripBudgetPage).
+  const applyOfflineLine = useCallback(
+    (line: BudgetLine) => {
+      setRollup((cur) => {
+        const patched = patchRollupPlanned(cur, line)
+        if (patched) void writeCache(cacheKeys.budgetRollup(tripId), patched)
+        return patched
+      })
+    },
+    [tripId],
+  )
+
   useEffect(() => {
     const controller = new AbortController()
     let done = false
@@ -1821,7 +1894,12 @@ function DayBudgetStrip({ tripId, day }: { tripId: string; day: Day }) {
         {extraOpen ? 'Done' : '+ Add extra to a category'}
       </button>
       {extraOpen && (
-        <DayExtraEditor tripId={tripId} dayId={day.id} rollup={rollup} onChanged={loadRollup} />
+        <DayExtraEditor
+          tripId={tripId}
+          dayId={day.id}
+          rollup={rollup}
+          onChanged={(line) => (line ? applyOfflineLine(line) : loadRollup())}
+        />
       )}
       <FastAddCost
         tripId={tripId}

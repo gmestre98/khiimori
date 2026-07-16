@@ -19,6 +19,7 @@ export type MutationKind =
   | 'movePlanItem'
   | 'promotePlanItem'
   | 'demotePlanItem'
+  | 'deletePlanItem'
   | 'setPlanItemStatus'
   | 'createStay'
   | 'updateStay'
