@@ -805,7 +805,10 @@ function MoveToDayPicker({
   item: PlanItem
   tripDates: string[]
   currentDate: string
-  onMoved: (itemId: string) => void
+  // onMoved reports the move so the source day can drop the item (itemId) and a
+  // multi-day parent can add it to the target day in place (targetDate + moved) —
+  // no reload needed to see it land.
+  onMoved: (itemId: string, targetDate: string, moved: PlanItem) => void
   onCancel: () => void
 }) {
   const online = useIsOnline()
@@ -839,12 +842,17 @@ function MoveToDayPicker({
           ...cached.data,
           plan_items: [...cached.data.plan_items, moved],
         })
-        onMoved(item.id)
+        onMoved(item.id, selectedDate, moved)
         return
       }
       const targetDay = await fetchDay(tripId, selectedDate)
       await movePlanItem(tripId, item.id, targetDay.id)
-      onMoved(item.id)
+      const moved: PlanItem = {
+        ...item,
+        day_id: targetDay.id,
+        sort_order: Number.MAX_SAFE_INTEGER,
+      }
+      onMoved(item.id, selectedDate, moved)
     } catch {
       setError('Could not move item.')
     } finally {
@@ -918,6 +926,7 @@ function PlanItemRow({
   onDrop,
   onMoveUp,
   onMoveDown,
+  onItemMoved,
 }: {
   item: PlanItem
   tripId: string
@@ -932,6 +941,10 @@ function PlanItemRow({
   // item into several parts on save).
   onAdded: (item: PlanItem) => void
   onRemoved: (itemId: string) => void
+  // onItemMoved lets a multi-day parent add the item to its new day in place when
+  // it's moved off this one (the whole-trip Plan view); omit it in single-day
+  // contexts, where the target day isn't on screen.
+  onItemMoved?: (targetDate: string, item: PlanItem) => void
   onDragStart?: (e: React.DragEvent, itemId: string) => void
   onDragOver?: (e: React.DragEvent, itemId: string) => void
   onDrop?: (e: React.DragEvent, itemId: string) => void
@@ -1244,9 +1257,10 @@ function PlanItemRow({
             item={item}
             tripDates={tripDates}
             currentDate={day.date}
-            onMoved={(id) => {
+            onMoved={(id, targetDate, moved) => {
               setShowMovePicker(false)
               onRemoved(id)
+              onItemMoved?.(targetDate, moved)
             }}
             onCancel={() => setShowMovePicker(false)}
           />
@@ -1510,6 +1524,7 @@ function TimelineSection({
   onAdded,
   onRemoved,
   onReordered,
+  onItemMoved,
 }: {
   items: PlanItem[]
   tripId: string
@@ -1522,6 +1537,7 @@ function TimelineSection({
   onAdded: (item: PlanItem) => void
   onRemoved: (itemId: string) => void
   onReordered: (newOrder: PlanItem[]) => void
+  onItemMoved?: (targetDate: string, item: PlanItem) => void
 }) {
   const online = useIsOnline()
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -1601,6 +1617,7 @@ function TimelineSection({
               onUpdated={onUpdated}
               onAdded={onAdded}
               onRemoved={onRemoved}
+              onItemMoved={onItemMoved}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
@@ -1644,6 +1661,7 @@ export function PlanningSection({
   setStays,
   onStaySaved,
   onStayRemoved,
+  onItemMoved,
   tripId,
   selectedId = null,
   onSelect,
@@ -1663,6 +1681,10 @@ export function PlanningSection({
   // omit them and stays update only this day.
   onStaySaved?: (saved: Stay) => void
   onStayRemoved?: (stayId: string) => void
+  // onItemMoved lets a multi-day parent (the whole-trip Plan view) add a moved
+  // item to its new day in place, so the target day and rail counts update without
+  // a reload. Omit it in single-day contexts (the day view).
+  onItemMoved?: (targetDate: string, item: PlanItem) => void
   tripId: string
   // selectedId / onSelect drive the map-pin badges (day view). Omit them in
   // map-less contexts (the Plan subtab) and no pin badges render.
@@ -1779,6 +1801,7 @@ export function PlanningSection({
               onAdded={handleAdded}
               onRemoved={handleRemoved}
               onReordered={handleReordered}
+              onItemMoved={onItemMoved}
             />
             {planItems.length === 0 && day.stays.length === 0 && (
               <p className="day-plan-empty">Nothing planned yet.</p>

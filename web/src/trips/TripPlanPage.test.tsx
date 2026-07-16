@@ -67,6 +67,7 @@ vi.mock('../lib/api', async (importOriginal) => {
     ...orig,
     fetchTrips: vi.fn(),
     fetchDay: vi.fn(),
+    movePlanItem: vi.fn(),
     createStay: vi.fn(),
     // The stay location uses the shared LocationField (live geocode + Places);
     // stub both so the test doesn't hit the network.
@@ -226,6 +227,48 @@ describe('TripPlanPage', () => {
     await waitFor(() => expect(api.createStay).toHaveBeenCalledTimes(1))
     // The stay now appears on both covered days (day 1 and day 2), not only day 1.
     await waitFor(() => expect(screen.getAllByText('Grand Hotel')).toHaveLength(2))
+  })
+
+  it('moves an item to another day in place — target day and rail update without a reload', async () => {
+    const user = userEvent.setup()
+    // Moving online resolves the target day, then persists the move.
+    vi.mocked(api.movePlanItem).mockResolvedValue({
+      ...makeItem('day-0', 'Visit the castle'),
+      day_id: 'day-1',
+    })
+    renderPage()
+
+    const nav = await daysNav()
+    // Before: day 1 has the item, day 2 is empty.
+    expect(within(nav.getByRole('button', { name: /day 1/i })).getByText('1 item')).toBeVisible()
+    expect(
+      within(nav.getByRole('button', { name: /day 2/i })).getByText('Nothing planned yet'),
+    ).toBeVisible()
+
+    // Move the item off day 1 onto day 2 (2026-06-02).
+    await user.click(
+      await screen.findByRole('button', { name: /Move Visit the castle to another day/ }),
+    )
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Target day' }), '2026-06-02')
+    await user.click(screen.getByRole('button', { name: 'Move' }))
+
+    await waitFor(() =>
+      expect(api.movePlanItem).toHaveBeenCalledWith('trip-1', 'item-day-0', 'day-1'),
+    )
+
+    // After: the rail counts flip — day 1 empties, day 2 gains the item — with no
+    // reload and no extra fetchDay for the target day.
+    const navAfter = await daysNav()
+    await waitFor(() =>
+      expect(
+        within(navAfter.getByRole('button', { name: /day 1/i })).getByText('Nothing planned yet'),
+      ).toBeVisible(),
+    )
+    expect(
+      within(navAfter.getByRole('button', { name: /day 2/i })).getByText('1 item'),
+    ).toBeVisible()
+    // The item still shows in the whole-trip stack (now under day 2).
+    expect(screen.getByText('Visit the castle')).toBeInTheDocument()
   })
 
   it('opens a single day planner when a day is selected', async () => {
