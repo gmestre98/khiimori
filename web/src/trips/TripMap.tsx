@@ -22,21 +22,11 @@ export interface TripDayMarkers {
 const DEFAULT_CENTER: [number, number] = [20, 0]
 const DEFAULT_ZOOM = 2
 
-// DIM_OPACITY is applied to days other than the focused one so the focused day
-// stands out without hiding the rest of the trip.
-const DIM_OPACITY = 0.25
-
 // pinIcon builds a numbered Leaflet divIcon tinted to the day's colour. Selected
-// pins fill solid; dimmed pins (non-focused day) fade back; pins for things that
-// didn't happen (not done) render faint so they read apart from the ones that did.
-function pinIcon(
-  n: number,
-  color: string,
-  selected: boolean,
-  dimmed: boolean,
-  done: boolean,
-): L.DivIcon {
-  const style = `--pin-color:${color};${dimmed ? 'opacity:' + DIM_OPACITY + ';' : ''}`
+// pins fill solid; pins for things that didn't happen (not done) render faint so
+// they read apart from the ones that did.
+function pinIcon(n: number, color: string, selected: boolean, done: boolean): L.DivIcon {
+  const style = `--pin-color:${color};`
   const cls = [
     'trip-map-marker',
     selected ? 'trip-map-marker--selected' : '',
@@ -56,8 +46,8 @@ function pinIcon(
 // endpointIcon builds the small dot dropped on a transport leg's start and finish
 // — tinted to the day's colour. The number lives on the leg's ball at the arrow
 // midpoint, so the ends are unlabelled markers.
-function endpointIcon(color: string, dimmed: boolean, done: boolean): L.DivIcon {
-  const style = `--pin-color:${color};${dimmed ? 'opacity:' + DIM_OPACITY + ';' : ''}`
+function endpointIcon(color: string, done: boolean): L.DivIcon {
+  const style = `--pin-color:${color};`
   const cls = ['trip-map-endpoint', !done ? 'trip-map-endpoint--faint' : '']
     .filter(Boolean)
     .join(' ')
@@ -122,7 +112,7 @@ function MapController({
 // day's located stops, colour-coded by day, with a per-day route polyline. A
 // transport leg shows both ends (a small day-tinted marker on each) joined by
 // the route line, with its numbered ball on the arrow midpoint. When a subset of
-// days is selected the others dim back and the view fits to the selection (an
+// days is selected the others are hidden and the view fits to the selection (an
 // empty selection means all days). Markers are wired to the shared selection
 // state so clicking a pin highlights the matching day-list row. Exported as
 // default so React.lazy can defer the map bundle.
@@ -166,18 +156,17 @@ export default function TripMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {dayFeatures.map((day) => {
-          const dimmed = selectedDates.size > 0 && !selectedDates.has(day.date)
+          // When a subset of days is selected, non-selected days are hidden
+          // entirely — focusing a day clears the rest of the trip's pins rather
+          // than leaving them dimmed on the map. An empty selection shows all.
+          if (selectedDates.size > 0 && !selectedDates.has(day.date)) return null
           const positions = day.waypoints.map((w) => [w.lat, w.lng] as [number, number])
           return (
             <Fragment key={day.date}>
               {positions.length > 1 && (
                 <Polyline
                   positions={positions}
-                  pathOptions={{
-                    color: day.color,
-                    weight: 3,
-                    opacity: dimmed ? DIM_OPACITY * 0.6 : 0.5,
-                  }}
+                  pathOptions={{ color: day.color, weight: 3, opacity: 0.5 }}
                 />
               )}
               {day.features.map((f) => {
@@ -189,7 +178,7 @@ export default function TripMap({
                       <Marker
                         key={`${f.id}:${end.role}`}
                         position={[end.coord.lat, end.coord.lng]}
-                        icon={endpointIcon(day.color, dimmed, f.done)}
+                        icon={endpointIcon(day.color, f.done)}
                         eventHandlers={{ click: select }}
                       >
                         <Tooltip>
@@ -199,7 +188,7 @@ export default function TripMap({
                     ))}
                     <Marker
                       position={[f.anchor.lat, f.anchor.lng]}
-                      icon={pinIcon(f.number, day.color, isSelected, dimmed, f.done)}
+                      icon={pinIcon(f.number, day.color, isSelected, f.done)}
                       eventHandlers={{ click: select }}
                     >
                       <Tooltip>

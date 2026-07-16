@@ -172,6 +172,20 @@ describe('TripMapPage', () => {
     expect(allDays).toHaveAttribute('aria-pressed', 'true')
   })
 
+  it('hides other days’ pins when a day is selected', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    // Two located days → two markers when showing all days.
+    await waitFor(() => expect(screen.getAllByTestId('map-marker')).toHaveLength(2))
+    const nav = await daysNav()
+    await user.click(nav.getByRole('button', { name: /day 1/i }))
+    // Focusing Day 1 hides Day 2's pin rather than dimming it.
+    expect(screen.getAllByTestId('map-marker')).toHaveLength(1)
+    // Clearing the selection brings every day’s pins back.
+    await user.click(nav.getByRole('button', { name: /all days/i }))
+    expect(screen.getAllByTestId('map-marker')).toHaveLength(2)
+  })
+
   it('renders the map surface with day pins', async () => {
     renderPage()
     // Global test mock renders MapContainer as a div and Marker as a button.
