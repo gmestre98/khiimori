@@ -272,7 +272,7 @@
 }
 .input[aria-invalid='true']:focus {
   border-color: var(--danger);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent);
+  box-shadow: 0 0 0 3px var(--danger-tint);
 }
 
 /* ---------- Icon button ---------- */
