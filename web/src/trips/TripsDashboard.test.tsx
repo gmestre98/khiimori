@@ -355,4 +355,39 @@ describe('TripsDashboard', () => {
     await waitFor(() => expect(accepted).toBe(true))
     await waitFor(() => expect(screen.queryByText('Shared Trip')).not.toBeInTheDocument())
   })
+
+  it('declines a pending invitation and clears it from the inbox', async () => {
+    const invite: PendingInvitation = {
+      id: 'inv-1',
+      trip_id: 'trip-9',
+      trip_name: 'Shared Trip',
+      role: 'viewer',
+    }
+    let declined = false
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = urlOf(input as RequestInfo | URL)
+      const method = (init?.method ?? 'GET').toUpperCase()
+      if (url.includes('/invitations') && url.includes('/decline') && method === 'POST') {
+        declined = true
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
+      if (url.includes('/invitations')) {
+        return Promise.resolve(jsonResponse({ invitations: declined ? [] : [invite] }))
+      }
+      return Promise.resolve(jsonResponse(emptyResponse))
+    })
+
+    render(
+      <MemoryRouter>
+        <TripsDashboard />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => screen.getByText('Shared Trip'))
+    fireEvent.click(screen.getByRole('button', { name: /decline invitation to shared trip/i }))
+
+    // Declining removes the invitation from the inbox without joining the trip.
+    await waitFor(() => expect(declined).toBe(true))
+    await waitFor(() => expect(screen.queryByText('Shared Trip')).not.toBeInTheDocument())
+  })
 })

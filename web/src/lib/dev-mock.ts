@@ -185,6 +185,7 @@ const sharingInvites = {
     {
       id: 'i1',
       trip_id: MOCK_CURRENT_TRIP_ID,
+      trip_name: 'Japan — Spring 2026',
       email: 'sofia@gmail.com',
       role: 'viewer',
       status: 'sent',
@@ -366,6 +367,7 @@ export function installDevMock() {
       const isApi =
         u.pathname.startsWith('/me') ||
         u.pathname.startsWith('/trips') ||
+        u.pathname.startsWith('/invitations') ||
         u.pathname.startsWith('/geo')
       if (isApi) {
         let body: unknown = undefined

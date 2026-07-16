@@ -6,6 +6,7 @@ import {
   fetchTrips,
   fetchMyInvitations,
   acceptInvitation,
+  declineInvitation,
   archiveTrip,
   deleteTrip,
   type BudgetRollup,
@@ -175,6 +176,7 @@ export function TripsDashboard() {
   // is best-effort, so this is how a shared-with user actually finds the trip.
   const [invites, setInvites] = useState<PendingInvitation[]>([])
   const [acceptingId, setAcceptingId] = useState<string | null>(null)
+  const [decliningId, setDecliningId] = useState<string | null>(null)
   const [inviteError, setInviteError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -264,6 +266,24 @@ export function TripsDashboard() {
       )
     } finally {
       setAcceptingId(null)
+    }
+  }
+
+  // handleDecline turns down an invitation, removing it from this user's inbox.
+  // Declining also drops the invite off the owner's pending-invites list.
+  async function handleDecline(inv: PendingInvitation) {
+    setDecliningId(inv.id)
+    setInviteError(null)
+    try {
+      await declineInvitation(inv.id)
+      setInvites((prev) => prev.filter((i) => i.id !== inv.id))
+    } catch (err: unknown) {
+      if (err instanceof UnauthorizedError) return
+      setInviteError(
+        err instanceof Error ? err.message : `Could not decline the invitation. Please try again.`,
+      )
+    } finally {
+      setDecliningId(null)
     }
   }
 
@@ -378,15 +398,26 @@ export function TripsDashboard() {
                     <strong>{inv.trip_name || 'A trip'}</strong>
                     <span className="meta"> · you're invited as {inv.role}</span>
                   </div>
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    disabled={acceptingId === inv.id}
-                    onClick={() => handleAccept(inv)}
-                    aria-label={`Accept invitation to ${inv.trip_name || 'trip'}`}
-                  >
-                    {acceptingId === inv.id ? 'Joining…' : 'Accept'}
-                  </button>
+                  <div className="row gap2">
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      disabled={acceptingId === inv.id || decliningId === inv.id}
+                      onClick={() => handleDecline(inv)}
+                      aria-label={`Decline invitation to ${inv.trip_name || 'trip'}`}
+                    >
+                      {decliningId === inv.id ? 'Declining…' : 'Decline'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      disabled={acceptingId === inv.id || decliningId === inv.id}
+                      onClick={() => handleAccept(inv)}
+                      aria-label={`Accept invitation to ${inv.trip_name || 'trip'}`}
+                    >
+                      {acceptingId === inv.id ? 'Joining…' : 'Accept'}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

@@ -1082,6 +1082,19 @@ export async function acceptInvitation(invitationId: string): Promise<void> {
   }
 }
 
+// declineInvitation declines one of the caller's pending invitations by id
+// (POST /invitations/:id/decline). This removes the invite from the caller's
+// inbox and from the trip owner's pending-invites list. Throws UnauthorizedError
+// on 401 and a message-bearing Error on other failures.
+export async function declineInvitation(invitationId: string): Promise<void> {
+  const res = await apiFetch(`/invitations/${invitationId}/decline`, { method: 'POST' })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new Error(body?.error?.message ?? `API returned HTTP ${res.status}`)
+  }
+}
+
 // sendInvitation calls POST /trips/:id/invitations. Throws UnauthorizedError on
 // 401 and a generic Error on other failures.
 export async function sendInvitation(

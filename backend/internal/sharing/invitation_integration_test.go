@@ -216,6 +216,80 @@ func TestRevokeInvitation_NotFound(t *testing.T) {
 	}
 }
 
+// TestDeclineInvitation_Pending verifies a recipient can decline a pending
+// invitation: it becomes unclaimable and drops out of PendingForEmail.
+func TestDeclineInvitation_Pending(t *testing.T) {
+	inv := freshInvitations(t)
+	ctx := context.Background()
+	tripID := genUUID(t)
+	token := genUUID(t)
+
+	created, err := inv.Create(ctx, tripID, "friend@example.com", token, RoleViewer)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if err := inv.DeclineByID(ctx, created.ID, "friend@example.com"); err != nil {
+		t.Fatalf("DeclineByID: %v", err)
+	}
+
+	// A declined invitation can no longer be accepted.
+	tx, _ := testPool.Begin(ctx)
+	_, acceptErr := inv.AcceptInTx(ctx, tx, token, genUUID(t), "friend@example.com")
+	_ = tx.Rollback(ctx)
+	if acceptErr != ErrInvitationAlreadyClaimed {
+		t.Errorf("want ErrInvitationAlreadyClaimed for declined invite, got %v", acceptErr)
+	}
+
+	// And it no longer surfaces in the recipient's inbox.
+	pending, err := inv.PendingForEmail(ctx, "friend@example.com")
+	if err != nil {
+		t.Fatalf("PendingForEmail: %v", err)
+	}
+	for _, p := range pending {
+		if p.ID == created.ID {
+			t.Error("declined invitation should not appear in PendingForEmail")
+		}
+	}
+}
+
+// TestDeclineInvitation_EmailMismatch verifies a caller cannot decline an
+// invitation addressed to someone else, and the invite stays pending.
+func TestDeclineInvitation_EmailMismatch(t *testing.T) {
+	inv := freshInvitations(t)
+	ctx := context.Background()
+	tripID := genUUID(t)
+	token := genUUID(t)
+
+	created, err := inv.Create(ctx, tripID, "alice@example.com", token, RoleViewer)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if err := inv.DeclineByID(ctx, created.ID, "bob@example.com"); err != ErrEmailMismatch {
+		t.Errorf("want ErrEmailMismatch, got %v", err)
+	}
+
+	// The invitation is still claimable by the real recipient.
+	tx, _ := testPool.Begin(ctx)
+	_, acceptErr := inv.AcceptInTx(ctx, tx, token, genUUID(t), "alice@example.com")
+	if acceptErr != nil {
+		_ = tx.Rollback(ctx)
+		t.Fatalf("accept after failed decline: %v", acceptErr)
+	}
+	_ = tx.Commit(ctx)
+}
+
+// TestDeclineInvitation_NotFound verifies ErrInvitationNotFound for a bogus ID.
+func TestDeclineInvitation_NotFound(t *testing.T) {
+	inv := freshInvitations(t)
+	ctx := context.Background()
+
+	if err := inv.DeclineByID(ctx, genUUID(t), "friend@example.com"); err != ErrInvitationNotFound {
+		t.Errorf("want ErrInvitationNotFound, got %v", err)
+	}
+}
+
 // TestChangeRole_ImmediateEffect verifies that ChangeRole takes effect
 // immediately on the next RoleForUser call.
 func TestChangeRole_ImmediateEffect(t *testing.T) {

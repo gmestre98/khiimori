@@ -18,6 +18,10 @@ const (
 	StatusSent     InvitationStatus = "sent"
 	StatusAccepted InvitationStatus = "accepted"
 	StatusRevoked  InvitationStatus = "revoked"
+	// StatusDeclined is set when the recipient turns down an invitation. It is
+	// terminal like StatusRevoked, so a declined invite can no longer be claimed
+	// and drops out of both the recipient's inbox and the owner's pending list.
+	StatusDeclined InvitationStatus = "declined"
 )
 
 // ErrInvitationNotFound is returned when no invitation matches the lookup.
@@ -268,6 +272,48 @@ func (inv *Invitations) RevokeInvitation(ctx context.Context, invitationID strin
 		if errors.Is(err2, pgx.ErrNoRows) {
 			return ErrInvitationNotFound
 		}
+		return ErrInvitationAlreadyClaimed
+	}
+	return nil
+}
+
+// DeclineByID marks the invitation identified by id as 'declined' on behalf of
+// its recipient. userEmail must match the invitation's email (case-insensitive,
+// whitespace-trimmed) — the id alone does not authorize the decline, so one user
+// cannot decline another's invitation by guessing an id. Returns
+// ErrInvitationNotFound when no row matches, ErrEmailMismatch when the invite
+// was addressed to a different email, and ErrInvitationAlreadyClaimed when the
+// invitation is no longer pending (already accepted, revoked, or declined).
+func (inv *Invitations) DeclineByID(ctx context.Context, invitationID, userEmail string) error {
+	const selectQuery = `
+		SELECT email, status
+		FROM sharing.invitations
+		WHERE id = $1::uuid`
+	var email, status string
+	err := inv.pool.QueryRow(ctx, selectQuery, invitationID).Scan(&email, &status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrInvitationNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("sharing: decline invitation lookup: %w", err)
+	}
+	if !emailsEqual(email, userEmail) {
+		return ErrEmailMismatch
+	}
+	if InvitationStatus(status) != StatusSent {
+		return ErrInvitationAlreadyClaimed
+	}
+
+	const declineQuery = `
+		UPDATE sharing.invitations
+		SET status = 'declined', updated_at = now()
+		WHERE id = $1::uuid AND status = 'sent'`
+	tag, err := inv.pool.Exec(ctx, declineQuery, invitationID)
+	if err != nil {
+		return fmt.Errorf("sharing: decline invitation: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		// Raced with another accept/revoke/decline between our read and write.
 		return ErrInvitationAlreadyClaimed
 	}
 	return nil

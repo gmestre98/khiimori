@@ -23,10 +23,22 @@ const MyInvitationsPath = "/invitations"
 // must match the invitation's email — the id alone does not grant access.
 const MyInvitationAcceptPath = "/invitations/{invitationID}/accept"
 
+// MyInvitationDeclinePath declines one of the caller's own pending invitations
+// by id. Like accept, the signed-in user's verified email must match the
+// invitation's email. Declining removes the invite from the recipient's inbox
+// and from the owner's pending-invites list (both show status='sent' only).
+const MyInvitationDeclinePath = "/invitations/{invitationID}/decline"
+
 // pendingInvitationLister is the read seam for the in-app inbox; defaults to
 // *Invitations. Tests supply a fake without a real pool.
 type pendingInvitationLister interface {
 	PendingForEmail(ctx context.Context, email string) ([]PendingInvitation, error)
+}
+
+// invitationDecliner is the seam for declining a pending invitation; defaults to
+// *Invitations. Tests supply a fake without a real pool.
+type invitationDecliner interface {
+	DeclineByID(ctx context.Context, invitationID, userEmail string) error
 }
 
 // myInvitationResponse is the wire shape for one pending invitation in the inbox.
@@ -139,4 +151,50 @@ func (m *Module) handleAcceptMyInvitation(w http.ResponseWriter, r *http.Request
 		"role":    string(inv.Role),
 		"status":  string(inv.Status),
 	})
+}
+
+// handleDeclineMyInvitation handles POST /invitations/{invitationID}/decline.
+// The caller declines an invitation surfaced by handleListMyInvitations; their
+// verified email must match the invitation's, so this only lets the intended
+// recipient decline. Declining is terminal: the invite disappears from the
+// recipient's inbox and from the owner's pending-invites list.
+func (m *Module) handleDeclineMyInvitation(w http.ResponseWriter, r *http.Request) {
+	log := platformlog.FromContext(r.Context())
+
+	principal, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusUnauthorized, "unauthorized", "not authenticated"))
+		return
+	}
+
+	invitationID := r.PathValue("invitationID")
+	if invitationID == "" {
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusBadRequest, "bad_request", "missing invitationID"))
+		return
+	}
+
+	userEmail, err := m.userEmails.EmailByID(r.Context(), principal.UserID)
+	if err != nil {
+		log.Error("decline my invitation: resolve user email", "err", err.Error())
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusInternalServerError, "internal_error", "could not resolve user email"))
+		return
+	}
+
+	err = m.invDecline.DeclineByID(r.Context(), invitationID, userEmail)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrInvitationNotFound):
+			httpx.WriteError(w, r, httpx.NewAPIError(http.StatusNotFound, "not_found", "invitation not found"))
+		case errors.Is(err, ErrInvitationAlreadyClaimed):
+			httpx.WriteError(w, r, httpx.NewAPIError(http.StatusConflict, "invitation_already_claimed", "invitation has already been accepted, revoked, or declined"))
+		case errors.Is(err, ErrEmailMismatch):
+			httpx.WriteError(w, r, httpx.NewAPIError(http.StatusForbidden, "email_mismatch", "invitation was not sent to your email address"))
+		default:
+			log.Error("decline my invitation", "err", err.Error())
+			httpx.WriteError(w, r, httpx.NewAPIError(http.StatusInternalServerError, "internal_error", "could not decline invitation"))
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
