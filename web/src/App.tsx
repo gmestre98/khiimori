@@ -40,7 +40,9 @@ const TripSharingPage = lazy(() =>
   import('./trips/TripSharingPage').then((m) => ({ default: m.TripSharingPage })),
 )
 const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
-const AdminHome = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminHome })))
+const AdminOverviewPage = lazy(() =>
+  import('./pages/AdminOverviewPage').then((m) => ({ default: m.AdminOverviewPage })),
+)
 const AdminUsersPage = lazy(() =>
   import('./pages/AdminUsersPage').then((m) => ({ default: m.AdminUsersPage })),
 )
@@ -201,7 +203,7 @@ function App() {
                 index
                 element={
                   <Suspense fallback={<RouteLoading />}>
-                    <AdminHome />
+                    <AdminOverviewPage />
                   </Suspense>
                 }
               />
