@@ -23,6 +23,7 @@ func (e errUserRepo) IsActive(context.Context, string) (bool, error)    { return
 func (e errUserRepo) Deactivate(context.Context, string) error          { return nil }
 func (e errUserRepo) ListUsers(context.Context) ([]AdminUserRow, error) { return nil, nil }
 func (e errUserRepo) ListTrips(context.Context) ([]AdminTripRow, error) { return nil, nil }
+func (e errUserRepo) Stats(context.Context) (AdminStats, error)         { return AdminStats{}, nil }
 
 // newProvisioningModule builds a configured Module that provisions through the
 // real completeSignIn seam, backed by the given repo and a fakeProvider that
@@ -88,6 +89,7 @@ func (f *fakeUserRepo) IsActive(_ context.Context, _ string) (bool, error)  { re
 func (f *fakeUserRepo) Deactivate(_ context.Context, _ string) error        { return nil }
 func (f *fakeUserRepo) ListUsers(_ context.Context) ([]AdminUserRow, error) { return nil, nil }
 func (f *fakeUserRepo) ListTrips(_ context.Context) ([]AdminTripRow, error) { return nil, nil }
+func (f *fakeUserRepo) Stats(_ context.Context) (AdminStats, error)         { return AdminStats{}, nil }
 
 // TestProvisionCreatesUserWithDefaults: a first-time identity produces a user
 // carrying the identity fields plus the server-set defaults (EUR currency,

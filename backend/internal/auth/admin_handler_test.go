@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -40,6 +41,15 @@ func (f *adminFakeRepo) ListUsers(_ context.Context) ([]AdminUserRow, error) {
 
 func (f *adminFakeRepo) ListTrips(_ context.Context) ([]AdminTripRow, error) {
 	return []AdminTripRow{}, nil
+}
+
+func (f *adminFakeRepo) Stats(_ context.Context) (AdminStats, error) {
+	return AdminStats{
+		Users:      AdminUserStats{Total: 1, Active: 1, Admins: 1},
+		Trips:      AdminTripStats{Total: 0, Active: 0, Archived: 0},
+		UserGrowth: []AdminMonthPoint{{Month: "2026-07", Count: 1}},
+		TripGrowth: []AdminMonthPoint{{Month: "2026-07", Count: 0}},
+	}, nil
 }
 
 // adminModule builds a Module with sessions + a fake repo wired for admin tests.
@@ -153,6 +163,52 @@ func TestAdminListTripsReturnsJSON(t *testing.T) {
 	}
 	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
 		t.Errorf("Content-Type = %q, want application/json", ct)
+	}
+}
+
+// TestAdminStatsReturnsJSON: GET /admin/stats returns the aggregate snapshot.
+func TestAdminStatsReturnsJSON(t *testing.T) {
+	t.Parallel()
+
+	m := adminModule(User{ID: "u1", IsAdmin: true, Active: true}, true)
+
+	req := httptest.NewRequest(http.MethodGet, AdminStatsPath, nil)
+	req.AddCookie(sessionCookieFor(t, m.sessions, "u1"))
+	rec := httptest.NewRecorder()
+	m.RequireAdmin(http.HandlerFunc(m.handleAdminStats)).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("Content-Type = %q, want application/json", ct)
+	}
+
+	var got AdminStats
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if got.Users.Total != 1 || got.Users.Admins != 1 {
+		t.Errorf("users = %+v, want total=1 admins=1", got.Users)
+	}
+	if len(got.UserGrowth) != 1 {
+		t.Errorf("user_growth len = %d, want 1", len(got.UserGrowth))
+	}
+}
+
+// TestAdminStatsDeniesNonAdmin: GET /admin/stats returns 403 for a non-admin.
+func TestAdminStatsDeniesNonAdmin(t *testing.T) {
+	t.Parallel()
+
+	m := adminModule(User{ID: "u2", IsAdmin: false, Active: true}, true)
+
+	req := httptest.NewRequest(http.MethodGet, AdminStatsPath, nil)
+	req.AddCookie(sessionCookieFor(t, m.sessions, "u2"))
+	rec := httptest.NewRecorder()
+	m.RequireAdmin(http.HandlerFunc(m.handleAdminStats)).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403", rec.Code)
 	}
 }
 

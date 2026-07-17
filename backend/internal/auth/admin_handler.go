@@ -43,6 +43,61 @@ func (m *Module) handleAdminInfo(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// AdminStatsPath is the admin endpoint returning dashboard aggregates (M08.5 redesign).
+const AdminStatsPath = "/admin/stats"
+
+// AdminStats is the aggregate snapshot behind the admin Overview dashboard.
+type AdminStats struct {
+	Users      AdminUserStats    `json:"users"`
+	Trips      AdminTripStats    `json:"trips"`
+	UserGrowth []AdminMonthPoint `json:"user_growth"`
+	TripGrowth []AdminMonthPoint `json:"trip_growth"`
+}
+
+// AdminUserStats counts users by state.
+type AdminUserStats struct {
+	Total  int `json:"total"`
+	Active int `json:"active"`
+	Admins int `json:"admins"`
+}
+
+// AdminTripStats counts trips by state.
+type AdminTripStats struct {
+	Total    int `json:"total"`
+	Active   int `json:"active"`
+	Archived int `json:"archived"`
+}
+
+// AdminMonthPoint is a single "YYYY-MM" → cumulative-count point on a growth line.
+type AdminMonthPoint struct {
+	Month string `json:"month"`
+	Count int    `json:"count"`
+}
+
+// handleAdminStats returns aggregate counts + 6-month growth for the Overview
+// dashboard (M08.5 redesign). Gated by RequireAdmin.
+func (m *Module) handleAdminStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := m.repo.Stats(r.Context())
+	if err != nil {
+		platformlog.FromContext(r.Context()).Error("admin stats", "err", err.Error())
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusInternalServerError, "server_error", "could not load stats"))
+		return
+	}
+	// Never emit a null array — the client expects [] for an empty series.
+	if stats.UserGrowth == nil {
+		stats.UserGrowth = []AdminMonthPoint{}
+	}
+	if stats.TripGrowth == nil {
+		stats.TripGrowth = []AdminMonthPoint{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(stats)
+}
+
 // AdminUsersPath is the admin endpoint to list all users (S2).
 const AdminUsersPath = "/admin/users"
 

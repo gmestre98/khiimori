@@ -45,6 +45,8 @@ type userRepo interface {
 	ListUsers(ctx context.Context) ([]AdminUserRow, error)
 	// ListTrips returns all trips with owner email for the admin backoffice (M08.5 S2).
 	ListTrips(ctx context.Context) ([]AdminTripRow, error)
+	// Stats returns aggregate counts + 6-month growth for the admin dashboard.
+	Stats(ctx context.Context) (AdminStats, error)
 }
 
 // AdminUserRow is the projection of an auth.users row for the admin list.
@@ -236,4 +238,62 @@ func (r *pgxUserRepo) ListTrips(ctx context.Context) ([]AdminTripRow, error) {
 		return nil, fmt.Errorf("auth: list trips rows: %w", err)
 	}
 	return out, nil
+}
+
+// Stats returns the aggregate counts and 6-month cumulative growth that back the
+// admin Overview dashboard. Kept as three small read-only queries (two summaries
+// + one growth series) rather than pulling every row into Go: the admin scope
+// crosses user boundaries by design, and the endpoint is gated by RequireAdmin.
+func (r *pgxUserRepo) Stats(ctx context.Context) (AdminStats, error) {
+	var s AdminStats
+
+	err := r.pool.QueryRow(ctx, `
+		SELECT count(*),
+		       count(*) FILTER (WHERE active),
+		       count(*) FILTER (WHERE is_admin)
+		FROM auth.users`).Scan(&s.Users.Total, &s.Users.Active, &s.Users.Admins)
+	if err != nil {
+		return AdminStats{}, fmt.Errorf("auth: user stats: %w", err)
+	}
+
+	err = r.pool.QueryRow(ctx, `
+		SELECT count(*),
+		       count(*) FILTER (WHERE status = 'active'),
+		       count(*) FILTER (WHERE status <> 'active')
+		FROM trip.trips`).Scan(&s.Trips.Total, &s.Trips.Active, &s.Trips.Archived)
+	if err != nil {
+		return AdminStats{}, fmt.Errorf("auth: trip stats: %w", err)
+	}
+
+	// Cumulative user + trip totals at the end of each of the last 6 months, so
+	// the dashboard can draw a growth line. generate_series(5..0) yields the six
+	// month buckets ending with the current one.
+	const growthQuery = `
+		WITH months AS (
+		    SELECT date_trunc('month', now()) - (interval '1 month' * g) AS m
+		    FROM generate_series(5, 0, -1) AS g
+		)
+		SELECT to_char(m, 'YYYY-MM'),
+		       (SELECT count(*) FROM auth.users u WHERE u.created_at < m + interval '1 month'),
+		       (SELECT count(*) FROM trip.trips t WHERE t.created_at < m + interval '1 month')
+		FROM months
+		ORDER BY m`
+	rows, err := r.pool.Query(ctx, growthQuery)
+	if err != nil {
+		return AdminStats{}, fmt.Errorf("auth: growth stats: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var month string
+		var users, trips int
+		if err := rows.Scan(&month, &users, &trips); err != nil {
+			return AdminStats{}, fmt.Errorf("auth: scan growth row: %w", err)
+		}
+		s.UserGrowth = append(s.UserGrowth, AdminMonthPoint{Month: month, Count: users})
+		s.TripGrowth = append(s.TripGrowth, AdminMonthPoint{Month: month, Count: trips})
+	}
+	if err := rows.Err(); err != nil {
+		return AdminStats{}, fmt.Errorf("auth: growth rows: %w", err)
+	}
+	return s, nil
 }

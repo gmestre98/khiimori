@@ -1316,6 +1316,28 @@ export interface AdminTrip {
   status: string
 }
 
+// AdminMonthPoint is one "YYYY-MM" → cumulative-count point on a growth line.
+export interface AdminMonthPoint {
+  month: string
+  count: number
+}
+
+// AdminStats is the aggregate snapshot behind the Overview dashboard.
+export interface AdminStats {
+  users: { total: number; active: number; admins: number }
+  trips: { total: number; active: number; archived: number }
+  user_growth: AdminMonthPoint[]
+  trip_growth: AdminMonthPoint[]
+}
+
+// fetchAdminStats returns the aggregate counts + growth for the Overview dashboard.
+export async function fetchAdminStats(): Promise<AdminStats> {
+  const res = await apiFetch('/admin/stats')
+  if (res.status === 403) throw new Error('forbidden')
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as AdminStats
+}
+
 // fetchAdminUsers lists all users from the admin backoffice endpoint.
 export async function fetchAdminUsers(): Promise<AdminUser[]> {
   const res = await apiFetch('/admin/users')

@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -142,6 +143,7 @@ func TestAdminGating_NonAdminDenied(t *testing.T) {
 		body   any
 	}{
 		{http.MethodGet, "/admin", nil},
+		{http.MethodGet, "/admin/stats", nil},
 		{http.MethodGet, "/admin/users", nil},
 		{http.MethodGet, "/admin/trips", nil},
 		{http.MethodPost, "/admin/users/" + userID + "/deactivate", nil},
@@ -178,6 +180,45 @@ func TestAdminGating_AdminCanReachBackoffice(t *testing.T) {
 
 	r = do(t, srv, http.MethodGet, "/admin/trips", nil)
 	wantStatus(t, "admin GET /admin/trips", r, http.StatusOK)
+
+	r = do(t, srv, http.MethodGet, "/admin/stats", nil)
+	wantStatus(t, "admin GET /admin/stats", r, http.StatusOK)
+}
+
+// TestAdminStats asserts the aggregate snapshot reflects seeded rows: with one
+// admin user and no trips, the counts and a 6-point growth series come back.
+func TestAdminStats(t *testing.T) {
+	if authzTestPool == nil {
+		t.Skip("DATABASE_URL_TEST not set")
+	}
+	truncateAuthUsers(t)
+	adminID := insertUser(t, "admin-"+genID(t)+"@example.com", true, true)
+	srv := adminServer(t, adminID)
+
+	r := do(t, srv, http.MethodGet, "/admin/stats", nil)
+	wantStatus(t, "admin GET /admin/stats", r, http.StatusOK)
+	defer r.Body.Close()
+
+	var got struct {
+		Users      struct{ Total, Active, Admins int }   `json:"users"`
+		Trips      struct{ Total, Active, Archived int } `json:"trips"`
+		UserGrowth []struct {
+			Month string `json:"month"`
+			Count int    `json:"count"`
+		} `json:"user_growth"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+		t.Fatalf("decode stats: %v", err)
+	}
+	if got.Users.Total != 1 || got.Users.Active != 1 || got.Users.Admins != 1 {
+		t.Errorf("users = %+v, want total=1 active=1 admins=1", got.Users)
+	}
+	if got.Trips.Total != 0 {
+		t.Errorf("trips.total = %d, want 0", got.Trips.Total)
+	}
+	if len(got.UserGrowth) != 6 {
+		t.Errorf("user_growth len = %d, want 6 months", len(got.UserGrowth))
+	}
 }
 
 // ─── grant / revoke / change-role ─────────────────────────────────────────────
