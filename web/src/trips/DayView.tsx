@@ -17,6 +17,7 @@ import {
   fetchDay,
   movePlanItem,
   reorderPlanItems,
+  reorderPlanItemsActual,
   setPlanItemStatus,
   updatePlanItem,
   datesInRange,
@@ -1549,6 +1550,7 @@ function ReorderableItemList({
   onRemoved,
   onReordered,
   onItemMoved,
+  pinTimed = true,
 }: {
   items: PlanItem[]
   tripId: string
@@ -1562,6 +1564,11 @@ function ReorderableItemList({
   onRemoved: (itemId: string) => void
   onReordered: (newOrder: PlanItem[]) => void
   onItemMoved?: (targetDate: string, item: PlanItem) => void
+  // pinTimed (default true) pins timed rows to clock order and lets only untimed
+  // rows be dragged — the Plan timeline. The "What happened" list passes false:
+  // it's a free manual order (what you actually did, which can differ from the
+  // planned times), so every row is draggable and the given order is shown as-is.
+  pinTimed?: boolean
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   // Touch drag (mobile): a pointer-driven reorder replaces the old up/down
@@ -1580,7 +1587,7 @@ function ReorderableItemList({
   // autoScrollRef holds the rAF handle; lastClientYRef is the finger's latest Y.
   const autoScrollRef = useRef<number | null>(null)
   const lastClientYRef = useRef(0)
-  const display = touchOrder ?? orderTimeline(items)
+  const display = touchOrder ?? (pinTimed ? orderTimeline(items) : items)
 
   // Stop the auto-scroll loop if we unmount mid-drag (pointerup would otherwise
   // never fire on the captured, now-gone handle, leaving the rAF chain running).
@@ -1592,7 +1599,7 @@ function ReorderableItemList({
   )
 
   function report(reordered: PlanItem[]) {
-    onReordered(orderTimeline(reordered))
+    onReordered(pinTimed ? orderTimeline(reordered) : reordered)
   }
 
   function handleDragStart(e: React.DragEvent, itemId: string) {
@@ -1725,7 +1732,10 @@ function ReorderableItemList({
   return (
     <ol className="plan-item-list" ref={listRef}>
       {display.map((item) => {
-        const isUntimed = item.start_time == null
+        // With time-pinning (Plan) only untimed rows can be picked up — every
+        // row still accepts a drop so an untimed item can land between two timed
+        // ones. Without it (What happened) every row is a free drag.
+        const isDraggable = pinTimed ? item.start_time == null : true
         return (
           <PlanItemRow
             key={item.id}
@@ -1733,9 +1743,7 @@ function ReorderableItemList({
             tripId={tripId}
             day={day}
             tripDates={tripDates}
-            // Only untimed items can be picked up; every row accepts a drop so
-            // an untimed item can land between two timed ones.
-            draggable={isUntimed}
+            draggable={isDraggable}
             isTouchDragging={touchDragId === item.id}
             isSelected={selectedId === item.id}
             pinNumber={pinNumberForId?.(item.id)}
@@ -1924,17 +1932,36 @@ export function PlanningSection({
     reorderPlanItems(tripId, day.id, itemIds).catch(() => setItems(snapshot))
   }
 
-  // The Plan and What-happened lists each reorder their own slice; fold the new
-  // slice order back into the full day sequence (by sort_order) so both lists and
-  // the map stay consistent over one shared order.
+  // Reordering the Plan writes sort_order (the planned timeline). The dragged
+  // slice is folded back into the full day sequence so the untouched items keep
+  // their positions, then persisted as one full order.
   function handlePlanReordered(newPlanOrder: PlanItem[]) {
     const ordered = [...items].sort((a, b) => a.sort_order - b.sort_order)
     persistReorder(mergeSubsetOrder(ordered, newPlanOrder))
   }
 
+  // persistActualReorder is the writer for the "What happened" order: it stamps
+  // actual_order 0,1,2,… onto the reordered done/logged items and persists only
+  // those ids to the actual-order endpoint, leaving sort_order (the plan)
+  // untouched — so the two lists reorder independently.
+  function persistActualReorder(newDoneOrder: PlanItem[]) {
+    const orderById = new Map(newDoneOrder.map((it, idx) => [it.id, idx]))
+    const snapshot = items
+    const next = items.map((it) => {
+      const idx = orderById.get(it.id)
+      return idx == null || it.actual_order === idx ? it : { ...it, actual_order: idx }
+    })
+    setItems(next)
+    const itemIds = newDoneOrder.map((i) => i.id)
+    if (!online) {
+      void enqueue('reorderPlanItemsActual', { tripId, dayId: day.id, itemIds })
+      return
+    }
+    reorderPlanItemsActual(tripId, day.id, itemIds).catch(() => setItems(snapshot))
+  }
+
   function handleDoneReordered(newDoneOrder: PlanItem[]) {
-    const ordered = [...items].sort((a, b) => a.sort_order - b.sort_order)
-    persistReorder(mergeSubsetOrder(ordered, newDoneOrder))
+    persistActualReorder(newDoneOrder)
   }
 
   // "Plan" is the itinerary you intended: every item except ones logged after
@@ -1943,8 +1970,13 @@ export function PlanningSection({
   // you can compare the plan against what happened; a spontaneous log shows only
   // under what happened (a no-plan day keeps an empty Plan). Skipped/cancelled
   // planned items stay under Plan so their status control is still reachable.
+  // Plan reads in sort_order (items arrive that way); "What happened" reads in
+  // its own actual_order so it can differ from the plan. actual_order falls back
+  // to sort_order for items cached before the column shipped.
   const planItems = items.filter((i) => !i.unplanned)
-  const doneItems = items.filter((i) => i.status === 'done' || i.unplanned)
+  const doneItems = items
+    .filter((i) => i.status === 'done' || i.unplanned)
+    .sort((a, b) => (a.actual_order ?? a.sort_order) - (b.actual_order ?? b.sort_order))
 
   function togglePlanHidden() {
     setPlanHidden((h) => {
@@ -2035,6 +2067,9 @@ export function PlanningSection({
             onRemoved={handleRemoved}
             onReordered={handleDoneReordered}
             onItemMoved={onItemMoved}
+            // Free manual order (the sequence you actually did things), not the
+            // planned clock order — every row drags.
+            pinTimed={false}
           />
         )}
         <QuickAddForm tripId={tripId} dayId={day.id} onAdded={handleAdded} logDone />

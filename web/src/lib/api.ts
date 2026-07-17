@@ -439,6 +439,12 @@ export interface PlanItem {
   // apart from what happened. Optional/absent → treated as planned (false).
   unplanned?: boolean
   sort_order: number
+  // actual_order positions the item in the "what happened" list, independent of
+  // sort_order (the planned-timeline position) — reordering one leaves the other
+  // untouched. Optional here for the instant-render cache reason as above:
+  // payloads written before this column shipped omit it; consumers fall back to
+  // sort_order when it's absent. (00031)
+  actual_order?: number
   status: string
 }
 
@@ -552,6 +558,23 @@ export async function reorderPlanItems(
   itemIds: string[],
 ): Promise<void> {
   const res = await apiFetch(`/trips/${tripId}/plan-items/reorder`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ day_id: dayId, item_ids: itemIds }),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+}
+
+// reorderPlanItemsActual sends the new "what happened" order (actual_order) for
+// a day's done/logged items, leaving the planned order (sort_order) untouched.
+// item_ids is the "what happened" subset in the desired sequence.
+export async function reorderPlanItemsActual(
+  tripId: string,
+  dayId: string,
+  itemIds: string[],
+): Promise<void> {
+  const res = await apiFetch(`/trips/${tripId}/plan-items/reorder-actual`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ day_id: dayId, item_ids: itemIds }),

@@ -53,6 +53,12 @@ type fakePlanItemStore struct {
 	reorderResult    []PlanItem
 	reorderErr       error
 
+	gotActualReorderTripID string
+	gotActualReorderDayID  string
+	gotActualReorderIDs    []string
+	actualReorderResult    []PlanItem
+	actualReorderErr       error
+
 	gotStatusTripID string
 	gotStatusItemID string
 	gotStatus       string
@@ -200,6 +206,23 @@ func (f *fakePlanItemStore) ReorderPlanItems(_ context.Context, tripID, dayID st
 	items := make([]PlanItem, len(itemIDs))
 	for i, id := range itemIDs {
 		items[i] = PlanItem{ID: id, TripID: tripID, DayID: &dayID, Title: "item", SortOrder: i, Status: "planned"}
+	}
+	return items, nil
+}
+
+func (f *fakePlanItemStore) ReorderActualOrder(_ context.Context, tripID, dayID string, itemIDs []string) ([]PlanItem, error) {
+	f.gotActualReorderTripID = tripID
+	f.gotActualReorderDayID = dayID
+	f.gotActualReorderIDs = itemIDs
+	if f.actualReorderErr != nil {
+		return nil, f.actualReorderErr
+	}
+	if f.actualReorderResult != nil {
+		return f.actualReorderResult, nil
+	}
+	items := make([]PlanItem, len(itemIDs))
+	for i, id := range itemIDs {
+		items[i] = PlanItem{ID: id, TripID: tripID, DayID: &dayID, Title: "item", ActualOrder: i, Status: "done"}
 	}
 	return items, nil
 }
@@ -1306,6 +1329,36 @@ func TestHandleReorderPlanItemsUnauthorized(t *testing.T) {
 	}
 	if pi.gotReorderDayID != "" {
 		t.Error("store should not be called for an unauthorized request")
+	}
+}
+
+// TestHandleReorderActualOrder asserts the "what happened" reorder endpoint
+// forwards the item_ids to ReorderActualOrder (not ReorderPlanItems), so the
+// planned order is left untouched.
+func TestHandleReorderActualOrder(t *testing.T) {
+	t.Parallel()
+
+	pi := &fakePlanItemStore{}
+	m := newPlanItemModule(&fakeTripStore{}, pi)
+
+	body := `{"day_id":"day-abc","item_ids":["id-2","id-1"]}`
+	req := httptest.NewRequest(http.MethodPost, TripsPath+"/trip-1/plan-items/reorder-actual", strings.NewReader(body))
+	req.SetPathValue("id", "trip-1")
+	rec := httptest.NewRecorder()
+	m.handleReorderActualOrder(rec, withPrincipal(req, "owner-1"))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	// The actual-order store method received the ids; the planned reorder did not.
+	if pi.gotActualReorderDayID != "day-abc" {
+		t.Errorf("actual reorder day_id = %q, want day-abc", pi.gotActualReorderDayID)
+	}
+	if len(pi.gotActualReorderIDs) != 2 || pi.gotActualReorderIDs[0] != "id-2" {
+		t.Errorf("actual reorder item_ids = %v, want [id-2 id-1]", pi.gotActualReorderIDs)
+	}
+	if pi.gotReorderDayID != "" {
+		t.Error("planned reorder (sort_order) must not be touched by an actual-order reorder")
 	}
 }
 

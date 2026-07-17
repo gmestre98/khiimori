@@ -136,6 +136,75 @@ func TestReorderPlanItemsTimedUntimedIntegration(t *testing.T) {
 	}
 }
 
+// reorderActualOrderIntegration calls POST …/plan-items/reorder-actual and
+// returns the items ordered by actual_order.
+func reorderActualOrderIntegration(t *testing.T, srv *httptest.Server, tripID, body string) []planItemResponse {
+	t.Helper()
+	path := fmt.Sprintf("%s/%s/plan-items/reorder-actual", TripsPath, tripID)
+	resp := postJSON(t, srv, path, json.RawMessage(body))
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("reorder actual order status = %d, want 200", resp.StatusCode)
+	}
+	var result struct {
+		Items []planItemResponse `json:"items"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode actual-reorder response: %v", err)
+	}
+	return result.Items
+}
+
+// TestReorderActualOrderIndependentIntegration is the crux of the feature: the
+// planned order (sort_order) and the "what happened" order (actual_order) move
+// independently. It reorders the plan one way, the actual order another way, and
+// checks each list reflects only its own reorder.
+func TestReorderActualOrderIndependentIntegration(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DATABASE_URL_TEST not set; skipping actual-order integration test")
+	}
+
+	srv := newModule(t)
+	tripID := createTripForPlanItemTest(t, srv)
+	dayID := getDayID(t, srv, tripID, "2026-09-05")
+
+	a := createPlanItem(t, srv, tripID, fmt.Sprintf(`{"title":"A","day_id":%q}`, dayID))
+	b := createPlanItem(t, srv, tripID, fmt.Sprintf(`{"title":"B","day_id":%q}`, dayID))
+	c := createPlanItem(t, srv, tripID, fmt.Sprintf(`{"title":"C","day_id":%q}`, dayID))
+
+	// Plan order: C, A, B (sort_order).
+	planned := reorderPlanItemsIntegration(t, srv, tripID,
+		fmt.Sprintf(`{"day_id":%q,"item_ids":[%q,%q,%q]}`, dayID, c.ID, a.ID, b.ID))
+	wantPlan := []string{c.ID, a.ID, b.ID}
+	for i, it := range planned {
+		if it.ID != wantPlan[i] {
+			t.Errorf("planned[%d].id = %q, want %q", i, it.ID, wantPlan[i])
+		}
+	}
+
+	// Actual order: B, C, A (actual_order) — a different sequence.
+	actual := reorderActualOrderIntegration(t, srv, tripID,
+		fmt.Sprintf(`{"day_id":%q,"item_ids":[%q,%q,%q]}`, dayID, b.ID, c.ID, a.ID))
+	wantActual := []string{b.ID, c.ID, a.ID}
+	for i, it := range actual {
+		if it.ID != wantActual[i] {
+			t.Errorf("actual[%d].id = %q, want %q", i, it.ID, wantActual[i])
+		}
+		if it.ActualOrder != i {
+			t.Errorf("actual[%d].actual_order = %d, want %d", i, it.ActualOrder, i)
+		}
+	}
+
+	// The actual reorder must NOT have disturbed sort_order: re-fetch the day
+	// (ListByDay orders by sort_order) and confirm the plan order is intact.
+	items := getDayItems(t, srv, tripID, "2026-09-05")
+	for i, it := range items {
+		if it.ID != wantPlan[i] {
+			t.Errorf("after actual reorder, day[%d].id = %q, want plan order %q", i, it.ID, wantPlan[i])
+		}
+	}
+}
+
 // getDayItems GETs a day and returns its plan items in server order.
 func getDayItems(t *testing.T, srv *httptest.Server, tripID, date string) []planItemResponse {
 	t.Helper()

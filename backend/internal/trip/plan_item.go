@@ -83,7 +83,13 @@ type PlanItem struct {
 	// apart from what actually happened. Set at creation; not editable.
 	Unplanned bool
 	SortOrder int
-	Status    string // "idea"|"planned"|"done"|"skipped"|"cancelled"
+	// ActualOrder is a second manual order, independent of SortOrder: SortOrder
+	// positions the item in the planned timeline, ActualOrder in the
+	// "what happened" list (the sequence things actually occurred in). Defaults
+	// to the item's SortOrder at creation; reordering "what happened" moves only
+	// this. (00031)
+	ActualOrder int
+	Status      string // "idea"|"planned"|"done"|"skipped"|"cancelled"
 }
 
 // NewPlanItem is the validated input to create a plan item. ClientID, when

@@ -1,6 +1,7 @@
 package trip
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -86,6 +87,7 @@ type planItemResponse struct {
 	Note          *string  `json:"note,omitempty"`
 	Unplanned     bool     `json:"unplanned"`
 	SortOrder     int      `json:"sort_order"`
+	ActualOrder   int      `json:"actual_order"`
 	Status        string   `json:"status"`
 }
 
@@ -382,6 +384,26 @@ type reorderPlanItemsRequest struct {
 // list position. The operation is idempotent — replaying with the same
 // list produces the same sort_order values (PRD §6).
 func (m *Module) handleReorderPlanItems(w http.ResponseWriter, r *http.Request) {
+	m.reorderBy(w, r, "reordering plan items", m.planItems.ReorderPlanItems)
+}
+
+// handleReorderActualOrder is the "what happened" twin of handleReorderPlanItems
+// (POST /trips/{id}/plan-items/reorder-actual): it sets actual_order for the
+// given items, leaving sort_order (the planned order) untouched, so the two
+// lists reorder independently. Same wire shape and idempotency guarantees.
+func (m *Module) handleReorderActualOrder(w http.ResponseWriter, r *http.Request) {
+	m.reorderBy(w, r, "reordering actual order", m.planItems.ReorderActualOrder)
+}
+
+// reorderBy is the shared body for the two reorder endpoints: authenticate,
+// authorize, validate the {day_id, item_ids} request, run the given reorder
+// function, and return the day's items. logMsg labels the error log.
+func (m *Module) reorderBy(
+	w http.ResponseWriter,
+	r *http.Request,
+	logMsg string,
+	reorder func(ctx context.Context, tripID, dayID string, itemIDs []string) ([]PlanItem, error),
+) {
 	p, ok := authn.FromContext(r.Context())
 	if !ok {
 		httpx.WriteError(w, r, httpx.NewAPIError(
@@ -412,9 +434,9 @@ func (m *Module) handleReorderPlanItems(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	items, err := m.planItems.ReorderPlanItems(r.Context(), tripID, req.DayID, req.ItemIDs)
+	items, err := reorder(r.Context(), tripID, req.DayID, req.ItemIDs)
 	if err != nil {
-		platformlog.FromContext(r.Context()).Error("reordering plan items", "err", err.Error())
+		platformlog.FromContext(r.Context()).Error(logMsg, "err", err.Error())
 		httpx.WriteError(w, r, err)
 		return
 	}
