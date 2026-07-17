@@ -1547,6 +1547,9 @@ function TimelineSection({
   const [touchDragId, setTouchDragId] = useState<string | null>(null)
   const touchDragRef = useRef<string | null>(null)
   const touchOrderRef = useRef<PlanItem[] | null>(null)
+  // touchMovedRef stays false for a tap that never reorders, so lifting the
+  // finger without moving doesn't fire a no-op reorder request.
+  const touchMovedRef = useRef(false)
   const display = touchOrder ?? orderTimeline(items)
 
   function persist(reordered: PlanItem[]) {
@@ -1599,6 +1602,7 @@ function TimelineSection({
     e.preventDefault()
     touchDragRef.current = itemId
     touchOrderRef.current = display
+    touchMovedRef.current = false
     setTouchDragId(itemId)
     setTouchOrder(display)
     e.currentTarget.setPointerCapture?.(e.pointerId)
@@ -1629,18 +1633,21 @@ function TimelineSection({
     if (insertAt === -1) insertAt = order.length
     order.splice(insertAt, 0, moved)
     if (order.every((it, i) => it.id === current[i]?.id)) return
+    touchMovedRef.current = true
     touchOrderRef.current = order
     setTouchOrder(order)
   }
 
   function handleTouchDragEnd() {
     const order = touchOrderRef.current
-    const wasDragging = touchDragRef.current != null
+    const moved = touchMovedRef.current
     touchDragRef.current = null
     touchOrderRef.current = null
+    touchMovedRef.current = false
     setTouchDragId(null)
     setTouchOrder(null)
-    if (wasDragging && order) persist(order)
+    // Only persist a real reorder; a tap that didn't move anything is a no-op.
+    if (moved && order) persist(order)
   }
 
   if (display.length === 0) return null

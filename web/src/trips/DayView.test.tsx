@@ -1078,6 +1078,24 @@ describe('DayView', () => {
       )
     })
 
+    it('tapping the drag handle without moving does not reorder', async () => {
+      setMobile(true)
+      const items = [
+        makePlanItem({ id: 'i1', title: 'First', sort_order: 0 }),
+        makePlanItem({ id: 'i2', title: 'Second', sort_order: 1 }),
+      ]
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
+      vi.mocked(api.reorderPlanItems).mockResolvedValue()
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Second')).toBeInTheDocument())
+
+      // A press-and-lift that never crosses another row's midpoint (stays on its
+      // own row) must not fire a no-op reorder request.
+      dragRowByHandle('Second', 45)
+
+      expect(api.reorderPlanItems).not.toHaveBeenCalled()
+    })
+
     it('reorders offline: queues reorderPlanItems, no server call, order persists to cache', async () => {
       setMobile(true)
       const items = [
