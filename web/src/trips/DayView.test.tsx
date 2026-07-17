@@ -1149,11 +1149,55 @@ describe('DayView', () => {
 
       dragRowByHandle('Second', 5)
 
-      // The reorder only sends the two planned items; the logged one is untouched.
+      // The reorder sends the full day order — the logged item stays at the end
+      // (its slot is fixed), so it keeps its position and its state entry.
       await waitFor(() =>
-        expect(api.reorderPlanItems).toHaveBeenCalledWith('trip-1', 'day-1', ['i2', 'i1']),
+        expect(api.reorderPlanItems).toHaveBeenCalledWith('trip-1', 'day-1', ['i2', 'i1', 'd1']),
       )
       expect(screen.getByText('Kayak logged')).toBeInTheDocument()
+    })
+
+    it('reorders the "What happened" list via touch drag', async () => {
+      setMobile(true)
+      // Two logged-after-the-fact items live only under What happened, so its
+      // list is the only draggable one on screen.
+      const items = [
+        makePlanItem({ id: 'd1', title: 'Kayak', status: 'done', unplanned: true, sort_order: 0 }),
+        makePlanItem({ id: 'd2', title: 'Gelato', status: 'done', unplanned: true, sort_order: 1 }),
+      ]
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
+      vi.mocked(api.reorderPlanItems).mockResolvedValue()
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Gelato')).toBeInTheDocument())
+
+      // Drag "Gelato" above "Kayak".
+      dragRowByHandle('Gelato', 5)
+
+      await waitFor(() =>
+        expect(api.reorderPlanItems).toHaveBeenCalledWith('trip-1', 'day-1', ['d2', 'd1']),
+      )
+    })
+
+    it('renumbers map pins immediately after a reorder (no refresh)', async () => {
+      setMobile(true)
+      const items = [
+        makePlanItem({ id: 'i1', title: 'First', location: 'Paris', sort_order: 0 }),
+        makePlanItem({ id: 'i2', title: 'Second', location: 'Lyon', sort_order: 1 }),
+      ]
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
+      vi.mocked(api.reorderPlanItems).mockResolvedValue()
+      renderDayView()
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Map pin 1 for First' })).toBeInTheDocument(),
+      )
+
+      // Drag "Second" above "First": pins should swap without a data refetch.
+      dragRowByHandle('Second', 5)
+
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Map pin 1 for Second' })).toBeInTheDocument(),
+      )
+      expect(screen.getByRole('button', { name: 'Map pin 2 for First' })).toBeInTheDocument()
     })
   })
 
