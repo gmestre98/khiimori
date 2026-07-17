@@ -154,17 +154,17 @@ describe('StaySlot', () => {
     const setStays = vi.fn()
 
     render(<StaySlot day={makeDay({ stays: [stay] })} tripId="trip-1" setStays={setStays} />)
-    // Unpaid cost shows an "Upcoming" badge and a "Mark paid" action.
-    expect(screen.getByText('Upcoming')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Mark paid' }))
+    // Unpaid cost shows an "Upcoming" badge and a payment-state dropdown.
+    expect(screen.getByText('Upcoming', { selector: 'span' })).toBeInTheDocument()
+    await user.selectOptions(screen.getByRole('combobox', { name: /Payment/ }), 'paid')
 
     await waitFor(() => expect(api.updateStay).toHaveBeenCalledTimes(1))
     expect(vi.mocked(api.updateStay).mock.calls[0][2]).toMatchObject({ paid: true, cost: 120 })
   })
 
-  it('hides the paid toggle when the stay has no cost', () => {
+  it('hides the payment dropdown when the stay has no cost', () => {
     render(<StaySlot day={makeDay({ stays: [makeStay()] })} tripId="trip-1" setStays={vi.fn()} />)
-    expect(screen.queryByRole('button', { name: /Mark paid/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: /Payment/ })).not.toBeInTheDocument()
     expect(screen.queryByText('Upcoming')).not.toBeInTheDocument()
   })
 

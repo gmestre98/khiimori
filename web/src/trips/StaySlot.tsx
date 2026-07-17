@@ -222,14 +222,14 @@ export function StaySlot({
     }
   }
 
-  // togglePaid flips the stay's paid flag in place (a full-replacement edit
-  // reusing the stay's current fields) so the traveller can mark a booking paid
-  // straight from the card without opening the form.
-  async function togglePaid() {
-    if (!stay) return
+  // setPaid writes the stay's paid flag in place (a full-replacement edit
+  // reusing the stay's current fields) so the traveller can change a booking's
+  // state straight from the card's dropdown without opening the form.
+  async function setPaid(paid: boolean) {
+    if (!stay || paid === (stay.paid ?? false)) return
     setSubmitting(true)
     setError(null)
-    const input: StayInput = { ...fieldsToStayInput(fieldsFromStay(stay)), paid: !stay.paid }
+    const input: StayInput = { ...fieldsToStayInput(fieldsFromStay(stay)), paid }
     try {
       if (online) {
         reflect(await updateStay(tripId, stay.id, input))
@@ -375,7 +375,7 @@ export function StaySlot({
           onSelect={onSelect}
           onEdit={openEdit}
           onRemove={handleRemove}
-          onTogglePaid={togglePaid}
+          onSetPaid={setPaid}
           removing={submitting}
         />
       ) : (
@@ -402,7 +402,7 @@ function StayCard({
   onSelect,
   onEdit,
   onRemove,
-  onTogglePaid,
+  onSetPaid,
   removing,
 }: {
   stay: Stay
@@ -412,7 +412,7 @@ function StayCard({
   onSelect?: (id: string | null) => void
   onEdit: () => void
   onRemove: () => void
-  onTogglePaid: () => void
+  onSetPaid: (paid: boolean) => void
   removing: boolean
 }) {
   const ctx = nightContext(stay, date)
@@ -472,9 +472,16 @@ function StayCard({
       </div>
       <div className="stay-item-actions">
         {hasCost && (
-          <button type="button" className="stay-action" onClick={onTogglePaid} disabled={removing}>
-            {stay.paid ? 'Mark unpaid' : 'Mark paid'}
-          </button>
+          <select
+            className="stay-status-select"
+            value={stay.paid ? 'paid' : 'upcoming'}
+            onChange={(e) => onSetPaid(e.target.value === 'paid')}
+            disabled={removing}
+            aria-label={`Payment: ${stay.paid ? 'Paid' : 'Upcoming'}`}
+          >
+            <option value="upcoming">Upcoming</option>
+            <option value="paid">Paid</option>
+          </select>
         )}
         <button
           type="button"

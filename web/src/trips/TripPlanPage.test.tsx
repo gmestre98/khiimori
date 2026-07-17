@@ -245,7 +245,11 @@ describe('TripPlanPage', () => {
       within(nav.getByRole('button', { name: /day 2/i })).getByText('Nothing planned yet'),
     ).toBeVisible()
 
-    // Move the item off day 1 onto day 2 (2026-06-02).
+    // Move the item off day 1 onto day 2 (2026-06-02). Secondary actions live
+    // under the row's ⋯ menu.
+    await user.click(
+      await screen.findByRole('button', { name: /More actions for Visit the castle/ }),
+    )
     await user.click(
       await screen.findByRole('button', { name: /Move Visit the castle to another day/ }),
     )

@@ -962,6 +962,10 @@ function PlanItemRow({
   const [editing, setEditing] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [showMovePicker, setShowMovePicker] = useState(false)
+  // showActions gates the secondary row controls (move / backlog / delete)
+  // behind a "⋯" toggle so a resting row shows only its status dropdown, not a
+  // crowd of buttons.
+  const [showActions, setShowActions] = useState(false)
   const [statusBusy, setStatusBusy] = useState(false)
   const [demoteBusy, setDemoteBusy] = useState(false)
   // confirmDelete gates the destructive delete behind a second click — the bin
@@ -1250,80 +1254,103 @@ function PlanItemRow({
           <option value="cancelled">Cancelled</option>
         </select>
 
-        {showMovePicker ? (
-          <MoveToDayPicker
-            tripId={tripId}
-            item={item}
-            tripDates={tripDates}
-            currentDate={day.date}
-            onMoved={(id, targetDate, moved) => {
-              setShowMovePicker(false)
-              onRemoved(id)
-              onItemMoved?.(targetDate, moved)
-            }}
-            onCancel={() => setShowMovePicker(false)}
-          />
-        ) : (
-          <button
-            type="button"
-            className="plan-item-move-btn"
-            onClick={() => setShowMovePicker(true)}
-            aria-label={`Move ${item.title} to another day`}
-          >
-            Move…
-          </button>
-        )}
-
         <button
           type="button"
-          className="plan-item-demote-btn"
-          onClick={handleDemote}
-          disabled={demoteBusy}
-          aria-label={`Move ${item.title} to backlog`}
+          className={['plan-item-more-btn', showActions ? 'plan-item-more-btn--open' : '']
+            .filter(Boolean)
+            .join(' ')}
+          onClick={() => {
+            // Collapsing resets any half-open secondary UI so it never lingers
+            // hidden.
+            setShowActions((v) => !v)
+            setShowMovePicker(false)
+            setConfirmDelete(false)
+          }}
+          aria-expanded={showActions}
+          aria-label={`More actions for ${item.title}`}
+          title="More actions"
         >
-          → Backlog
+          ⋯
         </button>
 
-        {confirmDelete ? (
-          <span className="plan-item-delete-confirm">
-            <button
-              type="button"
-              className="plan-item-delete-yes"
-              onClick={handleDelete}
-              disabled={deleteBusy}
-              aria-label={`Confirm delete ${item.title}`}
-            >
-              Delete?
-            </button>
-            <button
-              type="button"
-              className="plan-item-delete-cancel"
-              onClick={() => setConfirmDelete(false)}
-              disabled={deleteBusy}
-              aria-label="Cancel delete"
-            >
-              Cancel
-            </button>
-          </span>
-        ) : (
-          <button
-            type="button"
-            className="plan-item-delete-btn"
-            onClick={() => setConfirmDelete(true)}
-            aria-label={`Delete ${item.title}`}
-            title="Delete"
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7m4 4v6m4-6v6"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+        {showActions && (
+          <>
+            {showMovePicker ? (
+              <MoveToDayPicker
+                tripId={tripId}
+                item={item}
+                tripDates={tripDates}
+                currentDate={day.date}
+                onMoved={(id, targetDate, moved) => {
+                  setShowMovePicker(false)
+                  onRemoved(id)
+                  onItemMoved?.(targetDate, moved)
+                }}
+                onCancel={() => setShowMovePicker(false)}
               />
-            </svg>
-          </button>
+            ) : (
+              <button
+                type="button"
+                className="plan-item-move-btn"
+                onClick={() => setShowMovePicker(true)}
+                aria-label={`Move ${item.title} to another day`}
+              >
+                Move…
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="plan-item-demote-btn"
+              onClick={handleDemote}
+              disabled={demoteBusy}
+              aria-label={`Move ${item.title} to backlog`}
+            >
+              → Backlog
+            </button>
+
+            {confirmDelete ? (
+              <span className="plan-item-delete-confirm">
+                <button
+                  type="button"
+                  className="plan-item-delete-yes"
+                  onClick={handleDelete}
+                  disabled={deleteBusy}
+                  aria-label={`Confirm delete ${item.title}`}
+                >
+                  Delete?
+                </button>
+                <button
+                  type="button"
+                  className="plan-item-delete-cancel"
+                  onClick={() => setConfirmDelete(false)}
+                  disabled={deleteBusy}
+                  aria-label="Cancel delete"
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="plan-item-delete-btn"
+                onClick={() => setConfirmDelete(true)}
+                aria-label={`Delete ${item.title}`}
+                title="Delete"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7m4 4v6m4-6v6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            )}
+          </>
         )}
       </div>
     </li>

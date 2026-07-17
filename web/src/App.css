@@ -2408,6 +2408,26 @@
   background: var(--surface-hover);
 }
 
+/* "⋯" toggle that reveals the secondary row actions (move / backlog / delete),
+   keeping a resting row down to just its status dropdown. */
+.plan-item-more-btn {
+  font-size: var(--text-sm);
+  line-height: 1;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.plan-item-more-btn:hover {
+  background: var(--surface-hover);
+}
+.plan-item-more-btn--open {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
 /* Small bin button to permanently delete a plan item. It sits with the other
    row actions and matches their pill sizing; hover reveals the danger colour. */
 .plan-item-delete-btn {
@@ -2669,6 +2689,16 @@
   gap: 6px;
   flex-wrap: wrap;
   margin-top: var(--s2);
+}
+/* Payment-state dropdown on the stay card — styled to match the plan timeline's
+   status select so a stay reads as part of the same itinerary. */
+.stay-status-select {
+  font-size: var(--text-sm);
+  padding: 2px var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
 }
 /* Pill-styled actions that match the plan timeline rows so a stay reads as part
    of the same itinerary, not a separate widget. */
@@ -3315,7 +3345,8 @@
   }
   .plan-item-move-btn,
   .plan-item-demote-btn,
-  .plan-item-delete-btn {
+  .plan-item-delete-btn,
+  .plan-item-more-btn {
     font-size: var(--text-base);
     padding: var(--space-2) var(--space-3);
     min-height: 40px;
