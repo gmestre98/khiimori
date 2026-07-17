@@ -3,7 +3,7 @@ import L from 'leaflet'
 import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { UnauthorizedError, type Day, type LatLng } from '../lib/api'
-import { loadDayRoute } from '../lib/dayRouteCache'
+import { loadDayWaypoints } from '../lib/dayRouteCache'
 import { buildFeatures, collectLocatedItems, collectLocations, featureList } from './locatedItems'
 
 // DEFAULT_CENTER / DEFAULT_ZOOM frame a gentle world view when the day has no
@@ -116,7 +116,11 @@ export default function DayMap({
   const hasAnyLocation = locations.length > 0
 
   // Skip the async fetch when nothing has a location: start "resolved empty".
-  const [waypoints, setWaypoints] = useState<LatLng[] | null>(hasAnyLocation ? null : [])
+  // Waypoints are positional (aligned with locatedItems) and may hold `undefined`
+  // for a stop we can't place — e.g. offline, a just-added place we don't know.
+  const [waypoints, setWaypoints] = useState<(LatLng | undefined)[] | null>(
+    hasAnyLocation ? null : [],
+  )
   const [error, setError] = useState(false)
 
   const locKey = `${day.id}:${locations.join('|')}`
@@ -126,9 +130,10 @@ export default function DayMap({
     // from the async callbacks below, so the effect never setState synchronously.
     if (!hasAnyLocation) return
     const controller = new AbortController()
-    // Network-first with an offline fallback to cached waypoints (dayRouteCache),
-    // so the day's pins still render without a connection.
-    loadDayRoute(day.trip_id, day.date, locations, controller.signal)
+    // Network-first with an offline fallback: cached route when the stops are
+    // unchanged, otherwise per-stop coords from the geocode cache (dayRouteCache),
+    // so a place added offline still pins if we know where it is.
+    loadDayWaypoints(day.trip_id, day.date, locations, controller.signal)
       .then((res) => {
         if (controller.signal.aborted) return
         setWaypoints(res)
@@ -147,10 +152,17 @@ export default function DayMap({
 
   // Derive displayed points from hasAnyLocation so clearing the last location
   // immediately empties the map without needing to reset fetched state.
-  const points = hasAnyLocation ? (waypoints ?? []) : []
+  // `positioned` keeps its index alignment with locatedItems (holes and all) for
+  // pin numbering; `points` is the hole-free subset used to draw the route and
+  // fit the map bounds (indexing those with `undefined` would throw).
+  const positioned = hasAnyLocation ? (waypoints ?? []) : []
+  const points = useMemo(() => positioned.filter((w): w is LatLng => Boolean(w)), [positioned])
   // Render features group the expanded points back into numbered pins (a leg's
   // two ends become one ball at their midpoint plus an endpoint marker on each).
-  const features = useMemo(() => buildFeatures(locatedItems, points), [locatedItems, points])
+  const features = useMemo(
+    () => buildFeatures(locatedItems, positioned),
+    [locatedItems, positioned],
+  )
   const legend = useMemo(() => featureList(locatedItems), [locatedItems])
   const selectedAnchor = useMemo(
     () => features.find((f) => f.id === selectedId)?.anchor ?? null,

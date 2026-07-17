@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadDayRoute, warmDayRoute } from './dayRouteCache'
+import { loadDayRoute, loadDayWaypoints, warmDayRoute } from './dayRouteCache'
+import { writeCachedGeocode } from './geocodeCache'
 import { clearCache } from './resourceCache'
 import * as api from './api'
 
-vi.mock('./api', () => ({
-  fetchDayRoute: vi.fn(),
-}))
+// Keep the real UnauthorizedError (loadDayWaypoints branches on it); only stub
+// the network call.
+vi.mock('./api', async (importActual) => {
+  const actual = await importActual<typeof import('./api')>()
+  return { ...actual, fetchDayRoute: vi.fn() }
+})
 
 const fetchDayRoute = vi.mocked(api.fetchDayRoute)
 
@@ -55,6 +59,41 @@ describe('loadDayRoute', () => {
 
     fetchDayRoute.mockRejectedValueOnce(new DOMException('aborted', 'AbortError'))
     await expect(loadDayRoute(TRIP, DATE, LOCS)).rejects.toThrow(DOMException)
+  })
+})
+
+describe('loadDayWaypoints', () => {
+  it('returns clean waypoints online (delegates to loadDayRoute)', async () => {
+    fetchDayRoute.mockResolvedValueOnce({ waypoints: WPS })
+    expect(await loadDayWaypoints(TRIP, DATE, LOCS)).toEqual(WPS)
+  })
+
+  it('assembles from the geocode cache when offline and the stops changed', async () => {
+    // A place added offline: its coords are in the geocode cache (validated via
+    // PR #490/#491), but the batched day-route can't run and no cached route
+    // matches the new stop list.
+    await writeCachedGeocode('Lisbon', { lat: 38.7, lng: -9.1 })
+    await writeCachedGeocode('Sintra', { lat: 38.8, lng: -9.39 })
+
+    fetchDayRoute.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    const out = await loadDayWaypoints(TRIP, DATE, ['Lisbon', 'Unknown Place', 'Sintra'])
+    // Positional: the unknown middle stop is a hole, the known ones resolve.
+    expect(out).toEqual([{ lat: 38.7, lng: -9.1 }, undefined, { lat: 38.8, lng: -9.39 }])
+  })
+
+  it('rethrows when offline, stops changed and nothing is in the geocode cache', async () => {
+    fetchDayRoute.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    await expect(loadDayWaypoints(TRIP, DATE, ['Totally Unknown'])).rejects.toThrow(
+      'Failed to fetch',
+    )
+  })
+
+  it('rethrows an auth failure instead of assembling', async () => {
+    await writeCachedGeocode('Lisbon', { lat: 38.7, lng: -9.1 })
+    fetchDayRoute.mockRejectedValueOnce(new api.UnauthorizedError())
+    await expect(loadDayWaypoints(TRIP, DATE, ['Lisbon'])).rejects.toBeInstanceOf(
+      api.UnauthorizedError,
+    )
   })
 })
 

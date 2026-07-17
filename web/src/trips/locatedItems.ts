@@ -167,7 +167,10 @@ export interface RenderFeature {
 // (a 'from' + 'to' sharing a feature) becomes one numbered ball at the midpoint
 // with an endpoint marker on each end; every other point becomes a single
 // numbered ball. Points whose waypoint didn't resolve are skipped.
-export function buildFeatures(items: LocatedItem[], waypoints: LatLng[]): RenderFeature[] {
+export function buildFeatures(
+  items: LocatedItem[],
+  waypoints: readonly (LatLng | undefined)[],
+): RenderFeature[] {
   const groups = new Map<
     number,
     { item: LocatedItem; point?: LatLng; from?: RenderFeatureEnd; to?: RenderFeatureEnd }

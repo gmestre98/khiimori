@@ -13,9 +13,9 @@
 // with the located items (waypoints[i] ↔ locatedItems[i]) — serving waypoints
 // from a different set of stops would mis-place pins.
 
-import { fetchDayRoute, type LatLng } from './api'
+import { fetchDayRoute, UnauthorizedError, type LatLng } from './api'
 import { cacheKeys } from './cacheKeys'
-import { warmGeocodeFromWaypoints } from './geocodeCache'
+import { readCachedGeocode, warmGeocodeFromWaypoints } from './geocodeCache'
 import { readCache, writeCache } from './resourceCache'
 
 // CachedDayRoute is what we persist: the waypoints plus the locations they were
@@ -58,6 +58,43 @@ export async function loadDayRoute(
     if (cached && sameLocations(cached.data.locations, locations)) {
       return cached.data.waypoints
     }
+    throw err
+  }
+}
+
+// assembleFromGeocodeCache builds a day's waypoints positionally from the
+// per-string geocode cache — the offline fallback for when the day's stops have
+// changed (e.g. a place added offline), so the batched day-route can't be reused.
+// Each location resolves to its cached coord or `undefined` (never geocoded, or a
+// known not-a-place). The result aligns with `locations` index-for-index, so
+// buildFeatures pins the ones it can and skips the holes.
+async function assembleFromGeocodeCache(locations: string[]): Promise<(LatLng | undefined)[]> {
+  return Promise.all(
+    locations.map(async (loc) => (await readCachedGeocode(loc))?.coords ?? undefined),
+  )
+}
+
+// loadDayWaypoints is the map's positional waypoint loader. Online (or when the
+// day's stops are unchanged) it returns clean waypoints from loadDayRoute. When
+// that can't answer — offline with stops that changed since the last cached
+// route — it falls back to assembling per-stop coords from the geocode cache, so
+// a place added offline still pins if we know where it is. The returned array may
+// contain `undefined` holes (unplaceable stops); callers align it positionally
+// with located items and must filter holes before drawing a polyline / bounds.
+export async function loadDayWaypoints(
+  tripId: string,
+  date: string,
+  locations: string[],
+  signal?: AbortSignal,
+): Promise<(LatLng | undefined)[]> {
+  try {
+    return await loadDayRoute(tripId, date, locations, signal)
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    // Auth failure is not a "stops changed" case — let the caller handle it.
+    if (err instanceof UnauthorizedError) throw err
+    const assembled = await assembleFromGeocodeCache(locations)
+    if (assembled.some(Boolean)) return assembled
     throw err
   }
 }
