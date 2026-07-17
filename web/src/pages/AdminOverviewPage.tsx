@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { fetchAdminTrips, fetchAdminUsers, type AdminTrip, type AdminUser } from '../lib/api'
+import {
+  fetchAdminStats,
+  fetchAdminTrips,
+  type AdminMonthPoint,
+  type AdminStats,
+  type AdminTrip,
+} from '../lib/api'
 import { AdminAvatar } from './adminShared'
 
 // Small stroke-icon helper (Lucide style), matching the rest of the admin UI.
@@ -25,22 +31,27 @@ function Icon({ d }: { d: string | string[] }) {
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
-// AdminOverviewPage is the landing inside /admin (M08.5 redesign). It composes a
-// live snapshot from the existing user + trip lists — no dedicated stats
-// endpoint yet (that lands in a follow-up, adding growth over time). Trip state
-// is derived honestly from status (active/archived) and the date range, since
-// the backend has no "planning/completed" concept.
+// monthLabel turns "2026-07" into "Jul".
+function monthLabel(m: string): string {
+  const d = new Date(`${m}-01T00:00:00`)
+  return d.toLocaleString(undefined, { month: 'short' })
+}
+
+// AdminOverviewPage is the landing inside /admin (M08.5 redesign). Counts and
+// 6-month growth come from the authoritative /admin/stats endpoint; the trips
+// list powers the "happening now / upcoming" split (date-derived, since the
+// backend only stores active/archived) and the recent-trips table.
 export function AdminOverviewPage() {
-  const [users, setUsers] = useState<AdminUser[] | null>(null)
+  const [stats, setStats] = useState<AdminStats | null>(null)
   const [trips, setTrips] = useState<AdminTrip[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([fetchAdminUsers(), fetchAdminTrips()])
-      .then(([u, t]) => {
+    Promise.all([fetchAdminStats(), fetchAdminTrips()])
+      .then(([s, t]) => {
         if (!cancelled) {
-          setUsers(u)
+          setStats(s)
           setTrips(t)
         }
       })
@@ -52,28 +63,18 @@ export function AdminOverviewPage() {
     }
   }, [])
 
-  const stats = useMemo(() => {
-    if (!users || !trips) return null
+  const derived = useMemo(() => {
+    if (!trips) return null
     const today = todayISO()
-    const activeUsers = users.filter((u) => u.active).length
-    const admins = users.filter((u) => u.is_admin).length
-    const activeTrips = trips.filter((t) => t.status === 'active')
-    const ongoing = activeTrips.filter((t) => t.start_date <= today && today <= t.end_date)
-    const upcoming = activeTrips.filter((t) => t.start_date > today)
-    const recent = [...trips].sort((a, b) => (a.start_date < b.start_date ? 1 : -1)).slice(0, 5)
+    const active = trips.filter((t) => t.status === 'active')
     return {
-      users: users.length,
-      activeUsers,
-      deactivated: users.length - activeUsers,
-      admins,
-      trips: trips.length,
-      activeTrips: activeTrips.length,
-      archived: trips.length - activeTrips.length,
-      ongoing: ongoing.length,
-      upcoming: upcoming.length,
-      recent,
+      ongoing: active.filter((t) => t.start_date <= today && today <= t.end_date).length,
+      upcoming: active.filter((t) => t.start_date > today).length,
+      recent: [...trips].sort((a, b) => (a.start_date < b.start_date ? 1 : -1)).slice(0, 5),
     }
-  }, [users, trips])
+  }, [trips])
+
+  const ready = stats && derived
 
   return (
     <>
@@ -87,13 +88,13 @@ export function AdminOverviewPage() {
           {error}
         </p>
       )}
-      {!error && !stats && (
+      {!error && !ready && (
         <p className="admin-state" role="status">
           Loading…
         </p>
       )}
 
-      {stats && (
+      {ready && (
         <>
           <div className="admin-kpis">
             <div className="admin-kpi">
@@ -104,11 +105,11 @@ export function AdminOverviewPage() {
                   />
                 </div>
               </div>
-              <div className="k-num">{stats.users}</div>
+              <div className="k-num">{stats.users.total}</div>
               <div className="k-lab">Registered users</div>
               <div className="k-sub">
                 <span className="admin-dot" style={{ background: 'var(--ok)' }} />
-                {stats.activeUsers} active · {stats.deactivated} deactivated
+                {stats.users.active} active · {stats.users.total - stats.users.active} deactivated
               </div>
             </div>
 
@@ -123,11 +124,11 @@ export function AdminOverviewPage() {
                   />
                 </div>
               </div>
-              <div className="k-num">{stats.trips}</div>
+              <div className="k-num">{stats.trips.total}</div>
               <div className="k-lab">Total trips</div>
               <div className="k-sub">
                 <span className="admin-dot" style={{ background: 'var(--info)' }} />
-                {stats.activeTrips} active · {stats.archived} archived
+                {stats.trips.active} active · {stats.trips.archived} archived
               </div>
             </div>
 
@@ -137,7 +138,7 @@ export function AdminOverviewPage() {
                   <Icon d={['M12 12m-9 0a9 9 0 1018 0a9 9 0 10-18 0', 'M12 7v5l3 2']} />
                 </div>
               </div>
-              <div className="k-num">{stats.ongoing}</div>
+              <div className="k-num">{derived.ongoing}</div>
               <div className="k-lab">Happening now</div>
               <div className="k-sub">
                 <span className="admin-dot" style={{ background: 'var(--warn)' }} />
@@ -156,16 +157,18 @@ export function AdminOverviewPage() {
                   />
                 </div>
               </div>
-              <div className="k-num">{stats.upcoming}</div>
+              <div className="k-num">{derived.upcoming}</div>
               <div className="k-lab">Upcoming</div>
               <div className="k-sub">
                 <span className="admin-dot" style={{ background: 'var(--accent)' }} />
-                {stats.admins} admin{stats.admins === 1 ? '' : 's'} on the team
+                {stats.users.admins} admin{stats.users.admins === 1 ? '' : 's'} on the team
               </div>
             </div>
           </div>
 
-          <div className="admin-tbl-wrap">
+          <GrowthCard points={stats.user_growth} />
+
+          <div className="admin-tbl-wrap" style={{ marginTop: 16 }}>
             <table className="admin-tbl">
               <thead>
                 <tr>
@@ -176,14 +179,14 @@ export function AdminOverviewPage() {
                 </tr>
               </thead>
               <tbody>
-                {stats.recent.length === 0 && (
+                {derived.recent.length === 0 && (
                   <tr>
                     <td colSpan={4} className="admin-empty">
                       No trips yet.
                     </td>
                   </tr>
                 )}
-                {stats.recent.map((t) => (
+                {derived.recent.map((t) => (
                   <RecentTripRow key={t.id} trip={t} today={todayISO()} />
                 ))}
               </tbody>
@@ -197,6 +200,86 @@ export function AdminOverviewPage() {
         </>
       )}
     </>
+  )
+}
+
+// GrowthCard draws a filled area sparkline of cumulative users over the last 6
+// months, with an emphasised endpoint and a since-start delta.
+function GrowthCard({ points }: { points: AdminMonthPoint[] }) {
+  if (points.length < 2) return null
+  const w = 620
+  const h = 120
+  const max = Math.max(1, ...points.map((p) => p.count))
+  const stepX = w / (points.length - 1)
+  const coords = points.map((p, i) => ({
+    x: i * stepX,
+    y: h - 12 - (p.count / max) * (h - 24),
+  }))
+  const line = coords
+    .map((c, i) => `${i === 0 ? 'M' : 'L'}${c.x.toFixed(1)},${c.y.toFixed(1)}`)
+    .join(' ')
+  const area = `${line} L${w},${h} L0,${h} Z`
+  const last = points[points.length - 1].count
+  const first = points[0].count
+  const pct = first > 0 ? Math.round(((last - first) / first) * 100) : null
+  const end = coords[coords.length - 1]
+
+  return (
+    <div className="admin-growth">
+      <div className="admin-growth-hd">
+        <h3>User growth · last 6 months</h3>
+        <div className="admin-growth-now">
+          <span className="admin-growth-num">{last}</span>
+          <span>
+            users
+            {pct !== null && (
+              <>
+                {' · '}
+                <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                  {pct >= 0 ? '+' : ''}
+                  {pct}%
+                </span>{' '}
+                since {monthLabel(points[0].month)}
+              </>
+            )}
+          </span>
+        </div>
+      </div>
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        width="100%"
+        height={h}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={`User growth from ${first} to ${last} over the last 6 months`}
+      >
+        <defs>
+          <linearGradient id="admin-growth-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="var(--accent)" stopOpacity="0.18" />
+            <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <line x1="0" y1="30" x2={w} y2="30" stroke="var(--line)" strokeWidth="1" />
+        <line x1="0" y1="60" x2={w} y2="60" stroke="var(--line)" strokeWidth="1" />
+        <line x1="0" y1="90" x2={w} y2="90" stroke="var(--line)" strokeWidth="1" />
+        <path d={area} fill="url(#admin-growth-fill)" />
+        <path
+          d={line}
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+        <circle cx={end.x} cy={end.y} r="4.5" fill="var(--accent)" />
+      </svg>
+      <div className="admin-growth-axis">
+        {points.map((p) => (
+          <span key={p.month}>{monthLabel(p.month)}</span>
+        ))}
+      </div>
+    </div>
   )
 }
 

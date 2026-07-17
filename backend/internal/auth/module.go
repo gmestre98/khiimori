@@ -159,6 +159,7 @@ func (m *Module) failSignIn(w http.ResponseWriter, r *http.Request, status int, 
 // tests may supply a shim for integration testing without a real HMAC session.
 func (m *Module) mountAdminRoutes(mux *http.ServeMux, gate httpx.Middleware) {
 	mux.Handle("GET "+AdminPath, gate(http.HandlerFunc(m.handleAdminInfo)))
+	mux.Handle("GET "+AdminStatsPath, gate(http.HandlerFunc(m.handleAdminStats)))
 	mux.Handle("GET "+AdminUsersPath, gate(http.HandlerFunc(m.handleAdminListUsers)))
 	mux.Handle("GET "+AdminTripsPath, gate(http.HandlerFunc(m.handleAdminListTrips)))
 	mux.Handle("POST "+DeactivateUserPath, gate(http.HandlerFunc(m.handleAdminDeactivateUser)))

@@ -5248,3 +5248,50 @@
     padding: 20px;
   }
 }
+
+/* Admin Overview — growth sparkline card */
+.admin-growth {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+  padding: 16px 18px 14px;
+}
+.admin-growth-hd {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.admin-growth-hd h3 {
+  font-size: 14px;
+  color: var(--ink);
+  margin: 0;
+  font-weight: var(--fw-semi);
+}
+.admin-growth-now {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.admin-growth-num {
+  font-size: 22px;
+  font-weight: var(--fw-bold);
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.admin-growth svg {
+  display: block;
+  margin-top: 10px;
+}
+.admin-growth-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--faint);
+  margin-top: 6px;
+}

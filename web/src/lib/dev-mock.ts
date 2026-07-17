@@ -248,6 +248,27 @@ const adminTrips = [
   },
 ]
 
+const adminStats = {
+  users: { total: 5, active: 4, admins: 1 },
+  trips: { total: 5, active: 4, archived: 1 },
+  user_growth: [
+    { month: '2026-02', count: 1 },
+    { month: '2026-03', count: 3 },
+    { month: '2026-04', count: 3 },
+    { month: '2026-05', count: 4 },
+    { month: '2026-06', count: 4 },
+    { month: '2026-07', count: 5 },
+  ],
+  trip_growth: [
+    { month: '2026-02', count: 0 },
+    { month: '2026-03', count: 1 },
+    { month: '2026-04', count: 2 },
+    { month: '2026-05', count: 3 },
+    { month: '2026-06', count: 4 },
+    { month: '2026-07', count: 5 },
+  ],
+}
+
 const sharingMembers = {
   members: [
     { id: 'm1', trip_id: MOCK_CURRENT_TRIP_ID, user_id: 'mock-user', role: 'owner' },
@@ -427,7 +448,8 @@ function resolve(path: string, method: string, search: string, body: unknown): R
   if (/\/invitations$/.test(path)) return json(sharingInvites)
   if (/\/usage$/.test(path)) return json(usage)
 
-  // admin backoffice (M08.5) — list users/trips + deactivate.
+  // admin backoffice (M08.5) — stats + list users/trips + deactivate.
+  if (path === '/admin/stats' && method === 'GET') return json(adminStats)
   if (path === '/admin/users' && method === 'GET') return json(adminUsers)
   if (path === '/admin/trips' && method === 'GET') return json(adminTrips)
   if (/\/admin\/users\/[^/]+\/deactivate$/.test(path)) return json({ status: 'deactivated' })
