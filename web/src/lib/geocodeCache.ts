@@ -144,5 +144,10 @@ export async function warmGeocodeFromWaypoints(
   waypoints: LatLng[],
 ): Promise<void> {
   if (locations.length === 0 || locations.length !== waypoints.length) return
-  await Promise.all(locations.map((loc, i) => writeCachedGeocode(loc, waypoints[i])))
+  // Sequential, not Promise.all: every write folds into the same MRU index via a
+  // read-modify-write, so running them concurrently would let the writes clobber
+  // one another and leave the index with only one stop.
+  for (let i = 0; i < locations.length; i++) {
+    await writeCachedGeocode(locations[i], waypoints[i])
+  }
 }

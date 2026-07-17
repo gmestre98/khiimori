@@ -120,6 +120,21 @@ describe('warmGeocodeFromWaypoints', () => {
     expect(await readCachedGeocode('Porto')).toEqual({ coords: { lat: 41.1, lng: -8.6 } })
   })
 
+  it('adds every warmed stop to the offline autocomplete index', async () => {
+    await warmGeocodeFromWaypoints(
+      ['Lisbon', 'Porto', 'Braga'],
+      [
+        { lat: 38.7, lng: -9.1 },
+        { lat: 41.1, lng: -8.6 },
+        { lat: 41.5, lng: -8.4 },
+      ],
+    )
+    // All three must survive the shared-index read-modify-write, not just one.
+    expect((await suggestLocalPlaces('lisbon')).map((s) => s.description)).toEqual(['Lisbon'])
+    expect((await suggestLocalPlaces('porto')).map((s) => s.description)).toEqual(['Porto'])
+    expect((await suggestLocalPlaces('braga')).map((s) => s.description)).toEqual(['Braga'])
+  })
+
   it('skips when lengths differ (some stops were dropped by the server)', async () => {
     await warmGeocodeFromWaypoints(['Lisbon', 'Porto'], [{ lat: 38.7, lng: -9.1 }])
     expect(await readCachedGeocode('Lisbon')).toBeNull()
