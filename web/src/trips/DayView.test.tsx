@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { DayView } from './DayView'
@@ -820,6 +820,44 @@ describe('DayView', () => {
 
     afterEach(() => setMobile(false))
 
+    // dragRowByHandle simulates a mobile finger drag: press the grip handle of
+    // `title`, move to `toClientY`, lift. jsdom returns empty rects, so we stub
+    // getBoundingClientRect to lay the rows out 40px tall from the top; the drag
+    // logic reads those to decide where the row lands.
+    function dragRowByHandle(title: string, toClientY: number) {
+      const rect = (top: number, height: number) =>
+        ({
+          top,
+          height,
+          bottom: top + height,
+          left: 0,
+          right: 300,
+          width: 300,
+          x: 0,
+          y: top,
+        }) as DOMRect
+      const rectSpy = vi
+        .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+        .mockImplementation(function (this: HTMLElement) {
+          if (!this.getAttribute('data-item-id')) return rect(0, 0)
+          const rows = Array.from(this.parentElement?.children ?? []).filter((el) =>
+            el.hasAttribute('data-item-id'),
+          )
+          return rect(rows.indexOf(this) * 40, 40)
+        })
+      const handle = screen.getByRole('button', { name: new RegExp(`Drag to reorder ${title}`) })
+      // jsdom has no PointerEvent, so fireEvent.pointer* drops clientY. Dispatch
+      // MouseEvents (which carry clientY) under the pointer* type names React
+      // listens for; pointerType is left undefined, which the drag logic treats
+      // as non-mouse (a real finger).
+      const pointer = (type: string, clientY: number) =>
+        fireEvent(handle, new MouseEvent(type, { bubbles: true, cancelable: true, clientY }))
+      pointer('pointerdown', 0)
+      pointer('pointermove', toClientY)
+      pointer('pointerup', toClientY)
+      rectSpy.mockRestore()
+    }
+
     it('shows only Day and Map facets, with plan + journal + budget merged into Day', async () => {
       setMobile(true)
       const user = userEvent.setup()
@@ -1008,7 +1046,7 @@ describe('DayView', () => {
       )
     })
 
-    it('renders touch reorder buttons on mobile for untimed items', async () => {
+    it('renders a drag handle on mobile for untimed items', async () => {
       setMobile(true)
       const items = [
         makePlanItem({ id: 'i1', title: 'First', sort_order: 0 }),
@@ -1017,13 +1055,12 @@ describe('DayView', () => {
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
       renderDayView()
       await waitFor(() => expect(screen.getByText('First')).toBeInTheDocument())
-      expect(screen.getByRole('button', { name: /Move First down/ })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /Move Second up/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Drag to reorder First/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Drag to reorder Second/ })).toBeInTheDocument()
     })
 
-    it('touch reorder up/down calls reorderPlanItems', async () => {
+    it('touch drag reorders and calls reorderPlanItems', async () => {
       setMobile(true)
-      const user = userEvent.setup()
       const items = [
         makePlanItem({ id: 'i1', title: 'First', sort_order: 0 }),
         makePlanItem({ id: 'i2', title: 'Second', sort_order: 1 }),
@@ -1033,7 +1070,8 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Second')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: /Move Second up/ }))
+      // Drag "Second" up above "First".
+      dragRowByHandle('Second', 5)
 
       await waitFor(() =>
         expect(api.reorderPlanItems).toHaveBeenCalledWith('trip-1', 'day-1', ['i2', 'i1']),
@@ -1042,7 +1080,6 @@ describe('DayView', () => {
 
     it('reorders offline: queues reorderPlanItems, no server call, order persists to cache', async () => {
       setMobile(true)
-      const user = userEvent.setup()
       const items = [
         makePlanItem({ id: 'i1', title: 'First', sort_order: 0 }),
         makePlanItem({ id: 'i2', title: 'Second', sort_order: 1 }),
@@ -1053,7 +1090,7 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Second')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: /Move Second up/ }))
+      dragRowByHandle('Second', 5)
 
       await waitFor(() =>
         expect(enqueue).toHaveBeenCalledWith('reorderPlanItems', {
@@ -1074,7 +1111,6 @@ describe('DayView', () => {
 
     it('reordering the plan keeps logged items in "What happened"', async () => {
       setMobile(true)
-      const user = userEvent.setup()
       const items = [
         makePlanItem({ id: 'i1', title: 'First', sort_order: 0 }),
         makePlanItem({ id: 'i2', title: 'Second', sort_order: 1 }),
@@ -1093,7 +1129,7 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Kayak logged')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: /Move Second up/ }))
+      dragRowByHandle('Second', 5)
 
       // The reorder only sends the two planned items; the logged one is untouched.
       await waitFor(() =>

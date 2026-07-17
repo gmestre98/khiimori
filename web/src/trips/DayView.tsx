@@ -908,13 +908,15 @@ function MoveToDayPicker({
 
 // PlanItemRow renders a single plan item and enters inline-edit mode on click.
 // It also exposes status, move-to-day, and demote-to-backlog affordances.
-// On mobile the edit form opens in a BottomSheet; touch reorder uses up/down buttons.
+// On mobile the edit form opens in a BottomSheet; touch reorder is a finger drag
+// on the grip handle (pointer events), mirroring desktop's mouse drag.
 function PlanItemRow({
   item,
   tripId,
   day,
   tripDates,
   draggable: isDraggable,
+  isTouchDragging,
   isSelected,
   pinNumber,
   onSelect,
@@ -924,8 +926,9 @@ function PlanItemRow({
   onDragStart,
   onDragOver,
   onDrop,
-  onMoveUp,
-  onMoveDown,
+  onTouchDragStart,
+  onTouchDragMove,
+  onTouchDragEnd,
   onItemMoved,
 }: {
   item: PlanItem
@@ -933,6 +936,7 @@ function PlanItemRow({
   day: Day
   tripDates: string[]
   draggable?: boolean
+  isTouchDragging?: boolean
   isSelected?: boolean
   pinNumber?: number
   onSelect?: () => void
@@ -948,8 +952,9 @@ function PlanItemRow({
   onDragStart?: (e: React.DragEvent, itemId: string) => void
   onDragOver?: (e: React.DragEvent, itemId: string) => void
   onDrop?: (e: React.DragEvent, itemId: string) => void
-  onMoveUp?: () => void
-  onMoveDown?: () => void
+  onTouchDragStart?: (e: React.PointerEvent, itemId: string) => void
+  onTouchDragMove?: (e: React.PointerEvent) => void
+  onTouchDragEnd?: (e: React.PointerEvent) => void
 }) {
   const mobile = useMobile()
   const online = useIsOnline()
@@ -1153,10 +1158,12 @@ function PlanItemRow({
         isSkipped ? 'plan-item--skipped' : '',
         isCancelled ? 'plan-item--cancelled' : '',
         isDraggable ? 'plan-item--draggable' : '',
+        isTouchDragging ? 'plan-item--touch-dragging' : '',
         isSelected ? 'plan-item--selected' : '',
       ]
         .filter(Boolean)
         .join(' ')}
+      data-item-id={item.id}
       aria-label={item.title + (label ? ` — ${label}` : '')}
       draggable={isDraggable}
       onDragStart={isDraggable && onDragStart ? (e) => onDragStart(e, item.id) : undefined}
@@ -1172,26 +1179,17 @@ function PlanItemRow({
           </span>
         )}
         {isDraggable && mobile && (
-          <div className="plan-item-touch-reorder" aria-label="Reorder">
-            <button
-              type="button"
-              className="plan-item-reorder-btn"
-              onClick={onMoveUp}
-              disabled={!onMoveUp}
-              aria-label={`Move ${item.title} up`}
-            >
-              ↑
-            </button>
-            <button
-              type="button"
-              className="plan-item-reorder-btn"
-              onClick={onMoveDown}
-              disabled={!onMoveDown}
-              aria-label={`Move ${item.title} down`}
-            >
-              ↓
-            </button>
-          </div>
+          <button
+            type="button"
+            className="plan-item-touch-handle"
+            aria-label={`Drag to reorder ${item.title}`}
+            onPointerDown={onTouchDragStart ? (e) => onTouchDragStart(e, item.id) : undefined}
+            onPointerMove={onTouchDragMove}
+            onPointerUp={onTouchDragEnd}
+            onPointerCancel={onTouchDragEnd}
+          >
+            ⠿
+          </button>
         )}
         {pinNumber != null && onSelect && (
           <button
@@ -1541,7 +1539,15 @@ function TimelineSection({
 }) {
   const online = useIsOnline()
   const [draggingId, setDraggingId] = useState<string | null>(null)
-  const display = orderTimeline(items)
+  // Touch drag (mobile): a pointer-driven reorder replaces the old up/down
+  // buttons. touchOrder holds the live preview order while a finger is down;
+  // touchDragId is the item being dragged (also used to grey the source row).
+  const listRef = useRef<HTMLOListElement>(null)
+  const [touchOrder, setTouchOrder] = useState<PlanItem[] | null>(null)
+  const [touchDragId, setTouchDragId] = useState<string | null>(null)
+  const touchDragRef = useRef<string | null>(null)
+  const touchOrderRef = useRef<PlanItem[] | null>(null)
+  const display = touchOrder ?? orderTimeline(items)
 
   function persist(reordered: PlanItem[]) {
     const finalOrder = orderTimeline(reordered)
@@ -1584,20 +1590,65 @@ function TimelineSection({
     persist(reordered)
   }
 
-  function handleTouchReorder(idx: number, direction: 'up' | 'down') {
-    const targetIdx = direction === 'up' ? idx - 1 : idx + 1
-    if (targetIdx < 0 || targetIdx >= display.length) return
-    const reordered = [...display]
-    ;[reordered[idx], reordered[targetIdx]] = [reordered[targetIdx], reordered[idx]]
-    persist(reordered)
+  // ── Touch drag (mobile) ────────────────────────────────────────────────────
+  // A finger presses the grip handle, drags over the list, and lifts. We track
+  // the row under the finger by its midpoint and splice a live-preview order so
+  // the list rearranges as you go; on lift we persist the final order.
+  function handleTouchDragStart(e: React.PointerEvent, itemId: string) {
+    if (e.pointerType === 'mouse') return
+    e.preventDefault()
+    touchDragRef.current = itemId
+    touchOrderRef.current = display
+    setTouchDragId(itemId)
+    setTouchOrder(display)
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+  }
+
+  function handleTouchDragMove(e: React.PointerEvent) {
+    const id = touchDragRef.current
+    const current = touchOrderRef.current
+    const list = listRef.current
+    if (!id || !current || !list) return
+    e.preventDefault()
+    // The row we'd insert before: the first whose vertical midpoint is below the
+    // finger. null → the finger is past the last row, so append.
+    let beforeId: string | null = null
+    for (const row of list.querySelectorAll<HTMLElement>('[data-item-id]')) {
+      const rect = row.getBoundingClientRect()
+      if (e.clientY < rect.top + rect.height / 2) {
+        beforeId = row.dataset.itemId ?? null
+        break
+      }
+    }
+    if (beforeId === id) return
+    const order = [...current]
+    const from = order.findIndex((i) => i.id === id)
+    if (from === -1) return
+    const [moved] = order.splice(from, 1)
+    let insertAt = beforeId == null ? order.length : order.findIndex((i) => i.id === beforeId)
+    if (insertAt === -1) insertAt = order.length
+    order.splice(insertAt, 0, moved)
+    if (order.every((it, i) => it.id === current[i]?.id)) return
+    touchOrderRef.current = order
+    setTouchOrder(order)
+  }
+
+  function handleTouchDragEnd() {
+    const order = touchOrderRef.current
+    const wasDragging = touchDragRef.current != null
+    touchDragRef.current = null
+    touchOrderRef.current = null
+    setTouchDragId(null)
+    setTouchOrder(null)
+    if (wasDragging && order) persist(order)
   }
 
   if (display.length === 0) return null
   return (
     <section className="day-plan-section day-plan-section--timeline" aria-label="Day timeline">
       <h3 className="day-plan-section-title">Timeline</h3>
-      <ol className="plan-item-list">
-        {display.map((item, idx) => {
+      <ol className="plan-item-list" ref={listRef}>
+        {display.map((item) => {
           const isUntimed = item.start_time == null
           return (
             <PlanItemRow
@@ -1609,6 +1660,7 @@ function TimelineSection({
               // Only untimed items can be picked up; every row accepts a drop so
               // an untimed item can land between two timed ones.
               draggable={isUntimed}
+              isTouchDragging={touchDragId === item.id}
               isSelected={selectedId === item.id}
               pinNumber={pinNumberForId?.(item.id)}
               onSelect={
@@ -1621,12 +1673,9 @@ function TimelineSection({
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
-              onMoveUp={isUntimed && idx > 0 ? () => handleTouchReorder(idx, 'up') : undefined}
-              onMoveDown={
-                isUntimed && idx < display.length - 1
-                  ? () => handleTouchReorder(idx, 'down')
-                  : undefined
-              }
+              onTouchDragStart={handleTouchDragStart}
+              onTouchDragMove={handleTouchDragMove}
+              onTouchDragEnd={handleTouchDragEnd}
             />
           )
         })}
