@@ -53,6 +53,15 @@ describe('loadDayRoute', () => {
     await expect(loadDayRoute(TRIP, DATE, ['Madrid'])).rejects.toThrow()
   })
 
+  it('passes through positional null holes for unresolvable middle stops', async () => {
+    // The server keeps a slot per location, null where one didn't resolve. The
+    // hole must stay in place so waypoints[i] keeps pairing with locations[i].
+    const locs = ['Lisbon', 'nowhere', 'Porto']
+    fetchDayRoute.mockResolvedValueOnce({ waypoints: [WPS[0], null, WPS[1]] })
+    const out = await loadDayRoute(TRIP, DATE, locs)
+    expect(out).toEqual([WPS[0], null, WPS[1]])
+  })
+
   it('does not fall back on an abort (caller is cancelling)', async () => {
     fetchDayRoute.mockResolvedValueOnce({ waypoints: WPS })
     await loadDayRoute(TRIP, DATE, LOCS)
@@ -108,6 +117,12 @@ describe('warmDayRoute', () => {
     fetchDayRoute.mockRejectedValueOnce(new TypeError('Failed to fetch'))
     const out = await warmDayRoute(TRIP, DATE, LOCS)
     expect(out).toEqual([])
+  })
+
+  it('drops positional null holes so the tile prefetch only sees real coords', async () => {
+    fetchDayRoute.mockResolvedValueOnce({ waypoints: [WPS[0], null, WPS[1]] })
+    const out = await warmDayRoute(TRIP, DATE, ['Lisbon', 'nowhere', 'Porto'])
+    expect(out).toEqual([WPS[0], WPS[1]])
   })
 
   it('returns and caches waypoints on success', async () => {

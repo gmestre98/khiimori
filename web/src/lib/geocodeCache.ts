@@ -162,13 +162,14 @@ export async function offlineSuggestions(input: string): Promise<Suggestion[]> {
 
 // warmGeocodeFromWaypoints opportunistically fills the per-string cache from a
 // day's batched geocode (dayRouteCache), at zero extra Maps cost. The day-route
-// server drops any location it can't resolve, so we only trust the positional
-// pairing when every location came back — an equal length guarantees each
-// waypoint belongs to the location at the same index. Best-effort and fire-and-
-// forget.
+// response is positional — one waypoint per location, in order, null where a stop
+// didn't resolve — so waypoints[i] is exactly the result for locations[i]. A null
+// is folded in as a known not-a-place (mirroring geocodeLocation returning null),
+// which improves offline coverage too. Best-effort and fire-and-forget; the
+// equal-length check is a defensive guard on the positional contract.
 export async function warmGeocodeFromWaypoints(
   locations: string[],
-  waypoints: LatLng[],
+  waypoints: (LatLng | null)[],
 ): Promise<void> {
   if (locations.length === 0 || locations.length !== waypoints.length) return
   // Sequential, not Promise.all: every write folds into the same MRU index via a

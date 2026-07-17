@@ -116,9 +116,10 @@ export default function DayMap({
   const hasAnyLocation = locations.length > 0
 
   // Skip the async fetch when nothing has a location: start "resolved empty".
-  // Waypoints are positional (aligned with locatedItems) and may hold `undefined`
-  // for a stop we can't place — e.g. offline, a just-added place we don't know.
-  const [waypoints, setWaypoints] = useState<(LatLng | undefined)[] | null>(
+  // Waypoints are positional (aligned with locatedItems) and may hold a hole for
+  // a stop we can't place — `null` from the batched route (e.g. a stop the server
+  // couldn't geocode), or `undefined` from the offline geocode-cache fallback.
+  const [waypoints, setWaypoints] = useState<(LatLng | null | undefined)[] | null>(
     hasAnyLocation ? null : [],
   )
   const [error, setError] = useState(false)

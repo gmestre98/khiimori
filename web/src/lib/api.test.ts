@@ -201,7 +201,22 @@ describe('fetchDayRoute', () => {
 
     const res = await fetchDayRoute(['Paris, France'])
     expect(res.waypoints).toHaveLength(1)
-    expect(res.waypoints[0].lat).toBeCloseTo(48.8566)
+    expect(res.waypoints[0]?.lat).toBeCloseTo(48.8566)
+  })
+
+  it('preserves positional null slots for unresolvable stops', async () => {
+    // Server returns one slot per input, null where a middle stop didn't resolve.
+    const payload = {
+      waypoints: [{ lat: 48.8566, lng: 2.3522 }, null, { lat: 45.764, lng: 4.8357 }],
+    }
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(payload), { status: 200 }),
+    )
+
+    const res = await fetchDayRoute(['Paris', 'nowhere', 'Lyon'])
+    expect(res.waypoints).toHaveLength(3)
+    expect(res.waypoints[1]).toBeNull()
+    expect(res.waypoints[2]?.lat).toBeCloseTo(45.764)
   })
 
   it('throws UnauthorizedError on 401', async () => {
