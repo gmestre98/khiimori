@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { fetchAutocomplete, geocodeLocation, type Suggestion } from '../lib/api'
+import { fetchAutocomplete, type Suggestion } from '../lib/api'
+import { resolveLocation, suggestLocalPlaces } from '../lib/geocodeCache'
+import { useIsOnline } from '../lib/useIsOnline'
 
 // GEOCODE_DEBOUNCE_MS delays the live location check while the user is still
 // typing so we issue one geocode per pause rather than one per keystroke.
@@ -13,8 +15,13 @@ const SUGGEST_MIN_CHARS = 3
 
 // GeoResult is the outcome of a completed geocode check, keyed by the exact
 // query string it was run for so a stale result (from an earlier keystroke)
-// isn't shown against newer input.
-type GeoResult = { query: string; kind: 'found' | 'notfound' | 'unchecked' }
+// isn't shown against newer input. 'offline' means we couldn't reach the geo
+// proxy and had nothing cached for this place — distinct from 'unchecked' (an
+// online hiccup) so the field can reassure the user their entry is still saved.
+type GeoResult = {
+  query: string
+  kind: 'found' | 'notfound' | 'unchecked' | 'offline'
+}
 
 // LocationField is a combobox: as the user types it offers place suggestions
 // (Google Places via the geo proxy) and, in parallel, runs a live geocode check
@@ -50,24 +57,28 @@ export function LocationField({
   const inputId = useId()
   const hintId = useId()
   const listboxId = useId()
+  const online = useIsOnline()
 
   const trimmed = value.trim()
 
-  // Live geocode feedback.
+  // Live geocode feedback. resolveLocation is cache-aware: offline (or on a
+  // transient failure) it answers from the last-known geocode for this place, so
+  // places the user has seen before still validate with no network.
   useEffect(() => {
     if (!trimmed) return
     const controller = new AbortController()
     const timer = setTimeout(() => {
-      geocodeLocation(trimmed, controller.signal)
-        .then((coords) => {
+      resolveLocation(trimmed, controller.signal)
+        .then(({ coords }) => {
           if (controller.signal.aborted) return
           setResult({ query: trimmed, kind: coords ? 'found' : 'notfound' })
         })
         .catch((err: unknown) => {
           if (err instanceof DOMException && err.name === 'AbortError') return
-          // Auth failures and transient errors shouldn't be shown as "not a real
-          // place" — fall back to a neutral state.
-          setResult({ query: trimmed, kind: 'unchecked' })
+          // Couldn't reach the proxy and had nothing cached. Offline gets a
+          // reassuring "saved, we'll verify later"; an online hiccup stays a
+          // neutral "unchecked" — neither is shown as "not a real place".
+          setResult({ query: trimmed, kind: online ? 'unchecked' : 'offline' })
         })
     }, GEOCODE_DEBOUNCE_MS)
 
@@ -75,9 +86,11 @@ export function LocationField({
       clearTimeout(timer)
       controller.abort()
     }
-  }, [trimmed])
+  }, [trimmed, online])
 
-  // Place suggestions.
+  // Place suggestions. Online we ask the Places proxy; offline (or if that call
+  // fails) we fall back to suggesting places the user has geocoded before, so the
+  // dropdown keeps working without a network.
   useEffect(() => {
     if (skipInitialSuggest.current) {
       skipInitialSuggest.current = false
@@ -89,16 +102,25 @@ export function LocationField({
     }
     if (trimmed.length < SUGGEST_MIN_CHARS) return
     const controller = new AbortController()
+
+    const showList = (list: Suggestion[]) => {
+      if (controller.signal.aborted) return
+      setSuggestions(list)
+      setActiveIdx(-1)
+      setOpen(list.length > 0)
+    }
+
     const timer = setTimeout(() => {
+      if (!online) {
+        void suggestLocalPlaces(trimmed).then(showList)
+        return
+      }
       fetchAutocomplete(trimmed, controller.signal)
-        .then((list) => {
-          if (controller.signal.aborted) return
-          setSuggestions(list)
-          setActiveIdx(-1)
-          setOpen(list.length > 0)
-        })
+        .then(showList)
         .catch(() => {
-          // A failed suggestion fetch is non-critical — the field still works.
+          // The Places proxy is unreachable — fall back to local suggestions
+          // rather than an empty dropdown. Non-critical either way.
+          void suggestLocalPlaces(trimmed).then(showList)
         })
     }, SUGGEST_DEBOUNCE_MS)
 
@@ -106,7 +128,7 @@ export function LocationField({
       clearTimeout(timer)
       controller.abort()
     }
-  }, [trimmed])
+  }, [trimmed, online])
 
   function selectSuggestion(s: Suggestion) {
     justSelected.current = true
@@ -160,7 +182,7 @@ export function LocationField({
 
   // Derive what to show: idle when empty, the matched result once it lands, and
   // "checking" in between (typing, or waiting on a result for the current query).
-  const statusKind: 'idle' | 'checking' | 'found' | 'notfound' | 'unchecked' = !trimmed
+  const statusKind: 'idle' | 'checking' | 'found' | 'notfound' | 'unchecked' | 'offline' = !trimmed
     ? 'idle'
     : result?.query === trimmed
       ? result.kind
@@ -229,6 +251,8 @@ export function LocationField({
         {statusKind === 'notfound' &&
           '⚠ We couldn’t place this. Try adding a city or country, e.g. “Louvre, Paris”.'}
         {statusKind === 'unchecked' && 'Saved — we’ll place it on the map when we can.'}
+        {statusKind === 'offline' &&
+          'Offline — saved. We’ll verify this place and pin it once you’re back online.'}
       </span>
     </div>
   )

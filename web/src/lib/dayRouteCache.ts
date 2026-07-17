@@ -15,6 +15,7 @@
 
 import { fetchDayRoute, type LatLng } from './api'
 import { cacheKeys } from './cacheKeys'
+import { warmGeocodeFromWaypoints } from './geocodeCache'
 import { readCache, writeCache } from './resourceCache'
 
 // CachedDayRoute is what we persist: the waypoints plus the locations they were
@@ -46,6 +47,10 @@ export async function loadDayRoute(
   try {
     const { waypoints } = await fetchDayRoute(locations, signal)
     void writeCache(key, { locations, waypoints } satisfies CachedDayRoute)
+    // Fold the per-stop coords into the geocode cache so the same places
+    // validate (and autocomplete) offline in the location field — free, since we
+    // already paid for the batched geocode here.
+    void warmGeocodeFromWaypoints(locations, waypoints)
     return waypoints
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') throw err

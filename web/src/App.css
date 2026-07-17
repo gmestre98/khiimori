@@ -3125,7 +3125,8 @@
   transition: color 0.15s;
 }
 .location-status--idle,
-.location-status--unchecked {
+.location-status--unchecked,
+.location-status--offline {
   color: var(--text-muted);
 }
 .location-status--checking {

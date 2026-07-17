@@ -19,4 +19,11 @@ export const cacheKeys = {
   // keyed by trip+date. Stored with the locations that produced them so a stale
   // cache from different locations is ignored (see dayRouteCache).
   dayRoute: (tripId: string, date: string) => `POST /geo/day-route ${tripId}/${date}`,
+  // A single free-text location's geocode result (coords, or a recorded "not a
+  // place"), keyed by the normalized query, so the location field can validate
+  // known places offline (see geocodeCache). `norm` is already normalized.
+  geocode: (norm: string) => `GET /geo/geocode ${norm}`,
+  // The index of place strings we've successfully geocoded, powering offline
+  // autocomplete when the Places proxy is unreachable (see geocodeCache).
+  geocodeIndex: () => 'geocode-index',
 } as const
