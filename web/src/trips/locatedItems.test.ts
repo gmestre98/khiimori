@@ -194,4 +194,21 @@ describe('buildFeatures', () => {
     expect(features[0].ends).toEqual([])
     expect(features[0].anchor).toEqual(porto)
   })
+
+  it('skips positional holes (an unplaceable stop) and keeps the rest numbered', () => {
+    const day = {
+      stays: [],
+      plan_items: [
+        planItem({ id: 'a1', location: 'Lisboa', sort_order: 0 }),
+        planItem({ id: 'a2', location: 'Unknown', sort_order: 1 }),
+        planItem({ id: 'a3', location: 'Porto', sort_order: 2 }),
+      ],
+    } as Pick<Day, 'stays' | 'plan_items'>
+
+    // The middle stop couldn't be placed offline → an undefined hole.
+    const features = buildFeatures(collectLocatedItems(day), [lisboa, undefined, porto])
+    expect(features.map((f) => f.id)).toEqual(['a1', 'a3'])
+    // Pin numbers stay tied to itinerary position (1 and 3), not the drawn order.
+    expect(features.map((f) => f.number)).toEqual([1, 3])
+  })
 })
