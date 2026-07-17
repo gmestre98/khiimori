@@ -54,6 +54,10 @@ export async function registerServiceWorker(
       if (hadController) window.location.reload()
     })
 
+    // Ask the browser to refresh the offline data in the background (Chromium /
+    // Android Chrome when installed). Best-effort: a no-op where unsupported.
+    void registerPeriodicRefresh(reg)
+
     return reg
   } catch (err) {
     // A failed registration must never break app boot — the app works online
@@ -68,4 +72,60 @@ export async function registerServiceWorker(
 function applyUpdate(reg: ServiceWorkerRegistration, onUpdateReady?: () => void): void {
   onUpdateReady?.()
   reg.waiting?.postMessage({ type: 'SKIP_WAITING' })
+}
+
+// REFRESH_TAG must match the tag the service worker's periodicsync handler
+// checks for (see sw.js). REFRESH_INTERVAL_MS is the *minimum* we ask for; the
+// browser decides the real cadence (typically ~once a day) based on engagement.
+const REFRESH_TAG = 'khiimori-refresh'
+const REFRESH_INTERVAL_MS = 12 * 60 * 60 * 1000
+
+// PeriodicSyncManager is the slice of the Periodic Background Sync API we use.
+// It isn't in the DOM lib types, so we declare the minimum surface locally.
+interface PeriodicSyncManager {
+  register(tag: string, options?: { minInterval: number }): Promise<void>
+  getTags(): Promise<string[]>
+}
+
+// registerPeriodicRefresh asks the browser to wake the worker on its own
+// schedule to refresh the offline data (see sw.js periodicsync), so an itinerary
+// stays current even when the app hasn't been opened in a while.
+//
+// This only works on Chromium (Android Chrome) with the PWA installed and enough
+// site engagement for the browser to grant the 'periodic-background-sync'
+// permission — there is no prompt; the browser grants it silently or not. iOS
+// has no support at all. Every branch below degrades to a quiet no-op, so the
+// caller never has to care whether it took: unsupported platforms simply keep
+// relying on the open-time pre-warm.
+async function registerPeriodicRefresh(reg: ServiceWorkerRegistration): Promise<void> {
+  const periodicSync = (reg as ServiceWorkerRegistration & { periodicSync?: PeriodicSyncManager })
+    .periodicSync
+  if (!periodicSync) return // Unsupported (e.g. iOS, non-Chromium) — no-op.
+
+  try {
+    // Only register when the permission is already granted; querying avoids a
+    // guaranteed-to-reject register() on browsers that expose the API but
+    // withhold the permission. Some engines lack this permission name in
+    // Permissions.query — treat a throw as "can't tell, try anyway".
+    let granted = true
+    try {
+      const status = await navigator.permissions.query({
+        // 'periodic-background-sync' isn't in the PermissionName union type yet.
+        name: 'periodic-background-sync' as PermissionName,
+      })
+      granted = status.state === 'granted'
+    } catch {
+      granted = true
+    }
+    if (!granted) return
+
+    // Idempotent: skip if we've already registered this tag.
+    const tags = await periodicSync.getTags()
+    if (tags.includes(REFRESH_TAG)) return
+
+    await periodicSync.register(REFRESH_TAG, { minInterval: REFRESH_INTERVAL_MS })
+  } catch {
+    // Registration can reject (permission withheld, quota, etc.) — the app works
+    // fine without background refresh, so swallow and fall back to the pre-warm.
+  }
 }

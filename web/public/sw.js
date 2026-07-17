@@ -51,6 +51,19 @@
  * because the app always reloads when a new controller takes over.
  *
  * Versioning: bump CACHE_VERSION to invalidate the caches on the next activate.
+ *
+ * Background refresh (Periodic Background Sync)
+ * ────────────────────────────────────────────
+ * The foreground pre-warm (offlinePrefetch.ts) only runs while the app is open,
+ * so a trip's offline copy is only as fresh as the last time you opened Khiimori.
+ * The `periodicsync` handler below closes that gap on browsers that support it
+ * (Chromium / Android Chrome, PWA installed): the browser wakes the worker on
+ * its own schedule — roughly daily, only when online and typically on charge —
+ * and we re-walk every trip's reads into the data cache. So when you next open
+ * the app (even offline) the itinerary is already up to date without you having
+ * opened it first. iOS does NOT support Periodic Background Sync — there the app
+ * still relies on the open-time pre-warm, which is the best the platform allows.
+ * Registration lives in registerSW.ts and is a silent no-op where unsupported.
  */
 
 const CACHE_VERSION = 'v3'
@@ -297,4 +310,85 @@ self.addEventListener('fetch', (event) => {
 
   // Same-origin static assets → cache-first.
   event.respondWith(cacheFirst(request))
+})
+
+// ── Background refresh (Periodic Background Sync) ────────────────────────────
+//
+// REFRESH_TAG must match the tag registerSW.ts registers with. minInterval is
+// requested there; the browser picks the actual cadence (typically ~once a day).
+const REFRESH_TAG = 'khiimori-refresh'
+
+// In production the API is same-origin under /api (Firebase Hosting rewrites to
+// Cloud Run), and the service worker only registers in production (see
+// registerSW.ts), so /api is always the right base here. Same-origin fetches
+// carry the httpOnly __session cookie automatically, so these reads are
+// authenticated without any token handling in the worker.
+const API_BASE = '/api'
+
+// refreshCache fetches one API read and, when it succeeds, stores it in the data
+// cache so the next offline open serves the fresh copy. Returns the parsed JSON
+// (for reads we need to walk further, e.g. the trip list) or null on any failure
+// — background refresh is best-effort, exactly like the foreground pre-warm.
+async function refreshCache(path) {
+  try {
+    const res = await fetch(`${API_BASE}${path}`)
+    if (!res.ok) return null
+    const cache = await caches.open(DATA_CACHE)
+    await cache.put(`${API_BASE}${path}`, res.clone())
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
+// datesInRange lists every YYYY-MM-DD from start to end inclusive. Mirrors the
+// app's datesInRange (api.ts) so the worker can walk a trip's days without the
+// app bundle. Uses UTC to stay off DST boundaries (dates are calendar days).
+function datesInRange(startDate, endDate) {
+  const dates = []
+  const cur = new Date(`${startDate}T00:00:00Z`)
+  const end = new Date(`${endDate}T00:00:00Z`)
+  while (cur <= end) {
+    dates.push(cur.toISOString().slice(0, 10))
+    cur.setUTCDate(cur.getUTCDate() + 1)
+  }
+  return dates
+}
+
+// refreshTrip re-fetches one trip's cross-cutting reads and every one of its
+// days (plus each day's journal). Sequential and unhurried: this runs in the
+// background against a scale-to-zero backend, so we favour gentleness over
+// speed. Map tiles and geocodes are intentionally left alone — they're
+// effectively immutable and already cached from foreground use; only the trip
+// JSON goes stale, and that's what we refresh here.
+async function refreshTrip(trip) {
+  await refreshCache(`/trips/${trip.id}/plan-items/backlog`)
+  await refreshCache(`/trips/${trip.id}/budget/rollup`)
+  await refreshCache(`/trips/${trip.id}/cost-entries`)
+  for (const date of datesInRange(trip.start_date, trip.end_date)) {
+    const day = await refreshCache(`/trips/${trip.id}/days/${date}`)
+    if (day && day.id) await refreshCache(`/trips/${trip.id}/days/${day.id}/journal`)
+  }
+}
+
+// refreshAllTrips re-warms the whole offline data set: the profile, invitations,
+// the trip list, and every trip within it. Best-effort throughout — a failed
+// read just leaves that entry as stale as it already was. Never throws.
+async function refreshAllTrips() {
+  await refreshCache('/me')
+  await refreshCache('/invitations')
+  const trips = await refreshCache('/trips')
+  if (!trips) return
+  const all = [...(trips.current || []), ...(trips.upcoming || []), ...(trips.past || [])]
+  for (const trip of all) {
+    await refreshTrip(trip)
+  }
+}
+
+// periodicsync fires on the browser's schedule (when supported and granted) with
+// the app closed. waitUntil keeps the worker alive until the refresh finishes.
+self.addEventListener('periodicsync', (event) => {
+  if (event.tag === REFRESH_TAG) {
+    event.waitUntil(refreshAllTrips())
+  }
 })
