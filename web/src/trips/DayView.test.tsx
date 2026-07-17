@@ -800,6 +800,33 @@ describe('DayView', () => {
       )
       await waitFor(() => expect(screen.getByText('Flight (part 2/2)')).toBeInTheDocument())
     })
+
+    it('lets you type a fresh part count without clamping mid-keystroke', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Flight', cost: 12 })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Flight')).toBeInTheDocument())
+
+      await user.click(screen.getByRole('button', { name: /Edit Flight/ }))
+      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.click(
+        within(editingLi as HTMLElement).getByRole('checkbox', {
+          name: 'Split this cost into several',
+        }),
+      )
+
+      // Clear the default "2" and type "6". Typing must NOT re-clamp each keystroke
+      // (the old bug turned an appended "6" into 26 → clamped to the max of 12).
+      const count = within(editingLi as HTMLElement).getByRole('spinbutton', {
+        name: 'Number of parts to split the cost into',
+      })
+      await user.clear(count)
+      await user.type(count, '6')
+      expect(count).toHaveValue(6)
+      expect(within(editingLi as HTMLElement).getByText(/≈€2\.00 each/)).toBeInTheDocument()
+    })
   })
 
   describe('mobile interactions (S5)', () => {
