@@ -182,17 +182,45 @@ const adminUsers = [
     email: 'goncalo.mestre1998@gmail.com',
     is_admin: true,
     active: true,
+    joined: '2026-01-12T09:20:00Z',
+    trip_count: 2,
   },
-  { id: 'u2', name: 'Maria Costa', email: 'maria.costa@gmail.com', is_admin: false, active: true },
+  {
+    id: 'u2',
+    name: 'Maria Costa',
+    email: 'maria.costa@gmail.com',
+    is_admin: false,
+    active: true,
+    joined: '2026-03-03T14:05:00Z',
+    trip_count: 2,
+  },
   {
     id: 'u3',
     name: 'João Ferreira',
     email: 'joao.ferreira@outlook.com',
     is_admin: false,
     active: true,
+    joined: '2026-03-21T18:40:00Z',
+    trip_count: 2,
   },
-  { id: 'u4', name: 'Pedro Alves', email: 'pedro.alves@gmail.com', is_admin: false, active: true },
-  { id: 'u5', name: '', email: 'spam@test.io', is_admin: false, active: false },
+  {
+    id: 'u4',
+    name: 'Pedro Alves',
+    email: 'pedro.alves@gmail.com',
+    is_admin: false,
+    active: true,
+    joined: '2026-07-17T08:10:00Z',
+    trip_count: 0,
+  },
+  {
+    id: 'u5',
+    name: '',
+    email: 'spam@test.io',
+    is_admin: false,
+    active: false,
+    joined: '2026-07-13T22:00:00Z',
+    trip_count: 0,
+  },
 ]
 
 const adminDay = (offsetDays: number) => {
@@ -209,6 +237,7 @@ const adminTrips = [
     start_date: adminDay(-2),
     end_date: adminDay(12),
     status: 'active',
+    member_count: 3,
   },
   {
     id: 't2',
@@ -218,6 +247,7 @@ const adminTrips = [
     start_date: adminDay(-1),
     end_date: adminDay(6),
     status: 'active',
+    member_count: 4,
   },
   {
     id: 't3',
@@ -227,6 +257,7 @@ const adminTrips = [
     start_date: adminDay(20),
     end_date: adminDay(24),
     status: 'active',
+    member_count: 2,
   },
   {
     id: 't4',
@@ -236,6 +267,7 @@ const adminTrips = [
     start_date: adminDay(30),
     end_date: adminDay(32),
     status: 'active',
+    member_count: 2,
   },
   {
     id: 't5',
@@ -245,6 +277,7 @@ const adminTrips = [
     start_date: adminDay(-40),
     end_date: adminDay(-38),
     status: 'archived',
+    member_count: 2,
   },
 ]
 
@@ -448,11 +481,14 @@ function resolve(path: string, method: string, search: string, body: unknown): R
   if (/\/invitations$/.test(path)) return json(sharingInvites)
   if (/\/usage$/.test(path)) return json(usage)
 
-  // admin backoffice (M08.5) — stats + list users/trips + deactivate.
+  // admin backoffice (M08.5) — stats + list users/trips + (de/re)activate.
+  if (path === '/readyz' && method === 'GET')
+    return json({ status: 'ready', checks: { database: 'ok' } })
   if (path === '/admin/stats' && method === 'GET') return json(adminStats)
   if (path === '/admin/users' && method === 'GET') return json(adminUsers)
   if (path === '/admin/trips' && method === 'GET') return json(adminTrips)
   if (/\/admin\/users\/[^/]+\/deactivate$/.test(path)) return json({ status: 'deactivated' })
+  if (/\/admin\/users\/[^/]+\/reactivate$/.test(path)) return json({ status: 'reactivated' })
 
   // Default: empty OK so writes don't error.
   return json({}, 200)
@@ -471,6 +507,7 @@ export function installDevMock() {
         u.pathname.startsWith('/trips') ||
         u.pathname.startsWith('/invitations') ||
         u.pathname.startsWith('/admin') ||
+        u.pathname.startsWith('/readyz') ||
         u.pathname.startsWith('/geo')
       if (isApi) {
         let body: unknown = undefined

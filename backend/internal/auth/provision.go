@@ -41,6 +41,9 @@ type userRepo interface {
 	// Deactivate sets active=false on the user row, blocking further
 	// authentication (M08.5 S3). Returns errUserNotFound if the id is unknown.
 	Deactivate(ctx context.Context, id string) error
+	// Reactivate sets active=true on the user row, restoring sign-in. Returns
+	// errUserNotFound if the id is unknown.
+	Reactivate(ctx context.Context, id string) error
 	// ListUsers returns all user rows for the admin backoffice (M08.5 S2).
 	ListUsers(ctx context.Context) ([]AdminUserRow, error)
 	// ListTrips returns all trips with owner email for the admin backoffice (M08.5 S2).
@@ -51,23 +54,26 @@ type userRepo interface {
 
 // AdminUserRow is the projection of an auth.users row for the admin list.
 type AdminUserRow struct {
-	ID      string
-	Email   string
-	Name    string
-	IsAdmin bool
-	Active  bool
+	ID        string
+	Email     string
+	Name      string
+	IsAdmin   bool
+	Active    bool
+	CreatedAt string // RFC3339 sign-up timestamp
+	TripCount int    // trips owned by this user
 }
 
 // AdminTripRow is the projection of a trip.trips row for the admin list,
 // joined with the owner's email from auth.users.
 type AdminTripRow struct {
-	ID         string
-	Name       string
-	OwnerID    string
-	OwnerEmail string
-	StartDate  string
-	EndDate    string
-	Status     string
+	ID          string
+	Name        string
+	OwnerID     string
+	OwnerEmail  string
+	StartDate   string
+	EndDate     string
+	Status      string
+	MemberCount int // shared collaborators (rows in sharing.trip_memberships)
 }
 
 // Provisioner turns a verified identity into a persisted user. It is the seam
@@ -188,10 +194,31 @@ func (r *pgxUserRepo) Deactivate(ctx context.Context, id string) error {
 	return nil
 }
 
+// Reactivate sets active=true on the user row, restoring sign-in. Returns
+// errUserNotFound when no such row exists.
+func (r *pgxUserRepo) Reactivate(ctx context.Context, id string) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE auth.users SET active = true, updated_at = now() WHERE id = $1::uuid`, id)
+	if err != nil {
+		return fmt.Errorf("auth: reactivate user: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return errUserNotFound
+	}
+	return nil
+}
+
 // ListUsers returns all user rows ordered by email for the admin backoffice.
 func (r *pgxUserRepo) ListUsers(ctx context.Context) ([]AdminUserRow, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT id::text, email, name, is_admin, active FROM auth.users ORDER BY email`)
+	// trip_count is a correlated count of trips owned by each user. trip.trips
+	// has no FK to auth.users (schemas are decoupled), so this is a plain
+	// subquery join on owner_id, not a referential one.
+	rows, err := r.pool.Query(ctx, `
+		SELECT u.id::text, u.email, u.name, u.is_admin, u.active,
+		       to_char(u.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+		       (SELECT count(*) FROM trip.trips t WHERE t.owner_id = u.id)
+		FROM auth.users u
+		ORDER BY u.email`)
 	if err != nil {
 		return nil, fmt.Errorf("auth: list users: %w", err)
 	}
@@ -199,7 +226,8 @@ func (r *pgxUserRepo) ListUsers(ctx context.Context) ([]AdminUserRow, error) {
 	var out []AdminUserRow
 	for rows.Next() {
 		var u AdminUserRow
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.IsAdmin, &u.Active); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.IsAdmin, &u.Active,
+			&u.CreatedAt, &u.TripCount); err != nil {
 			return nil, fmt.Errorf("auth: scan user row: %w", err)
 		}
 		out = append(out, u)
@@ -216,7 +244,8 @@ func (r *pgxUserRepo) ListUsers(ctx context.Context) ([]AdminUserRow, error) {
 func (r *pgxUserRepo) ListTrips(ctx context.Context) ([]AdminTripRow, error) {
 	const query = `
 		SELECT t.id::text, t.name, t.owner_id::text,
-		       COALESCE(u.email, ''), t.start_date::text, t.end_date::text, t.status
+		       COALESCE(u.email, ''), t.start_date::text, t.end_date::text, t.status,
+		       (SELECT count(*) FROM sharing.trip_memberships m WHERE m.trip_id = t.id)
 		FROM   trip.trips t
 		LEFT JOIN auth.users u ON u.id = t.owner_id
 		ORDER BY t.created_at DESC`
@@ -229,7 +258,7 @@ func (r *pgxUserRepo) ListTrips(ctx context.Context) ([]AdminTripRow, error) {
 	for rows.Next() {
 		var tr AdminTripRow
 		if err := rows.Scan(&tr.ID, &tr.Name, &tr.OwnerID, &tr.OwnerEmail,
-			&tr.StartDate, &tr.EndDate, &tr.Status); err != nil {
+			&tr.StartDate, &tr.EndDate, &tr.Status, &tr.MemberCount); err != nil {
 			return nil, fmt.Errorf("auth: scan trip row: %w", err)
 		}
 		out = append(out, tr)

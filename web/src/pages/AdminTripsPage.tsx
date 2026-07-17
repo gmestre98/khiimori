@@ -13,6 +13,13 @@ const FILTERS: { key: Filter; label: string }[] = [
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
+// nightsBetween counts nights between two YYYY-MM-DD dates (end − start).
+function nightsBetween(start: string, end: string): number {
+  const ms = new Date(`${end}T00:00:00`).getTime() - new Date(`${start}T00:00:00`).getTime()
+  if (Number.isNaN(ms)) return 0
+  return Math.max(0, Math.round(ms / 86_400_000))
+}
+
 // tripState derives a human state from the trip's status + date range, since the
 // backend only stores active/archived (no planning/completed concept).
 function tripState(t: AdminTrip, today: string): { label: string; cls: string; dot: string } {
@@ -143,13 +150,15 @@ export function AdminTripsPage() {
                 <th>Trip</th>
                 <th>Owner</th>
                 <th>Dates</th>
+                <th className="num">Nights</th>
+                <th className="num">People</th>
                 <th>State</th>
               </tr>
             </thead>
             <tbody>
               {shown.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="admin-empty">
+                  <td colSpan={6} className="admin-empty">
                     No trips match.
                   </td>
                 </tr>
@@ -170,6 +179,8 @@ export function AdminTripsPage() {
                     <td className="num">
                       {t.start_date} → {t.end_date}
                     </td>
+                    <td className="num">{nightsBetween(t.start_date, t.end_date)}</td>
+                    <td className="num">{t.member_count ?? '—'}</td>
                     <td>
                       <span className={st.cls}>
                         <span className="admin-dot" style={{ background: st.dot }} />

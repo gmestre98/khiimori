@@ -147,6 +147,7 @@ func TestAdminGating_NonAdminDenied(t *testing.T) {
 		{http.MethodGet, "/admin/users", nil},
 		{http.MethodGet, "/admin/trips", nil},
 		{http.MethodPost, "/admin/users/" + userID + "/deactivate", nil},
+		{http.MethodPost, "/admin/users/" + userID + "/reactivate", nil},
 		{http.MethodPost, "/admin/trips/" + tripID + "/members",
 			map[string]any{"user_id": userID, "role": "viewer"}},
 		{http.MethodPatch, "/admin/trips/" + tripID + "/members/" + userID,
@@ -296,6 +297,64 @@ func TestAdminDeactivateUser(t *testing.T) {
 	}
 	if active {
 		t.Error("user is still active=true after admin deactivate")
+	}
+}
+
+// TestAdminReactivateUser asserts the reactivate endpoint flips active back to
+// true after a deactivate.
+func TestAdminReactivateUser(t *testing.T) {
+	if authzTestPool == nil {
+		t.Skip("DATABASE_URL_TEST not set")
+	}
+	truncateAuthUsers(t)
+	adminID := insertUser(t, "admin-"+genID(t)+"@example.com", true, true)
+	targetID := insertUser(t, "target-"+genID(t)+"@example.com", false, false)
+	srv := adminServer(t, adminID)
+
+	r := do(t, srv, http.MethodPost, "/admin/users/"+targetID+"/reactivate", nil)
+	wantStatus(t, "admin reactivate", r, http.StatusOK)
+
+	var active bool
+	if err := authzTestPool.QueryRow(context.Background(),
+		`SELECT active FROM auth.users WHERE id = $1`, targetID).Scan(&active); err != nil {
+		t.Fatalf("query active after reactivate: %v", err)
+	}
+	if !active {
+		t.Error("user is still active=false after admin reactivate")
+	}
+}
+
+// TestAdminListUsersEnrichedFields asserts the users list carries the new
+// joined + trip_count columns.
+func TestAdminListUsersEnrichedFields(t *testing.T) {
+	if authzTestPool == nil {
+		t.Skip("DATABASE_URL_TEST not set")
+	}
+	truncateAuthUsers(t)
+	adminID := insertUser(t, "admin-"+genID(t)+"@example.com", true, true)
+	srv := adminServer(t, adminID)
+
+	r := do(t, srv, http.MethodGet, "/admin/users", nil)
+	defer r.Body.Close()
+	if r.StatusCode != http.StatusOK {
+		t.Fatalf("admin GET /admin/users: got %d, want 200", r.StatusCode)
+	}
+	var users []struct {
+		ID        string `json:"id"`
+		Joined    string `json:"joined"`
+		TripCount int    `json:"trip_count"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&users); err != nil {
+		t.Fatalf("decode users: %v", err)
+	}
+	if len(users) != 1 {
+		t.Fatalf("users len = %d, want 1", len(users))
+	}
+	if users[0].Joined == "" {
+		t.Error("joined is empty, want a sign-up timestamp")
+	}
+	if users[0].TripCount != 0 {
+		t.Errorf("trip_count = %d, want 0 for a fresh admin", users[0].TripCount)
 	}
 }
 

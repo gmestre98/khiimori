@@ -115,15 +115,25 @@ func (m *Module) handleAdminListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type userResp struct {
-		ID      string `json:"id"`
-		Email   string `json:"email"`
-		Name    string `json:"name"`
-		IsAdmin bool   `json:"is_admin"`
-		Active  bool   `json:"active"`
+		ID        string `json:"id"`
+		Email     string `json:"email"`
+		Name      string `json:"name"`
+		IsAdmin   bool   `json:"is_admin"`
+		Active    bool   `json:"active"`
+		Joined    string `json:"joined"`
+		TripCount int    `json:"trip_count"`
 	}
 	out := make([]userResp, len(users))
 	for i, u := range users {
-		out[i] = userResp(u)
+		out[i] = userResp{
+			ID:        u.ID,
+			Email:     u.Email,
+			Name:      u.Name,
+			IsAdmin:   u.IsAdmin,
+			Active:    u.Active,
+			Joined:    u.CreatedAt,
+			TripCount: u.TripCount,
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -143,17 +153,27 @@ func (m *Module) handleAdminListTrips(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type tripResp struct {
-		ID         string `json:"id"`
-		Name       string `json:"name"`
-		OwnerID    string `json:"owner_id"`
-		OwnerEmail string `json:"owner_email"`
-		StartDate  string `json:"start_date"`
-		EndDate    string `json:"end_date"`
-		Status     string `json:"status"`
+		ID          string `json:"id"`
+		Name        string `json:"name"`
+		OwnerID     string `json:"owner_id"`
+		OwnerEmail  string `json:"owner_email"`
+		StartDate   string `json:"start_date"`
+		EndDate     string `json:"end_date"`
+		Status      string `json:"status"`
+		MemberCount int    `json:"member_count"`
 	}
 	out := make([]tripResp, len(trips))
 	for i, t := range trips {
-		out[i] = tripResp(t)
+		out[i] = tripResp{
+			ID:          t.ID,
+			Name:        t.Name,
+			OwnerID:     t.OwnerID,
+			OwnerEmail:  t.OwnerEmail,
+			StartDate:   t.StartDate,
+			EndDate:     t.EndDate,
+			Status:      t.Status,
+			MemberCount: t.MemberCount,
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -191,4 +211,36 @@ func (m *Module) handleAdminDeactivateUser(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"status":"deactivated"}`))
+}
+
+// ReactivateUserPath is the admin endpoint to reactivate a user (M08.5 redesign).
+const ReactivateUserPath = "/admin/users/{userID}/reactivate"
+
+// handleAdminReactivateUser sets active=true on the given user, restoring their
+// ability to sign in. The inverse of handleAdminDeactivateUser. Gated by
+// RequireAdmin.
+func (m *Module) handleAdminReactivateUser(w http.ResponseWriter, r *http.Request) {
+	userID := r.PathValue("userID")
+	if userID == "" {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusBadRequest, "invalid_request", "userID is required"))
+		return
+	}
+
+	if err := m.repo.Reactivate(r.Context(), userID); err != nil {
+		if errors.Is(err, errUserNotFound) {
+			httpx.WriteError(w, r, httpx.NewAPIError(
+				http.StatusNotFound, "not_found", "user not found"))
+			return
+		}
+		platformlog.FromContext(r.Context()).Error("reactivating user", "err", err.Error())
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusInternalServerError, "server_error", "could not reactivate user"))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"status":"reactivated"}`))
 }
