@@ -173,6 +173,81 @@ const profile = {
   is_admin: true,
 }
 
+// Admin backoffice mock data (M08.5). A small, believable roster so the
+// Overview KPIs, Users list and Trips list render with real-looking variety.
+const adminUsers = [
+  {
+    id: 'u1',
+    name: 'Gonçalo Mestre',
+    email: 'goncalo.mestre1998@gmail.com',
+    is_admin: true,
+    active: true,
+  },
+  { id: 'u2', name: 'Maria Costa', email: 'maria.costa@gmail.com', is_admin: false, active: true },
+  {
+    id: 'u3',
+    name: 'João Ferreira',
+    email: 'joao.ferreira@outlook.com',
+    is_admin: false,
+    active: true,
+  },
+  { id: 'u4', name: 'Pedro Alves', email: 'pedro.alves@gmail.com', is_admin: false, active: true },
+  { id: 'u5', name: '', email: 'spam@test.io', is_admin: false, active: false },
+]
+
+const adminDay = (offsetDays: number) => {
+  const d = new Date()
+  d.setDate(d.getDate() + offsetDays)
+  return d.toISOString().slice(0, 10)
+}
+const adminTrips = [
+  {
+    id: 't1',
+    name: 'Japan 2026',
+    owner_id: 'u1',
+    owner_email: 'goncalo.mestre1998@gmail.com',
+    start_date: adminDay(-2),
+    end_date: adminDay(12),
+    status: 'active',
+  },
+  {
+    id: 't2',
+    name: 'Algarve Summer',
+    owner_id: 'u2',
+    owner_email: 'maria.costa@gmail.com',
+    start_date: adminDay(-1),
+    end_date: adminDay(6),
+    status: 'active',
+  },
+  {
+    id: 't3',
+    name: 'Rome City Break',
+    owner_id: 'u3',
+    owner_email: 'joao.ferreira@outlook.com',
+    start_date: adminDay(20),
+    end_date: adminDay(24),
+    status: 'active',
+  },
+  {
+    id: 't4',
+    name: 'Lisbon Weekend',
+    owner_id: 'u2',
+    owner_email: 'maria.costa@gmail.com',
+    start_date: adminDay(30),
+    end_date: adminDay(32),
+    status: 'active',
+  },
+  {
+    id: 't5',
+    name: 'Porto Getaway',
+    owner_id: 'u3',
+    owner_email: 'joao.ferreira@outlook.com',
+    start_date: adminDay(-40),
+    end_date: adminDay(-38),
+    status: 'archived',
+  },
+]
+
 const sharingMembers = {
   members: [
     { id: 'm1', trip_id: MOCK_CURRENT_TRIP_ID, user_id: 'mock-user', role: 'owner' },
@@ -352,6 +427,11 @@ function resolve(path: string, method: string, search: string, body: unknown): R
   if (/\/invitations$/.test(path)) return json(sharingInvites)
   if (/\/usage$/.test(path)) return json(usage)
 
+  // admin backoffice (M08.5) — list users/trips + deactivate.
+  if (path === '/admin/users' && method === 'GET') return json(adminUsers)
+  if (path === '/admin/trips' && method === 'GET') return json(adminTrips)
+  if (/\/admin\/users\/[^/]+\/deactivate$/.test(path)) return json({ status: 'deactivated' })
+
   // Default: empty OK so writes don't error.
   return json({}, 200)
 }
@@ -368,6 +448,7 @@ export function installDevMock() {
         u.pathname.startsWith('/me') ||
         u.pathname.startsWith('/trips') ||
         u.pathname.startsWith('/invitations') ||
+        u.pathname.startsWith('/admin') ||
         u.pathname.startsWith('/geo')
       if (isApi) {
         let body: unknown = undefined

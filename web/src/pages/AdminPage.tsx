@@ -1,41 +1,97 @@
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { AdminAvatar } from './adminShared'
 
-// AdminPage is the shell for the admin backoffice (M08.5). It renders the
-// top-level admin navigation and an <Outlet> for nested admin sub-routes
-// (users, trips). Visible only to is_admin users (gated by RequireAdmin in
-// App.tsx; server-side enforcement is authoritative).
-export function AdminPage() {
-  const { user } = useAuth()
-  const location = useLocation()
-
+// Icon helper — matches the Lucide-style stroke icons used in the app nav.
+function Icon({ d }: { d: string | string[] }) {
+  const paths = Array.isArray(d) ? d : [d]
   return (
-    <div className="admin-shell">
-      <header className="admin-header">
-        <h2>Admin Backoffice</h2>
-        <p className="admin-subtitle">Signed in as {user?.email}</p>
-        <nav className="admin-nav">
-          <Link to="/admin/users" className={location.pathname === '/admin/users' ? 'active' : ''}>
-            Users
-          </Link>
-          <Link to="/admin/trips" className={location.pathname === '/admin/trips' ? 'active' : ''}>
-            Trips
-          </Link>
-          <Link to="/">← Back to app</Link>
-        </nav>
-      </header>
-      <main className="admin-content">
-        <Outlet />
-      </main>
-    </div>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {paths.map((p, i) => (
+        <path key={i} d={p} />
+      ))}
+    </svg>
   )
 }
 
-// AdminHome is the default landing inside /admin — redirects to users list.
-export function AdminHome() {
+const NAV = [
+  {
+    to: '/admin',
+    end: true,
+    label: 'Overview',
+    icon: ['M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z'],
+  },
+  {
+    to: '/admin/users',
+    label: 'Users',
+    icon: ['M16 19a4 4 0 00-8 0', 'M12 8m-3.2 0a3.2 3.2 0 106.4 0a3.2 3.2 0 10-6.4 0'],
+  },
+  {
+    to: '/admin/trips',
+    label: 'Trips',
+    icon: ['M4 8h16v11a1 1 0 01-1 1H5a1 1 0 01-1-1V8z', 'M9 8V5a1 1 0 011-1h4a1 1 0 011 1v3'],
+  },
+]
+
+// AdminPage is the shell for the admin backoffice (M08.5 redesign): a left rail
+// (Overview / Users / Trips) plus an <Outlet> for the active section. Visible
+// only to is_admin users (RequireAdmin in App.tsx; server-side enforcement is
+// authoritative). Uses design tokens throughout, so light/dark come for free.
+export function AdminPage() {
+  const { user } = useAuth()
+
   return (
-    <div>
-      <p>Select a section from the navigation above.</p>
+    <div className="admin-app">
+      <aside className="admin-rail">
+        <div className="admin-brand">
+          <div className="mark">K</div>
+          <div>
+            <div className="bt">Khiimori</div>
+            <div className="bs">Admin</div>
+          </div>
+        </div>
+
+        {NAV.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            className={({ isActive }) => (isActive ? 'admin-nav active' : 'admin-nav')}
+          >
+            <Icon d={item.icon} />
+            {item.label}
+          </NavLink>
+        ))}
+
+        <div className="admin-railfoot">
+          <AdminAvatar
+            name={user?.name ?? ''}
+            email={user?.email ?? ''}
+            avatar={user?.avatar}
+            size={30}
+          />
+          <div className="who">
+            <b>{user?.name || 'Admin'}</b>
+            <span>{user?.email}</span>
+          </div>
+        </div>
+        <NavLink to="/" className="admin-back">
+          <Icon d="M15 18l-6-6 6-6" />
+          Back to app
+        </NavLink>
+      </aside>
+
+      <main className="admin-main">
+        <Outlet />
+      </main>
     </div>
   )
 }
