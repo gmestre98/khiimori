@@ -23,6 +23,7 @@
 
 import { geocodeLocation, UnauthorizedError, type LatLng, type Suggestion } from './api'
 import { cacheKeys } from './cacheKeys'
+import { lookupRegionPlace, searchRegionPlaces } from './regionPlaces'
 import { readCache, writeCache } from './resourceCache'
 
 // INDEX_CAP bounds the offline-autocomplete index. A single user's whole trip
@@ -113,6 +114,14 @@ export async function resolveLocation(
     if (err instanceof UnauthorizedError) throw err
     const cached = await readCachedGeocode(location)
     if (cached) return { coords: cached.coords, source: 'cache' }
+    // Never geocoded before, but it may be a POI we pre-loaded around the trip
+    // (regionPlaces). A hit there validates a brand-new place offline; remember
+    // it so the next lookup is a plain cache hit.
+    const region = await lookupRegionPlace(location)
+    if (region) {
+      void writeCachedGeocode(location, region)
+      return { coords: region, source: 'cache' }
+    }
     throw err
   }
 }
@@ -128,6 +137,24 @@ export async function suggestLocalPlaces(input: string): Promise<Suggestion[]> {
   const out: Suggestion[] = []
   for (const e of index) {
     if (e.norm.includes(norm)) out.push({ description: e.description, place_id: '' })
+    if (out.length >= SUGGEST_CAP) break
+  }
+  return out
+}
+
+// offlineSuggestions is the field's whole offline autocomplete: places the user
+// has geocoded before (suggestLocalPlaces) plus POIs pre-loaded around the trip
+// (searchRegionPlaces), merged, deduped by name and capped. Recently-used places
+// come first so the user's own history outranks the wider region.
+export async function offlineSuggestions(input: string): Promise<Suggestion[]> {
+  const [mru, region] = await Promise.all([suggestLocalPlaces(input), searchRegionPlaces(input)])
+  const seen = new Set<string>()
+  const out: Suggestion[] = []
+  for (const s of [...mru, ...region]) {
+    const key = normalizeLocation(s.description)
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(s)
     if (out.length >= SUGGEST_CAP) break
   }
   return out

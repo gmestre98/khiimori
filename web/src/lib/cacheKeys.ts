@@ -26,4 +26,8 @@ export const cacheKeys = {
   // The index of place strings we've successfully geocoded, powering offline
   // autocomplete when the Places proxy is unreachable (see geocodeCache).
   geocodeIndex: () => 'geocode-index',
+  // Named POIs downloaded (from OSM/Overpass) around the user's trips, so a
+  // never-seen place typed near a trip can still validate + autocomplete offline
+  // (see regionPlaces). One merged, deduped, capped index across all trips.
+  regionPlaces: () => 'region-places',
 } as const

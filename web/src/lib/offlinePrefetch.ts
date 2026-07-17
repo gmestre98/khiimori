@@ -35,6 +35,7 @@ import {
 } from './api'
 import { collectLocations } from '../trips/locatedItems'
 import { warmDayRoute } from './dayRouteCache'
+import { warmRegionPlaces } from './regionPlaces'
 import { prefetchTiles } from './tilePrefetch'
 
 // CONCURRENCY caps how many pre-warm fetches are in flight at once — enough to
@@ -141,6 +142,10 @@ export async function prefetchAllTripsForOffline(signal?: AbortSignal): Promise<
     // bounded/throttled, and a no-op without a controlling service worker).
     if (signal?.aborted) return
     await prefetchTiles(points, signal)
+    // Finally, pre-load named POIs around every stop so a new place typed near a
+    // trip can validate + autocomplete offline (best-effort, bounded, silent).
+    if (signal?.aborted) return
+    await warmRegionPlaces(points, signal)
   } catch {
     // Couldn't even list trips (offline / transient) — nothing to pre-warm.
   }
