@@ -185,6 +185,11 @@ async function dispatch(m: QueuedMutation): Promise<void> {
       await api.reorderPlanItems(tripId, dayId, itemIds)
       return
     }
+    case 'reorderPlanItemsActual': {
+      const { tripId, dayId, itemIds } = p as unknown as ReorderPlanItemsPayload
+      await api.reorderPlanItemsActual(tripId, dayId, itemIds)
+      return
+    }
     case 'movePlanItem': {
       const { tripId, itemId, dayId, startTime } = p as unknown as MovePlanItemPayload
       await api.movePlanItem(tripId, itemId, dayId, startTime)

@@ -85,6 +85,7 @@ vi.mock('../lib/api', async (importOriginal) => {
     deletePlanItem: vi.fn(),
     movePlanItem: vi.fn(),
     reorderPlanItems: vi.fn(),
+    reorderPlanItemsActual: vi.fn(),
     setDayBudgetLine: vi.fn(),
     fetchDayRoute: vi.fn(),
     geocodeLocation: vi.fn().mockResolvedValue(null),
@@ -1157,25 +1158,61 @@ describe('DayView', () => {
       expect(screen.getByText('Kayak logged')).toBeInTheDocument()
     })
 
-    it('reorders the "What happened" list via touch drag', async () => {
+    it('reorders "What happened" via the actual-order endpoint, leaving the plan untouched', async () => {
       setMobile(true)
       // Two logged-after-the-fact items live only under What happened, so its
       // list is the only draggable one on screen.
       const items = [
-        makePlanItem({ id: 'd1', title: 'Kayak', status: 'done', unplanned: true, sort_order: 0 }),
-        makePlanItem({ id: 'd2', title: 'Gelato', status: 'done', unplanned: true, sort_order: 1 }),
+        makePlanItem({
+          id: 'd1',
+          title: 'Kayak',
+          status: 'done',
+          unplanned: true,
+          sort_order: 0,
+          actual_order: 0,
+        }),
+        makePlanItem({
+          id: 'd2',
+          title: 'Gelato',
+          status: 'done',
+          unplanned: true,
+          sort_order: 1,
+          actual_order: 1,
+        }),
       ]
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
-      vi.mocked(api.reorderPlanItems).mockResolvedValue()
+      vi.mocked(api.reorderPlanItemsActual).mockResolvedValue()
       renderDayView()
       await waitFor(() => expect(screen.getByText('Gelato')).toBeInTheDocument())
 
       // Drag "Gelato" above "Kayak".
       dragRowByHandle('Gelato', 5)
 
+      // The "what happened" order is persisted to the actual-order endpoint —
+      // the planned reorder (sort_order) is never called.
       await waitFor(() =>
-        expect(api.reorderPlanItems).toHaveBeenCalledWith('trip-1', 'day-1', ['d2', 'd1']),
+        expect(api.reorderPlanItemsActual).toHaveBeenCalledWith('trip-1', 'day-1', ['d2', 'd1']),
       )
+      expect(api.reorderPlanItems).not.toHaveBeenCalled()
+    })
+
+    it('reordering the plan (sort_order) does not touch the actual order', async () => {
+      setMobile(true)
+      const items = [
+        makePlanItem({ id: 'i1', title: 'First', sort_order: 0 }),
+        makePlanItem({ id: 'i2', title: 'Second', sort_order: 1 }),
+      ]
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
+      vi.mocked(api.reorderPlanItems).mockResolvedValue()
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Second')).toBeInTheDocument())
+
+      dragRowByHandle('Second', 5)
+
+      await waitFor(() =>
+        expect(api.reorderPlanItems).toHaveBeenCalledWith('trip-1', 'day-1', ['i2', 'i1']),
+      )
+      expect(api.reorderPlanItemsActual).not.toHaveBeenCalled()
     })
 
     it('renumbers map pins immediately after a reorder (no refresh)', async () => {

@@ -47,6 +47,11 @@ type planItemStore interface {
 	// (PRD §6). Reused by move (S2) to place the moved item at the end of
 	// the target day.
 	ReorderPlanItems(ctx context.Context, tripID, dayID string, itemIDs []string) ([]PlanItem, error)
+	// ReorderActualOrder sets actual_order = 0, 1, 2, … for the given item IDs
+	// within a day, leaving sort_order untouched, so the planned order and the
+	// "what happened" order move independently. Same convergent scheme as
+	// ReorderPlanItems. Returns the day's items ordered by actual_order.
+	ReorderActualOrder(ctx context.Context, tripID, dayID string, itemIDs []string) ([]PlanItem, error)
 }
 
 // pgxPlanItemStore is the Postgres-backed plan-item store.
@@ -60,7 +65,7 @@ const planItemColumns = `
 	title, kind, type, start_time::text, duration::text,
 	location, booking_status, cost, link,
 	origin, destination, arrive_time::text, note, unplanned,
-	sort_order, status`
+	sort_order, actual_order, status`
 
 // scanPlanItem scans a trip.plan_items row (in planItemColumns order) into p.
 func scanPlanItem(row pgx.Row, p *PlanItem) error {
@@ -69,7 +74,7 @@ func scanPlanItem(row pgx.Row, p *PlanItem) error {
 		&p.Title, &p.Kind, &p.Type, &p.StartTime, &p.Duration,
 		&p.Location, &p.BookingStatus, &p.Cost, &p.Link,
 		&p.Origin, &p.Destination, &p.ArriveTime, &p.Note, &p.Unplanned,
-		&p.SortOrder, &p.Status,
+		&p.SortOrder, &p.ActualOrder, &p.Status,
 	)
 }
 
@@ -91,12 +96,15 @@ func (s *pgxPlanItemStore) CreatePlanItem(ctx context.Context, n NewPlanItem) (P
 			INSERT INTO trip.plan_items
 				(id, trip_id, day_id, title, kind, type, start_time, duration,
 				 location, booking_status, cost, link,
-				 origin, destination, arrive_time, note, unplanned, sort_order, status)
+				 origin, destination, arrive_time, note, unplanned,
+				 sort_order, actual_order, status)
 			VALUES
 				($1::uuid, $2::uuid, $3::uuid,  $4, $5, $6, $7::time, $8::interval,
 				 $9, $10, $11, $12,
 				 $13, $14, $15::time, $16, $17,
 				 (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM trip.plan_items
+				  WHERE trip_id = $2::uuid AND day_id IS NOT DISTINCT FROM $3::uuid),
+				 (SELECT COALESCE(MAX(actual_order), -1) + 1 FROM trip.plan_items
 				  WHERE trip_id = $2::uuid AND day_id IS NOT DISTINCT FROM $3::uuid),
 				 CASE WHEN $3::uuid IS NULL THEN 'idea' ELSE 'planned' END)
 			ON CONFLICT (id) DO UPDATE
@@ -126,12 +134,15 @@ func (s *pgxPlanItemStore) CreatePlanItem(ctx context.Context, n NewPlanItem) (P
 			INSERT INTO trip.plan_items
 				(trip_id, day_id, title, kind, type, start_time, duration,
 				 location, booking_status, cost, link,
-				 origin, destination, arrive_time, note, unplanned, sort_order, status)
+				 origin, destination, arrive_time, note, unplanned,
+				 sort_order, actual_order, status)
 			VALUES
 				($1::uuid, $2::uuid, $3, $4, $5, $6::time, $7::interval,
 				 $8, $9, $10, $11,
 				 $12, $13, $14::time, $15, $16,
 				 (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM trip.plan_items
+				  WHERE trip_id = $1::uuid AND day_id IS NOT DISTINCT FROM $2::uuid),
+				 (SELECT COALESCE(MAX(actual_order), -1) + 1 FROM trip.plan_items
 				  WHERE trip_id = $1::uuid AND day_id IS NOT DISTINCT FROM $2::uuid),
 				 CASE WHEN $2::uuid IS NULL THEN 'idea' ELSE 'planned' END)
 			RETURNING ` + planItemColumns
@@ -403,6 +414,56 @@ func (s *pgxPlanItemStore) ReorderPlanItems(ctx context.Context, tripID, dayID s
 	rows, err := s.pool.Query(ctx, listQ, tripID, dayID)
 	if err != nil {
 		return nil, fmt.Errorf("trip: list day items after reorder: %w", err)
+	}
+	defer rows.Close()
+
+	var items []PlanItem
+	for rows.Next() {
+		var p PlanItem
+		if err := scanPlanItem(rows, &p); err != nil {
+			return nil, fmt.Errorf("trip: scan day item: %w", err)
+		}
+		items = append(items, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("trip: list day items rows: %w", err)
+	}
+	return items, nil
+}
+
+// ReorderActualOrder is ReorderPlanItems' twin for the "what happened" order:
+// it sets actual_order = 0, 1, 2, … for the given item IDs in sequence, leaving
+// sort_order (the planned order) untouched, so the two lists reorder
+// independently. Same idempotent, convergent scheme (positions by list index).
+// itemIDs is the "what happened" subset (done + logged items); any item not in
+// the list keeps its actual_order. Returns the day's items ordered by
+// actual_order.
+func (s *pgxPlanItemStore) ReorderActualOrder(ctx context.Context, tripID, dayID string, itemIDs []string) ([]PlanItem, error) {
+	const q = `
+		WITH positions(id, pos) AS (
+		    SELECT id, (ord - 1)::int
+		    FROM unnest($3::uuid[]) WITH ORDINALITY AS t(id, ord)
+		)
+		UPDATE trip.plan_items pi
+		SET actual_order = p.pos
+		FROM positions p
+		WHERE pi.id = p.id
+		  AND pi.trip_id = $1::uuid
+		  AND pi.day_id  = $2::uuid`
+
+	if _, err := s.pool.Exec(ctx, q, tripID, dayID, itemIDs); err != nil {
+		return nil, fmt.Errorf("trip: reorder actual order: %w", err)
+	}
+
+	const listQ = `
+		SELECT ` + planItemColumns + `
+		FROM trip.plan_items
+		WHERE trip_id = $1::uuid AND day_id = $2::uuid
+		ORDER BY actual_order`
+
+	rows, err := s.pool.Query(ctx, listQ, tripID, dayID)
+	if err != nil {
+		return nil, fmt.Errorf("trip: list day items after actual reorder: %w", err)
 	}
 	defer rows.Close()
 
