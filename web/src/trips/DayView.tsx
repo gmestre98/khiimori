@@ -390,6 +390,9 @@ function PlanItemForm({
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   // splitParts drives the split-cost helper (add mode only). 1 = no split.
   const [splitParts, setSplitParts] = useState(1)
+  // splitPartsDraft holds the raw text while the user types so intermediate/empty
+  // values aren't clamped away mid-keystroke; it's committed to splitParts on blur.
+  const [splitPartsDraft, setSplitPartsDraft] = useState('')
   const optionalId = useId()
   const fid = useId()
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -468,6 +471,7 @@ function PlanItemForm({
       if (!initialFields) {
         setFields(emptyFields())
         setSplitParts(1)
+        setSplitPartsDraft('')
       }
     } finally {
       setSubmitting(false)
@@ -668,7 +672,10 @@ function PlanItemForm({
                       <input
                         type="checkbox"
                         checked={splitParts > 1}
-                        onChange={(e) => setSplitParts(e.target.checked ? 2 : 1)}
+                        onChange={(e) => {
+                          setSplitParts(e.target.checked ? 2 : 1)
+                          setSplitPartsDraft(e.target.checked ? '2' : '')
+                        }}
                         disabled={submitting}
                       />
                       Split this cost into several
@@ -681,12 +688,28 @@ function PlanItemForm({
                           min="2"
                           max={MAX_SPLIT_PARTS}
                           step="1"
-                          value={String(splitParts)}
+                          value={splitPartsDraft}
                           onChange={(e) => {
-                            const n = Math.round(Number(e.target.value))
-                            setSplitParts(
-                              Number.isFinite(n) ? Math.min(MAX_SPLIT_PARTS, Math.max(2, n)) : 2,
-                            )
+                            // Let the user type freely (incl. clearing the field);
+                            // only mirror valid, in-range numbers into splitParts so
+                            // the "≈€ each" hint keeps up without clamping keystrokes.
+                            const raw = e.target.value
+                            setSplitPartsDraft(raw)
+                            const n = Math.round(Number(raw))
+                            if (raw.trim() !== '' && Number.isFinite(n) && n >= 2) {
+                              setSplitParts(Math.min(MAX_SPLIT_PARTS, n))
+                            }
+                          }}
+                          onBlur={() => {
+                            // Commit: snap the draft back to the clamped source of
+                            // truth so an empty/partial/out-of-range value resolves.
+                            const n = Math.round(Number(splitPartsDraft))
+                            const clamped =
+                              splitPartsDraft.trim() !== '' && Number.isFinite(n)
+                                ? Math.min(MAX_SPLIT_PARTS, Math.max(2, n))
+                                : 2
+                            setSplitParts(clamped)
+                            setSplitPartsDraft(String(clamped))
                           }}
                           disabled={submitting}
                           aria-label="Number of parts to split the cost into"
