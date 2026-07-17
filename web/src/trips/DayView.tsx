@@ -1506,10 +1506,262 @@ function orderTimeline(items: PlanItem[]): PlanItem[] {
   return items.map((i) => (i.start_time != null ? timedSorted[t++] : i))
 }
 
-// TimelineSection renders the whole day as one time-ordered list. Timed items
-// are pinned by their clock time (reorder them by changing the time); untimed
-// items carry a drag handle and can be dropped anywhere — including between two
-// timed items — with the new full order persisted via the reorder API.
+// mergeSubsetOrder repositions the members of `subset` within the full day list
+// to the subset's new relative order, leaving every non-member fixed in place.
+// The Plan and What-happened sections each show a filtered slice of the day's
+// items but share one sort_order; reordering within either slice folds back
+// here so the other slice — and the map's pin numbers — stay consistent.
+function mergeSubsetOrder(full: PlanItem[], subset: PlanItem[]): PlanItem[] {
+  const ids = new Set(subset.map((i) => i.id))
+  let k = 0
+  return full.map((item) => (ids.has(item.id) ? subset[k++] : item))
+}
+
+// buzz gives a short haptic tick on devices that support it — used to confirm a
+// drag pickup and each reorder step so a finger drag feels physical. A no-op
+// where the Vibration API is absent (desktop, iOS Safari).
+function buzz(ms: number) {
+  try {
+    navigator.vibrate?.(ms)
+  } catch {
+    // ignore — vibration is a nicety, never required
+  }
+}
+
+// ReorderableItemList renders an <ol> of plan-item rows that can be reordered by
+// dragging: a mouse drag on desktop, or a finger drag on the grip handle on
+// mobile. Only untimed rows can be picked up (timed rows are pinned by clock
+// time), but any row is a drop target so an untimed item can land between two
+// timed ones. It manages only the live drag preview and reports the new order
+// via onReordered — persisting it (and merging back into the full day list) is
+// the caller's job, so the same list drives both the Plan and What-happened
+// sections over one shared sort order.
+function ReorderableItemList({
+  items,
+  tripId,
+  day,
+  tripDates,
+  selectedId,
+  pinNumberForId,
+  onSelect,
+  onUpdated,
+  onAdded,
+  onRemoved,
+  onReordered,
+  onItemMoved,
+}: {
+  items: PlanItem[]
+  tripId: string
+  day: Day
+  tripDates: string[]
+  selectedId?: string | null
+  pinNumberForId?: (id: string) => number | undefined
+  onSelect?: (id: string | null) => void
+  onUpdated: (updated: PlanItem) => void
+  onAdded: (item: PlanItem) => void
+  onRemoved: (itemId: string) => void
+  onReordered: (newOrder: PlanItem[]) => void
+  onItemMoved?: (targetDate: string, item: PlanItem) => void
+}) {
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  // Touch drag (mobile): a pointer-driven reorder replaces the old up/down
+  // buttons. touchOrder holds the live preview order while a finger is down;
+  // touchDragId is the item being dragged (also used to lift the source row).
+  const listRef = useRef<HTMLOListElement>(null)
+  const [touchOrder, setTouchOrder] = useState<PlanItem[] | null>(null)
+  const [touchDragId, setTouchDragId] = useState<string | null>(null)
+  const touchDragRef = useRef<string | null>(null)
+  const touchOrderRef = useRef<PlanItem[] | null>(null)
+  // touchMovedRef stays false for a tap that never reorders, so lifting the
+  // finger without moving doesn't fire a no-op reorder request.
+  const touchMovedRef = useRef(false)
+  // Edge auto-scroll: while a finger drag hovers near the top/bottom of the
+  // viewport we scroll the page so items can be dragged past what's on screen.
+  // autoScrollRef holds the rAF handle; lastClientYRef is the finger's latest Y.
+  const autoScrollRef = useRef<number | null>(null)
+  const lastClientYRef = useRef(0)
+  const display = touchOrder ?? orderTimeline(items)
+
+  // Stop the auto-scroll loop if we unmount mid-drag (pointerup would otherwise
+  // never fire on the captured, now-gone handle, leaving the rAF chain running).
+  useEffect(
+    () => () => {
+      if (autoScrollRef.current != null) cancelAnimationFrame(autoScrollRef.current)
+    },
+    [],
+  )
+
+  function report(reordered: PlanItem[]) {
+    onReordered(orderTimeline(reordered))
+  }
+
+  function handleDragStart(e: React.DragEvent, itemId: string) {
+    setDraggingId(itemId)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', itemId)
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  function handleDrop(e: React.DragEvent, targetId: string) {
+    e.preventDefault()
+    const sourceId = e.dataTransfer.getData('text/plain') || draggingId
+    setDraggingId(null)
+    if (!sourceId || sourceId === targetId) return
+
+    const sourceIdx = display.findIndex((i) => i.id === sourceId)
+    const targetIdx = display.findIndex((i) => i.id === targetId)
+    if (sourceIdx === -1 || targetIdx === -1) return
+
+    const reordered = [...display]
+    const [moved] = reordered.splice(sourceIdx, 1)
+    reordered.splice(targetIdx, 0, moved)
+    report(reordered)
+  }
+
+  // ── Touch drag (mobile) ────────────────────────────────────────────────────
+  // A finger presses the grip handle, drags over the list, and lifts. We track
+  // the row under the finger by its midpoint and splice a live-preview order so
+  // the list rearranges as you go; on lift we report the final order.
+
+  // reflowUnderFinger recomputes the preview order for the finger's current Y.
+  // Shared by the pointer-move handler and the auto-scroll loop (so the list
+  // keeps rearranging while the page scrolls even if the finger is held still).
+  function reflowUnderFinger(clientY: number) {
+    const id = touchDragRef.current
+    const current = touchOrderRef.current
+    const list = listRef.current
+    if (!id || !current || !list) return
+    // The row we'd insert before: the first whose vertical midpoint is below the
+    // finger. null → the finger is past the last row, so append.
+    let beforeId: string | null = null
+    for (const row of list.querySelectorAll<HTMLElement>('[data-item-id]')) {
+      const rect = row.getBoundingClientRect()
+      if (clientY < rect.top + rect.height / 2) {
+        beforeId = row.dataset.itemId ?? null
+        break
+      }
+    }
+    if (beforeId === id) return
+    const order = [...current]
+    const from = order.findIndex((i) => i.id === id)
+    if (from === -1) return
+    const [moved] = order.splice(from, 1)
+    let insertAt = beforeId == null ? order.length : order.findIndex((i) => i.id === beforeId)
+    if (insertAt === -1) insertAt = order.length
+    order.splice(insertAt, 0, moved)
+    if (order.every((it, i) => it.id === current[i]?.id)) return
+    touchMovedRef.current = true
+    touchOrderRef.current = order
+    setTouchOrder(order)
+    buzz(8)
+  }
+
+  // The auto-scroll loop nudges the page while the finger sits in a 72px band at
+  // the top or bottom of the viewport, then reflows the list at the new scroll
+  // position. It runs itself via rAF until the finger leaves the band or lifts.
+  function tickAutoScroll() {
+    autoScrollRef.current = null
+    if (touchDragRef.current == null) return
+    const y = lastClientYRef.current
+    const band = 72
+    const max = 14
+    let dy = 0
+    if (y < band) dy = -Math.ceil(((band - y) / band) * max)
+    else if (y > window.innerHeight - band)
+      dy = Math.ceil(((y - (window.innerHeight - band)) / band) * max)
+    if (dy !== 0) {
+      window.scrollBy(0, dy)
+      reflowUnderFinger(y)
+    }
+    if (touchDragRef.current != null) {
+      autoScrollRef.current = requestAnimationFrame(tickAutoScroll)
+    }
+  }
+
+  function handleTouchDragStart(e: React.PointerEvent, itemId: string) {
+    if (e.pointerType === 'mouse') return
+    e.preventDefault()
+    touchDragRef.current = itemId
+    touchOrderRef.current = display
+    touchMovedRef.current = false
+    lastClientYRef.current = e.clientY
+    setTouchDragId(itemId)
+    setTouchOrder(display)
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    buzz(15)
+    autoScrollRef.current = requestAnimationFrame(tickAutoScroll)
+  }
+
+  function handleTouchDragMove(e: React.PointerEvent) {
+    if (touchDragRef.current == null) return
+    e.preventDefault()
+    lastClientYRef.current = e.clientY
+    reflowUnderFinger(e.clientY)
+  }
+
+  function handleTouchDragEnd() {
+    const order = touchOrderRef.current
+    const moved = touchMovedRef.current
+    touchDragRef.current = null
+    touchOrderRef.current = null
+    touchMovedRef.current = false
+    if (autoScrollRef.current != null) {
+      cancelAnimationFrame(autoScrollRef.current)
+      autoScrollRef.current = null
+    }
+    setTouchDragId(null)
+    setTouchOrder(null)
+    // Only report a real reorder; a tap that didn't move anything is a no-op.
+    if (moved && order) {
+      buzz(20)
+      report(order)
+    }
+  }
+
+  return (
+    <ol className="plan-item-list" ref={listRef}>
+      {display.map((item) => {
+        const isUntimed = item.start_time == null
+        return (
+          <PlanItemRow
+            key={item.id}
+            item={item}
+            tripId={tripId}
+            day={day}
+            tripDates={tripDates}
+            // Only untimed items can be picked up; every row accepts a drop so
+            // an untimed item can land between two timed ones.
+            draggable={isUntimed}
+            isTouchDragging={touchDragId === item.id}
+            isSelected={selectedId === item.id}
+            pinNumber={pinNumberForId?.(item.id)}
+            onSelect={
+              onSelect ? () => onSelect(selectedId === item.id ? null : item.id) : undefined
+            }
+            onUpdated={onUpdated}
+            onAdded={onAdded}
+            onRemoved={onRemoved}
+            onItemMoved={onItemMoved}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            onTouchDragStart={handleTouchDragStart}
+            onTouchDragMove={handleTouchDragMove}
+            onTouchDragEnd={handleTouchDragEnd}
+          />
+        )
+      })}
+    </ol>
+  )
+}
+
+// TimelineSection wraps ReorderableItemList in the Plan group's "Timeline"
+// section. Timed items are pinned by their clock time (reorder them by changing
+// the time); untimed items carry a drag handle and can be dropped anywhere.
 function TimelineSection({
   items,
   tripId,
@@ -1537,156 +1789,24 @@ function TimelineSection({
   onReordered: (newOrder: PlanItem[]) => void
   onItemMoved?: (targetDate: string, item: PlanItem) => void
 }) {
-  const online = useIsOnline()
-  const [draggingId, setDraggingId] = useState<string | null>(null)
-  // Touch drag (mobile): a pointer-driven reorder replaces the old up/down
-  // buttons. touchOrder holds the live preview order while a finger is down;
-  // touchDragId is the item being dragged (also used to grey the source row).
-  const listRef = useRef<HTMLOListElement>(null)
-  const [touchOrder, setTouchOrder] = useState<PlanItem[] | null>(null)
-  const [touchDragId, setTouchDragId] = useState<string | null>(null)
-  const touchDragRef = useRef<string | null>(null)
-  const touchOrderRef = useRef<PlanItem[] | null>(null)
-  // touchMovedRef stays false for a tap that never reorders, so lifting the
-  // finger without moving doesn't fire a no-op reorder request.
-  const touchMovedRef = useRef(false)
-  const display = touchOrder ?? orderTimeline(items)
-
-  function persist(reordered: PlanItem[]) {
-    const finalOrder = orderTimeline(reordered)
-    const snapshot = items
-    onReordered(finalOrder)
-    const itemIds = finalOrder.map((i) => i.id)
-    if (!online) {
-      // Offline: queue the reorder (replayed on reconnect) and keep the optimistic
-      // order — the day-cache write in DayView persists it across an offline reload.
-      void enqueue('reorderPlanItems', { tripId, dayId: day.id, itemIds })
-      return
-    }
-    reorderPlanItems(tripId, day.id, itemIds).catch(() => onReordered(snapshot))
-  }
-
-  function handleDragStart(e: React.DragEvent, itemId: string) {
-    setDraggingId(itemId)
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', itemId)
-  }
-
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-  }
-
-  function handleDrop(e: React.DragEvent, targetId: string) {
-    e.preventDefault()
-    const sourceId = e.dataTransfer.getData('text/plain') || draggingId
-    setDraggingId(null)
-    if (!sourceId || sourceId === targetId) return
-
-    const sourceIdx = display.findIndex((i) => i.id === sourceId)
-    const targetIdx = display.findIndex((i) => i.id === targetId)
-    if (sourceIdx === -1 || targetIdx === -1) return
-
-    const reordered = [...display]
-    const [moved] = reordered.splice(sourceIdx, 1)
-    reordered.splice(targetIdx, 0, moved)
-    persist(reordered)
-  }
-
-  // ── Touch drag (mobile) ────────────────────────────────────────────────────
-  // A finger presses the grip handle, drags over the list, and lifts. We track
-  // the row under the finger by its midpoint and splice a live-preview order so
-  // the list rearranges as you go; on lift we persist the final order.
-  function handleTouchDragStart(e: React.PointerEvent, itemId: string) {
-    if (e.pointerType === 'mouse') return
-    e.preventDefault()
-    touchDragRef.current = itemId
-    touchOrderRef.current = display
-    touchMovedRef.current = false
-    setTouchDragId(itemId)
-    setTouchOrder(display)
-    e.currentTarget.setPointerCapture?.(e.pointerId)
-  }
-
-  function handleTouchDragMove(e: React.PointerEvent) {
-    const id = touchDragRef.current
-    const current = touchOrderRef.current
-    const list = listRef.current
-    if (!id || !current || !list) return
-    e.preventDefault()
-    // The row we'd insert before: the first whose vertical midpoint is below the
-    // finger. null → the finger is past the last row, so append.
-    let beforeId: string | null = null
-    for (const row of list.querySelectorAll<HTMLElement>('[data-item-id]')) {
-      const rect = row.getBoundingClientRect()
-      if (e.clientY < rect.top + rect.height / 2) {
-        beforeId = row.dataset.itemId ?? null
-        break
-      }
-    }
-    if (beforeId === id) return
-    const order = [...current]
-    const from = order.findIndex((i) => i.id === id)
-    if (from === -1) return
-    const [moved] = order.splice(from, 1)
-    let insertAt = beforeId == null ? order.length : order.findIndex((i) => i.id === beforeId)
-    if (insertAt === -1) insertAt = order.length
-    order.splice(insertAt, 0, moved)
-    if (order.every((it, i) => it.id === current[i]?.id)) return
-    touchMovedRef.current = true
-    touchOrderRef.current = order
-    setTouchOrder(order)
-  }
-
-  function handleTouchDragEnd() {
-    const order = touchOrderRef.current
-    const moved = touchMovedRef.current
-    touchDragRef.current = null
-    touchOrderRef.current = null
-    touchMovedRef.current = false
-    setTouchDragId(null)
-    setTouchOrder(null)
-    // Only persist a real reorder; a tap that didn't move anything is a no-op.
-    if (moved && order) persist(order)
-  }
-
-  if (display.length === 0) return null
+  if (orderTimeline(items).length === 0) return null
   return (
     <section className="day-plan-section day-plan-section--timeline" aria-label="Day timeline">
       <h3 className="day-plan-section-title">Timeline</h3>
-      <ol className="plan-item-list" ref={listRef}>
-        {display.map((item) => {
-          const isUntimed = item.start_time == null
-          return (
-            <PlanItemRow
-              key={item.id}
-              item={item}
-              tripId={tripId}
-              day={day}
-              tripDates={tripDates}
-              // Only untimed items can be picked up; every row accepts a drop so
-              // an untimed item can land between two timed ones.
-              draggable={isUntimed}
-              isTouchDragging={touchDragId === item.id}
-              isSelected={selectedId === item.id}
-              pinNumber={pinNumberForId?.(item.id)}
-              onSelect={
-                onSelect ? () => onSelect(selectedId === item.id ? null : item.id) : undefined
-              }
-              onUpdated={onUpdated}
-              onAdded={onAdded}
-              onRemoved={onRemoved}
-              onItemMoved={onItemMoved}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              onTouchDragStart={handleTouchDragStart}
-              onTouchDragMove={handleTouchDragMove}
-              onTouchDragEnd={handleTouchDragEnd}
-            />
-          )
-        })}
-      </ol>
+      <ReorderableItemList
+        items={items}
+        tripId={tripId}
+        day={day}
+        tripDates={tripDates}
+        selectedId={selectedId}
+        pinNumberForId={pinNumberForId}
+        onSelect={onSelect}
+        onUpdated={onUpdated}
+        onAdded={onAdded}
+        onRemoved={onRemoved}
+        onReordered={onReordered}
+        onItemMoved={onItemMoved}
+      />
     </section>
   )
 }
@@ -1754,6 +1874,7 @@ export function PlanningSection({
   showBacklogLink?: boolean
 }) {
   const { trip } = useTripShell()
+  const online = useIsOnline()
   const tripDates = datesInRange(trip.start_date, trip.end_date)
   const [planHidden, setPlanHidden] = useState(readPlanHidden)
 
@@ -1782,11 +1903,38 @@ export function PlanningSection({
     setItems((prev) => prev.filter((i) => i.id !== itemId))
   }
 
-  function handleReordered(newOrder: PlanItem[]) {
-    // The timeline only reorders the planned items — items logged after the fact
-    // (unplanned) aren't in it, so newOrder omits them. Merge them back so a
-    // drag/reorder doesn't drop logged entries from the in-memory list (and map).
-    setItems((prev) => [...newOrder, ...prev.filter((i) => i.unplanned)])
+  // persistReorder is the single writer for every reorder (Plan or What
+  // happened). It takes the whole day's items in their new order, stamps
+  // sort_order 0,1,2,… to match — so pin numbers (derived from sort_order via
+  // collectLocatedItems) update immediately instead of only after a refresh —
+  // updates state optimistically, and sends the full id sequence to the server.
+  function persistReorder(fullOrder: PlanItem[]) {
+    const renumbered = fullOrder.map((item, idx) =>
+      item.sort_order === idx ? item : { ...item, sort_order: idx },
+    )
+    const snapshot = items
+    setItems(renumbered)
+    const itemIds = renumbered.map((i) => i.id)
+    if (!online) {
+      // Offline: queue the reorder (replayed on reconnect) and keep the optimistic
+      // order — the day-cache write in DayView persists it across an offline reload.
+      void enqueue('reorderPlanItems', { tripId, dayId: day.id, itemIds })
+      return
+    }
+    reorderPlanItems(tripId, day.id, itemIds).catch(() => setItems(snapshot))
+  }
+
+  // The Plan and What-happened lists each reorder their own slice; fold the new
+  // slice order back into the full day sequence (by sort_order) so both lists and
+  // the map stay consistent over one shared order.
+  function handlePlanReordered(newPlanOrder: PlanItem[]) {
+    const ordered = [...items].sort((a, b) => a.sort_order - b.sort_order)
+    persistReorder(mergeSubsetOrder(ordered, newPlanOrder))
+  }
+
+  function handleDoneReordered(newDoneOrder: PlanItem[]) {
+    const ordered = [...items].sort((a, b) => a.sort_order - b.sort_order)
+    persistReorder(mergeSubsetOrder(ordered, newDoneOrder))
   }
 
   // "Plan" is the itinerary you intended: every item except ones logged after
@@ -1856,7 +2004,7 @@ export function PlanningSection({
               onUpdated={handleUpdated}
               onAdded={handleAdded}
               onRemoved={handleRemoved}
-              onReordered={handleReordered}
+              onReordered={handlePlanReordered}
               onItemMoved={onItemMoved}
             />
             {planItems.length === 0 && day.stays.length === 0 && (
@@ -1874,26 +2022,20 @@ export function PlanningSection({
         {doneItems.length === 0 ? (
           <p className="day-plan-empty">Nothing logged yet — add what you actually did.</p>
         ) : (
-          <ol className="plan-item-list">
-            {doneItems.map((item) => (
-              <PlanItemRow
-                key={item.id}
-                item={item}
-                tripId={tripId}
-                day={day}
-                tripDates={tripDates}
-                draggable={false}
-                isSelected={selectedId === item.id}
-                pinNumber={pinNumberForId?.(item.id)}
-                onSelect={
-                  onSelect ? () => onSelect(selectedId === item.id ? null : item.id) : undefined
-                }
-                onUpdated={handleUpdated}
-                onAdded={handleAdded}
-                onRemoved={handleRemoved}
-              />
-            ))}
-          </ol>
+          <ReorderableItemList
+            items={doneItems}
+            tripId={tripId}
+            day={day}
+            tripDates={tripDates}
+            selectedId={selectedId}
+            pinNumberForId={pinNumberForId}
+            onSelect={onSelect}
+            onUpdated={handleUpdated}
+            onAdded={handleAdded}
+            onRemoved={handleRemoved}
+            onReordered={handleDoneReordered}
+            onItemMoved={onItemMoved}
+          />
         )}
         <QuickAddForm tripId={tripId} dayId={day.id} onAdded={handleAdded} logDone />
       </div>

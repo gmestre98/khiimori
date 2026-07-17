@@ -3239,16 +3239,20 @@
 }
 
 /* Mobile drag grip: a finger presses here to reorder. touch-action: none stops
-   the page from scrolling while the drag is in progress. Hidden on desktop,
-   which keeps the native drag handle (.plan-item-drag-handle). */
+   the page from scrolling while the drag is in progress. A 44px-tall tap target
+   (WCAG) makes it easy to grab. Hidden on desktop, which keeps the native drag
+   handle (.plan-item-drag-handle). */
 .plan-item-touch-handle {
   display: none;
   flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  margin: -8px -6px -8px -8px;
   background: none;
   border: none;
-  padding: 4px 6px;
-  margin: -4px -2px -4px -4px;
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   line-height: 1;
   color: var(--text-secondary);
   cursor: grab;
@@ -3256,11 +3260,22 @@
   user-select: none;
   -webkit-user-select: none;
 }
+.plan-item-touch-handle:active {
+  cursor: grabbing;
+  color: var(--text-primary);
+}
 
-/* The dragged row lifts and dims so its live position reads clearly. */
+/* The dragged row lifts off the list — a ring, shadow and slight scale make it
+   read as "picked up" while the other rows reflow around its live position. */
 .plan-item--touch-dragging {
-  opacity: 0.6;
-  background: var(--surface-muted);
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.18);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  transform: scale(1.015);
+  position: relative;
+  z-index: 2;
 }
 
 /* ── Mobile viewport overrides (≤ 640 px) ──────────────────────────────────── */
@@ -3272,7 +3287,7 @@
     display: none;
   }
   .plan-item-touch-handle {
-    display: block;
+    display: flex;
   }
   .plan-item-drag-handle {
     display: none;
