@@ -29,6 +29,10 @@ config:
   # users back out). This exact URI must also be an authorized redirect URI on
   # the Google OAuth client.
   khiimori:oauthRedirectUri: https://intricate-reef-424222-d6-web.web.app/api/auth/callback
+  # Admin-bootstrap email (M02.2 S4). The one verified Google email provisioned
+  # with is_admin=true (gates the M08 admin backoffice). OR-promoted on sign-in;
+  # no public/self-serve route. Non-secret. Unset → nobody is admin.
+  khiimori:adminEmail: goncalo.mestre1998@gmail.com
   khiimori:mapsApiKey:
     secure: AAABADlJ76UE/hOw5Dpd4CSWeLM4iOvv7EQg+s1HFr3lIIJgJ56TT61L2bcYT59N0FYOmf3W
   khiimori:databaseUrlDirect:

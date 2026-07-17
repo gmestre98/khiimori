@@ -78,6 +78,13 @@ const oauthRedirectUri = cfg.get('oauthRedirectUri') ?? ''
 const webAppUrlOverride = cfg.get('webAppUrl')
 const webAppUrl = webAppUrlOverride !== undefined ? pulumi.output(webAppUrlOverride) : hostingUrl
 
+// Admin bootstrap (M02.2 S4): the one verified Google email provisioned with
+// is_admin=true, which gates the M08 backoffice (RequireAdmin, server-side).
+// The app reads it from ADMIN_EMAIL; the provisioner OR-promotes only this
+// email on sign-in (no public/self-serve route). Non-secret. Left unset →
+// nobody is bootstrapped as admin (everyone stays is_admin=false).
+const adminEmail = cfg.get('adminEmail') ?? ''
+
 /** The Cloud Run (v2) service running the Go API as the least-privilege SA. */
 export const service = new gcp.cloudrunv2.Service(
   'api',
@@ -123,6 +130,9 @@ export const service = new gcp.cloudrunv2.Service(
             // Post-sign-in redirect target (M02.5): the web app the callback
             // sends the browser back to. Non-secret literal.
             { name: 'WEB_APP_URL', value: webAppUrl },
+            // Admin-bootstrap email (M02.2 S4): the sole email provisioned as
+            // admin. Non-secret literal; empty leaves everyone non-admin.
+            { name: 'ADMIN_EMAIL', value: adminEmail },
             secretEnv('DATABASE_URL', databaseUrlSecret),
             secretEnv('OAUTH_CLIENT_SECRET', oauthClientSecret),
             secretEnv('MAPS_API_KEY', mapsApiKeySecret),
