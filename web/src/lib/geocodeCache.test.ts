@@ -168,8 +168,22 @@ describe('warmGeocodeFromWaypoints', () => {
     expect((await suggestLocalPlaces('braga')).map((s) => s.description)).toEqual(['Braga'])
   })
 
-  it('skips when lengths differ (some stops were dropped by the server)', async () => {
+  it('skips entirely when lengths differ (defensive positional guard)', async () => {
     await warmGeocodeFromWaypoints(['Lisbon', 'Porto'], [{ lat: 38.7, lng: -9.1 }])
     expect(await readCachedGeocode('Lisbon')).toBeNull()
+  })
+
+  it('warms resolved stops but does not cache null holes as not-a-place', async () => {
+    // A middle stop the server couldn't geocode is a positional null. Caching it
+    // as known-not-a-place would shadow the region-POI offline fallback, so it
+    // must be left uncached; the resolved neighbours still warm.
+    await warmGeocodeFromWaypoints(
+      ['Lisbon', 'Mystery Spot', 'Porto'],
+      [{ lat: 38.7, lng: -9.1 }, null, { lat: 41.1, lng: -8.6 }],
+    )
+    expect(await readCachedGeocode('Lisbon')).toEqual({ coords: { lat: 38.7, lng: -9.1 } })
+    expect(await readCachedGeocode('Porto')).toEqual({ coords: { lat: 41.1, lng: -8.6 } })
+    // The hole is not remembered — a later offline resolve can still try region POIs.
+    expect(await readCachedGeocode('Mystery Spot')).toBeNull()
   })
 })
