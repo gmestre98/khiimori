@@ -3237,26 +3237,29 @@
   margin-top: var(--space-3);
 }
 
-.plan-item-touch-reorder {
+/* Mobile drag grip: a finger presses here to reorder. touch-action: none stops
+   the page from scrolling while the drag is in progress. Hidden on desktop,
+   which keeps the native drag handle (.plan-item-drag-handle). */
+.plan-item-touch-handle {
   display: none;
-  flex-direction: column;
-  gap: 2px;
   flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  margin: -4px -2px -4px -4px;
+  font-size: var(--text-lg);
+  line-height: 1;
+  color: var(--text-secondary);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.plan-item-reorder-btn {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 2px 5px;
-  font-size: 13px;
-  line-height: 1;
-  cursor: pointer;
-  color: var(--text-secondary);
-}
-.plan-item-reorder-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
+/* The dragged row lifts and dims so its live position reads clearly. */
+.plan-item--touch-dragging {
+  opacity: 0.6;
+  background: var(--surface-muted);
 }
 
 /* ── Mobile viewport overrides (≤ 640 px) ──────────────────────────────────── */
@@ -3267,8 +3270,8 @@
   .plan-item-quick-add {
     display: none;
   }
-  .plan-item-touch-reorder {
-    display: flex;
+  .plan-item-touch-handle {
+    display: block;
   }
   .plan-item-drag-handle {
     display: none;
