@@ -52,7 +52,7 @@ func TestHandleDayRouteEmptyLocations(t *testing.T) {
 	}
 }
 
-func TestHandleDayRouteSkipsEmptyLocationStrings(t *testing.T) {
+func TestHandleDayRouteEmptyLocationStringsAreNullSlots(t *testing.T) {
 	t.Parallel()
 	p := &fakeMapProvider{fakeGeocoder: fakeGeocoder{result: LatLng{Lat: 1, Lng: 2}}}
 	m := New(p, nil, noopMiddleware)
@@ -67,19 +67,34 @@ func TestHandleDayRouteSkipsEmptyLocationStrings(t *testing.T) {
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(resp.Waypoints) != 1 {
-		t.Errorf("expected 1 waypoint (empty strings excluded), got %d", len(resp.Waypoints))
+	// Positional: one slot per input; the empty strings are null, Paris resolves.
+	if len(resp.Waypoints) != 3 {
+		t.Fatalf("expected 3 positional waypoints, got %d", len(resp.Waypoints))
+	}
+	if resp.Waypoints[0] != nil || resp.Waypoints[2] != nil {
+		t.Errorf("expected empty-string slots to be null, got %+v", resp.Waypoints)
+	}
+	if resp.Waypoints[1] == nil {
+		t.Fatal("expected Paris slot to resolve, got null")
 	}
 }
 
-func TestHandleDayRouteSkipsNotFoundLocations(t *testing.T) {
+// TestHandleDayRouteNotFoundIsNullSlot is the middle-drop regression: a stop
+// between two resolvable ones can't be geocoded. Its slot must come back null and
+// the surrounding waypoints must keep their positions, so the client never pairs
+// a later stop's coordinate with the wrong item.
+func TestHandleDayRouteNotFoundIsNullSlot(t *testing.T) {
 	t.Parallel()
 
 	gc := unitGeocoder(func(_ context.Context, loc string) (LatLng, error) {
-		if loc == "nowhere" {
+		switch loc {
+		case "Paris":
+			return LatLng{Lat: 48.8566, Lng: 2.3522}, nil
+		case "Lyon":
+			return LatLng{Lat: 45.7640, Lng: 4.8357}, nil
+		default:
 			return LatLng{}, ErrNotFound
 		}
-		return LatLng{Lat: 48.8566, Lng: 2.3522}, nil
 	})
 	m := New(&fakeMapProvider{}, gc, noopMiddleware)
 
@@ -94,8 +109,17 @@ func TestHandleDayRouteSkipsNotFoundLocations(t *testing.T) {
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(resp.Waypoints) != 2 {
-		t.Errorf("expected 2 waypoints (ErrNotFound excluded), got %d", len(resp.Waypoints))
+	if len(resp.Waypoints) != 3 {
+		t.Fatalf("expected 3 positional waypoints, got %d", len(resp.Waypoints))
+	}
+	if resp.Waypoints[1] != nil {
+		t.Errorf("expected middle (unresolvable) slot to be null, got %+v", resp.Waypoints[1])
+	}
+	if resp.Waypoints[0] == nil || resp.Waypoints[0].Lat != 48.8566 {
+		t.Errorf("expected Paris at index 0, got %+v", resp.Waypoints[0])
+	}
+	if resp.Waypoints[2] == nil || resp.Waypoints[2].Lat != 45.7640 {
+		t.Errorf("expected Lyon at index 2 (not shifted), got %+v", resp.Waypoints[2])
 	}
 }
 

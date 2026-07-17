@@ -17,13 +17,14 @@ function dayColor(index: number): string {
 }
 
 // DayEntry is the per-day state the page tracks: the located items, the geocoded
-// waypoints (once resolved), and a status used for the row's caption.
+// waypoints (positional, aligned with items — null where a stop didn't resolve),
+// and a status used for the row's caption.
 interface DayEntry {
   date: string
   index: number
   color: string
   items: LocatedItem[]
-  waypoints: LatLng[]
+  waypoints: (LatLng | null)[]
   status: 'no-places' | 'ok' | 'unplaceable' | 'error'
 }
 
@@ -55,7 +56,9 @@ async function loadDay(
       ...base,
       items,
       waypoints,
-      status: waypoints.length === 0 ? 'unplaceable' : 'ok',
+      // waypoints is positional (holds nulls for stops that didn't resolve), so
+      // "unplaceable" means none resolved — not an empty array.
+      status: waypoints.some(Boolean) ? 'ok' : 'unplaceable',
     }
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') throw err
@@ -74,7 +77,8 @@ function dayCaption(entry: DayEntry): string {
     case 'error':
       return 'Couldn’t load positions'
     default: {
-      const n = entry.waypoints.length
+      // Count only the stops that actually resolved (positional nulls don't pin).
+      const n = entry.waypoints.filter(Boolean).length
       return `${n} ${n === 1 ? 'place' : 'places'}`
     }
   }
@@ -124,7 +128,7 @@ export function TripMapPage() {
   const mapDays: TripDayMarkers[] = useMemo(
     () =>
       (entries ?? [])
-        .filter((e) => e.waypoints.length > 0)
+        .filter((e) => e.waypoints.some(Boolean))
         .map((e) => ({
           date: e.date,
           index: e.index,
@@ -145,8 +149,11 @@ export function TripMapPage() {
       .map((d) => {
         // Iterate the waypoints (the drawn set) so we never index past them when
         // a day has more located items than placeable waypoints; items[j] is the
-        // label for waypoint j.
-        const keep = d.waypoints.map((_, j) => (d.items[j]?.done ? j : -1)).filter((j) => j >= 0)
+        // label for waypoint j. Keep a slot only when it resolved (non-null) and
+        // the item happened — a null waypoint has no pin to show.
+        const keep = d.waypoints
+          .map((w, j) => (w && d.items[j]?.done ? j : -1))
+          .filter((j) => j >= 0)
         return {
           ...d,
           items: keep.map((j) => d.items[j]),
@@ -223,7 +230,7 @@ export function TripMapPage() {
                     .filter(Boolean)
                     .join(' ')}
                   aria-pressed={selectedDates.has(e.date)}
-                  disabled={e.waypoints.length === 0}
+                  disabled={!e.waypoints.some(Boolean)}
                   onClick={() => toggleDay(e.date)}
                 >
                   <span

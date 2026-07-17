@@ -163,13 +163,15 @@ export interface RenderFeature {
 }
 
 // buildFeatures pairs expanded located points with their geocoded waypoints
-// (aligned positionally) and groups them into render features. A transport leg
-// (a 'from' + 'to' sharing a feature) becomes one numbered ball at the midpoint
-// with an endpoint marker on each end; every other point becomes a single
-// numbered ball. Points whose waypoint didn't resolve are skipped.
+// (aligned positionally, waypoints[i] ↔ items[i]) and groups them into render
+// features. A transport leg (a 'from' + 'to' sharing a feature) becomes one
+// numbered ball at the midpoint with an endpoint marker on each end; every other
+// point becomes a single numbered ball. A point whose waypoint didn't resolve —
+// a null hole from the batched route or an `undefined` hole from the geocode
+// cache — is skipped without shifting any later point onto the wrong coordinate.
 export function buildFeatures(
   items: LocatedItem[],
-  waypoints: readonly (LatLng | undefined)[],
+  waypoints: readonly (LatLng | null | undefined)[],
 ): RenderFeature[] {
   const groups = new Map<
     number,

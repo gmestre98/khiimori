@@ -211,4 +211,27 @@ describe('buildFeatures', () => {
     // Pin numbers stay tied to itinerary position (1 and 3), not the drawn order.
     expect(features.map((f) => f.number)).toEqual([1, 3])
   })
+
+  it('keeps every pin on its own coordinate when a middle stop is a null hole', () => {
+    // Regression: the day-route server returns a positional null for a stop it
+    // can't geocode (waypoints[i] ↔ items[i]). Previously it dropped the stop,
+    // shifting Porto's item onto the wrong (compacted) coordinate. With positional
+    // nulls, item a3 must still land on porto — not on the hole's neighbour.
+    const day = {
+      stays: [],
+      plan_items: [
+        planItem({ id: 'a1', location: 'Lisboa', sort_order: 0 }),
+        planItem({ id: 'a2', location: 'Unknown', sort_order: 1 }),
+        planItem({ id: 'a3', location: 'Porto', sort_order: 2 }),
+      ],
+    } as Pick<Day, 'stays' | 'plan_items'>
+
+    const features = buildFeatures(collectLocatedItems(day), [lisboa, null, porto])
+    expect(features.map((f) => f.id)).toEqual(['a1', 'a3'])
+    expect(features.map((f) => f.number)).toEqual([1, 3])
+    // The surviving pins sit on their OWN locations, not shifted by the drop.
+    const byId = new Map(features.map((f) => [f.id, f.anchor]))
+    expect(byId.get('a1')).toEqual(lisboa)
+    expect(byId.get('a3')).toEqual(porto)
+  })
 })

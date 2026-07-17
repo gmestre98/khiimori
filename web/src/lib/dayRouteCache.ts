@@ -19,10 +19,11 @@ import { readCachedGeocode, warmGeocodeFromWaypoints } from './geocodeCache'
 import { readCache, writeCache } from './resourceCache'
 
 // CachedDayRoute is what we persist: the waypoints plus the locations they were
-// geocoded from, so a later read can detect a stale (different-stops) entry.
+// geocoded from, so a later read can detect a stale (different-stops) entry. The
+// waypoints are positional (one per location, null where a stop didn't resolve).
 interface CachedDayRoute {
   locations: string[]
-  waypoints: LatLng[]
+  waypoints: (LatLng | null)[]
 }
 
 // sameLocations reports whether two ordered location lists are identical, so a
@@ -42,7 +43,7 @@ export async function loadDayRoute(
   date: string,
   locations: string[],
   signal?: AbortSignal,
-): Promise<LatLng[]> {
+): Promise<(LatLng | null)[]> {
   const key = cacheKeys.dayRoute(tripId, date)
   try {
     const { waypoints } = await fetchDayRoute(locations, signal)
@@ -75,18 +76,20 @@ async function assembleFromGeocodeCache(locations: string[]): Promise<(LatLng | 
 }
 
 // loadDayWaypoints is the map's positional waypoint loader. Online (or when the
-// day's stops are unchanged) it returns clean waypoints from loadDayRoute. When
-// that can't answer — offline with stops that changed since the last cached
-// route — it falls back to assembling per-stop coords from the geocode cache, so
-// a place added offline still pins if we know where it is. The returned array may
-// contain `undefined` holes (unplaceable stops); callers align it positionally
-// with located items and must filter holes before drawing a polyline / bounds.
+// day's stops are unchanged) it returns waypoints from loadDayRoute. When that
+// can't answer — offline with stops that changed since the last cached route — it
+// falls back to assembling per-stop coords from the geocode cache, so a place
+// added offline still pins if we know where it is. The returned array is aligned
+// index-for-index with the located items and may contain holes for unplaceable
+// stops (`null` from the batched route, `undefined` from the geocode-cache
+// fallback — both falsy); callers must filter holes before drawing a polyline /
+// bounds and never use them for positional indexing.
 export async function loadDayWaypoints(
   tripId: string,
   date: string,
   locations: string[],
   signal?: AbortSignal,
-): Promise<(LatLng | undefined)[]> {
+): Promise<(LatLng | null | undefined)[]> {
   try {
     return await loadDayRoute(tripId, date, locations, signal)
   } catch (err) {
@@ -112,7 +115,9 @@ export async function warmDayRoute(
 ): Promise<LatLng[]> {
   if (locations.length === 0) return []
   try {
-    return await loadDayRoute(tripId, date, locations, signal)
+    // Drop the positional null holes: the tile prefetch only wants real coords.
+    const waypoints = await loadDayRoute(tripId, date, locations, signal)
+    return waypoints.filter((w): w is LatLng => w !== null)
   } catch {
     return []
   }

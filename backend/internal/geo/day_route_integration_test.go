@@ -123,7 +123,7 @@ func TestDayRouteCacheHitViaEndpoint(t *testing.T) {
 }
 
 // TestDayRouteExcludesLocationlessItems verifies empty strings and ErrNotFound
-// locations are excluded from waypoints while valid ones appear in order.
+// locations come back as positional null slots while valid ones keep their index.
 func TestDayRouteExcludesLocationlessItems(t *testing.T) {
 	if integTestPool == nil {
 		t.Skip("DATABASE_URL_TEST not set")
@@ -159,11 +159,15 @@ func TestDayRouteExcludesLocationlessItems(t *testing.T) {
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(resp.Waypoints) != 1 {
-		t.Errorf("expected 1 waypoint (empty+notfound excluded), got %d: %+v",
+	// Positional: 3 slots for 3 inputs; empty + not-found are null, valid resolves.
+	if len(resp.Waypoints) != 3 {
+		t.Fatalf("expected 3 positional waypoints, got %d: %+v",
 			len(resp.Waypoints), resp.Waypoints)
 	}
-	if len(resp.Waypoints) > 0 && (resp.Waypoints[0].Lat != 41.9028 || resp.Waypoints[0].Lng != 12.4964) {
-		t.Errorf("unexpected waypoint: %+v", resp.Waypoints[0])
+	if resp.Waypoints[0] != nil || resp.Waypoints[2] != nil {
+		t.Errorf("expected empty+not-found slots to be null, got %+v", resp.Waypoints)
+	}
+	if resp.Waypoints[1] == nil || resp.Waypoints[1].Lat != 41.9028 || resp.Waypoints[1].Lng != 12.4964 {
+		t.Errorf("unexpected middle waypoint: %+v", resp.Waypoints[1])
 	}
 }

@@ -6,14 +6,16 @@ import type { LatLng } from '../lib/api'
 import { buildFeatures, type LocatedItem, type RenderFeature } from './locatedItems'
 
 // TripDayMarkers is the per-day geocoded data the overview map renders. waypoints
-// line up positionally with items (waypoints[i] ↔ items[i]), mirroring DayMap.
+// line up positionally with items (waypoints[i] ↔ items[i]), mirroring DayMap; a
+// null entry is an unplaceable stop (no pin) and must be filtered before it's used
+// to draw a polyline or fit bounds.
 export interface TripDayMarkers {
   date: string
   // 0-based day index; +1 is the display "Day N".
   index: number
   color: string
   items: LocatedItem[]
-  waypoints: LatLng[]
+  waypoints: (LatLng | null)[]
 }
 
 // DEFAULT_CENTER / DEFAULT_ZOOM frame a gentle world view when the trip has no
@@ -64,10 +66,10 @@ interface DayFeatures extends TripDayMarkers {
   features: RenderFeature[]
 }
 
-// allPoints flattens every day's waypoints into a single list for whole-trip
-// bounds fitting.
+// allPoints flattens every day's resolved waypoints into a single list for
+// whole-trip bounds fitting (null holes are dropped — they have no coordinate).
 function allPoints(days: TripDayMarkers[]): LatLng[] {
-  return days.flatMap((d) => d.waypoints)
+  return days.flatMap((d) => d.waypoints).filter((w): w is LatLng => w !== null)
 }
 
 // MapController fits the view to the selected days' waypoints, or the whole trip
@@ -86,7 +88,7 @@ function MapController({
   useEffect(() => {
     const points =
       selectedDates.size > 0
-        ? days.filter((d) => selectedDates.has(d.date)).flatMap((d) => d.waypoints)
+        ? allPoints(days.filter((d) => selectedDates.has(d.date)))
         : allPoints(days)
     if (points.length === 0) {
       map.setView(DEFAULT_CENTER, DEFAULT_ZOOM)
@@ -160,7 +162,10 @@ export default function TripMap({
           // entirely — focusing a day clears the rest of the trip's pins rather
           // than leaving them dimmed on the map. An empty selection shows all.
           if (selectedDates.size > 0 && !selectedDates.has(day.date)) return null
-          const positions = day.waypoints.map((w) => [w.lat, w.lng] as [number, number])
+          // Drop null holes: the route line connects only the stops that resolved.
+          const positions = day.waypoints
+            .filter((w): w is LatLng => w !== null)
+            .map((w) => [w.lat, w.lng] as [number, number])
           return (
             <Fragment key={day.date}>
               {positions.length > 1 && (

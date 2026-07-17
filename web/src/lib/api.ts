@@ -1168,14 +1168,19 @@ export interface LatLng {
   lng: number
 }
 
-// DayRouteResponse is the wire shape of POST /geo/day-route.
+// DayRouteResponse is the wire shape of POST /geo/day-route. `waypoints` is the
+// same length as the requested locations and in the same order; an entry is null
+// when its location was empty or couldn't be geocoded, so waypoints[i] always
+// pairs with locations[i] (a middle stop that fails to resolve leaves a null hole
+// rather than shifting every later coordinate onto the wrong stop).
 export interface DayRouteResponse {
-  waypoints: LatLng[]
+  waypoints: (LatLng | null)[]
 }
 
 // fetchDayRoute posts an ordered list of location strings to the geo proxy and
-// returns geocoded waypoints (locations without a resolvable address are
-// silently excluded by the server). Throws UnauthorizedError on 401.
+// returns geocoded waypoints, one per input location in order. Locations without
+// a resolvable address come back as null (never dropped), so callers can pair
+// waypoints[i] with their i-th stop. Throws UnauthorizedError on 401.
 export async function fetchDayRoute(
   locations: string[],
   signal?: AbortSignal,
