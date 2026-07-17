@@ -1309,6 +1309,7 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
 
+      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
       await user.click(screen.getByRole('button', { name: /Delete Visit museum/ }))
       await user.click(screen.getByRole('button', { name: /Confirm delete Visit museum/ }))
 
@@ -1324,11 +1325,17 @@ describe('DayView', () => {
       onLine.mockRestore()
     })
 
-    it('renders a Move… button on each plan item', async () => {
+    it('renders a Move… button on each plan item (under the ⋯ menu)', async () => {
+      const user = userEvent.setup()
       const item = makePlanItem({ title: 'Visit museum' })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+      // Secondary actions are hidden until the ⋯ menu is opened.
+      expect(
+        screen.queryByRole('button', { name: /Move Visit museum to another day/ }),
+      ).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
       expect(
         screen.getByRole('button', { name: /Move Visit museum to another day/ }),
       ).toBeInTheDocument()
@@ -1341,6 +1348,7 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
 
+      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
       await user.click(screen.getByRole('button', { name: /Move Visit museum to another day/ }))
       expect(screen.getByLabelText('Target day')).toBeInTheDocument()
     })
@@ -1356,6 +1364,7 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
 
+      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
       await user.click(screen.getByRole('button', { name: /Move Visit museum to another day/ }))
       await user.click(screen.getByRole('button', { name: 'Move' }))
 
@@ -1376,6 +1385,7 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
 
+      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
       await user.click(screen.getByRole('button', { name: /Move Visit museum to another day/ }))
       await user.click(screen.getByRole('button', { name: 'Move' }))
 
@@ -1398,11 +1408,13 @@ describe('DayView', () => {
       onLine.mockRestore()
     })
 
-    it('renders a → Backlog button on each plan item', async () => {
+    it('renders a → Backlog button on each plan item (under the ⋯ menu)', async () => {
+      const user = userEvent.setup()
       const item = makePlanItem({ title: 'Visit museum' })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
       expect(
         screen.getByRole('button', { name: /Move Visit museum to backlog/ }),
       ).toBeInTheDocument()
@@ -1417,6 +1429,7 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
 
+      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
       await user.click(screen.getByRole('button', { name: /Move Visit museum to backlog/ }))
 
       await waitFor(() => expect(screen.queryByText('Visit museum')).not.toBeInTheDocument())
@@ -1432,6 +1445,7 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
 
+      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
       // First click only reveals the confirm — it must not delete yet.
       await user.click(screen.getByRole('button', { name: /Delete Visit museum/ }))
       expect(api.deletePlanItem).not.toHaveBeenCalled()
@@ -1450,6 +1464,7 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
 
+      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
       await user.click(screen.getByRole('button', { name: /Delete Visit museum/ }))
       await user.click(screen.getByRole('button', { name: /Cancel delete/ }))
 
