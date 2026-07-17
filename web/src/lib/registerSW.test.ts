@@ -6,16 +6,26 @@ function makeReg(
   overrides: Partial<{
     waiting: ServiceWorker | null
     installing: ServiceWorker | null
+    periodicSync: unknown
   }> = {},
 ) {
   const listeners: Record<string, ((e: unknown) => void)[]> = {}
   return {
     waiting: overrides.waiting ?? null,
     installing: overrides.installing ?? null,
+    ...(overrides.periodicSync ? { periodicSync: overrides.periodicSync } : {}),
     addEventListener: (t: string, fn: (e: unknown) => void) => {
       ;(listeners[t] ??= []).push(fn)
     },
     _emit: (t: string, e: unknown = {}) => listeners[t]?.forEach((fn) => fn(e)),
+  }
+}
+
+// makePeriodicSync builds a fake PeriodicSyncManager with controllable tags.
+function makePeriodicSync(existingTags: string[] = []) {
+  return {
+    register: vi.fn().mockResolvedValue(undefined),
+    getTags: vi.fn().mockResolvedValue(existingTags),
   }
 }
 
@@ -44,10 +54,27 @@ function clearServiceWorker() {
   delete (navigator as unknown as Record<string, unknown>).serviceWorker
 }
 
+// setPermissions stubs navigator.permissions.query to resolve the given state
+// (or reject when `throws` is set, exercising the can't-tell fallback).
+function setPermissions(state: PermissionState | null, throws = false) {
+  const query = throws
+    ? vi.fn().mockRejectedValue(new Error('unsupported name'))
+    : vi.fn().mockResolvedValue({ state })
+  Object.defineProperty(navigator, 'permissions', {
+    configurable: true,
+    value: { query },
+  })
+}
+
+function clearPermissions() {
+  delete (navigator as unknown as Record<string, unknown>).permissions
+}
+
 afterEach(() => {
   vi.unstubAllEnvs()
   vi.restoreAllMocks()
   clearServiceWorker()
+  clearPermissions()
 })
 
 describe('registerServiceWorker', () => {
@@ -170,5 +197,79 @@ describe('update handling (S5)', () => {
     const onUpdateReady = vi.fn()
     await registerServiceWorker(onUpdateReady)
     expect(onUpdateReady).toHaveBeenCalledBefore(waiting.postMessage)
+  })
+})
+
+describe('periodic background refresh', () => {
+  it('registers the refresh tag when supported and permission granted', async () => {
+    vi.stubEnv('PROD', true)
+    const periodicSync = makePeriodicSync()
+    const reg = makeReg({ periodicSync })
+    setPermissions('granted')
+    setServiceWorker({
+      register: vi.fn().mockResolvedValue(reg),
+      addEventListener: vi.fn(),
+    })
+    await registerServiceWorker()
+    await vi.waitFor(() => expect(periodicSync.register).toHaveBeenCalled())
+    expect(periodicSync.register).toHaveBeenCalledWith('khiimori-refresh', {
+      minInterval: 12 * 60 * 60 * 1000,
+    })
+  })
+
+  it('does not register when the permission is not granted', async () => {
+    vi.stubEnv('PROD', true)
+    const periodicSync = makePeriodicSync()
+    const reg = makeReg({ periodicSync })
+    setPermissions('denied')
+    setServiceWorker({
+      register: vi.fn().mockResolvedValue(reg),
+      addEventListener: vi.fn(),
+    })
+    await registerServiceWorker()
+    // Give any pending microtasks a chance to (not) call register.
+    await vi.waitFor(() => expect(periodicSync.getTags).not.toHaveBeenCalled())
+    expect(periodicSync.register).not.toHaveBeenCalled()
+  })
+
+  it('skips re-registering when the tag already exists', async () => {
+    vi.stubEnv('PROD', true)
+    const periodicSync = makePeriodicSync(['khiimori-refresh'])
+    const reg = makeReg({ periodicSync })
+    setPermissions('granted')
+    setServiceWorker({
+      register: vi.fn().mockResolvedValue(reg),
+      addEventListener: vi.fn(),
+    })
+    await registerServiceWorker()
+    await vi.waitFor(() => expect(periodicSync.getTags).toHaveBeenCalled())
+    expect(periodicSync.register).not.toHaveBeenCalled()
+  })
+
+  it('registers anyway when the permission name is unqueryable', async () => {
+    vi.stubEnv('PROD', true)
+    const periodicSync = makePeriodicSync()
+    const reg = makeReg({ periodicSync })
+    setPermissions(null, /* throws */ true)
+    setServiceWorker({
+      register: vi.fn().mockResolvedValue(reg),
+      addEventListener: vi.fn(),
+    })
+    await registerServiceWorker()
+    await vi.waitFor(() => expect(periodicSync.register).toHaveBeenCalled())
+  })
+
+  it('is a no-op when Periodic Background Sync is unsupported (e.g. iOS)', async () => {
+    vi.stubEnv('PROD', true)
+    const reg = makeReg() // no periodicSync on the registration
+    setPermissions('granted')
+    const query = (navigator.permissions as unknown as { query: ReturnType<typeof vi.fn> }).query
+    setServiceWorker({
+      register: vi.fn().mockResolvedValue(reg),
+      addEventListener: vi.fn(),
+    })
+    await registerServiceWorker()
+    // Unsupported path returns before ever touching permissions.
+    await vi.waitFor(() => expect(query).not.toHaveBeenCalled())
   })
 })
