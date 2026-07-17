@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { fetchAutocomplete, type Suggestion } from '../lib/api'
-import { resolveLocation, suggestLocalPlaces } from '../lib/geocodeCache'
+import { offlineSuggestions, resolveLocation } from '../lib/geocodeCache'
 import { useIsOnline } from '../lib/useIsOnline'
 
 // GEOCODE_DEBOUNCE_MS delays the live location check while the user is still
@@ -112,15 +112,15 @@ export function LocationField({
 
     const timer = setTimeout(() => {
       if (!online) {
-        void suggestLocalPlaces(trimmed).then(showList)
+        void offlineSuggestions(trimmed).then(showList)
         return
       }
       fetchAutocomplete(trimmed, controller.signal)
         .then(showList)
         .catch(() => {
-          // The Places proxy is unreachable — fall back to local suggestions
-          // rather than an empty dropdown. Non-critical either way.
-          void suggestLocalPlaces(trimmed).then(showList)
+          // The Places proxy is unreachable — fall back to offline suggestions
+          // (past places + pre-loaded trip POIs) rather than an empty dropdown.
+          void offlineSuggestions(trimmed).then(showList)
         })
     }, SUGGEST_DEBOUNCE_MS)
 

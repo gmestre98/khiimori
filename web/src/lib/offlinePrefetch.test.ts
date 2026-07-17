@@ -17,10 +17,12 @@ vi.mock('./api', async (importActual) => {
 })
 vi.mock('./dayRouteCache', () => ({ warmDayRoute: vi.fn() }))
 vi.mock('./tilePrefetch', () => ({ prefetchTiles: vi.fn() }))
+vi.mock('./regionPlaces', () => ({ warmRegionPlaces: vi.fn() }))
 
 import * as api from './api'
 import { warmDayRoute } from './dayRouteCache'
 import { prefetchTiles } from './tilePrefetch'
+import { warmRegionPlaces } from './regionPlaces'
 import { prefetchAllTripsForOffline, resetPrefetchForTest } from './offlinePrefetch'
 
 const fetchTrips = vi.mocked(api.fetchTrips)
@@ -31,6 +33,7 @@ const listCostEntries = vi.mocked(api.listCostEntries)
 const fetchJournalEntry = vi.mocked(api.fetchJournalEntry)
 const warmDayRouteMock = vi.mocked(warmDayRoute)
 const prefetchTilesMock = vi.mocked(prefetchTiles)
+const warmRegionPlacesMock = vi.mocked(warmRegionPlaces)
 
 function trip(id: string, start: string, end: string): Trip {
   return {
@@ -94,6 +97,7 @@ beforeEach(() => {
   })
   warmDayRouteMock.mockResolvedValue([])
   prefetchTilesMock.mockResolvedValue(undefined)
+  warmRegionPlacesMock.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
@@ -134,6 +138,9 @@ describe('prefetchAllTripsForOffline', () => {
     const [points] = prefetchTilesMock.mock.calls[0]
     // One waypoint per day × 2 days = 2 points collected.
     expect(points).toHaveLength(2)
+    // The same stops feed the region-place pre-load.
+    expect(warmRegionPlacesMock).toHaveBeenCalledTimes(1)
+    expect(warmRegionPlacesMock.mock.calls[0][0]).toHaveLength(2)
   })
 
   it('runs only once per session', async () => {

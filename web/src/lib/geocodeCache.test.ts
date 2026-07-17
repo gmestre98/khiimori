@@ -6,6 +6,7 @@ import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   normalizeLocation,
+  offlineSuggestions,
   readCachedGeocode,
   resolveLocation,
   suggestLocalPlaces,
@@ -13,8 +14,16 @@ import {
   writeCachedGeocode,
 } from './geocodeCache'
 import { UnauthorizedError } from './api'
-import { clearCache } from './resourceCache'
+import { cacheKeys } from './cacheKeys'
+import { clearCache, writeCache } from './resourceCache'
+import type { RegionPlace } from './regionPlaces'
 import * as api from './api'
+
+// writeRegionPlaces seeds the shared region index the way warmRegionPlaces would,
+// so the geocode fallback can be tested without mocking Overpass.
+function writeRegionPlaces(places: RegionPlace[]): Promise<void> {
+  return writeCache(cacheKeys.regionPlaces(), places)
+}
 
 vi.mock('./api', async () => {
   const actual = await vi.importActual<typeof import('./api')>('./api')
@@ -67,6 +76,18 @@ describe('resolveLocation', () => {
     await expect(resolveLocation('Somewhere New')).rejects.toThrow('Failed to fetch')
   })
 
+  it('falls back to a pre-loaded trip-region POI when the network fails', async () => {
+    // Pre-load a region place the way warmRegionPlaces would.
+    await writeRegionPlaces([{ name: 'Louvre', norm: 'louvre', lat: 48.86, lng: 2.33 }])
+
+    geocodeLocation.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    const out = await resolveLocation('Louvre')
+    expect(out).toEqual({ coords: { lat: 48.86, lng: 2.33 }, source: 'cache' })
+
+    // The region hit is remembered as a plain geocode entry for next time.
+    expect(await readCachedGeocode('Louvre')).toEqual({ coords: { lat: 48.86, lng: 2.33 } })
+  })
+
   it('rethrows auth failures instead of masking them with a stale hit', async () => {
     geocodeLocation.mockResolvedValueOnce(PARIS)
     await resolveLocation('Louvre, Paris') // seed a hit
@@ -104,6 +125,18 @@ describe('suggestLocalPlaces', () => {
 
     const out = await suggestLocalPlaces('paris')
     expect(out.map((s) => s.description)).toEqual(['Paris', 'Paris Airport'])
+  })
+})
+
+describe('offlineSuggestions', () => {
+  it('merges past places with pre-loaded region POIs, MRU first, deduped', async () => {
+    await writeCachedGeocode('Porto', { lat: 41.1, lng: -8.6 }) // user history
+    await writeRegionPlaces([
+      { name: 'Porto', norm: 'porto', lat: 41.1, lng: -8.6 }, // dup of history
+      { name: 'Porto Cathedral', norm: 'porto cathedral', lat: 41.14, lng: -8.61 },
+    ])
+    const out = await offlineSuggestions('porto')
+    expect(out.map((s) => s.description)).toEqual(['Porto', 'Porto Cathedral'])
   })
 })
 
