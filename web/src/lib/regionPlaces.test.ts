@@ -132,6 +132,21 @@ describe('warmRegionPlaces + lookup/search', () => {
     expect(await lookupRegionPlace('Paris P')).toEqual({ lat: 48.86, lng: 2.34 })
   })
 
+  it('does not match a POI name that only appears mid-word in the query', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => overpassBody([{ name: 'Bar', lat: 48.85, lng: 2.35 }]),
+      }),
+    )
+    await warmRegionPlaces([PARIS])
+    // "Barcelona Cathedral" contains "bar" but must not resolve to the bar in Paris.
+    expect(await lookupRegionPlace('Barcelona Cathedral')).toBeNull()
+    // But "Bar, Montenegro" (POI as a leading whole word) does resolve.
+    expect(await lookupRegionPlace('Bar, Montenegro')).toEqual({ lat: 48.85, lng: 2.35 })
+  })
+
   it('skips entirely when offline', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)

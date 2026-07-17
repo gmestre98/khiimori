@@ -217,11 +217,24 @@ async function readIndex(): Promise<RegionPlace[]> {
   return (await readCache<RegionPlace[]>(cacheKeys.regionPlaces()))?.data ?? []
 }
 
+// matchesRegionName reports whether a typed query `q` refers to POI name `norm`,
+// beyond an exact match. Two safe, real-world patterns:
+//   • the POI name contains the whole query as a fragment the user typed
+//     ("louvre" → "musée du louvre"), guarded so a 1–2 char query can't match;
+//   • the query names the POI then narrows it ("louvre, paris" / "louvre paris"
+//     → "louvre"), i.e. the POI name is the query's leading whole word(s).
+// Crucially it does NOT accept the POI name appearing mid-word in the query,
+// which would let "Barcelona Cathedral" resolve to a bar called "Bar".
+function matchesRegionName(q: string, norm: string): boolean {
+  if (norm.length < MIN_NAME_LEN) return false
+  if (norm.includes(q) && q.length >= MIN_NAME_LEN) return true
+  return q.startsWith(`${norm} `) || q.startsWith(`${norm},`)
+}
+
 // lookupRegionPlace resolves a typed location against the region index, for
 // offline validation. It prefers an exact normalized-name match; failing that it
-// accepts a place whose name the query contains ("Louvre, Paris" → "Louvre") or
-// that contains the query ("Louvre" → "Musée du Louvre"), longest name winning
-// so the most specific POI is chosen. Returns coords or null.
+// takes the longest (most specific) name that matchesRegionName. Returns coords
+// or null.
 export async function lookupRegionPlace(location: string): Promise<LatLng | null> {
   const q = normalizeLocation(location)
   if (!q) return null
@@ -229,9 +242,7 @@ export async function lookupRegionPlace(location: string): Promise<LatLng | null
   let best: RegionPlace | null = null
   for (const p of index) {
     if (p.norm === q) return { lat: p.lat, lng: p.lng }
-    if (p.norm.length < MIN_NAME_LEN) continue
-    const contained = p.norm.includes(q) || q.includes(p.norm)
-    if (contained && (!best || p.norm.length > best.norm.length)) best = p
+    if (matchesRegionName(q, p.norm) && (!best || p.norm.length > best.norm.length)) best = p
   }
   return best ? { lat: best.lat, lng: best.lng } : null
 }
