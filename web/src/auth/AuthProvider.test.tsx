@@ -50,6 +50,40 @@ describe('AuthProvider', () => {
     expect(screen.getByTestId('user')).toHaveTextContent('Ann')
   })
 
+  it('renders authenticated from the cached profile before /me resolves (no loading gate)', async () => {
+    // A previous session cached a profile…
+    await writeCache(cacheKeys.profile(), profile)
+    // …and the session check is still in flight (never resolves during the test).
+    vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(() => {}) as Promise<Response>)
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>,
+    )
+
+    // The app becomes usable immediately off the cache — it does NOT sit on
+    // 'loading' waiting for the network round-trip.
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('authenticated'))
+    expect(screen.getByTestId('user')).toHaveTextContent('Ann')
+  })
+
+  it('signs out when /me returns 401 even if a stale profile was cached', async () => {
+    // Stale cached profile (e.g. the session cookie expired) must not keep a
+    // signed-out user in: a genuine 401 is authoritative.
+    await writeCache(cacheKeys.profile(), profile)
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 401 }))
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>,
+    )
+
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('anonymous'))
+    expect(screen.getByTestId('user')).toHaveTextContent('')
+  })
+
   it('is anonymous when /me returns 401', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 401 }))
 

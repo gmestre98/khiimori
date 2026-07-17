@@ -52,19 +52,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => setUnauthorizedHandler(null)
   }, [applyAnonymous])
 
-  // On mount, ask the backend whether there is a valid session. Inlined as a
-  // promise chain (setState only in the deferred callbacks) and cancelled on
-  // unmount via the abort signal.
+  // On mount, resolve auth stale-while-revalidate — the same instant-render
+  // pattern the data screens use (M11.1), now applied to the boot gate.
+  //
+  //   1. Optimistically seed from the cached profile the moment it's read, so a
+  //      warm start renders the app immediately instead of blocking on GET /me
+  //      behind a full-screen "Loading…". (signOut wipes the cache, so a truly
+  //      signed-out user has nothing cached and never sees a flash of the app.)
+  //   2. Revalidate against the backend in the background. A fresh profile
+  //      replaces the cached one; a genuine 401 is authoritative and signs out;
+  //      a network error (offline) keeps whatever the cache gave us.
+  //
+  // networkSettled guards the optimistic seed from racing past an
+  // already-authoritative network result — e.g. a 401 that arrives before the
+  // (async) cache read must not be overwritten by a stale cached profile.
   useEffect(() => {
     const controller = new AbortController()
+    let networkSettled = false
+
+    void readCache<Profile>(profileKey).then((cached) => {
+      if (controller.signal.aborted || networkSettled) return
+      if (cached) applyProfile(cached.data, false)
+    })
+
     fetchProfile(controller.signal)
       .then((profile) => {
-        if (!controller.signal.aborted) applyProfile(profile)
+        if (controller.signal.aborted) return
+        networkSettled = true
+        applyProfile(profile)
       })
       .catch((err: unknown) => {
         if (controller.signal.aborted) return
         // A genuine 401 means the session is gone — fail closed to anonymous.
         if (err instanceof UnauthorizedError) {
+          networkSettled = true
           applyAnonymous(err)
           return
         }
@@ -73,7 +94,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // connection: if we have a profile cached from a previous session, stay
         // authenticated so the app's offline-capable screens (which read the
         // same on-device cache) keep working. Only fall back to anonymous when
-        // there is nothing cached to trust.
+        // there is nothing cached to trust. (The optimistic seed above may have
+        // already applied it; re-reading is cheap and covers the seed losing the
+        // race to this error.)
         void readCache<Profile>(profileKey).then((cached) => {
           if (controller.signal.aborted) return
           if (cached) applyProfile(cached.data, false)
