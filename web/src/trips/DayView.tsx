@@ -296,7 +296,9 @@ function tempPlanItem(tripId: string, dayId: string | null, input: PlanItemInput
     note: input.note ?? undefined,
     unplanned: input.unplanned ?? false,
     sort_order: Number.MAX_SAFE_INTEGER,
-    status: 'planned',
+    // An offline add with no day is a backlog idea; mirror the server so the
+    // optimistic row carries the same status the real row will have on sync.
+    status: dayId ? 'planned' : 'idea',
   }
 }
 
@@ -1386,7 +1388,11 @@ function PlanItemRow({
 // something you did" button reveals the same form (inline on desktop, sheet on
 // mobile) and the created item is set to status "done" so it lands in the "what
 // happened" group and, if it has a place, on the map.
-function QuickAddForm({
+//
+// It is exported so the Ideas backlog can reuse the exact same add experience:
+// passing dayId={null} creates a backlog item (no day assigned) through the same
+// full-detail form, split-cost helper and offline path as a day. (M04.5)
+export function QuickAddForm({
   tripId,
   dayId,
   onAdded,

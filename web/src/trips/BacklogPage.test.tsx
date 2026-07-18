@@ -93,44 +93,72 @@ describe('BacklogPage', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Could not load backlog.')
   })
 
-  it('renders the quick add form', async () => {
+  it('renders the shared plan-item add form', async () => {
     vi.mocked(api.fetchBacklog).mockResolvedValue([])
     renderBacklogPage()
-    await waitFor(() => expect(screen.getByLabelText('Idea title')).toBeInTheDocument())
+    // The backlog reuses the day's full-detail add form (title + kind picker),
+    // rather than a title-only quick-add.
+    await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+    expect(screen.getByRole('group', { name: 'Kind' })).toBeInTheDocument()
   })
 
-  it('adds a new backlog idea and shows it in the list', async () => {
+  it('adds a new backlog idea via the shared form and shows it in the list', async () => {
     const user = userEvent.setup()
     vi.mocked(api.fetchBacklog).mockResolvedValue([])
     const newItem = makePlanItem({ id: 'new-1', title: 'Visit the Louvre' })
     vi.mocked(api.createPlanItem).mockResolvedValue(newItem)
 
     renderBacklogPage()
-    await waitFor(() => expect(screen.getByLabelText('Idea title')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
 
-    await user.type(screen.getByLabelText('Idea title'), 'Visit the Louvre')
-    await user.click(screen.getByRole('button', { name: 'Add idea' }))
+    await user.type(screen.getByLabelText('Title'), 'Visit the Louvre')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
 
     await waitFor(() => expect(screen.getByText('Visit the Louvre')).toBeInTheDocument())
+    // Creating from the backlog omits a day (day_id: null) so the item lands in
+    // the backlog, exactly as adding to a day sends that day's id.
     expect(api.createPlanItem).toHaveBeenCalledWith(
       'trip-1',
       expect.objectContaining({ title: 'Visit the Louvre', day_id: null }),
     )
   })
 
-  it('clears the input after successful add', async () => {
+  it('clears the form after a successful add', async () => {
     const user = userEvent.setup()
     vi.mocked(api.fetchBacklog).mockResolvedValue([])
     vi.mocked(api.createPlanItem).mockResolvedValue(makePlanItem({ id: 'new-1', title: 'Picnic' }))
 
     renderBacklogPage()
-    await waitFor(() => expect(screen.getByLabelText('Idea title')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
 
-    const input = screen.getByLabelText('Idea title') as HTMLInputElement
+    const input = screen.getByLabelText('Title') as HTMLInputElement
     await user.type(input, 'Picnic')
-    await user.click(screen.getByRole('button', { name: 'Add idea' }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
 
     await waitFor(() => expect(input.value).toBe(''))
+  })
+
+  it('carries the full plan detail (kind, location) into the created idea', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.fetchBacklog).mockResolvedValue([])
+    vi.mocked(api.createPlanItem).mockResolvedValue(
+      makePlanItem({ id: 'new-1', title: 'Ferry to the island' }),
+    )
+
+    renderBacklogPage()
+    await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+
+    await user.type(screen.getByLabelText('Title'), 'Ferry to the island')
+    // Switch the kind — a detail that only the full form can capture.
+    await user.click(screen.getByRole('button', { name: /Food/ }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    await waitFor(() =>
+      expect(api.createPlanItem).toHaveBeenCalledWith(
+        'trip-1',
+        expect.objectContaining({ title: 'Ferry to the island', day_id: null, kind: 'food' }),
+      ),
+    )
   })
 
   it('shows error when add fails', async () => {
@@ -139,13 +167,13 @@ describe('BacklogPage', () => {
     vi.mocked(api.createPlanItem).mockRejectedValue(new Error('network'))
 
     renderBacklogPage()
-    await waitFor(() => expect(screen.getByLabelText('Idea title')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
 
-    await user.type(screen.getByLabelText('Idea title'), 'Bad idea')
-    await user.click(screen.getByRole('button', { name: 'Add idea' }))
+    await user.type(screen.getByLabelText('Title'), 'Bad idea')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
 
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
-    expect(screen.getByRole('alert')).toHaveTextContent('Could not add idea.')
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not add item.')
   })
 
   describe('promote to day', () => {

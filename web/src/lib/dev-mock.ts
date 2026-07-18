@@ -426,6 +426,22 @@ function resolve(path: string, method: string, search: string, body: unknown): R
   }
   // backlog
   if (/\/plan-items\/backlog$/.test(path)) return json({ items: [] })
+  // plan-item create — echo the input back as the new item (id from the client
+  // upsert id when given) so the backlog/day reflect it with its real fields.
+  if (/\/plan-items$/.test(path) && method === 'POST') {
+    const b = (body ?? {}) as Record<string, unknown>
+    return json(
+      {
+        id: (b.id as string) ?? `pi-${Math.random().toString(36).slice(2, 9)}`,
+        trip_id: MOCK_CURRENT_TRIP_ID,
+        kind: 'activity',
+        sort_order: 0,
+        status: b.day_id ? 'planned' : 'idea',
+        ...b,
+      },
+      201,
+    )
+  }
   // budget rollup
   if (/\/budget\/rollup$/.test(path)) return json(budgetRollup)
   // budget lines (writes)
