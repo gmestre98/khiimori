@@ -25,6 +25,9 @@ func (e errUserRepo) Reactivate(context.Context, string) error          { return
 func (e errUserRepo) ListUsers(context.Context) ([]AdminUserRow, error) { return nil, nil }
 func (e errUserRepo) ListTrips(context.Context) ([]AdminTripRow, error) { return nil, nil }
 func (e errUserRepo) Stats(context.Context) (AdminStats, error)         { return AdminStats{}, nil }
+func (e errUserRepo) ListActivity(context.Context, int) ([]AdminActivityEvent, error) {
+	return nil, nil
+}
 
 // newProvisioningModule builds a configured Module that provisions through the
 // real completeSignIn seam, backed by the given repo and a fakeProvider that
@@ -92,6 +95,9 @@ func (f *fakeUserRepo) Reactivate(_ context.Context, _ string) error        { re
 func (f *fakeUserRepo) ListUsers(_ context.Context) ([]AdminUserRow, error) { return nil, nil }
 func (f *fakeUserRepo) ListTrips(_ context.Context) ([]AdminTripRow, error) { return nil, nil }
 func (f *fakeUserRepo) Stats(_ context.Context) (AdminStats, error)         { return AdminStats{}, nil }
+func (f *fakeUserRepo) ListActivity(_ context.Context, _ int) ([]AdminActivityEvent, error) {
+	return nil, nil
+}
 
 // TestProvisionCreatesUserWithDefaults: a first-time identity produces a user
 // carrying the identity fields plus the server-set defaults (EUR currency,

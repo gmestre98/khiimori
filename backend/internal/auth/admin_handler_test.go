@@ -47,6 +47,12 @@ func (f *adminFakeRepo) ListTrips(_ context.Context) ([]AdminTripRow, error) {
 	return []AdminTripRow{}, nil
 }
 
+func (f *adminFakeRepo) ListActivity(_ context.Context, _ int) ([]AdminActivityEvent, error) {
+	return []AdminActivityEvent{
+		{Kind: "signup", At: "2026-07-17T10:00:00Z", Actor: f.user.Email, Target: ""},
+	}, nil
+}
+
 func (f *adminFakeRepo) Stats(_ context.Context) (AdminStats, error) {
 	return AdminStats{
 		Users:      AdminUserStats{Total: 1, Active: 1, Admins: 1},
@@ -197,6 +203,31 @@ func TestAdminStatsReturnsJSON(t *testing.T) {
 	}
 	if len(got.UserGrowth) != 1 {
 		t.Errorf("user_growth len = %d, want 1", len(got.UserGrowth))
+	}
+}
+
+// TestAdminActivityReturnsJSON: GET /admin/activity returns the event feed.
+func TestAdminActivityReturnsJSON(t *testing.T) {
+	t.Parallel()
+
+	m := adminModule(User{ID: "u1", Email: "admin@example.com", IsAdmin: true, Active: true}, true)
+
+	req := httptest.NewRequest(http.MethodGet, AdminActivityPath, nil)
+	req.AddCookie(sessionCookieFor(t, m.sessions, "u1"))
+	rec := httptest.NewRecorder()
+	m.RequireAdmin(http.HandlerFunc(m.handleAdminActivity)).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	var got struct {
+		Events []AdminActivityEvent `json:"events"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if len(got.Events) != 1 || got.Events[0].Kind != "signup" {
+		t.Errorf("events = %+v, want one signup", got.Events)
 	}
 }
 

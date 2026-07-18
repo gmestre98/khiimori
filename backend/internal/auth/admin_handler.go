@@ -98,6 +98,42 @@ func (m *Module) handleAdminStats(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(stats)
 }
 
+// AdminActivityPath is the admin endpoint returning the recent-activity feed.
+const AdminActivityPath = "/admin/activity"
+
+// adminActivityLimit caps how many recent events the feed returns.
+const adminActivityLimit = 15
+
+// AdminActivityEvent is one entry in the recent-activity feed. Kind is one of
+// "signup", "trip_created", "trip_shared"; Actor is the acting user's email;
+// Target is the trip name (empty for a sign-up).
+type AdminActivityEvent struct {
+	Kind   string `json:"kind"`
+	At     string `json:"at"`
+	Actor  string `json:"actor"`
+	Target string `json:"target"`
+}
+
+// handleAdminActivity returns the recent cross-user activity feed for the
+// Overview dashboard (M08.5 redesign). Gated by RequireAdmin.
+func (m *Module) handleAdminActivity(w http.ResponseWriter, r *http.Request) {
+	events, err := m.repo.ListActivity(r.Context(), adminActivityLimit)
+	if err != nil {
+		platformlog.FromContext(r.Context()).Error("admin activity", "err", err.Error())
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusInternalServerError, "server_error", "could not load activity"))
+		return
+	}
+	if events == nil {
+		events = []AdminActivityEvent{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]any{"events": events})
+}
+
 // AdminUsersPath is the admin endpoint to list all users (S2).
 const AdminUsersPath = "/admin/users"
 

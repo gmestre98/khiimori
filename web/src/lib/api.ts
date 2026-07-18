@@ -1345,6 +1345,25 @@ export async function fetchAdminStats(): Promise<AdminStats> {
   return (await res.json()) as AdminStats
 }
 
+// AdminActivityEvent is one entry in the recent-activity feed. kind is one of
+// 'signup' | 'trip_created' | 'trip_shared'; actor is the acting user's email;
+// target is the trip name (empty for a sign-up).
+export interface AdminActivityEvent {
+  kind: string
+  at: string
+  actor: string
+  target: string
+}
+
+// fetchAdminActivity returns the recent cross-user activity feed.
+export async function fetchAdminActivity(): Promise<AdminActivityEvent[]> {
+  const res = await apiFetch('/admin/activity')
+  if (res.status === 403) throw new Error('forbidden')
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  const body = (await res.json()) as { events?: AdminActivityEvent[] }
+  return body.events ?? []
+}
+
 // fetchAdminUsers lists all users from the admin backoffice endpoint.
 export async function fetchAdminUsers(): Promise<AdminUser[]> {
   const res = await apiFetch('/admin/users')
