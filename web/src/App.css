@@ -2895,58 +2895,14 @@
   color: var(--danger);
 }
 
-/* Quick-add box — a bordered card at the foot of the list, matching the stay/
-   plan add affordances rather than a raw input. */
-.backlog-quick-add {
+/* Add box — the same full-detail plan-item form used on a day, dropped into a
+   bordered card at the foot of the list so an idea can carry a place, time,
+   cost and notes from the start. */
+.backlog-add {
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--surface);
   padding: 12px;
-}
-.backlog-quick-add-row {
-  display: flex;
-  gap: var(--s2);
-}
-.backlog-quick-add-input {
-  flex: 1;
-  min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  background: var(--surface);
-  padding: 8px 10px;
-  font: inherit;
-  font-size: var(--text-base);
-  color: var(--text-h);
-}
-.backlog-quick-add-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-.backlog-quick-add-submit {
-  flex-shrink: 0;
-  border: none;
-  border-radius: var(--r-sm);
-  background: var(--accent);
-  color: var(--accent-on);
-  padding: 8px 14px;
-  font: inherit;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  cursor: pointer;
-}
-.backlog-quick-add-submit:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.backlog-quick-add-error {
-  margin: 8px 0 0;
-  font-size: var(--text-sm);
-  color: var(--danger);
-}
-@media (max-width: 560px) {
-  .backlog-quick-add-row {
-    flex-direction: column;
-  }
 }
 
 /* ── Plan item forms ────────────────────────────────────────────────────────── */
