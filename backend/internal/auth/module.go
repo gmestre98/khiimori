@@ -163,6 +163,7 @@ func (m *Module) mountAdminRoutes(mux *http.ServeMux, gate httpx.Middleware) {
 	mux.Handle("GET "+AdminUsersPath, gate(http.HandlerFunc(m.handleAdminListUsers)))
 	mux.Handle("GET "+AdminTripsPath, gate(http.HandlerFunc(m.handleAdminListTrips)))
 	mux.Handle("POST "+DeactivateUserPath, gate(http.HandlerFunc(m.handleAdminDeactivateUser)))
+	mux.Handle("POST "+ReactivateUserPath, gate(http.HandlerFunc(m.handleAdminReactivateUser)))
 }
 
 // RegisterAdminRoutes mounts the admin backoffice routes with a caller-supplied

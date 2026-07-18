@@ -34,9 +34,11 @@ export function apiUrl(path: string): string {
 const healthPath = '/readyz'
 
 // HealthStatus is the parsed shape of the readiness response we care about
-// (e.g. {"status":"ready",...}); extra fields like per-check detail are ignored.
+// (e.g. {"status":"ready","checks":{"database":"ok"}}). checks is optional —
+// per-dependency detail the admin System tab surfaces.
 export interface HealthStatus {
   status: string
+  checks?: Record<string, string>
 }
 
 // fetchHealth calls GET /readyz through the configured base URL and returns the
@@ -1296,16 +1298,20 @@ export function staticMapUrl(
 
 // --- Admin backoffice (M08.5) -----------------------------------------------
 
-// AdminUser is the wire shape of a user row in the admin list.
+// AdminUser is the wire shape of a user row in the admin list. joined +
+// trip_count are optional so an older API (pre-enrichment) still decodes.
 export interface AdminUser {
   id: string
   email: string
   name: string
   is_admin: boolean
   active: boolean
+  joined?: string
+  trip_count?: number
 }
 
-// AdminTrip is the wire shape of a trip row in the admin list.
+// AdminTrip is the wire shape of a trip row in the admin list. member_count is
+// optional so an older API (pre-enrichment) still decodes.
 export interface AdminTrip {
   id: string
   name: string
@@ -1314,6 +1320,7 @@ export interface AdminTrip {
   start_date: string
   end_date: string
   status: string
+  member_count?: number
 }
 
 // AdminMonthPoint is one "YYYY-MM" → cumulative-count point on a growth line.
@@ -1357,6 +1364,13 @@ export async function fetchAdminTrips(): Promise<AdminTrip[]> {
 // deactivateUser deactivates a user via the admin endpoint.
 export async function deactivateUser(userID: string): Promise<void> {
   const res = await apiFetch(`/admin/users/${userID}/deactivate`, { method: 'POST' })
+  if (res.status === 403) throw new Error('forbidden')
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+}
+
+// reactivateUser restores a deactivated user's sign-in via the admin endpoint.
+export async function reactivateUser(userID: string): Promise<void> {
+  const res = await apiFetch(`/admin/users/${userID}/reactivate`, { method: 'POST' })
   if (res.status === 403) throw new Error('forbidden')
   if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
 }

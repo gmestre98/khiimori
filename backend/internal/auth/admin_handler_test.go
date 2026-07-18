@@ -27,6 +27,10 @@ func (f *adminFakeRepo) Deactivate(_ context.Context, _ string) error {
 	return nil
 }
 
+func (f *adminFakeRepo) Reactivate(_ context.Context, _ string) error {
+	return nil
+}
+
 func (f *adminFakeRepo) GetByID(_ context.Context, _ string) (User, error) {
 	return f.user, nil
 }

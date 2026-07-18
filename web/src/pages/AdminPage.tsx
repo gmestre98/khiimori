@@ -39,6 +39,14 @@ const NAV = [
     label: 'Trips',
     icon: ['M4 8h16v11a1 1 0 01-1 1H5a1 1 0 01-1-1V8z', 'M9 8V5a1 1 0 011-1h4a1 1 0 011 1v3'],
   },
+  {
+    to: '/admin/system',
+    label: 'System',
+    icon: [
+      'M12 15a3 3 0 100-6 3 3 0 000 6z',
+      'M19.4 13a7 7 0 000-2l2-1.5-2-3.5-2.3 1a7 7 0 00-1.7-1L14.9 3H9.1l-.5 2.5a7 7 0 00-1.7 1l-2.3-1-2 3.5L4.6 11a7 7 0 000 2l-2 1.5 2 3.5 2.3-1a7 7 0 001.7 1l.5 2.5h5.8l.5-2.5a7 7 0 001.7-1l2.3 1 2-3.5-2-1.5z',
+    ],
+  },
 ]
 
 // AdminPage is the shell for the admin backoffice (M08.5 redesign): a left rail

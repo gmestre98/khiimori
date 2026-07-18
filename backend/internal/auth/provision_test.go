@@ -21,6 +21,7 @@ func (e errUserRepo) Save(context.Context, provisionParams) (User, error) {
 
 func (e errUserRepo) IsActive(context.Context, string) (bool, error)    { return true, nil }
 func (e errUserRepo) Deactivate(context.Context, string) error          { return nil }
+func (e errUserRepo) Reactivate(context.Context, string) error          { return nil }
 func (e errUserRepo) ListUsers(context.Context) ([]AdminUserRow, error) { return nil, nil }
 func (e errUserRepo) ListTrips(context.Context) ([]AdminTripRow, error) { return nil, nil }
 func (e errUserRepo) Stats(context.Context) (AdminStats, error)         { return AdminStats{}, nil }
@@ -87,6 +88,7 @@ func (f *fakeUserRepo) Save(_ context.Context, in provisionParams) (User, error)
 
 func (f *fakeUserRepo) IsActive(_ context.Context, _ string) (bool, error)  { return true, nil }
 func (f *fakeUserRepo) Deactivate(_ context.Context, _ string) error        { return nil }
+func (f *fakeUserRepo) Reactivate(_ context.Context, _ string) error        { return nil }
 func (f *fakeUserRepo) ListUsers(_ context.Context) ([]AdminUserRow, error) { return nil, nil }
 func (f *fakeUserRepo) ListTrips(_ context.Context) ([]AdminTripRow, error) { return nil, nil }
 func (f *fakeUserRepo) Stats(_ context.Context) (AdminStats, error)         { return AdminStats{}, nil }

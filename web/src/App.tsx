@@ -49,6 +49,9 @@ const AdminUsersPage = lazy(() =>
 const AdminTripsPage = lazy(() =>
   import('./pages/AdminTripsPage').then((m) => ({ default: m.AdminTripsPage })),
 )
+const AdminSystemPage = lazy(() =>
+  import('./pages/AdminSystemPage').then((m) => ({ default: m.AdminSystemPage })),
+)
 
 // RouteLoading is the Suspense fallback shown while a lazy route chunk loads.
 // Kept intentionally minimal — it renders inside the already-mounted layout
@@ -220,6 +223,14 @@ function App() {
                 element={
                   <Suspense fallback={<RouteLoading />}>
                     <AdminTripsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="system"
+                element={
+                  <Suspense fallback={<RouteLoading />}>
+                    <AdminSystemPage />
                   </Suspense>
                 }
               />
