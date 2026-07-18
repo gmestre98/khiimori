@@ -2815,27 +2815,14 @@
   gap: 6px;
 }
 
+/* A backlog row reuses the day's .plan-item look (time · title · location,
+   note wraps below) so an idea reads exactly like a planned item; only the
+   actions row below it is backlog-specific (promote / delete). */
 .backlog-item {
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   padding: 10px 12px;
   background: var(--surface);
-}
-.backlog-item-main {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  flex-wrap: wrap;
-}
-.backlog-item-title {
-  font-size: var(--text-base);
-  font-weight: 500;
-  color: var(--text-h);
-}
-.backlog-item-type,
-.backlog-item-location {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
 }
 .backlog-item-actions {
   margin-top: 8px;
