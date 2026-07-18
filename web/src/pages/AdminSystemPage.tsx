@@ -95,7 +95,9 @@ export function AdminSystemPage() {
       </div>
 
       <p className="admin-mini" style={{ marginTop: 14 }}>
-        Cost and quota meters (Cloud Run spend, Maps usage, database storage) are coming next.
+        Live cost and quota meters (Cloud Run spend, Maps usage, database storage) need a GCP
+        billing-export + Cloud Monitoring feed, which isn't wired yet — the app can't report real
+        spend without it. Budget alerts are configured in the cloud project.
       </p>
     </>
   )

@@ -144,6 +144,7 @@ func TestAdminGating_NonAdminDenied(t *testing.T) {
 	}{
 		{http.MethodGet, "/admin", nil},
 		{http.MethodGet, "/admin/stats", nil},
+		{http.MethodGet, "/admin/activity", nil},
 		{http.MethodGet, "/admin/users", nil},
 		{http.MethodGet, "/admin/trips", nil},
 		{http.MethodPost, "/admin/users/" + userID + "/deactivate", nil},
@@ -321,6 +322,44 @@ func TestAdminReactivateUser(t *testing.T) {
 	}
 	if !active {
 		t.Error("user is still active=false after admin reactivate")
+	}
+}
+
+// TestAdminActivity asserts the feed includes a sign-up event for a seeded user.
+func TestAdminActivity(t *testing.T) {
+	if authzTestPool == nil {
+		t.Skip("DATABASE_URL_TEST not set")
+	}
+	truncateAuthUsers(t)
+	adminID := insertUser(t, "admin-"+genID(t)+"@example.com", true, true)
+	srv := adminServer(t, adminID)
+
+	r := do(t, srv, http.MethodGet, "/admin/activity", nil)
+	defer r.Body.Close()
+	if r.StatusCode != http.StatusOK {
+		t.Fatalf("admin GET /admin/activity: got %d, want 200", r.StatusCode)
+	}
+	var got struct {
+		Events []struct {
+			Kind  string `json:"kind"`
+			Actor string `json:"actor"`
+			At    string `json:"at"`
+		} `json:"events"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+		t.Fatalf("decode activity: %v", err)
+	}
+	var sawSignup bool
+	for _, e := range got.Events {
+		if e.Kind == "signup" && e.At == "" {
+			t.Errorf("signup event has empty timestamp: %+v", e)
+		}
+		if e.Kind == "signup" {
+			sawSignup = true
+		}
+	}
+	if !sawSignup {
+		t.Error("activity feed has no signup event for the seeded admin")
 	}
 }
 

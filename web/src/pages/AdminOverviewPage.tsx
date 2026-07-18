@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  fetchAdminActivity,
   fetchAdminStats,
   fetchAdminTrips,
+  type AdminActivityEvent,
   type AdminMonthPoint,
   type AdminStats,
   type AdminTrip,
@@ -44,6 +46,7 @@ function monthLabel(m: string): string {
 export function AdminOverviewPage() {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [trips, setTrips] = useState<AdminTrip[] | null>(null)
+  const [activity, setActivity] = useState<AdminActivityEvent[]>([])
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -58,6 +61,11 @@ export function AdminOverviewPage() {
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load overview')
       })
+    // Activity is non-critical: a failure leaves the feed empty rather than
+    // failing the whole dashboard.
+    fetchAdminActivity()
+      .then((a) => !cancelled && setActivity(a))
+      .catch(() => {})
     return () => {
       cancelled = true
     }
@@ -168,6 +176,12 @@ export function AdminOverviewPage() {
 
           <GrowthCard points={stats.user_growth} />
 
+          {activity.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <ActivityFeed events={activity} />
+            </div>
+          )}
+
           <div className="admin-tbl-wrap" style={{ marginTop: 16 }}>
             <table className="admin-tbl">
               <thead>
@@ -200,6 +214,79 @@ export function AdminOverviewPage() {
         </>
       )}
     </>
+  )
+}
+
+// ACTIVITY_META maps an event kind to its icon path, tint and phrasing.
+const ACTIVITY_META: Record<string, { icon: string[]; bg: string; fg: string; verb: string }> = {
+  signup: {
+    icon: ['M16 19a4 4 0 00-8 0', 'M12 8m-3.2 0a3.2 3.2 0 106.4 0a3.2 3.2 0 10-6.4 0'],
+    bg: 'var(--accent-tint)',
+    fg: 'var(--accent)',
+    verb: 'signed up',
+  },
+  trip_created: {
+    icon: ['M4 8h16v11a1 1 0 01-1 1H5a1 1 0 01-1-1V8z', 'M9 8V5a1 1 0 011-1h4a1 1 0 011 1v3'],
+    bg: 'var(--amber-tint)',
+    fg: 'var(--amber)',
+    verb: 'created',
+  },
+  trip_shared: {
+    icon: ['M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7', 'M16 6l-4-4-4 4', 'M12 2v13'],
+    bg: 'var(--accent-tint)',
+    fg: 'var(--accent)',
+    verb: 'was added to',
+  },
+}
+
+// relativeTime turns an ISO timestamp into a short "5h ago" / "2 days ago".
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return ''
+  const s = Math.max(0, Math.round((Date.now() - then) / 1000))
+  if (s < 60) return 'just now'
+  const m = Math.round(s / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.round(m / 60)
+  if (h < 24) return `${h}h ago`
+  const d = Math.round(h / 24)
+  return d === 1 ? 'yesterday' : `${d} days ago`
+}
+
+// ActivityFeed renders the recent cross-user events: sign-ups, new trips, shares.
+function ActivityFeed({ events }: { events: AdminActivityEvent[] }) {
+  return (
+    <div className="admin-card">
+      <div className="admin-card-hd">
+        <h3>Recent activity</h3>
+      </div>
+      <div className="admin-card-bd">
+        <ul className="admin-feed">
+          {events.map((e, i) => {
+            const meta = ACTIVITY_META[e.kind] ?? ACTIVITY_META.signup
+            return (
+              <li key={`${e.at}-${i}`}>
+                <span className="admin-feed-ic" style={{ background: meta.bg, color: meta.fg }}>
+                  <Icon d={meta.icon} />
+                </span>
+                <div className="admin-feed-body">
+                  <div className="admin-feed-txt">
+                    <b>{e.actor || 'Someone'}</b> {meta.verb}
+                    {e.target ? (
+                      <>
+                        {' '}
+                        <b>{e.target}</b>
+                      </>
+                    ) : null}
+                  </div>
+                  <div className="admin-feed-meta">{relativeTime(e.at)}</div>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    </div>
   )
 }
 

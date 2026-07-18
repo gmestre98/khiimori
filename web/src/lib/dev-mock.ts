@@ -281,6 +281,25 @@ const adminTrips = [
   },
 ]
 
+const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString()
+const adminActivity = [
+  { kind: 'signup', at: hoursAgo(2), actor: 'pedro.alves@gmail.com', target: '' },
+  {
+    kind: 'trip_created',
+    at: hoursAgo(5),
+    actor: 'maria.costa@gmail.com',
+    target: 'Lisbon Weekend',
+  },
+  { kind: 'trip_shared', at: hoursAgo(28), actor: 'ana@gmail.com', target: 'Japan 2026' },
+  {
+    kind: 'trip_created',
+    at: hoursAgo(50),
+    actor: 'joao.ferreira@outlook.com',
+    target: 'Rome City Break',
+  },
+  { kind: 'signup', at: hoursAgo(120), actor: 'spam@test.io', target: '' },
+]
+
 const adminStats = {
   users: { total: 5, active: 4, admins: 1 },
   trips: { total: 5, active: 4, archived: 1 },
@@ -485,6 +504,7 @@ function resolve(path: string, method: string, search: string, body: unknown): R
   if (path === '/readyz' && method === 'GET')
     return json({ status: 'ready', checks: { database: 'ok' } })
   if (path === '/admin/stats' && method === 'GET') return json(adminStats)
+  if (path === '/admin/activity' && method === 'GET') return json({ events: adminActivity })
   if (path === '/admin/users' && method === 'GET') return json(adminUsers)
   if (path === '/admin/trips' && method === 'GET') return json(adminTrips)
   if (/\/admin\/users\/[^/]+\/deactivate$/.test(path)) return json({ status: 'deactivated' })

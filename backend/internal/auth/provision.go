@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -50,6 +51,9 @@ type userRepo interface {
 	ListTrips(ctx context.Context) ([]AdminTripRow, error)
 	// Stats returns aggregate counts + 6-month growth for the admin dashboard.
 	Stats(ctx context.Context) (AdminStats, error)
+	// ListActivity returns the most recent cross-user events (sign-ups, new
+	// trips, shares), newest first, capped at limit.
+	ListActivity(ctx context.Context, limit int) ([]AdminActivityEvent, error)
 }
 
 // AdminUserRow is the projection of an auth.users row for the admin list.
@@ -325,4 +329,43 @@ func (r *pgxUserRepo) Stats(ctx context.Context) (AdminStats, error) {
 		return AdminStats{}, fmt.Errorf("auth: growth rows: %w", err)
 	}
 	return s, nil
+}
+
+// ListActivity merges the recent-event streams (sign-ups, new trips, shares)
+// into one time-ordered feed via a single UNION so Postgres does the sort +
+// limit. The admin scope crosses user boundaries by design (RequireAdmin).
+func (r *pgxUserRepo) ListActivity(ctx context.Context, limit int) ([]AdminActivityEvent, error) {
+	const query = `
+		(SELECT 'signup' AS kind, u.email AS actor, '' AS target, u.created_at AS at
+		   FROM auth.users u)
+		UNION ALL
+		(SELECT 'trip_created', COALESCE(o.email, ''), t.name, t.created_at
+		   FROM trip.trips t LEFT JOIN auth.users o ON o.id = t.owner_id)
+		UNION ALL
+		(SELECT 'trip_shared', COALESCE(mu.email, ''), t.name, m.created_at
+		   FROM sharing.trip_memberships m
+		   JOIN trip.trips t ON t.id = m.trip_id
+		   LEFT JOIN auth.users mu ON mu.id = m.user_id
+		   WHERE m.role <> 'owner')
+		ORDER BY at DESC
+		LIMIT $1`
+	rows, err := r.pool.Query(ctx, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("auth: list activity: %w", err)
+	}
+	defer rows.Close()
+	var out []AdminActivityEvent
+	for rows.Next() {
+		var e AdminActivityEvent
+		var at time.Time
+		if err := rows.Scan(&e.Kind, &e.Actor, &e.Target, &at); err != nil {
+			return nil, fmt.Errorf("auth: scan activity row: %w", err)
+		}
+		e.At = at.UTC().Format(time.RFC3339)
+		out = append(out, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("auth: activity rows: %w", err)
+	}
+	return out, nil
 }
