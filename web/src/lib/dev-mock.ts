@@ -442,6 +442,21 @@ function resolve(path: string, method: string, search: string, body: unknown): R
       201,
     )
   }
+  // plan-item update — echo the patched fields back onto the item id in the path
+  // so an edit (day or backlog) reflects its new values. Excludes the /backlog
+  // list read and the /status, /promote, /demote sub-routes (extra path segment).
+  const planItemPatch = path.match(/\/plan-items\/([^/]+)$/)
+  if (planItemPatch && method === 'PATCH') {
+    const b = (body ?? {}) as Record<string, unknown>
+    return json({
+      id: planItemPatch[1],
+      trip_id: MOCK_CURRENT_TRIP_ID,
+      kind: 'activity',
+      sort_order: 0,
+      status: b.day_id ? 'planned' : 'idea',
+      ...b,
+    })
+  }
   // budget rollup
   if (/\/budget\/rollup$/.test(path)) return json(budgetRollup)
   // budget lines (writes)

@@ -41,6 +41,7 @@ vi.mock('../lib/api', async (importOriginal) => {
     ...orig,
     fetchBacklog: vi.fn(),
     createPlanItem: vi.fn(),
+    updatePlanItem: vi.fn(),
     fetchDay: vi.fn(),
     promotePlanItem: vi.fn(),
     deletePlanItem: vi.fn(),
@@ -258,6 +259,48 @@ describe('BacklogPage', () => {
 
       expect(screen.getByText('See the Eiffel Tower')).toBeInTheDocument()
       expect(api.deletePlanItem).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('edit', () => {
+    it('renders the entered detail (start time, location) like a day item', async () => {
+      const item = makePlanItem({ start_time: '09:30:00', location: 'Champ de Mars' })
+      vi.mocked(api.fetchBacklog).mockResolvedValue([item])
+      renderBacklogPage()
+      await waitFor(() => expect(screen.getByText('See the Eiffel Tower')).toBeInTheDocument())
+
+      expect(screen.getByText('09:30')).toBeInTheDocument()
+      expect(screen.getByText('Champ de Mars')).toBeInTheDocument()
+    })
+
+    it('opens the shared edit form on click and saves changes with day_id null', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem()
+      vi.mocked(api.fetchBacklog).mockResolvedValue([item])
+      vi.mocked(api.updatePlanItem).mockResolvedValue(
+        makePlanItem({ title: 'Climb the Eiffel Tower' }),
+      )
+
+      renderBacklogPage()
+      await waitFor(() => expect(screen.getByText('See the Eiffel Tower')).toBeInTheDocument())
+
+      // Tapping the item opens the same full-detail form the day view uses. The
+      // edit form's Title is prefilled, which distinguishes it from the always-
+      // present (empty) add form at the foot of the list.
+      await user.click(screen.getByRole('button', { name: /Edit See the Eiffel Tower/ }))
+      const title = (await screen.findByDisplayValue('See the Eiffel Tower')) as HTMLInputElement
+
+      await user.clear(title)
+      await user.type(title, 'Climb the Eiffel Tower')
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => expect(screen.getByText('Climb the Eiffel Tower')).toBeInTheDocument())
+      // A backlog edit keeps the item in the backlog (day_id stays null).
+      expect(api.updatePlanItem).toHaveBeenCalledWith(
+        'trip-1',
+        'item-1',
+        expect.objectContaining({ title: 'Climb the Eiffel Tower', day_id: null }),
+      )
     })
   })
 })

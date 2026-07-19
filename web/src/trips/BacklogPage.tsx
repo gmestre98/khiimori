@@ -1,15 +1,29 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
+  PlanItemValidationError,
   UnauthorizedError,
+  createPlanItem,
   datesInRange,
   deletePlanItem,
   fetchBacklog,
   fetchDay,
   promotePlanItem,
+  updatePlanItem,
   type PlanItem,
 } from '../lib/api'
-import { QuickAddForm } from './DayView'
+import { enqueue } from '../lib/mutationQueue'
+import { useIsOnline } from '../lib/useIsOnline'
+import { splitAmount } from './splitAmount'
+import { BottomSheet, PlanItemForm, QuickAddForm } from './PlanItemForm'
+import {
+  fieldsFromItem,
+  fieldsToInput,
+  mergeInput,
+  tempPlanItem,
+  useMobile,
+  type PlanItemFormFields,
+} from './planItemForm.helpers'
 import { useTripShell } from './useTripShell'
 
 // PromotePicker is the inline day-picker shown when the user clicks "Promote…"
@@ -93,22 +107,34 @@ function PromotePicker({
   )
 }
 
-// BacklogItem renders a single backlog item with promote-to-day and delete
-// affordances. Delete is gated behind a second click (matching plan items on
-// the day view) so a stray tap can't lose an idea.
+// BacklogItem renders a single backlog item. Tapping it opens the same
+// full-detail edit form the day view uses (inline on desktop, a bottom sheet on
+// mobile), so an idea can be refined in place — title, kind, place, time, cost,
+// notes — exactly like a planned item. Promote-to-day and delete sit below;
+// delete is gated behind a second click so a stray tap can't lose an idea.
 function BacklogItem({
   item,
   tripId,
   tripDates,
   onPromoted,
+  onUpdated,
+  onAdded,
   onDeleted,
 }: {
   item: PlanItem
   tripId: string
   tripDates: string[]
   onPromoted: (itemId: string) => void
+  onUpdated: (updated: PlanItem) => void
+  // onAdded appends a newly created sibling (used when a split turns one idea
+  // into several parts on save), mirroring the day view.
+  onAdded: (item: PlanItem) => void
   onDeleted: (itemId: string) => void
 }) {
+  const mobile = useMobile()
+  const online = useIsOnline()
+  const [editing, setEditing] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
   const [showPicker, setShowPicker] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
@@ -124,12 +150,131 @@ function BacklogItem({
     }
   }
 
+  // A backlog idea carries no day, so edits keep day_id null. This mirrors the
+  // day view's PlanItemRow save — including split-into-parts and the offline
+  // queue — so editing an idea behaves exactly like editing a planned item.
+  async function handleSave(fields: PlanItemFormFields, splitParts: number) {
+    setEditError(null)
+    const base = fieldsToInput(fields, null)
+    try {
+      if (splitParts > 1 && base.cost != null && base.cost > 0) {
+        const shares = splitAmount(base.cost, splitParts)
+        const firstInput = {
+          ...base,
+          title: `${base.title} (part 1/${splitParts})`,
+          cost: shares[0],
+        }
+        const partInputs = Array.from({ length: splitParts - 1 }, (_, i) => ({
+          ...base,
+          title: `${base.title} (part ${i + 2}/${splitParts})`,
+          cost: shares[i + 1],
+        }))
+        if (!online) {
+          await enqueue('updatePlanItem', { tripId, itemId: item.id, input: firstInput })
+          onUpdated(mergeInput(item, tripId, firstInput))
+          for (const input of partInputs) {
+            const withId = { ...input, id: crypto.randomUUID() }
+            await enqueue('createPlanItem', { tripId, input: withId })
+            onAdded(tempPlanItem(tripId, null, withId))
+          }
+          setEditing(false)
+          return
+        }
+        const first = await updatePlanItem(tripId, item.id, firstInput)
+        onUpdated(first)
+        for (const input of partInputs) {
+          const created = await createPlanItem(tripId, input)
+          onAdded(created)
+        }
+        setEditing(false)
+        return
+      }
+      if (!online) {
+        await enqueue('updatePlanItem', { tripId, itemId: item.id, input: base })
+        onUpdated(mergeInput(item, tripId, base))
+        setEditing(false)
+        return
+      }
+      const updated = await updatePlanItem(tripId, item.id, base)
+      onUpdated(updated)
+      setEditing(false)
+    } catch (err) {
+      if (err instanceof PlanItemValidationError) setEditError(err.message)
+      else setEditError('Could not save changes.')
+    }
+  }
+
+  async function handleAutoSave(fields: PlanItemFormFields) {
+    const input = fieldsToInput(fields, null)
+    if (!online) {
+      await enqueue('updatePlanItem', { tripId, itemId: item.id, input })
+      onUpdated(mergeInput(item, tripId, input))
+      return
+    }
+    const updated = await updatePlanItem(tripId, item.id, input)
+    onUpdated(updated)
+  }
+
+  const editForm = (
+    <PlanItemForm
+      initialFields={fieldsFromItem(item)}
+      submitLabel="Save"
+      onSubmit={handleSave}
+      onCancel={() => {
+        setEditing(false)
+        setEditError(null)
+      }}
+      onAutoSave={handleAutoSave}
+      error={editError}
+      actionsPlacement={mobile ? 'footer' : 'inline'}
+    />
+  )
+
+  if (editing && mobile) {
+    return (
+      <>
+        {/* Keep the row visible behind the sheet (mirrors the day view). */}
+        <li className="plan-item backlog-item" aria-label={item.title}>
+          <div className="plan-item-main">
+            <span className="plan-item-title">{item.title}</span>
+          </div>
+        </li>
+        <BottomSheet
+          open
+          onClose={() => {
+            setEditing(false)
+            setEditError(null)
+          }}
+          label={`Edit ${item.title}`}
+        >
+          {editForm}
+        </BottomSheet>
+      </>
+    )
+  }
+
+  if (editing) {
+    return <li className="plan-item backlog-item plan-item--editing">{editForm}</li>
+  }
+
   return (
-    <li className="backlog-item">
-      <div className="backlog-item-main">
-        <span className="backlog-item-title">{item.title}</span>
-        {item.type && <span className="backlog-item-type">{item.type}</span>}
-        {item.location && <span className="backlog-item-location">{item.location}</span>}
+    <li className="plan-item backlog-item">
+      <div className="plan-item-main">
+        <button
+          type="button"
+          className="plan-item-edit-btn"
+          aria-label={`Edit ${item.title}`}
+          onClick={() => setEditing(true)}
+        >
+          {item.start_time && (
+            <span className="plan-item-time" aria-label={`Start time: ${item.start_time}`}>
+              {item.start_time.slice(0, 5)}
+            </span>
+          )}
+          <span className="plan-item-title">{item.title}</span>
+          {item.location && <span className="plan-item-location">{item.location}</span>}
+          {item.note && <span className="plan-item-note">{item.note}</span>}
+        </button>
       </div>
       <div className="backlog-item-actions">
         {showPicker ? (
@@ -235,6 +380,10 @@ export function BacklogPage() {
     setItems((prev) => (prev ? [...prev, item] : [item]))
   }
 
+  function handleUpdated(updated: PlanItem) {
+    setItems((prev) => (prev ? prev.map((i) => (i.id === updated.id ? updated : i)) : prev))
+  }
+
   function handlePromoted(itemId: string) {
     setItems((prev) => (prev ? prev.filter((i) => i.id !== itemId) : prev))
   }
@@ -278,6 +427,8 @@ export function BacklogPage() {
                 tripId={tripId!}
                 tripDates={tripDates}
                 onPromoted={handlePromoted}
+                onUpdated={handleUpdated}
+                onAdded={handleAdded}
                 onDeleted={handleDeleted}
               />
             ))}
