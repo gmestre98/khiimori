@@ -19,7 +19,12 @@ function summarize(entry: JournalEntry | null, photos: Photo[]): string {
   const n = photos.length
   const shots = n > 0 ? `${n} ${n === 1 ? 'photo' : 'photos'}` : ''
   if (body === '') return shots
-  const line = body.split('\n')[0]
+  // First non-blank line — an entry that opens with a blank line still previews.
+  const line =
+    body
+      .split('\n')
+      .find((l) => l.trim() !== '')
+      ?.trim() ?? ''
   const clipped = line.length > 90 ? `${line.slice(0, 90)}…` : line
   return shots === '' ? clipped : `${clipped} · ${shots}`
 }
