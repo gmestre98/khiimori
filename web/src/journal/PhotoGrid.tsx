@@ -10,6 +10,8 @@ import {
 import { enqueue } from '../lib/mutationQueue'
 import { useIsOnline } from '../lib/useIsOnline'
 import { useFocusTrap } from '../components/ui/useFocusTrap'
+import { writeCache } from '../lib/resourceCache'
+import { cacheKeys } from '../lib/cacheKeys'
 
 // PhotoLightbox renders a single photo full-screen with caption. Exported so the
 // trip Journal subtab's travelogue can reuse the same viewer for its thumbnails.
@@ -130,11 +132,20 @@ export function PhotoGrid({
   const [capError, setCapError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // loadedRef gates the cache write-through below so neither the initial empty
+  // state nor the previous day's list can clobber a good cached list before this
+  // day's fetch resolves. A ref, not state — it only guards an effect.
+  const loadedRef = useRef(false)
+
   // Load photos when dayId changes.
   useEffect(() => {
     const controller = new AbortController()
+    loadedRef.current = false
     listPhotos(tripId, dayId, controller.signal)
-      .then((ps) => setPhotos(ps))
+      .then((ps) => {
+        loadedRef.current = true
+        setPhotos(ps)
+      })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === 'AbortError') return
         if (err instanceof UnauthorizedError) return
@@ -142,6 +153,13 @@ export function PhotoGrid({
       })
     return () => controller.abort()
   }, [tripId, dayId])
+
+  // Write the list through to the on-device cache on every change (load, upload,
+  // delete) so a collapsed DayDiary row can show a photo count without a request.
+  useEffect(() => {
+    if (!loadedRef.current) return
+    void writeCache(cacheKeys.photos(tripId, dayId), photos)
+  }, [photos, tripId, dayId])
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return

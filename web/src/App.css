@@ -2100,11 +2100,113 @@
   min-width: 0;
 }
 
-/* Whole-trip planner: a vertical stack of per-day planning sections. */
+/* Whole-trip planner: a vertical stack of collapsible per-day cards. */
 .trip-plan-feed {
   display: flex;
   flex-direction: column;
+  gap: var(--space-2);
+}
+
+.trip-plan-feed-head {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-2);
+}
+.trip-plan-expand-all {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.trip-plan-expand-all:hover {
+  color: var(--ink);
+}
+
+/* One day in the whole-trip stack: a summary head you click to reveal the day's
+   planner and diary. Collapsed by default so the stack is scannable. */
+.day-card {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.day-card--open {
+  border-color: var(--line-strong, var(--line));
+}
+.day-card-head {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  background: none;
+  border: none;
+  font: inherit;
+  padding: var(--space-3);
+  cursor: pointer;
+  border-radius: var(--r-md);
+}
+.day-card-head:hover .day-card-title {
+  color: var(--accent);
+}
+.day-card-chevron {
+  color: var(--muted);
+  font-size: 12px;
+}
+.day-card-title {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-h);
+}
+.day-card-meta {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+}
+.day-card-body {
+  border-top: 1px solid var(--line);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
   gap: var(--s5);
+}
+
+/* Diary: collapsed to a single preview row inside an expanded day card. */
+.day-diary {
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-3);
+}
+.day-diary-toggle {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  background: none;
+  border: 1px dashed var(--line-2, var(--line));
+  border-radius: var(--r-md);
+  padding: var(--space-2) var(--space-3);
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.day-diary-toggle:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.day-diary-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.day-diary-chevron {
+  font-size: 12px;
+  color: var(--muted);
 }
 
 /* A selected day: its planner (plan + what happened) with the journal below,

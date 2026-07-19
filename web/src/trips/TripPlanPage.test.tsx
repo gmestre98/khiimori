@@ -124,10 +124,20 @@ beforeEach(() => {
   // Default: no journal entry on any day (travelogue empty, editor blank).
   vi.mocked(api.fetchJournalEntry).mockRejectedValue(new api.JournalEntryNotFoundError())
   vi.mocked(api.listPhotos).mockResolvedValue([])
+  // The whole-trip stack persists which day cards are open; start each test from
+  // the cold default (today, or day 1 for a trip outside today's range).
+  localStorage.clear()
 })
 
 async function daysNav() {
   return within(await screen.findByRole('navigation', { name: 'Days' }))
+}
+
+// expandAllDays opens every collapsed day card in the whole-trip stack. Days are
+// collapsed by default (only today's is open), so a test that asserts across
+// days has to expand first.
+async function expandAllDays(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: 'Expand all' }))
 }
 
 describe('TripPlanPage', () => {
@@ -191,12 +201,56 @@ describe('TripPlanPage', () => {
     ).toBeVisible()
   })
 
-  it('defaults to the whole-trip stack showing every day planner', async () => {
+  it('defaults to the whole-trip stack with only one day card expanded', async () => {
     renderPage()
-    // Each day renders its own Planning section, titled by day.
+    // The trip is outside today's range, so day 1 is the one open card and its
+    // planner renders; the other days are collapsed to their summary head.
     expect(await screen.findByText('Visit the castle')).toBeInTheDocument()
+    const heads = within(screen.getByRole('region', { name: 'Day cards' })).getAllByRole('button', {
+      name: /^Day \d/,
+    })
+    expect(heads).toHaveLength(3)
+    expect(heads.filter((h) => h.getAttribute('aria-expanded') === 'true')).toHaveLength(1)
     const wholeTrip = (await daysNav()).getByRole('button', { name: /whole trip/i })
     expect(wholeTrip).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('expands and collapses a day card, and remembers it across a remount', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const feed = within(await screen.findByRole('region', { name: 'Day cards' }))
+    const day2 = feed.getByRole('button', { name: /^Day 2/ })
+    expect(day2).toHaveAttribute('aria-expanded', 'false')
+    await user.click(day2)
+    expect(feed.getByRole('button', { name: /^Day 2/ })).toHaveAttribute('aria-expanded', 'true')
+
+    // Remount: the open set is restored from storage, not reset to the default.
+    cleanup()
+    renderPage()
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('region', { name: 'Day cards' })).getByRole('button', {
+          name: /^Day 2/,
+        }),
+      ).toHaveAttribute('aria-expanded', 'true'),
+    )
+  })
+
+  it('offers a collapsed diary on each day in the stack, opening the editor on click', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    // The expanded day card carries a diary row; the editor is not mounted yet,
+    // so no journal fetch has happened for it.
+    const diary = await screen.findByRole('button', { name: /diary/i })
+    expect(diary).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByLabelText('Journal entry')).not.toBeInTheDocument()
+
+    await user.click(diary)
+    // A past trip's journal is read-only, so the entry field is present but
+    // disabled — the point is that the diary + photos are reachable here again.
+    expect(await screen.findByLabelText('Journal entry')).toBeInTheDocument()
   })
 
   it('adds a two-night stay to every night it covers, not just the first day', async () => {
@@ -211,6 +265,7 @@ describe('TripPlanPage', () => {
     })
 
     renderPage()
+    await expandAllDays(user)
     // Whole-trip stack: every day shows an add-stay affordance. Open day 1's.
     const addButtons = await screen.findAllByRole('button', {
       name: /add where you're staying/i,
@@ -237,6 +292,7 @@ describe('TripPlanPage', () => {
       day_id: 'day-1',
     })
     renderPage()
+    await expandAllDays(user)
 
     const nav = await daysNav()
     // Before: day 1 has the item, day 2 is empty.
