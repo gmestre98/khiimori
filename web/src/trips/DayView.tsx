@@ -1026,8 +1026,10 @@ export function PlanningSection({
   selectedId?: string | null
   onSelect?: (id: string | null) => void
   // title overrides the section heading (default "Plan"); the Plan subtab uses
-  // the day's name so each stacked day is labelled.
-  title?: string
+  // the day's name so each stacked day is labelled. Pass null to drop the
+  // heading entirely — the whole-trip stack's collapsible card head already
+  // names the day, so repeating it inside is noise.
+  title?: string | null
   // showBacklogLink renders the in-section backlog link (day view). The Plan
   // subtab surfaces the backlog once in its rail instead, so it opts out.
   showBacklogLink?: boolean
@@ -1143,7 +1145,7 @@ export function PlanningSection({
 
   return (
     <section className="day-slot day-slot-planning" aria-label="Planning" data-slot="planning">
-      <h2 className="day-slot-title">{title}</h2>
+      {title !== null && <h2 className="day-slot-title">{title}</h2>}
       <StaySlot
         day={day}
         tripId={tripId}

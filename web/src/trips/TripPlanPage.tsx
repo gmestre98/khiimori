@@ -11,6 +11,7 @@ import {
 import { fullDate, shortDate } from '../lib/format'
 import { PlanningSection } from './DayView'
 import { JournalEditor } from '../journal/JournalEditor'
+import { DayDiary } from '../journal/DayDiary'
 import { TripTravelogue } from './TripTravelogue'
 import { coversDay } from './stayCoverage'
 import { useTripShell } from './useTripShell'
@@ -21,6 +22,35 @@ import { cacheKeys } from '../lib/cacheKeys'
 // stay. Drives the filled rail dot so a glance shows which days still need work.
 function hasPlan(day: Day): boolean {
   return day.plan_items.length > 0 || day.stays.length > 0
+}
+
+// EXPANDED_KEY namespaces the per-trip set of expanded days in localStorage, so
+// which days you left open survives a reload (mirrors the plan-hidden toggle).
+const EXPANDED_KEY = (tripId: string) => `khiimori:daysExpanded:${tripId}`
+
+// defaultExpanded picks the days open on a cold start: today only, or day 1 when
+// the trip hasn't started yet or is already over. The whole-trip stack used to
+// render every day in full, which made it an endless scroll.
+function defaultExpanded(dates: string[]): string[] {
+  const today = new Date().toISOString().slice(0, 10)
+  return [dates.includes(today) ? today : (dates[0] ?? '')].filter(Boolean)
+}
+
+// readExpanded restores the saved set, falling back to the default. Storage may
+// be unavailable (private mode) or hold junk — either way we just use defaults.
+function readExpanded(tripId: string, dates: string[]): Set<string> {
+  try {
+    const raw = localStorage.getItem(EXPANDED_KEY(tripId))
+    if (raw !== null) {
+      const parsed: unknown = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        return new Set(parsed.filter((d): d is string => typeof d === 'string'))
+      }
+    }
+  } catch {
+    // ignore storage/parse failures — fall through to the default
+  }
+  return new Set(defaultExpanded(dates))
 }
 
 // dayCaption is the muted status line under each rail row.
@@ -52,6 +82,33 @@ export function TripPlanPage() {
   // selectedDate is the day being planned on the right; null means the whole-trip
   // stack (the landing view).
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  // expanded holds the dates whose card is open in the whole-trip stack.
+  const [expanded, setExpanded] = useState<Set<string>>(() => readExpanded(trip.id, dates))
+
+  // The open set is mirrored to storage as an effect rather than at each call
+  // site, so every update can be functional — two toggles in the same tick (a
+  // fast double-click, or collapse-all right after a toggle) must not clobber
+  // each other by both deriving from the same stale snapshot.
+  useEffect(() => {
+    try {
+      localStorage.setItem(EXPANDED_KEY(trip.id), JSON.stringify([...expanded]))
+    } catch {
+      // ignore storage failures — the toggle still works in-session
+    }
+  }, [trip.id, expanded])
+
+  function toggleExpanded(date: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(date)) next.add(date)
+      return next
+    })
+  }
+
+  // toggleAll opens every day, or closes every day when all are already open.
+  function toggleAll(allDates: string[]) {
+    setExpanded((prev) => (prev.size === allDates.length ? new Set() : new Set(allDates)))
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -274,23 +331,62 @@ export function TripPlanPage() {
                 </div>
               ) : (
                 <>
-                  <div className="trip-plan-feed">
-                    {days.map((d) => (
-                      <PlanningSection
-                        key={d.id}
-                        day={d}
-                        items={d.plan_items}
-                        setItems={setItemsForDate(d.date)}
-                        setStays={setStaysForDate(d.date)}
-                        onStaySaved={applyStay}
-                        onStayRemoved={removeStay}
-                        onItemMoved={insertMovedItem}
-                        tripId={trip.id}
-                        title={`Day ${d.index + 1} · ${shortDate(d.date)}`}
-                        showBacklogLink={false}
-                      />
-                    ))}
+                  <div className="trip-plan-feed-head">
+                    <button
+                      type="button"
+                      className="trip-plan-expand-all"
+                      onClick={() => toggleAll(days.map((d) => d.date))}
+                    >
+                      {expanded.size === days.length ? 'Collapse all' : 'Expand all'}
+                    </button>
                   </div>
+                  <section className="trip-plan-feed" aria-label="Day cards">
+                    {days.map((d) => {
+                      const open = expanded.has(d.date)
+                      return (
+                        <div
+                          key={d.id}
+                          className={['day-card', open ? 'day-card--open' : '']
+                            .filter(Boolean)
+                            .join(' ')}
+                        >
+                          <button
+                            type="button"
+                            className="day-card-head"
+                            aria-expanded={open}
+                            onClick={() => toggleExpanded(d.date)}
+                          >
+                            <span className="day-card-chevron" aria-hidden="true">
+                              {open ? '▾' : '▸'}
+                            </span>
+                            <span className="day-card-title">
+                              Day {d.index + 1} · {shortDate(d.date)}
+                            </span>
+                            <span className="day-card-meta">{dayCaption(d)}</span>
+                          </button>
+                          {open && (
+                            <div className="day-card-body">
+                              <PlanningSection
+                                day={d}
+                                items={d.plan_items}
+                                setItems={setItemsForDate(d.date)}
+                                setStays={setStaysForDate(d.date)}
+                                onStaySaved={applyStay}
+                                onStayRemoved={removeStay}
+                                onItemMoved={insertMovedItem}
+                                tripId={trip.id}
+                                // The card head already names the day, so the
+                                // section heading would just repeat it.
+                                title={null}
+                                showBacklogLink={false}
+                              />
+                              <DayDiary tripId={trip.id} dayId={d.id} readOnly={isPast} />
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </section>
                   {/* Read the whole trip as a diary, below the plan stack. */}
                   <TripTravelogue />
                 </>
