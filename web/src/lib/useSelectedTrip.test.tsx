@@ -64,4 +64,11 @@ describe('useSelectedTrip', () => {
     await waitFor(() => expect(result.current.selectedTrip?.name).toBe('Portugal'))
     expect(localStorage.getItem('khiimori.selectedTripId')).toBe('portugal')
   })
+
+  it('follows the trip in the URL over the stored pick', async () => {
+    localStorage.setItem('khiimori.selectedTripId', 'morocco')
+    const { result } = renderHook(() => useSelectedTrip('portugal'))
+    await waitFor(() => expect(result.current.selectedTrip?.name).toBe('Portugal'))
+    expect(localStorage.getItem('khiimori.selectedTripId')).toBe('portugal')
+  })
 })

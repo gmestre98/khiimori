@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useMatch } from 'react-router-dom'
 import { BottomNav } from '../ui'
 import { useAuth } from '../../auth/AuthContext'
 import { useSelectedTrip } from '../../lib/useSelectedTrip'
@@ -12,8 +12,12 @@ export function AuthenticatedLayout() {
   const { signOut, user } = useAuth()
   // The selected trip drives both the dynamic "Trip · …" switcher tab and the
   // trip-scoped nav (Map / Journal / Budget / Sharing), so they all follow the
-  // trip the user is currently viewing rather than always the default.
-  const tripSwitcher = useSelectedTrip()
+  // trip the user is currently viewing rather than always the default. When the
+  // user is on a trip page, feed that trip's id in so the selection follows the
+  // URL (opening a trip from the dashboard is a plain link, not selectTrip).
+  const tripMatch = useMatch('/trips/:tripId/*')
+  const routeTripId = tripMatch?.params.tripId ?? null
+  const tripSwitcher = useSelectedTrip(routeTripId === 'new' ? null : routeTripId)
   const activeTripId = tripSwitcher.selectedTrip?.id ?? null
 
   const userName = user?.name ?? user?.email?.split('@')[0] ?? 'You'
