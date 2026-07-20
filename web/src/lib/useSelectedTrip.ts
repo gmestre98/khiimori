@@ -61,18 +61,23 @@ export function useSelectedTrip(routeTripId?: string | null): TripSwitcher {
     return () => controller.abort()
   }, [])
 
-  // Viewing a trip page is an implicit selection: keep the stored pick in sync
-  // with the trip in the URL so navigating into a trip updates the sidebar tabs.
+  // Viewing a trip page is an implicit selection: adjust the pick during render
+  // when the trip in the URL changes (React's "adjust state while rendering"
+  // pattern) so navigating into a trip updates the sidebar tabs without a
+  // setState-in-effect cascade.
+  if (routeTripId && routeTripId !== selectedId) {
+    setSelectedId(routeTripId)
+  }
+
+  // Persist the current pick so it survives reloads. Writing localStorage from
+  // an effect (not setState) keeps this in sync for both explicit picks and the
+  // route-driven one above.
   useEffect(() => {
-    if (routeTripId && routeTripId !== selectedId) {
-      setSelectedId(routeTripId)
-      writeStoredId(routeTripId)
-    }
-  }, [routeTripId, selectedId])
+    if (selectedId) writeStoredId(selectedId)
+  }, [selectedId])
 
   const selectTrip = useCallback((id: string) => {
     setSelectedId(id)
-    writeStoredId(id)
   }, [])
 
   let selectedTrip: Trip | null = null
