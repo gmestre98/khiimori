@@ -2100,6 +2100,44 @@
   min-width: 0;
 }
 
+/* On phones the rail and the day-card stack are the same list of days twice
+   over, so a vertical rail meant scrolling past every day to reach the cards.
+   Lay the rail out as a horizontal strip of compact chips instead — one row you
+   swipe, with the cards starting right below it. Captions are dropped here; the
+   cards carry the detail. This block sits after the base rail rules so its
+   flex-direction override wins the cascade. */
+@media (max-width: 900px) {
+  .trip-plan-days {
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 6px;
+    padding-bottom: 6px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .trip-plan-days::-webkit-scrollbar {
+    display: none;
+  }
+  .trip-plan-day {
+    flex: 0 0 auto;
+    grid-template-rows: auto;
+    white-space: nowrap;
+  }
+  .trip-plan-day-dot {
+    grid-row: auto;
+  }
+  .trip-plan-day-meta {
+    display: none;
+  }
+  .trip-plan-backlog {
+    flex: 0 0 auto;
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+}
+
 /* Whole-trip planner: a vertical stack of collapsible per-day cards. */
 .trip-plan-feed {
   display: flex;
