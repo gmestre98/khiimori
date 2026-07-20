@@ -38,7 +38,13 @@ export interface TripSwitcher {
 // Sharing links). The selection is the user's last explicit pick when that trip
 // still exists, otherwise the default active trip (see pickActiveTrip). Fails
 // silently — with no trips the switcher renders nothing.
-export function useSelectedTrip(): TripSwitcher {
+//
+// `routeTripId` — when the user is actually viewing a trip page (`/trips/:id/…`),
+// the caller passes that id so the selection follows the URL. Without this,
+// opening a trip from the dashboard (a plain <Link>, not selectTrip) would leave
+// the sidebar's trip-scoped tabs pointing at the previously-picked trip, so the
+// Map / Journal / Budget tabs would jump back to it.
+export function useSelectedTrip(routeTripId?: string | null): TripSwitcher {
   const [trips, setTrips] = useState<TripsResponse | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(() => readStoredId())
 
@@ -54,6 +60,15 @@ export function useSelectedTrip(): TripSwitcher {
       })
     return () => controller.abort()
   }, [])
+
+  // Viewing a trip page is an implicit selection: keep the stored pick in sync
+  // with the trip in the URL so navigating into a trip updates the sidebar tabs.
+  useEffect(() => {
+    if (routeTripId && routeTripId !== selectedId) {
+      setSelectedId(routeTripId)
+      writeStoredId(routeTripId)
+    }
+  }, [routeTripId, selectedId])
 
   const selectTrip = useCallback((id: string) => {
     setSelectedId(id)
