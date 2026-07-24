@@ -82,6 +82,11 @@ func BuildExportModel(ctx context.Context, r Reader, tripID string) (Model, erro
 		return Model{}, err
 	}
 
+	// Make chronological order authoritative here rather than trusting the
+	// adapter's ORDER BY: a document that reads out of date order is a serious
+	// defect, and the cost is one stable sort.
+	sort.SliceStable(days, func(a, b int) bool { return days[a].Date.Before(days[b].Date) })
+
 	// Index days by id so the flat, day-keyed lists can be attached in one pass.
 	byID := make(map[string]*Day, len(days))
 	for i := range days {

@@ -155,6 +155,20 @@ func TestBuildExportModel_PlannedOrdersTimedBeforeUntimed(t *testing.T) {
 	}
 }
 
+func TestBuildExportModel_SortsDaysChronologically(t *testing.T) {
+	// Adapter returns days out of order; the model must be chronological.
+	r := &fakeReader{days: []Day{
+		{ID: "d3", Date: date("2026-05-14")},
+		{ID: "d1", Date: date("2026-05-12")},
+		{ID: "d2", Date: date("2026-05-13")},
+	}}
+	m := build(t, r)
+	got := []string{m.Days[0].ID, m.Days[1].ID, m.Days[2].ID}
+	if !equal(got, []string{"d1", "d2", "d3"}) {
+		t.Errorf("day order = %v, want [d1 d2 d3]", got)
+	}
+}
+
 func TestBuildExportModel_EmptyDegradesCleanly(t *testing.T) {
 	// A trip with days but no stays/items/journals must not error and must leave
 	// those sections empty.
