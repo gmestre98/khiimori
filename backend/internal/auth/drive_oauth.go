@@ -2,8 +2,6 @@ package auth
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"errors"
@@ -16,6 +14,10 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
+
+// driveHTTPTimeout bounds the Drive token exchange so a hung Google endpoint
+// cannot pin a request goroutine on this scale-to-zero service.
+const driveHTTPTimeout = 15 * time.Second
 
 // driveFileScope is the least-privilege Drive scope: it grants access only to
 // files and folders this app creates or the user explicitly opens (e.g. via the
@@ -59,8 +61,9 @@ type driveAuthProvider interface {
 // and the drive.file scope. Construct it with NewDriveOAuthProvider.
 type DriveOAuthProvider struct {
 	cfg oauth2.Config
-	// httpClient, when non-nil, is injected into the exchange context so tests
-	// run offline against a stub token endpoint. Nil in production.
+	// httpClient is injected into the exchange context. In production it is a
+	// client with a bounded timeout (driveHTTPTimeout); tests replace it with a
+	// client pointed at a stub token endpoint. Never nil after construction.
 	httpClient *http.Client
 }
 
@@ -79,6 +82,7 @@ func NewDriveOAuthProvider(clientID, clientSecret, redirectURI string) *DriveOAu
 			Endpoint:     google.Endpoint,
 			Scopes:       []string{driveFileScope},
 		},
+		httpClient: &http.Client{Timeout: driveHTTPTimeout},
 	}
 }
 
@@ -153,9 +157,7 @@ type driveStateSigner struct {
 // domain-separated HMAC, so no separate secret is provisioned (same approach as
 // deriveStateKey for sign-in, with a distinct domain string).
 func newDriveStateSigner(clientSecret string) *driveStateSigner {
-	m := hmac.New(sha256.New, []byte(clientSecret))
-	m.Write([]byte("khiimori:drive-oauth-state:v1"))
-	return &driveStateSigner{key: m.Sum(nil)}
+	return &driveStateSigner{key: deriveHMACKey(clientSecret, "khiimori:drive-oauth-state:v1")}
 }
 
 // sign returns "<b64(userID)>.<nonce>.<exp>.<mac>" binding userID with a fresh
@@ -201,7 +203,5 @@ func (s *driveStateSigner) verify(state string) (userID string, err error) {
 
 // mac returns the URL-safe base64 HMAC-SHA256 of payload under the signer key.
 func (s *driveStateSigner) mac(payload string) string {
-	m := hmac.New(sha256.New, s.key)
-	m.Write([]byte(payload))
-	return base64.RawURLEncoding.EncodeToString(m.Sum(nil))
+	return macB64(s.key, payload)
 }

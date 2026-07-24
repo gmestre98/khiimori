@@ -61,10 +61,19 @@ func (m *Module) handleDriveCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 
-	// The user may decline consent on Google's screen (error=access_denied).
+	// Google may redirect back with an error (RFC 6749 §4.1.2.1). Only
+	// access_denied means the user actively declined — everything else
+	// (server_error, temporarily_unavailable, invalid_scope, …) is a transient
+	// or configuration failure the user should be told to retry, not that they
+	// declined.
 	if e := q.Get("error"); e != "" {
-		m.failDriveConnect(w, r, http.StatusBadRequest, "drive_consent_denied",
-			"Google Drive authorization was declined")
+		if e == "access_denied" {
+			m.failDriveConnect(w, r, http.StatusBadRequest, "drive_consent_denied",
+				"Google Drive authorization was declined")
+			return
+		}
+		m.failDriveConnect(w, r, http.StatusBadGateway, "drive_connect_failed",
+			"Google Drive authorization could not be completed")
 		return
 	}
 

@@ -127,6 +127,28 @@ func TestDriveCallback_ConsentDenied(t *testing.T) {
 	}
 }
 
+func TestDriveCallback_TransientGoogleErrorIsNotADecline(t *testing.T) {
+	// A non-access_denied error (e.g. Google server_error) must not be reported
+	// to the user as "declined" — it's a retryable failure.
+	p := &fakeDriveProvider{}
+	m, _, cap := newDriveModule(p)
+
+	rec := httptest.NewRecorder()
+	req := withPrincipal(httptest.NewRequest("GET", DriveCallbackPath+"?error=server_error", nil), "user-7")
+	m.handleDriveCallback(rec, req)
+
+	if p.exchCalls != 0 || cap.called {
+		t.Error("no exchange/persist on an error redirect")
+	}
+	loc := rec.Header().Get("Location")
+	if strings.Contains(loc, "drive_consent_denied") {
+		t.Errorf("transient error mislabeled as declined: %q", loc)
+	}
+	if !strings.Contains(loc, "drive_error=drive_connect_failed") {
+		t.Errorf("want drive_connect_failed marker, got %q", loc)
+	}
+}
+
 func TestDriveCallback_StateBoundToDifferentUserRejected(t *testing.T) {
 	p := &fakeDriveProvider{token: &DriveToken{RefreshToken: "rt", Scopes: []string{driveFileScope}}}
 	m, signer, cap := newDriveModule(p)
