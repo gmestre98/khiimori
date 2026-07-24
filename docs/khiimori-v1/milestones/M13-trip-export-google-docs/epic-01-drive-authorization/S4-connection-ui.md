@@ -20,8 +20,8 @@ Let the user connect and disconnect Google Drive from the app, and see status.
 
 ## Acceptance
 
-- [ ] User can connect Drive (round-trips through Google consent) and see the
+- [x] User can connect Drive (round-trips through Google consent) and see the
       connected state without a manual refresh.
-- [ ] User can disconnect; the UI returns to the not-connected state.
-- [ ] Verified in a browser (per project convention for UI stories).
+- [x] User can disconnect; the UI returns to the not-connected state.
+- [x] Verified in a browser (per project convention for UI stories).
 </content>
