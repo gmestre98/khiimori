@@ -202,7 +202,7 @@ func (m *Module) handleDriveCallback(w http.ResponseWriter, r *http.Request) {
 // marker, or acknowledges as JSON when no web app is configured.
 func (m *Module) succeedDriveConnect(w http.ResponseWriter, r *http.Request) {
 	if m.webAppURL != "" {
-		http.Redirect(w, r, m.webAppURL+"/settings?drive=connected", http.StatusFound)
+		http.Redirect(w, r, m.webAppURL+"/profile?drive=connected", http.StatusFound)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -215,7 +215,7 @@ func (m *Module) succeedDriveConnect(w http.ResponseWriter, r *http.Request) {
 // JSON API error. No connection is stored.
 func (m *Module) failDriveConnect(w http.ResponseWriter, r *http.Request, status int, code, message string) {
 	if m.webAppURL != "" {
-		http.Redirect(w, r, m.webAppURL+"/settings?drive_error="+url.QueryEscape(code), http.StatusFound)
+		http.Redirect(w, r, m.webAppURL+"/profile?drive_error="+url.QueryEscape(code), http.StatusFound)
 		return
 	}
 	httpx.WriteError(w, r, httpx.NewAPIError(status, code, message))
