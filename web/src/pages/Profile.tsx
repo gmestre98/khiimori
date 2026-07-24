@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { ProfileValidationError, UnauthorizedError, updateProfile } from '../lib/api'
 import { Button, FormField, Input } from '../components/ui'
+import { DriveConnectionCard } from '../components/DriveConnectionCard'
 import { applyTheme } from '../design/theme'
 
 const THEMES = [
@@ -277,6 +278,8 @@ export function Profile() {
           </Link>
         </div>
       </form>
+
+      <DriveConnectionCard />
     </section>
   )
 }

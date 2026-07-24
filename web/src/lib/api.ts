@@ -168,6 +168,52 @@ export async function updateProfile(patch: ProfilePatch): Promise<Profile> {
   return (await res.json()) as Profile
 }
 
+// --- Google Drive export integration (M13.1) --------------------------------
+
+// DriveConnectionStatus is the wire shape of GET /integrations/google-drive. It
+// carries no token material — only whether the user has connected Drive and,
+// when connected, when and (once Epic 03 resolves it) the target folder id.
+export interface DriveConnectionStatus {
+  connected: boolean
+  connected_at?: string
+  folder_id?: string
+}
+
+// driveConnectUrl starts the Drive authorization flow (M13.1 S1). Like sign-in
+// it is a top-level browser navigation (the OAuth redirect dance), so the UI
+// navigates the whole page here rather than fetching it. On return the backend
+// redirects to /profile?drive=connected or /profile?drive_error=<code>.
+export const driveConnectUrl = apiUrl('/integrations/google-drive/connect')
+
+// fetchDriveConnection reads the signed-in user's Drive connection status. A 401
+// throws UnauthorizedError (central re-auth). When the integration isn't
+// available (endpoint unconfigured/unregistered → non-2xx other than 401) it
+// resolves to a disconnected status rather than throwing, so the UI degrades to
+// "not connected" instead of erroring.
+export async function fetchDriveConnection(signal?: AbortSignal): Promise<DriveConnectionStatus> {
+  const res = await apiFetch('/integrations/google-drive', { signal })
+  if (res.status === 401) {
+    throw new UnauthorizedError()
+  }
+  if (!res.ok) {
+    return { connected: false }
+  }
+  return (await res.json()) as DriveConnectionStatus
+}
+
+// disconnectDrive revokes and removes the user's Drive connection (POST
+// /integrations/google-drive/disconnect). A 401 throws UnauthorizedError; any
+// other non-2xx throws a generic Error so the UI can show a retry.
+export async function disconnectDrive(): Promise<void> {
+  const res = await apiFetch('/integrations/google-drive/disconnect', { method: 'POST' })
+  if (res.status === 401) {
+    throw new UnauthorizedError()
+  }
+  if (!res.ok) {
+    throw new Error(`API returned HTTP ${res.status}`)
+  }
+}
+
 // --- Trips (M03.5 S1) -------------------------------------------------------
 
 // Trip is the wire shape of a single trip returned by GET /trips.

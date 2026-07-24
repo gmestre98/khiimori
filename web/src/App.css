@@ -300,6 +300,52 @@
   padding: var(--s5);
 }
 
+/* Google Drive export connection (M13.1 S4). */
+.drive-card {
+  margin-top: var(--s5);
+}
+.drive-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+.drive-card-title {
+  margin: 0;
+  font-size: var(--text-md);
+}
+.drive-card-sub {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.drive-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+.drive-card-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.drive-card-state--on {
+  color: var(--text-primary);
+}
+.drive-card-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--success);
+}
+.drive-card-status {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
 /* Read-only facts (currency) as a compact key/value row. */
 .profile-facts {
   margin: 0;

@@ -1,8 +1,17 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { Profile } from './Profile'
 import { AuthContext, type AuthContextValue } from '../auth/AuthContext'
+import * as api from '../lib/api'
+
+// The profile page embeds the Drive connection card (M13.1 S4), which fetches
+// its status on mount. Keep it inert here so it doesn't consume the shared fetch
+// mock these tests set up for /me — its own behaviour is covered by
+// DriveConnectionCard.test.tsx.
+beforeEach(() => {
+  vi.spyOn(api, 'fetchDriveConnection').mockResolvedValue({ connected: false })
+})
 
 const user = {
   id: 'user-ann',
