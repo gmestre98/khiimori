@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -166,6 +167,8 @@ func (s *driveConnectionStore) Revoke(ctx context.Context, userID string) error 
 		return fmt.Errorf("auth: drive revoke request: %w", err)
 	}
 	defer resp.Body.Close()
+	// Drain so the connection can be reused from the pool.
+	_, _ = io.Copy(io.Discard, resp.Body)
 	// Google answers 200 on success. A 400 for an already-invalid token is
 	// harmless (we're deleting the row anyway) but still surfaced so the caller
 	// can log it.

@@ -27,6 +27,11 @@ const (
 // Drive. It never returns any token material — only the connected flag and,
 // when connected, when it was connected. Registered behind RequireAuth.
 func (m *Module) handleDriveStatus(w http.ResponseWriter, r *http.Request) {
+	if !m.driveConfigured {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusNotImplemented, "drive_not_configured", "Google Drive export is not configured"))
+		return
+	}
 	p, ok := authn.FromContext(r.Context())
 	if !ok {
 		httpx.WriteError(w, r, httpx.NewAPIError(
@@ -57,6 +62,11 @@ func (m *Module) handleDriveStatus(w http.ResponseWriter, r *http.Request) {
 // and deletes the stored connection. Idempotent — disconnecting when not
 // connected still returns 204. Registered behind RequireAuth.
 func (m *Module) handleDriveDisconnect(w http.ResponseWriter, r *http.Request) {
+	if !m.driveConfigured {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusNotImplemented, "drive_not_configured", "Google Drive export is not configured"))
+		return
+	}
 	p, ok := authn.FromContext(r.Context())
 	if !ok {
 		httpx.WriteError(w, r, httpx.NewAPIError(
