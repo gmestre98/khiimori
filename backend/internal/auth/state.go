@@ -129,7 +129,24 @@ func (s *oauthStateStore) sign(state, nonce string) string {
 
 // mac returns the URL-safe base64 HMAC-SHA256 of payload under the store key.
 func (s *oauthStateStore) mac(payload string) string {
-	m := hmac.New(sha256.New, s.key)
+	return macB64(s.key, payload)
+}
+
+// deriveHMACKey derives a signing key from a high-entropy secret via a
+// domain-separated HMAC-SHA256, so a single secret can back several independent
+// signing uses without their keys ever coinciding. domain must be unique per
+// use (e.g. "khiimori:oauth-state-cookie:v1"). Shared by the sign-in state
+// cookie (deriveStateKey) and the Drive-connect state signer (M13.1).
+func deriveHMACKey(secret, domain string) []byte {
+	m := hmac.New(sha256.New, []byte(secret))
+	m.Write([]byte(domain))
+	return m.Sum(nil)
+}
+
+// macB64 returns the URL-safe base64 HMAC-SHA256 of payload under key. Shared by
+// every signed-token MAC in this package so the algorithm lives in one place.
+func macB64(key []byte, payload string) string {
+	m := hmac.New(sha256.New, key)
 	m.Write([]byte(payload))
 	return base64.RawURLEncoding.EncodeToString(m.Sum(nil))
 }
@@ -149,7 +166,5 @@ func randomToken() (string, error) {
 // Domain separation ('khiimori:oauth-state-cookie:v1') ensures this key can
 // never coincide with another use of the same secret.
 func deriveStateKey(clientSecret string) []byte {
-	m := hmac.New(sha256.New, []byte(clientSecret))
-	m.Write([]byte("khiimori:oauth-state-cookie:v1"))
-	return m.Sum(nil)
+	return deriveHMACKey(clientSecret, "khiimori:oauth-state-cookie:v1")
 }

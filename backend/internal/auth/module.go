@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/url"
@@ -48,6 +49,17 @@ type Module struct {
 	// default is completeSignIn (provision the user); session issuance (Epic 03)
 	// extends it. Kept as a field so tests can substitute a capturing stub.
 	onVerified func(http.ResponseWriter, *http.Request, VerifiedIdentity)
+
+	// Drive-export authorization (M13.1). driveConfigured gates the endpoints on
+	// the presence of the Drive redirect URI (+ the shared OAuth credentials).
+	// driveProvider builds the consent URL and exchanges the code; driveState
+	// signs/verifies the stateless connect state. onDriveConnected consumes a
+	// freshly-obtained token — a no-op by default (S1), replaced by the encrypted
+	// token store in S2. Kept as a field so tests can substitute a capturing stub.
+	driveConfigured  bool
+	driveProvider    driveAuthProvider
+	driveState       *driveStateSigner
+	onDriveConnected DriveConnector
 }
 
 // New constructs the auth module wired to a Google OIDC provider built from
@@ -75,6 +87,17 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Module {
 		e2eLoginSecret: cfg.E2ELoginSecret,
 	}
 	m.onVerified = m.completeSignIn
+
+	// Drive-export authorization (M13.1). Reuses the sign-in OAuth client
+	// id/secret with a separate redirect URI. Unconfigured (no Drive redirect URI)
+	// leaves the endpoints unregistered. The default connector is a no-op — S2
+	// swaps in the encrypted token store.
+	if gcfg.ClientID != "" && gcfg.ClientSecret != "" && cfg.GoogleDriveRedirectURI != "" {
+		m.driveConfigured = true
+		m.driveProvider = NewDriveOAuthProvider(gcfg.ClientID, gcfg.ClientSecret, cfg.GoogleDriveRedirectURI)
+		m.driveState = newDriveStateSigner(gcfg.ClientSecret)
+	}
+	m.onDriveConnected = func(context.Context, string, *DriveToken) error { return nil }
 	return m
 }
 
@@ -100,6 +123,14 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	// session user's own row.
 	mux.Handle("GET "+ProfilePath, m.RequireAuth(http.HandlerFunc(m.handleProfileRead)))
 	mux.Handle("PATCH "+ProfilePath, m.RequireAuth(http.HandlerFunc(m.handleProfileUpdate)))
+
+	// Drive-export authorization (M13.1) — registered only when configured. Both
+	// run behind RequireAuth: connect binds the flow to the session user, and the
+	// callback matches the returned state against that same session user.
+	if m.driveConfigured {
+		mux.Handle("GET "+DriveConnectPath, m.RequireAuth(http.HandlerFunc(m.handleDriveConnect)))
+		mux.Handle("GET "+DriveCallbackPath, m.RequireAuth(http.HandlerFunc(m.handleDriveCallback)))
+	}
 
 	// Admin backoffice (M08.5) — gated by RequireAdmin (is_admin, server-side).
 	m.mountAdminRoutes(mux, m.RequireAdmin)
