@@ -98,6 +98,16 @@ type Config struct {
 	OAuthClientSecret string
 	OAuthRedirectURI  string
 
+	// GoogleDriveRedirectURI is the exact redirect URI registered in the Google
+	// Cloud console for the Drive-export authorization flow (M13.1). It is a
+	// separate callback from OAuthRedirectURI because the Drive consent (scope
+	// drive.file, offline access) is a distinct, opt-in flow from identity
+	// sign-in — it reuses the same OAuth client id/secret but its own callback.
+	// Optional: empty leaves the Drive integration unconfigured and its endpoints
+	// unregistered, so a service without it is unaffected. Set via the
+	// GOOGLE_DRIVE_REDIRECT_URI env var (non-secret).
+	GoogleDriveRedirectURI string
+
 	// SessionSecret is the HMAC signing key for authenticated session cookies
 	// (M02.3). In production it comes from Secret Manager via Cloud Run env
 	// injection (S4); locally it is set in backend/.env. Optional at startup (the
@@ -255,6 +265,10 @@ func Load() (Config, error) {
 	cfg.OAuthClientID = os.Getenv("OAUTH_CLIENT_ID")
 	cfg.OAuthClientSecret = os.Getenv("OAUTH_CLIENT_SECRET")
 	cfg.OAuthRedirectURI = os.Getenv("OAUTH_REDIRECT_URI")
+
+	// Optional: the Drive-export authorization callback (M13.1). Empty leaves the
+	// Drive integration unconfigured and its endpoints unregistered.
+	cfg.GoogleDriveRedirectURI = strings.TrimSpace(os.Getenv("GOOGLE_DRIVE_REDIRECT_URI"))
 
 	// Optional: the session signing key (S4 sources it from Secret Manager). Empty
 	// at startup is fine — sign-in/auth middleware validate it at call time.
