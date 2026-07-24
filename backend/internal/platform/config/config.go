@@ -108,6 +108,15 @@ type Config struct {
 	// GOOGLE_DRIVE_REDIRECT_URI env var (non-secret).
 	GoogleDriveRedirectURI string
 
+	// GoogleDriveTokenKey is the base64-encoded 32-byte AES-256 key used to
+	// encrypt stored Google Drive refresh tokens at rest (M13.1 S2). It lives only
+	// in Secret Manager and is injected as a Cloud Run env var. Optional: empty
+	// leaves the Drive integration unconfigured (the connect endpoints are not
+	// registered, since a token could not be stored). A present-but-malformed key
+	// is a hard startup-adjacent error at module construction. Set via the
+	// GOOGLE_DRIVE_TOKEN_KEY env var.
+	GoogleDriveTokenKey string
+
 	// SessionSecret is the HMAC signing key for authenticated session cookies
 	// (M02.3). In production it comes from Secret Manager via Cloud Run env
 	// injection (S4); locally it is set in backend/.env. Optional at startup (the
@@ -269,6 +278,9 @@ func Load() (Config, error) {
 	// Optional: the Drive-export authorization callback (M13.1). Empty leaves the
 	// Drive integration unconfigured and its endpoints unregistered.
 	cfg.GoogleDriveRedirectURI = strings.TrimSpace(os.Getenv("GOOGLE_DRIVE_REDIRECT_URI"))
+
+	// Optional: the AES key that encrypts stored Drive refresh tokens (M13.1 S2).
+	cfg.GoogleDriveTokenKey = strings.TrimSpace(os.Getenv("GOOGLE_DRIVE_TOKEN_KEY"))
 
 	// Optional: the session signing key (S4 sources it from Secret Manager). Empty
 	// at startup is fine — sign-in/auth middleware validate it at call time.

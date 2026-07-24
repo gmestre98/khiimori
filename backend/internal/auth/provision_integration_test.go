@@ -90,7 +90,10 @@ func freshRepo(t *testing.T) *pgxUserRepo {
 	if testPool == nil {
 		t.Skip("DATABASE_URL_TEST not set; point it at an ephemeral Neon branch / throwaway DB to run this test")
 	}
-	if _, err := testPool.Exec(context.Background(), "TRUNCATE auth.users"); err != nil {
+	// CASCADE so tables with an FK to auth.users (e.g. google_drive_connections,
+	// M13.1) are truncated too — Postgres refuses a plain TRUNCATE of a
+	// referenced table regardless of whether any referencing rows exist.
+	if _, err := testPool.Exec(context.Background(), "TRUNCATE auth.users CASCADE"); err != nil {
 		t.Fatalf("truncate auth.users: %v", err)
 	}
 	return &pgxUserRepo{pool: testPool}
