@@ -166,7 +166,7 @@ func (s *driveConnectionStore) Revoke(ctx context.Context, userID string) error 
 	if err != nil {
 		return fmt.Errorf("auth: drive revoke request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	// Drain so the connection can be reused from the pool.
 	_, _ = io.Copy(io.Discard, resp.Body)
 	// Google answers 200 on success. A 400 for an already-invalid token is
