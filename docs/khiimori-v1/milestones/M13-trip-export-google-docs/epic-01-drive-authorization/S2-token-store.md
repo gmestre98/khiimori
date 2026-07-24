@@ -30,11 +30,11 @@ token without user interaction.
 
 ## Acceptance
 
-- [ ] Refresh token is stored only in encrypted form; a DB dump reveals no usable
+- [x] Refresh token is stored only in encrypted form; a DB dump reveals no usable
       token.
-- [ ] Loading a connection yields a `TokenSource` that returns a fresh access
+- [x] Loading a connection yields a `TokenSource` that returns a fresh access
       token; a rotated refresh token is persisted back.
-- [ ] `invalid_grant` maps to `ErrDriveDisconnected`.
-- [ ] Store integration test (round-trip encrypt/decrypt, upsert overwrite,
+- [x] `invalid_grant` maps to `ErrDriveDisconnected`.
+- [x] Store integration test (round-trip encrypt/decrypt, upsert overwrite,
       delete) + unit test for the persist-on-refresh wrapper.
 </content>

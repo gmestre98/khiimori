@@ -21,10 +21,10 @@ Expose the Drive integration to the frontend as three authenticated endpoints.
 
 ## Acceptance
 
-- [ ] Status reflects connected/disconnected accurately and omits secrets.
-- [ ] Connect → consent → callback persists a connection and redirects with a
+- [x] Status reflects connected/disconnected accurately and omits secrets.
+- [x] Connect → consent → callback persists a connection and redirects with a
       success flag; a denied/failed consent redirects with a failure flag.
-- [ ] Disconnect revokes at Google and removes the row; status flips to
+- [x] Disconnect revokes at Google and removes the row; status flips to
       disconnected.
-- [ ] Handler tests cover unauthenticated (401), happy path, and disconnect.
+- [x] Handler tests cover unauthenticated (401), happy path, and disconnect.
 </content>
