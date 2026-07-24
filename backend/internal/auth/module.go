@@ -60,6 +60,11 @@ type Module struct {
 	driveProvider    driveAuthProvider
 	driveState       *driveStateSigner
 	onDriveConnected DriveConnector
+	// driveConnections persists Drive connections with the refresh token encrypted
+	// at rest and mints refresh token sources from them (S2). nil when the Drive
+	// integration is unconfigured. S3 (status/disconnect) and Epic 03 (export)
+	// read through it.
+	driveConnections *driveConnectionStore
 }
 
 // New constructs the auth module wired to a Google OIDC provider built from
@@ -89,15 +94,31 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Module {
 	m.onVerified = m.completeSignIn
 
 	// Drive-export authorization (M13.1). Reuses the sign-in OAuth client
-	// id/secret with a separate redirect URI. Unconfigured (no Drive redirect URI)
-	// leaves the endpoints unregistered. The default connector is a no-op — S2
-	// swaps in the encrypted token store.
-	if gcfg.ClientID != "" && gcfg.ClientSecret != "" && cfg.GoogleDriveRedirectURI != "" {
-		m.driveConfigured = true
-		m.driveProvider = NewDriveOAuthProvider(gcfg.ClientID, gcfg.ClientSecret, cfg.GoogleDriveRedirectURI)
-		m.driveState = newDriveStateSigner(gcfg.ClientSecret)
-	}
+	// id/secret with a separate redirect URI, and an AES key to encrypt stored
+	// refresh tokens. The integration is enabled only when all of the OAuth
+	// credentials, the Drive redirect URI, the token key, AND a database pool are
+	// present — otherwise a connect could not persist, so the endpoints stay
+	// unregistered. The default connector is a no-op until then.
 	m.onDriveConnected = func(context.Context, string, *DriveToken) error { return nil }
+	if gcfg.ClientID != "" && gcfg.ClientSecret != "" && cfg.GoogleDriveRedirectURI != "" && pool != nil {
+		crypter, err := newDriveCrypter(cfg.GoogleDriveTokenKey)
+		switch {
+		case errors.Is(err, ErrNoDriveKey):
+			// No key configured → leave Drive unconfigured (feature off).
+		case err != nil:
+			// A present-but-malformed key is an operator misconfiguration. Fail
+			// fast rather than run with broken encryption.
+			panic("auth: invalid GOOGLE_DRIVE_TOKEN_KEY: " + err.Error())
+		default:
+			provider := NewDriveOAuthProvider(gcfg.ClientID, gcfg.ClientSecret, cfg.GoogleDriveRedirectURI)
+			store := newDriveConnectionStore(pool, crypter, provider.oauthConfig())
+			m.driveConfigured = true
+			m.driveProvider = provider
+			m.driveState = newDriveStateSigner(gcfg.ClientSecret)
+			m.driveConnections = store
+			m.onDriveConnected = store.Save
+		}
+	}
 	return m
 }
 

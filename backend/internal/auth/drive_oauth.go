@@ -86,6 +86,11 @@ func NewDriveOAuthProvider(clientID, clientSecret, redirectURI string) *DriveOAu
 	}
 }
 
+// oauthConfig returns a copy of the underlying OAuth config, so the connection
+// store can build a refresh TokenSource from a stored refresh token using the
+// same client credentials and endpoint.
+func (p *DriveOAuthProvider) oauthConfig() oauth2.Config { return p.cfg }
+
 // AuthCodeURL returns the consent URL with access_type=offline and
 // prompt=consent, which together guarantee Google returns a refresh token — even
 // on a re-consent by a user who has connected before (without prompt=consent a
