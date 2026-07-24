@@ -118,7 +118,11 @@ export function DriveConnectionCard() {
         </p>
       )}
 
-      {status === null && !loadFailed ? (
+      {loadFailed ? (
+        <p className="drive-card-status" role="alert">
+          Couldn’t check your Google Drive connection. Please try again later.
+        </p>
+      ) : status === null ? (
         <p className="drive-card-status" aria-live="polite">
           Checking connection…
         </p>

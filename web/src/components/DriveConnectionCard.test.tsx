@@ -49,6 +49,14 @@ describe('DriveConnectionCard', () => {
     expect(screen.getByText(/google drive disconnected/i)).toBeInTheDocument()
   })
 
+  it('shows an honest "couldn’t check" state on a network failure (not "not connected")', async () => {
+    vi.spyOn(api, 'fetchDriveConnection').mockRejectedValue(new Error('offline'))
+    renderCard()
+    expect(await screen.findByText(/couldn.t check your google drive/i)).toBeInTheDocument()
+    // Must NOT imply the user simply needs to connect.
+    expect(screen.queryByRole('button', { name: /connect google drive/i })).not.toBeInTheDocument()
+  })
+
   it('surfaces a success banner from ?drive=connected and clears the param', async () => {
     vi.spyOn(api, 'fetchDriveConnection').mockResolvedValue({ connected: true })
     renderCard(['/profile?drive=connected'])
