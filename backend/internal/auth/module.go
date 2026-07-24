@@ -63,8 +63,8 @@ type Module struct {
 	// driveConnections persists Drive connections with the refresh token encrypted
 	// at rest and mints refresh token sources from them (S2). nil when the Drive
 	// integration is unconfigured. S3 (status/disconnect) and Epic 03 (export)
-	// read through it.
-	driveConnections *driveConnectionStore
+	// read through it; an interface so handlers can be tested with a fake.
+	driveConnections driveConnectionRepo
 }
 
 // New constructs the auth module wired to a Google OIDC provider built from
@@ -147,8 +147,10 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	// run behind RequireAuth: connect binds the flow to the session user, and the
 	// callback matches the returned state against that same session user.
 	if m.driveConfigured {
+		mux.Handle("GET "+DriveStatusPath, m.RequireAuth(http.HandlerFunc(m.handleDriveStatus)))
 		mux.Handle("GET "+DriveConnectPath, m.RequireAuth(http.HandlerFunc(m.handleDriveConnect)))
 		mux.Handle("GET "+DriveCallbackPath, m.RequireAuth(http.HandlerFunc(m.handleDriveCallback)))
+		mux.Handle("POST "+DriveDisconnectPath, m.RequireAuth(http.HandlerFunc(m.handleDriveDisconnect)))
 	}
 
 	// Admin backoffice (M08.5) — gated by RequireAdmin (is_admin, server-side).

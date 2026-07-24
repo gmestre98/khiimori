@@ -10,6 +10,8 @@ package auth
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"golang.org/x/oauth2"
@@ -134,6 +136,37 @@ func TestIntegrationDriveStore_PersistOnRefresh(t *testing.T) {
 	}
 	if pt, _ := s.crypter.decrypt(storedCiphertext(t, uid)); pt != "rt-new" {
 		t.Errorf("rotated refresh not persisted: stored = %q, want rt-new", pt)
+	}
+}
+
+func TestIntegrationDriveStore_RevokeSendsTokenAndNoopWhenAbsent(t *testing.T) {
+	s, uid := freshDriveStore(t)
+	ctx := context.Background()
+
+	// No connection yet → Revoke is a no-op (no HTTP call).
+	if err := s.Revoke(ctx, uid); err != nil {
+		t.Fatalf("Revoke with no connection: %v", err)
+	}
+
+	// Stub Google's revoke endpoint and capture the posted token.
+	var gotToken string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		gotToken = r.Form.Get("token")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	s.revokeURL = srv.URL
+	s.revokeClient = srv.Client()
+
+	if err := s.Save(ctx, uid, &DriveToken{RefreshToken: "rt-to-revoke", Scopes: []string{driveFileScope}}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if err := s.Revoke(ctx, uid); err != nil {
+		t.Fatalf("Revoke: %v", err)
+	}
+	if gotToken != "rt-to-revoke" {
+		t.Errorf("revoked token = %q, want the stored refresh token", gotToken)
 	}
 }
 

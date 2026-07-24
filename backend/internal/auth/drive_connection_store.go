@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -11,6 +14,21 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/oauth2"
 )
+
+// googleRevokeURL is Google's OAuth token revocation endpoint. Revoking the
+// refresh token invalidates the whole grant.
+const googleRevokeURL = "https://oauth2.googleapis.com/revoke"
+
+// driveConnectionRepo is the module's view of the Drive connection store, so the
+// HTTP handlers can be tested with a fake. *driveConnectionStore implements it.
+type driveConnectionRepo interface {
+	Save(ctx context.Context, userID string, tok *DriveToken) error
+	Load(ctx context.Context, userID string) (*DriveConnection, error)
+	Delete(ctx context.Context, userID string) error
+	Revoke(ctx context.Context, userID string) error
+	SetFolderID(ctx context.Context, userID, folderID string) error
+	TokenSource(ctx context.Context, userID string) (oauth2.TokenSource, error)
+}
 
 // ErrNoDriveConnection is returned when a user has not connected Google Drive.
 var ErrNoDriveConnection = errors.New("auth: no drive connection")
@@ -38,12 +56,25 @@ type driveConnectionStore struct {
 	// oauthCfg is the Drive OAuth config (client id/secret/endpoint) used to build
 	// a TokenSource from a stored refresh token. It carries no per-user state.
 	oauthCfg oauth2.Config
+	// revokeURL + revokeClient back Revoke; defaulted to Google's endpoint and a
+	// bounded client, overridable in tests.
+	revokeURL    string
+	revokeClient *http.Client
 }
+
+// Compile-time assertion.
+var _ driveConnectionRepo = (*driveConnectionStore)(nil)
 
 // newDriveConnectionStore wires the store to the database, the token crypter, and
 // the OAuth config used for token refresh.
 func newDriveConnectionStore(pool *pgxpool.Pool, crypter *driveCrypter, oauthCfg oauth2.Config) *driveConnectionStore {
-	return &driveConnectionStore{pool: pool, crypter: crypter, oauthCfg: oauthCfg}
+	return &driveConnectionStore{
+		pool:         pool,
+		crypter:      crypter,
+		oauthCfg:     oauthCfg,
+		revokeURL:    googleRevokeURL,
+		revokeClient: &http.Client{Timeout: driveHTTPTimeout},
+	}
 }
 
 // Save upserts a freshly-obtained Drive token for userID (the DriveConnector
@@ -102,6 +133,47 @@ func (s *driveConnectionStore) Delete(ctx context.Context, userID string) error 
 	if _, err := s.pool.Exec(ctx,
 		`DELETE FROM auth.google_drive_connections WHERE user_id = $1`, userID); err != nil {
 		return fmt.Errorf("auth: delete drive connection: %w", err)
+	}
+	return nil
+}
+
+// Revoke asks Google to invalidate the user's refresh token (and thus the whole
+// grant). It is best-effort: a missing connection is a no-op, and callers treat
+// an error as non-fatal (the row is deleted regardless). It never deletes the
+// row itself — that's Delete's job.
+func (s *driveConnectionStore) Revoke(ctx context.Context, userID string) error {
+	const q = `SELECT refresh_token_enc FROM auth.google_drive_connections WHERE user_id = $1`
+	var enc []byte
+	err := s.pool.QueryRow(ctx, q, userID).Scan(&enc)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil // nothing to revoke
+	}
+	if err != nil {
+		return fmt.Errorf("auth: load drive token for revoke: %w", err)
+	}
+	token, err := s.crypter.decrypt(enc)
+	if err != nil {
+		return err
+	}
+	form := url.Values{"token": {token}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.revokeURL,
+		strings.NewReader(form.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := s.revokeClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("auth: drive revoke request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	// Drain so the connection can be reused from the pool.
+	_, _ = io.Copy(io.Discard, resp.Body)
+	// Google answers 200 on success. A 400 for an already-invalid token is
+	// harmless (we're deleting the row anyway) but still surfaced so the caller
+	// can log it.
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("auth: drive revoke returned HTTP %d", resp.StatusCode)
 	}
 	return nil
 }
