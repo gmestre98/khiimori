@@ -27,12 +27,12 @@ Tokens/codes are never logged (existing S5 secrets-logging convention).
 
 ## Acceptance
 
-- [ ] Starting the flow redirects to Google's consent screen requesting
+- [x] Starting the flow redirects to Google's consent screen requesting
       `drive.file` with offline access and forced consent.
-- [ ] Callback validates CSRF state + session, and rejects a consent that did not
+- [x] Callback validates CSRF state + session, and rejects a consent that did not
       grant `drive.file`.
-- [ ] On success a refresh token is captured and handed to the store (S2); no
+- [x] On success a refresh token is captured and handed to the store (S2); no
       token material is logged.
-- [ ] Unit tests: URL contains the right scope/params; callback rejects bad
+- [x] Unit tests: URL contains the right scope/params; callback rejects bad
       state, unauthenticated session, and missing-scope grants.
 </content>
