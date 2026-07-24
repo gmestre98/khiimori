@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -46,6 +47,19 @@ func TestPersistingTokenSource_NoRotationDoesNotTouchStore(t *testing.T) {
 		}
 		if got.AccessToken != "at" {
 			t.Errorf("access token = %q, want at", got.AccessToken)
+		}
+	}
+}
+
+func TestDriveStore_SaveRejectsMissingRefreshToken(t *testing.T) {
+	// The guard returns before touching the pool, so a nil pool proves no write
+	// is attempted. A crypter is present (Save encrypts before the pool call, but
+	// only after the guard).
+	c, _ := newDriveCrypter(testKeyB64(t))
+	s := &driveConnectionStore{crypter: c} // pool intentionally nil
+	for _, tok := range []*DriveToken{nil, {RefreshToken: ""}, {AccessToken: "at"}} {
+		if err := s.Save(context.Background(), "user-1", tok); err == nil {
+			t.Errorf("Save(%v) = nil, want error for missing refresh token", tok)
 		}
 	}
 }

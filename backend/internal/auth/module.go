@@ -101,15 +101,13 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Module {
 	// unregistered. The default connector is a no-op until then.
 	m.onDriveConnected = func(context.Context, string, *DriveToken) error { return nil }
 	if gcfg.ClientID != "" && gcfg.ClientSecret != "" && cfg.GoogleDriveRedirectURI != "" && pool != nil {
-		crypter, err := newDriveCrypter(cfg.GoogleDriveTokenKey)
-		switch {
-		case errors.Is(err, ErrNoDriveKey):
-			// No key configured → leave Drive unconfigured (feature off).
-		case err != nil:
-			// A present-but-malformed key is an operator misconfiguration. Fail
-			// fast rather than run with broken encryption.
-			panic("auth: invalid GOOGLE_DRIVE_TOKEN_KEY: " + err.Error())
-		default:
+		// A crypter error (no key, or a malformed one) leaves Drive unconfigured —
+		// its endpoints simply aren't registered — rather than blocking service
+		// startup, matching how every other optional secret behaves here (the
+		// service always boots; an unconfigured feature fails/opts out at call
+		// time). A malformed key therefore disables export without taking down
+		// sign-in, trips, and the rest of the API.
+		if crypter, err := newDriveCrypter(cfg.GoogleDriveTokenKey); err == nil {
 			provider := NewDriveOAuthProvider(gcfg.ClientID, gcfg.ClientSecret, cfg.GoogleDriveRedirectURI)
 			store := newDriveConnectionStore(pool, crypter, provider.oauthConfig())
 			m.driveConfigured = true
