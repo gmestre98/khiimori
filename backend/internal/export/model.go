@@ -23,6 +23,11 @@ type Model struct {
 
 	Days   []Day
 	Budget Budget
+
+	// PhotosOmitted is how many photos were dropped from embedding (byte budget
+	// exhausted or a failed fetch), so the renderer can note it. Zero when photos
+	// are excluded entirely (a deliberate text-only export) or all embedded.
+	PhotosOmitted int
 }
 
 // Header is the trip-level cover data returned by Reader.Header.
