@@ -37,14 +37,10 @@ func templateFuncs() template.FuncMap {
 		"weekdayDate": func(t time.Time) string { return t.Format("Monday, 2 January 2006") },
 		"dayHeading":  dayHeading,
 		"dateRange":   dateRange,
-		"money":       money,
-		"optMoney":    func(cur string, v *float64) string { return optMoney(cur, v) },
+		"money":       money, // template auto-dereferences a *float64 cost for this
 		"stars":       stars,
-		"kindLabel":   kindLabel,
-		"trim":        strings.TrimSpace,
 		"nonEmpty":    func(s string) bool { return strings.TrimSpace(s) != "" },
 		"join":        func(sep string, xs []string) string { return strings.Join(xs, sep) },
-		"nights":      nights,
 	}
 }
 
@@ -68,19 +64,6 @@ func dateRange(start, end time.Time) string {
 	return fmt.Sprintf("%s – %s", start.Format("2 January 2006"), end.Format("2 January 2006"))
 }
 
-// nights returns the whole-night span of a stay (check-out minus check-in), or 0
-// when either date is missing.
-func nights(s Stay) int {
-	if s.CheckIn == nil || s.CheckOut == nil {
-		return 0
-	}
-	d := int(s.CheckOut.Sub(*s.CheckIn).Hours() / 24)
-	if d < 0 {
-		return 0
-	}
-	return d
-}
-
 // money formats an amount in the trip's currency: a symbol for the common ones,
 // otherwise the ISO code, with thousands separators and cents dropped when whole.
 func money(cur string, amt float64) string {
@@ -93,13 +76,6 @@ func money(cur string, amt float64) string {
 		return n
 	}
 	return cur + " " + n
-}
-
-func optMoney(cur string, v *float64) string {
-	if v == nil {
-		return ""
-	}
-	return money(cur, *v)
 }
 
 // formatAmount formats a number with thousands separators, showing cents only
@@ -161,18 +137,4 @@ func stars(r *int) string {
 		n = 5
 	}
 	return strings.Repeat("★", n) + strings.Repeat("☆", 5-n)
-}
-
-// kindLabel maps a plan-item kind to a human label.
-func kindLabel(kind string) string {
-	switch kind {
-	case "transport":
-		return "Transport"
-	case "food":
-		return "Food"
-	case "note":
-		return "Note"
-	default:
-		return "Activity"
-	}
 }
