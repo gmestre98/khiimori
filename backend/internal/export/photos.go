@@ -80,13 +80,16 @@ func EmbedPhotos(ctx context.Context, m *Model, fetcher ImageFetcher, opts Embed
 				omitted++
 				continue // best-effort: skip a photo we couldn't read
 			}
-			if used+int64(len(data)) > budget {
+			// Budget against the base64-encoded size — that's what actually lands
+			// in the document (~33% larger than the raw bytes).
+			encoded := int64(base64.StdEncoding.EncodedLen(len(data)))
+			if used+encoded > budget {
 				omitted++
 				full = true
 				continue
 			}
 			p.Data = dataURI(ct, data)
-			used += int64(len(data))
+			used += encoded
 		}
 	}
 	m.PhotosOmitted = omitted
