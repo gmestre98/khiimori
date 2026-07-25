@@ -31,7 +31,7 @@ Epic 01 and is the real spine of this milestone; everything else builds on it.
 | Epic | Title | Status |
 |------|-------|--------|
 | [01](epic-01-drive-authorization/README.md) | Drive authorization & token store | ✅ Done (PRs #511–#514) |
-| [02](epic-02-document-builder/README.md) | Trip document builder | ⬜ Planned |
+| [02](epic-02-document-builder/README.md) | Trip document builder | ✅ Done (PRs #516–#518) |
 | [03](epic-03-drive-delivery/README.md) | Drive delivery & one-doc-per-trip | ⬜ Planned |
 | [04](epic-04-export-ux/README.md) | Export UX | ⬜ Planned |
 

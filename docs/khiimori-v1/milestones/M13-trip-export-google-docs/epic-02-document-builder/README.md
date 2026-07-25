@@ -1,7 +1,18 @@
 # Epic M13.2 — Trip document builder
 
+> **Status:** ✅ Done — all 3 stories shipped across PRs
+> [#516](https://github.com/gmestre98/khiimori/pull/516) (S1 aggregator),
+> [#517](https://github.com/gmestre98/khiimori/pull/517) (S2 HTML renderer), and
+> [#518](https://github.com/gmestre98/khiimori/pull/518) (S3 photo embedding).
+> 3/3 ACs satisfied. Each PR was self-reviewed on GitHub and its findings fixed
+> (S1 authoritative day sort; S2 dead template funcs removed; S3 base64-size
+> budgeting), and the rendered document was verified in a browser against the
+> travelogue design. The new internal/export package (Model + Reader seam +
+> BuildExportModel + html/template renderer + ImageFetcher/EmbedPhotos) is pure
+> and fully unit-tested; the real SQL Reader, GCS ImageFetcher, and budget-rollup
+> reuse are wired with the export endpoint in Epic 03. No new Go module.
+
 > Milestone: [13 — Trip export to Google Docs](../README.md) · PRD refs: §9, §7.0.
-> Status: ⬜ Planned.
 
 ## Description
 
@@ -31,12 +42,12 @@ modules' stores directly.
 
 ## Acceptance Criteria
 
-- [ ] An `ExportModel` aggregates a trip's cover data, per-day content (stay,
+- [x] An `ExportModel` aggregates a trip's cover data, per-day content (stay,
       plan items, what-happened, journal), and budget rollup via reader
       interfaces satisfied at the composition root. — **S1**
-- [ ] A renderer produces styled, print-friendly HTML (cover, per-day sections,
+- [x] A renderer produces styled, print-friendly HTML (cover, per-day sections,
       budget table, page breaks) from the `ExportModel`, deterministically. — **S2**
-- [ ] Photos can be embedded inline as data URIs (fetched from GCS), gated by an
+- [x] Photos can be embedded inline as data URIs (fetched from GCS), gated by an
       "include photos" flag and a total byte cap; export still succeeds (text
       only) when photos are excluded or a fetch fails. — **S3**
 

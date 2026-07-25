@@ -26,9 +26,9 @@ reach-in).
 
 ## Acceptance
 
-- [ ] `BuildExportModel(ctx, tripID)` returns a fully-populated model for a trip
+- [x] `BuildExportModel(ctx, tripID)` returns a fully-populated model for a trip
       with days, stays, plan items, what-happened, journal, and budget.
-- [ ] Empty aspects degrade cleanly (no stay / no journal / no plan items → empty
+- [x] Empty aspects degrade cleanly (no stay / no journal / no plan items → empty
       sections, not errors).
-- [ ] Unit tests with fake readers assert ordering and section composition.
+- [x] Unit tests with fake readers assert ordering and section composition.
 </content>
