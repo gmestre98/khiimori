@@ -26,10 +26,10 @@ into a Google Doc.
 
 ## Acceptance
 
-- [ ] Rendering a populated model produces valid, self-contained HTML with cover,
+- [x] Rendering a populated model produces valid, self-contained HTML with cover,
       per-day sections, and budget table; days page-break.
-- [ ] User-supplied text (titles, diary, captions) is HTML-escaped.
-- [ ] Golden-file test: a fixed `ExportModel` renders to a stable HTML snapshot.
-- [ ] Manual check: the HTML, uploaded to Drive as a Doc, is readable and
+- [x] User-supplied text (titles, diary, captions) is HTML-escaped.
+- [x] Golden-file test: a fixed `ExportModel` renders to a stable HTML snapshot.
+- [x] Manual check: the HTML, uploaded to Drive as a Doc, is readable and
       correctly structured (headings, table, page breaks).
 </content>
