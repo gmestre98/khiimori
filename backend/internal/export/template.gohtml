@@ -111,8 +111,25 @@
               {{ if nonEmpty .Text }}<div>{{ .Text }}</div>{{ end }}
             </div>
           {{ end }}
+
+          {{ if anyEmbedded .Photos }}
+            <div class="photos">
+              {{ range .Photos }}
+                {{ if nonEmpty .Data }}
+                  <figure>
+                    <img src="{{ safeURL .Data }}" alt="{{ .Caption }}" />
+                    {{ if nonEmpty .Caption }}<figcaption class="caption">{{ .Caption }}</figcaption>{{ end }}
+                  </figure>
+                {{ end }}
+              {{ end }}
+            </div>
+          {{ end }}
         {{ end }}
       </div>
+    {{ end }}
+
+    {{ if .PhotosOmitted }}
+      <p class="muted">{{ .PhotosOmitted }} photo(s) were left out to keep this document a manageable size.</p>
     {{ end }}
   </body>
 </html>

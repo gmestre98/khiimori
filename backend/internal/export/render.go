@@ -41,7 +41,25 @@ func templateFuncs() template.FuncMap {
 		"stars":       stars,
 		"nonEmpty":    func(s string) bool { return strings.TrimSpace(s) != "" },
 		"join":        func(sep string, xs []string) string { return strings.Join(xs, sep) },
+		// safeURL marks a photo's data: URI as a trusted URL. html/template would
+		// otherwise rewrite a data: src to "#ZgotmplZ" (its unsafe-scheme guard).
+		// This is safe because Data is server-constructed by dataURI, whose
+		// content type is constrained to a known image type — never user input.
+		"safeURL": func(s string) template.URL { return template.URL(s) },
+		// anyEmbedded reports whether any photo has inlined data, so the renderer
+		// can skip the photos block entirely (and its wrapper) when none embedded.
+		"anyEmbedded": anyEmbedded,
 	}
+}
+
+// anyEmbedded reports whether at least one photo carries inlined Data.
+func anyEmbedded(photos []Photo) bool {
+	for _, p := range photos {
+		if strings.TrimSpace(p.Data) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // dayHeading renders "Day 3 — Thursday, 14 May".
