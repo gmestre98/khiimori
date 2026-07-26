@@ -22,10 +22,10 @@ the caller supplies (from the Picker, Epic 04·S3).
 
 ## Acceptance
 
-- [ ] With no folder supplied, the doc lands in `Khiimori travelogues` (created on
+- [x] With no folder supplied, the doc lands in `Khiimori travelogues` (created on
       first use, reused after).
-- [ ] A deleted default folder is recreated on the next export.
-- [ ] A supplied `folder_id` is used as the parent and remembered for the trip.
-- [ ] Unit tests: ensure-folder (create vs reuse vs recreate-on-404) and
+- [x] A deleted default folder is recreated on the next export.
+- [x] A supplied `folder_id` is used as the parent and remembered for the trip.
+- [x] Unit tests: ensure-folder (create vs reuse vs recreate-on-404) and
       supplied-folder precedence.
 </content>

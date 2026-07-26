@@ -1,7 +1,18 @@
 # Epic M13.3 — Drive delivery & one-doc-per-trip
 
+> **Status:** ✅ Done — all 4 stories shipped across PRs
+> [#520](https://github.com/gmestre98/khiimori/pull/520) (S1 Drive client),
+> [#521](https://github.com/gmestre98/khiimori/pull/521) (S2 mapping),
+> [#522](https://github.com/gmestre98/khiimori/pull/522) (S3 folder), and
+> [#523](https://github.com/gmestre98/khiimori/pull/523) (S4 endpoint).
+> 4/4 ACs satisfied. Each PR was self-reviewed on GitHub and its findings fixed
+> (S1 error-body snippet; S2 the FK/TRUNCATE ripple across 6 modules + a boundary
+> violation; S3 no-recreate-on-transient-error; S4 the photo N+1). The full
+> export backend now works end-to-end — proven by an ephemeral-DB integration
+> test (create-then-update-the-same-doc). Drive is called over stdlib net/http
+> (no new Go module); export is synchronous (EUR0-idle preserved).
+
 > Milestone: [13 — Trip export to Google Docs](../README.md) · PRD refs: §7.0, §9.
-> Status: ⬜ Planned.
 
 ## Description
 
@@ -23,14 +34,14 @@ Two Drive operations, both plain HTTPS with a `Bearer` access token from the
 
 ## Acceptance Criteria
 
-- [ ] A Drive client (stdlib `net/http`) creates an HTML-sourced Google Doc and
+- [x] A Drive client (stdlib `net/http`) creates an HTML-sourced Google Doc and
       updates an existing one in place, using an access token from the token
       source; 401 refreshes, `invalid_grant` surfaces as disconnected. — **S1**
-- [ ] A `trip_exports` mapping records the Drive file id per (trip, user); export
+- [x] A `trip_exports` mapping records the Drive file id per (trip, user); export
       updates the mapped doc, and a deleted/trashed doc (404) is recreated. — **S2**
-- [ ] The target folder resolves to an app-created "Khiimori travelogues" folder
+- [x] The target folder resolves to an app-created "Khiimori travelogues" folder
       by default (created once, id cached), or a caller-supplied folder id. — **S3**
-- [ ] `POST /api/trips/:id/export/google-doc` authorizes trip access, builds +
+- [x] `POST /api/trips/:id/export/google-doc` authorizes trip access, builds +
       renders + delivers, and returns `{ doc_url, folder_url, exported_at }`;
       not-connected → a typed 409 the UI turns into "Connect Drive". — **S4**
 
