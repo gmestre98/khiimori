@@ -214,6 +214,61 @@ export async function disconnectDrive(): Promise<void> {
   }
 }
 
+// ExportResult is the wire shape of a successful trip export (M13.4): links to
+// the created/updated Google Doc and its folder, plus when it was exported.
+export interface ExportResult {
+  doc_url: string
+  folder_url: string
+  exported_at: string
+}
+
+// ExportOptions are the toggles sent with an export. Omitted fields default to
+// on server-side; folderId (from the Google Picker) overrides the default folder.
+export interface ExportOptions {
+  includePhotos?: boolean
+  includeBudget?: boolean
+  folderId?: string
+}
+
+// DriveActionRequiredError marks a 409 from the export endpoint that needs the
+// user to (re)connect Google Drive. code is 'drive_not_connected' (never
+// connected) or 'drive_reconnect_required' (grant revoked); the UI shows a
+// connect/reconnect action accordingly.
+export class DriveActionRequiredError extends Error {
+  code: string
+  constructor(code: string) {
+    super(code)
+    this.name = 'DriveActionRequiredError'
+    this.code = code
+  }
+}
+
+// exportTripToGoogleDoc exports a trip to a Google Doc in the user's Drive
+// (POST /trips/:id/export/google-doc). A 401 throws UnauthorizedError; a 409
+// throws DriveActionRequiredError (connect/reconnect); any other non-2xx throws
+// a generic Error so the UI can offer a retry.
+export async function exportTripToGoogleDoc(
+  tripId: string,
+  opts: ExportOptions = {},
+): Promise<ExportResult> {
+  const res = await apiFetch(`/trips/${tripId}/export/google-doc`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(opts),
+  })
+  if (res.status === 401) {
+    throw new UnauthorizedError()
+  }
+  if (res.status === 409) {
+    const body = (await res.json().catch(() => null)) as { error?: { code?: string } } | null
+    throw new DriveActionRequiredError(body?.error?.code ?? 'drive_not_connected')
+  }
+  if (!res.ok) {
+    throw new Error(`API returned HTTP ${res.status}`)
+  }
+  return (await res.json()) as ExportResult
+}
+
 // --- Trips (M03.5 S1) -------------------------------------------------------
 
 // Trip is the wire shape of a single trip returned by GET /trips.

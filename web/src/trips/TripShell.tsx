@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { UnauthorizedError, datesInRange, fetchTrips, type Trip } from '../lib/api'
 import { shortDate } from '../lib/format'
 import { useCachedResource } from '../lib/useCachedResource'
 import { cacheKeys } from '../lib/cacheKeys'
 import { CacheStatus } from '../components/CacheStatus'
+import { ExportDialog } from './ExportDialog'
 
 // todayStr returns today's date as YYYY-MM-DD in local time.
 function todayStr(): string {
@@ -38,6 +39,7 @@ export function TripShellRoute() {
 function TripShell() {
   const { tripId, date: dateParam } = useParams<{ tripId: string; date?: string }>()
   const location = useLocation()
+  const [exportOpen, setExportOpen] = useState(false)
   // Trip may be passed via Link state (from the dashboard) to avoid a refetch.
   const stateTrip = (location.state as { trip?: Trip } | null)?.trip ?? null
 
@@ -161,8 +163,24 @@ function TripShell() {
           >
             Edit
           </Link>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => setExportOpen(true)}
+            aria-label={`Export ${trip.name} to Google Docs`}
+          >
+            Export
+          </button>
         </div>
       </header>
+      {exportOpen && (
+        <ExportDialog
+          tripId={trip.id}
+          tripName={trip.name}
+          open
+          onClose={() => setExportOpen(false)}
+        />
+      )}
       {/* Day selector strip — only on the day view, not budget/sharing/backlog */}
       {dateParam && <DayNav tripId={trip.id} dates={dates} trip={trip} />}
       {/* Outlet renders DayView; trip is passed via context */}
