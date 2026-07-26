@@ -23,11 +23,11 @@ a photo-heavy trip can't blow up the request.
 
 ## Acceptance
 
-- [ ] With `includePhotos=true`, day photos appear inline (as data URIs) under
+- [x] With `includePhotos=true`, day photos appear inline (as data URIs) under
       each day, with captions.
-- [ ] With `includePhotos=false`, no photos are fetched and the doc is text-only.
-- [ ] Exceeding the byte cap stops embedding and annotates the omission; export
+- [x] With `includePhotos=false`, no photos are fetched and the doc is text-only.
+- [x] Exceeding the byte cap stops embedding and annotates the omission; export
       still completes.
-- [ ] A GCS fetch error skips that photo without failing the export (unit test
+- [x] A GCS fetch error skips that photo without failing the export (unit test
       with a fake photo source).
 </content>
