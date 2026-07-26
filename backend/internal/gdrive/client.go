@@ -124,8 +124,23 @@ func (c *Client) do(ctx context.Context, ts oauth2.TokenSource, method, url, con
 	case resp.StatusCode == http.StatusNotFound:
 		return nil, ErrDocMissing
 	default:
-		return nil, fmt.Errorf("gdrive: %s %s: HTTP %d", method, endpointName(url), resp.StatusCode)
+		// Include a bounded snippet of Drive's JSON error body — it names the
+		// reason (bad metadata, unsupported conversion, quota) and carries none of
+		// our secrets, making a prod failure debuggable.
+		return nil, fmt.Errorf("gdrive: %s %s: HTTP %d: %s",
+			method, endpointName(url), resp.StatusCode, snippet(data))
 	}
+}
+
+// snippet returns a single-line, length-bounded view of a response body for use
+// in error messages.
+func snippet(b []byte) string {
+	s := strings.TrimSpace(strings.ReplaceAll(string(b), "\n", " "))
+	const max = 300
+	if len(s) > max {
+		s = s[:max] + "…"
+	}
+	return s
 }
 
 // multipartRelated builds a multipart/related body with a JSON metadata part and
