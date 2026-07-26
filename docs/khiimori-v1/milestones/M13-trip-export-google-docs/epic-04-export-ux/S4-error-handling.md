@@ -19,9 +19,9 @@ Turn the endpoint's typed failures into clear recovery actions.
 
 ## Acceptance
 
-- [ ] A revoked/disconnected Drive prompts reconnect and can resume to a
+- [x] A revoked/disconnected Drive prompts reconnect and can resume to a
       successful export.
-- [ ] A transient delivery failure shows a retry, not a dead end.
-- [ ] Offline disables export with an explanation.
-- [ ] Verified in a browser (simulate 409 and 502).
+- [x] A transient delivery failure shows a retry, not a dead end.
+- [x] Offline disables export with an explanation.
+- [x] Verified in a browser (simulate 409 and 502).
 </content>

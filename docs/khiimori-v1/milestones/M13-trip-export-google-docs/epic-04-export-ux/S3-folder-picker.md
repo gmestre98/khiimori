@@ -1,5 +1,12 @@
 # S3 — Google Picker folder chooser (optional)
 
+> **Deferred (by choice, 2026-07-25).** The default app-created "Khiimori
+> travelogues" folder meets the core requirement; this Picker needs GCP config
+> (Picker API + a browser API key) the app owner must provision and can't be
+> verified without it. The export endpoint already accepts a `folderId`, so it
+> can be added later with no backend change.
+
+
 > Epic: [M13.4 Export UX](README.md) · AC3. *Optional — can ship after S1–S2.*
 
 ## Goal
