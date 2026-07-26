@@ -78,7 +78,7 @@ func newIntegrationServer(t *testing.T, ownerID string) *httptest.Server {
 	}
 	ctx := context.Background()
 	_, err := testPool.Exec(ctx,
-		`TRUNCATE budget.cost_entries, budget.budget_lines, trip.plan_items, trip.stays, trip.days, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
+		`TRUNCATE budget.cost_entries, budget.budget_lines, trip.plan_items, trip.stays, trip.days, trip.trip_exports, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
 	if err != nil {
 		t.Fatalf("truncating tables: %v", err)
 	}

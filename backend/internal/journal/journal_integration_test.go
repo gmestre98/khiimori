@@ -93,7 +93,7 @@ func newIntegrationServer(t *testing.T, ownerID string) *httptest.Server {
 	}
 	ctx := context.Background()
 	_, err := testPool.Exec(ctx,
-		`TRUNCATE journal.photos, journal.journal_entries, trip.days, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
+		`TRUNCATE journal.photos, journal.journal_entries, trip.days, trip.trip_exports, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
 	if err != nil {
 		t.Fatalf("truncating tables: %v", err)
 	}
@@ -122,7 +122,7 @@ func newIntegrationServerWithUser(t *testing.T, callerID, ownerID string) *httpt
 	}
 	ctx := context.Background()
 	_, err := testPool.Exec(ctx,
-		`TRUNCATE journal.photos, journal.journal_entries, trip.days, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
+		`TRUNCATE journal.photos, journal.journal_entries, trip.days, trip.trip_exports, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
 	if err != nil {
 		t.Fatalf("truncating tables: %v", err)
 	}
@@ -607,7 +607,7 @@ func newIntegrationServerWithCap(t *testing.T, ownerID string, cap int64) (*http
 	}
 	ctx := context.Background()
 	_, err := testPool.Exec(ctx,
-		`TRUNCATE journal.photos, journal.journal_entries, trip.days, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
+		`TRUNCATE journal.photos, journal.journal_entries, trip.days, trip.trip_exports, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
 	if err != nil {
 		t.Fatalf("truncating tables: %v", err)
 	}
