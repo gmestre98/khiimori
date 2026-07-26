@@ -20,11 +20,11 @@ updating it on re-export — recreating if the user deleted it.
 
 ## Acceptance
 
-- [ ] First export inserts a mapping; second export of the same trip updates the
+- [x] First export inserts a mapping; second export of the same trip updates the
       same doc (id unchanged), no duplicate created.
-- [ ] A deleted doc (404) is recreated and the mapping updated to the new id.
-- [ ] Two different users exporting the same shared trip get separate docs in
+- [x] A deleted doc (404) is recreated and the mapping updated to the new id.
+- [x] Two different users exporting the same shared trip get separate docs in
       their own Drives.
-- [ ] Store integration test for upsert + read; unit test for the reconcile
+- [x] Store integration test for upsert + read; unit test for the reconcile
       branch (update / recreate / create).
 </content>
