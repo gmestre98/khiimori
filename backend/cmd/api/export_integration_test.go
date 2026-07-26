@@ -132,7 +132,10 @@ func TestIntegrationExport_CreatesThenUpdatesSameDoc(t *testing.T) {
 	if r1.StatusCode != http.StatusOK {
 		t.Fatalf("first export status = %d, want 200", r1.StatusCode)
 	}
-	var body1 struct{ DocURL, FolderURL string }
+	var body1 struct {
+		DocURL    string `json:"doc_url"`
+		FolderURL string `json:"folder_url"`
+	}
 	_ = json.NewDecoder(r1.Body).Decode(&body1)
 	if body1.DocURL == "" || body1.FolderURL == "" {
 		t.Errorf("missing doc/folder url: %+v", body1)
