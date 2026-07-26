@@ -364,13 +364,15 @@ func (e exportReader) Journals(ctx context.Context, tripID string) ([]export.Day
 		return nil, err
 	}
 
+	// Load every entry's photos in one query (avoids an N+1 over the diary days).
+	photosByEntry, err := e.photosByEntry(ctx, tripID)
+	if err != nil {
+		return nil, err
+	}
+
 	out := make([]export.DayJournal, 0, len(entries))
 	for _, en := range entries {
-		photos, err := e.photosForEntry(ctx, en.id)
-		if err != nil {
-			return nil, err
-		}
-		en.j.Photos = photos
+		en.j.Photos = photosByEntry[en.id]
 		out = append(out, export.DayJournal{DayID: en.dayID, Journal: en.j})
 	}
 	return out, nil
@@ -406,28 +408,32 @@ func (e exportReader) dayIDsByDate(ctx context.Context, tripID string) (map[stri
 	return m, rows.Err()
 }
 
-// photosForEntry loads a journal entry's photos (the full images, each carrying
-// a thumbnail reference), skipping standalone thumbnail rows.
-func (e exportReader) photosForEntry(ctx context.Context, entryID string) ([]export.Photo, error) {
+// photosByEntry loads all of a trip's journal photos (the full images, each
+// carrying a thumbnail reference; standalone thumbnail rows are skipped) in one
+// query, grouped by journal entry id.
+func (e exportReader) photosByEntry(ctx context.Context, tripID string) (map[string][]export.Photo, error) {
 	const q = `
-		SELECT storage_url, COALESCE(thumbnail_url, ''), COALESCE(caption, '')
-		FROM journal.photos
-		WHERE journal_entry_id = $1::uuid AND is_thumbnail = false
-		ORDER BY created_at ASC`
-	rows, err := e.pool.Query(ctx, q, entryID)
+		SELECT p.journal_entry_id::text, p.storage_url, COALESCE(p.thumbnail_url, ''), COALESCE(p.caption, '')
+		FROM journal.photos p
+		JOIN journal.journal_entries je ON je.id = p.journal_entry_id
+		JOIN trip.days d ON d.id = je.day_id
+		WHERE d.trip_id = $1::uuid AND p.is_thumbnail = false
+		ORDER BY p.created_at ASC`
+	rows, err := e.pool.Query(ctx, q, tripID)
 	if err != nil {
 		return nil, fmt.Errorf("export: photos: %w", err)
 	}
 	defer rows.Close()
-	var out []export.Photo
+	byEntry := map[string][]export.Photo{}
 	for rows.Next() {
+		var entryID string
 		var ph export.Photo
-		if err := rows.Scan(&ph.StorageURL, &ph.ThumbnailURL, &ph.Caption); err != nil {
+		if err := rows.Scan(&entryID, &ph.StorageURL, &ph.ThumbnailURL, &ph.Caption); err != nil {
 			return nil, fmt.Errorf("export: scan photo: %w", err)
 		}
-		out = append(out, ph)
+		byEntry[entryID] = append(byEntry[entryID], ph)
 	}
-	return out, rows.Err()
+	return byEntry, rows.Err()
 }
 
 // coveredDayIDs returns the ids of the days a stay covers: each night from
