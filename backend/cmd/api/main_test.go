@@ -33,7 +33,7 @@ type readyzBody struct {
 }
 
 func TestReadyzReportsDBHealthy(t *testing.T) {
-	rec := get(t, newRouter(fakePinger{nil}, nil, config.Config{}, journal.NoopMediaStore{}), "/readyz")
+	rec := get(t, newRouter(fakePinger{nil}, nil, config.Config{}, journal.NoopMediaStore{}, nil), "/readyz")
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("status = %d, want 200", rec.Code)
@@ -49,7 +49,7 @@ func TestReadyzReportsDBHealthy(t *testing.T) {
 
 func TestReadyzReportsDBUnreachable(t *testing.T) {
 	secret := "connection refused to 10.0.0.5:5432 with password hunter2"
-	rec := get(t, newRouter(fakePinger{errors.New(secret)}, nil, config.Config{}, journal.NoopMediaStore{}), "/readyz")
+	rec := get(t, newRouter(fakePinger{errors.New(secret)}, nil, config.Config{}, journal.NoopMediaStore{}, nil), "/readyz")
 
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Errorf("status = %d, want 503", rec.Code)
@@ -70,7 +70,7 @@ func TestReadyzReportsDBUnreachable(t *testing.T) {
 // TestHealthzIgnoresDB asserts liveness does no DB I/O: it is 200 even when the
 // database is unreachable (only readiness should flip).
 func TestHealthzIgnoresDB(t *testing.T) {
-	h := newRouter(fakePinger{errors.New("db down")}, nil, config.Config{}, journal.NoopMediaStore{})
+	h := newRouter(fakePinger{errors.New("db down")}, nil, config.Config{}, journal.NoopMediaStore{}, nil)
 
 	rec := get(t, h, "/healthz")
 	if rec.Code != http.StatusOK {
@@ -83,7 +83,7 @@ func TestHealthzIgnoresDB(t *testing.T) {
 // root. Health probes and the deployed E2E/smoke checks still hit the root paths
 // directly, so both must work. /readyz stands in for "any route".
 func TestAPIPrefixAliasesRootRoutes(t *testing.T) {
-	h := newRouter(fakePinger{nil}, nil, config.Config{}, journal.NoopMediaStore{})
+	h := newRouter(fakePinger{nil}, nil, config.Config{}, journal.NoopMediaStore{}, nil)
 
 	for _, path := range []string{"/readyz", "/api/readyz"} {
 		if rec := get(t, h, path); rec.Code != http.StatusOK {
@@ -93,7 +93,7 @@ func TestAPIPrefixAliasesRootRoutes(t *testing.T) {
 }
 
 func TestDebugTriggerErrorWhenEnabled(t *testing.T) {
-	h := newRouter(fakePinger{nil}, nil, config.Config{DebugErrorTrigger: true}, journal.NoopMediaStore{})
+	h := newRouter(fakePinger{nil}, nil, config.Config{DebugErrorTrigger: true}, journal.NoopMediaStore{}, nil)
 
 	rec := get(t, h, "/debug/trigger-error")
 
@@ -110,7 +110,7 @@ func TestDebugTriggerErrorWhenEnabled(t *testing.T) {
 }
 
 func TestDebugTriggerErrorWhenDisabled(t *testing.T) {
-	h := newRouter(fakePinger{nil}, nil, config.Config{}, journal.NoopMediaStore{})
+	h := newRouter(fakePinger{nil}, nil, config.Config{}, journal.NoopMediaStore{}, nil)
 
 	// When the trigger is disabled the path must return 404 so it is not
 	// discoverable in normal operation.

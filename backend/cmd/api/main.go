@@ -28,6 +28,9 @@ import (
 
 	"github.com/gmestre98/khiimori/backend/internal/auth"
 	"github.com/gmestre98/khiimori/backend/internal/budget"
+	"github.com/gmestre98/khiimori/backend/internal/export"
+	"github.com/gmestre98/khiimori/backend/internal/exportstore"
+	"github.com/gmestre98/khiimori/backend/internal/gdrive"
 	"github.com/gmestre98/khiimori/backend/internal/geo"
 	"github.com/gmestre98/khiimori/backend/internal/journal"
 	"github.com/gmestre98/khiimori/backend/internal/platform/config"
@@ -95,6 +98,9 @@ func run() error {
 	// no-op MediaStore so the service boots without requiring GCS credentials;
 	// photo endpoints will return 503 at call time rather than failing startup.
 	var mediaStore journal.MediaStore = journal.NoopMediaStore{}
+	// imageFetcher reads photo bytes from GCS for inline export embedding (M13.3);
+	// nil when GCS is unconfigured, so exports run text-only.
+	var imageFetcher export.ImageFetcher
 	if cfg.MediaBucketName != "" {
 		gcsClient, gcsErr := storage.NewClient(context.Background())
 		if gcsErr != nil {
@@ -103,6 +109,7 @@ func run() error {
 		}
 		defer func() { _ = gcsClient.Close() }()
 		mediaStore = journal.NewGCSMediaStore(gcsClient, cfg.MediaBucketName)
+		imageFetcher = gcsImageFetcher{client: gcsClient, bucket: cfg.MediaBucketName}
 	} else {
 		logger.Info("MEDIA_BUCKET_NAME unset: photo upload disabled (no GCS client)")
 	}
@@ -114,7 +121,7 @@ func run() error {
 	// above the rest so cross-origin headers land on every response (including a
 	// 500) and a preflight short-circuits before the handlers; Recovery is
 	// innermost so a handler panic becomes a 500 the access log can observe.
-	handler := httpx.Chain(newRouter(database, database.Pool(), cfg, mediaStore),
+	handler := httpx.Chain(newRouter(database, database.Pool(), cfg, mediaStore, imageFetcher),
 		httpx.RequestIDMiddleware(),
 		httpx.CORS(cfg.CORSAllowedOrigins),
 		httpx.Logging(logger, cfg.GCPProject),
@@ -189,7 +196,7 @@ func run() error {
 // pool. pool is the same database's connection pool, handed to the modules that
 // run queries (auth provisioning); it is kept separate from dbPinger so the
 // readiness seam stays narrow.
-func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaStore journal.MediaStore) http.Handler {
+func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaStore journal.MediaStore, imageFetcher export.ImageFetcher) http.Handler {
 	mux := http.NewServeMux()
 
 	// Health probes are mounted on the root router so they inherit the shared
@@ -211,10 +218,13 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 	// trip writes the Owner membership transactionally without importing sharing.
 	authModule := auth.New(cfg, pool)
 	tripAuthz := sharing.NewMembershipAuthorizer(pool)
+	// Held in a variable (not just the modules slice) so the export endpoint can
+	// reuse its trip budget rollup (M13.3 S4).
+	budgetModule := budget.New(pool, authModule.RequireAuth, membershipBudgetAuthzAdapter{tripAuthz}, tripCostReaderAdapter{pool: pool})
 	modules := []httpx.RouteRegistrar{
 		authModule,
 		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships(pool), membershipAuthzAdapter{tripAuthz}),
-		budget.New(pool, authModule.RequireAuth, membershipBudgetAuthzAdapter{tripAuthz}, tripCostReaderAdapter{pool: pool}),
+		budgetModule,
 		journal.New(pool, authModule.RequireAuth, membershipJournalAuthzAdapter{tripAuthz}, mediaStore),
 		sharing.New(pool, sharing.Options{
 			Authz:          tripAuthz,
@@ -240,6 +250,22 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 	for _, m := range modules {
 		m.RegisterRoutes(mux)
 	}
+
+	// Trip export to Google Docs (M13.3 S4). Lives in the composition root because
+	// it ties together auth (Drive token + folder cache), sharing (authz), budget
+	// (rollup), the trip/journal data (SQL reader), GCS (photo bytes), the Drive
+	// client, and the export mapping store — modules that must not import each
+	// other. Registered only when the Drive integration is configured.
+	registerExportRoutes(mux, authModule.RequireAuth, authModule.DriveConfigured(), exportDeps{
+		pool:         pool,
+		authz:        tripAuthz,
+		tokens:       authModule,
+		folders:      folderCache{authModule},
+		budget:       budgetModule,
+		drive:        gdrive.NewClient(),
+		mappings:     exportstore.New(pool),
+		imageFetcher: imageFetcher,
+	})
 
 	// Guarded test-only endpoint for end-to-end alert verification (M01.7 S5).
 	// Disabled by default; enabled only when DEBUG_ERROR_TRIGGER=true is set.
