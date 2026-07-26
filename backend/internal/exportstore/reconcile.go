@@ -5,13 +5,22 @@ import (
 	"errors"
 
 	"golang.org/x/oauth2"
-
-	"github.com/gmestre98/khiimori/backend/internal/gdrive"
 )
 
-// DocWriter is the Drive operations Reconcile needs; *gdrive.Client satisfies it.
+// ErrDocMissing signals that an UpdateDoc targeted a document that no longer
+// exists (the user trashed it), so Reconcile recreates it. It is part of the
+// DocWriter contract: the composition root adapts the concrete Drive client's
+// equivalent error to this sentinel (the modular-monolith boundary forbids this
+// package importing the gdrive module directly).
+var ErrDocMissing = errors.New("exportstore: document missing")
+
+// DocWriter is the Drive operations Reconcile needs. The composition root
+// satisfies it by adapting *gdrive.Client, translating its not-found error to
+// ErrDocMissing.
 type DocWriter interface {
 	CreateDoc(ctx context.Context, ts oauth2.TokenSource, name, folderID string, html []byte) (fileID, webViewLink string, err error)
+	// UpdateDoc replaces the doc's contents; it returns ErrDocMissing when the
+	// target no longer exists.
 	UpdateDoc(ctx context.Context, ts oauth2.TokenSource, fileID string, html []byte) error
 }
 
@@ -53,7 +62,7 @@ func Reconcile(ctx context.Context, store mappingRepo, writer DocWriter, ts oaut
 	}
 
 	err = writer.UpdateDoc(ctx, ts, existing.DriveFileID, p.HTML)
-	if errors.Is(err, gdrive.ErrDocMissing) {
+	if errors.Is(err, ErrDocMissing) {
 		// The user deleted/trashed the Doc — recreate it in the same folder.
 		return createAndSave(ctx, store, writer, ts, p)
 	}

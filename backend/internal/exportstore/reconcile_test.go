@@ -6,8 +6,6 @@ import (
 	"testing"
 
 	"golang.org/x/oauth2"
-
-	"github.com/gmestre98/khiimori/backend/internal/gdrive"
 )
 
 // fakeRepo is an in-memory mappingRepo.
@@ -108,7 +106,7 @@ func TestReconcile_ExistingUpdatesInPlace(t *testing.T) {
 func TestReconcile_DeletedDocRecreated(t *testing.T) {
 	repo := newFakeRepo()
 	_ = repo.Upsert(context.Background(), Mapping{TripID: "t1", UserID: "u1", DriveFileID: "file-gone", DocURL: "https://doc/gone"})
-	w := &fakeWriter{updateErr: gdrive.ErrDocMissing, createID: "file-fresh", createLink: "https://doc/fresh"}
+	w := &fakeWriter{updateErr: ErrDocMissing, createID: "file-fresh", createLink: "https://doc/fresh"}
 
 	m, err := Reconcile(context.Background(), repo, w, nil, params())
 	if err != nil {
