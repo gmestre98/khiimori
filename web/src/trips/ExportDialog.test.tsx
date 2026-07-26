@@ -60,7 +60,7 @@ describe('ExportDialog', () => {
     )
   })
 
-  it('drops back to Connect when the export needs (re)connect', async () => {
+  it('shows Reconnect when the export fails with a revoked grant', async () => {
     vi.spyOn(api, 'fetchDriveConnection').mockResolvedValue({ connected: true })
     vi.spyOn(api, 'exportTripToGoogleDoc').mockRejectedValue(
       new api.DriveActionRequiredError('drive_reconnect_required'),
@@ -68,7 +68,11 @@ describe('ExportDialog', () => {
     renderDialog()
 
     fireEvent.click(await screen.findByRole('button', { name: /^export$/i }))
-    expect(await screen.findByRole('button', { name: /connect google drive/i })).toBeInTheDocument()
+    // A revoked grant reads "Reconnect", not "Connect" (the user was connected).
+    expect(
+      await screen.findByRole('button', { name: /reconnect google drive/i }),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/connection expired/i)).toBeInTheDocument()
   })
 
   it('shows an error with retry when the export fails', async () => {

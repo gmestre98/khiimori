@@ -11,7 +11,8 @@ import { Button, Sheet } from '../components/ui'
 
 type Phase =
   | { kind: 'checking' }
-  | { kind: 'not_connected' } // never connected, or reconnect required
+  // reconnect=true means the grant was revoked (was connected); false = never connected.
+  | { kind: 'not_connected'; reconnect: boolean }
   | { kind: 'ready' }
   | { kind: 'exporting' }
   | { kind: 'done'; result: ExportResult }
@@ -44,7 +45,7 @@ export function ExportDialog({ tripId, tripName, open, onClose }: ExportDialogPr
     fetchDriveConnection()
       .then((c) => {
         if (cancelled) return
-        setPhase({ kind: c.connected ? 'ready' : 'not_connected' })
+        setPhase(c.connected ? { kind: 'ready' } : { kind: 'not_connected', reconnect: false })
       })
       .catch((err) => {
         if (cancelled || err instanceof UnauthorizedError) return
@@ -69,7 +70,7 @@ export function ExportDialog({ tripId, tripName, open, onClose }: ExportDialogPr
     } catch (err) {
       if (err instanceof UnauthorizedError) return // handled centrally
       if (err instanceof DriveActionRequiredError) {
-        setPhase({ kind: 'not_connected' })
+        setPhase({ kind: 'not_connected', reconnect: err.code === 'drive_reconnect_required' })
         return
       }
       setPhase({ kind: 'error', message: 'Couldn’t export to Google Drive. Please try again.' })
@@ -93,9 +94,13 @@ export function ExportDialog({ tripId, tripName, open, onClose }: ExportDialogPr
 
         {phase.kind === 'not_connected' && (
           <div className="export-dialog-connect">
-            <p>Connect Google Drive to export. You’ll be taken to your profile to connect.</p>
+            <p>
+              {phase.reconnect
+                ? 'Your Google Drive connection expired. Reconnect to export — you’ll be taken to your profile.'
+                : 'Connect Google Drive to export. You’ll be taken to your profile to connect.'}
+            </p>
             <Button variant="secondary" onClick={connect}>
-              Connect Google Drive
+              {phase.reconnect ? 'Reconnect Google Drive' : 'Connect Google Drive'}
             </Button>
           </div>
         )}
