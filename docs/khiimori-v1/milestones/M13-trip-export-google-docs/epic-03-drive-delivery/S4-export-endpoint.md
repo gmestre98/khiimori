@@ -24,11 +24,11 @@ One endpoint that authorizes, builds, renders, delivers, and reports the result.
 
 ## Acceptance
 
-- [ ] Authorized export of a connected user returns a working `doc_url` and
+- [x] Authorized export of a connected user returns a working `doc_url` and
       `folder_url`; the doc is in the right folder.
-- [ ] Not connected → 409 `drive_not_connected`; revoked mid-flight → 409
+- [x] Not connected → 409 `drive_not_connected`; revoked mid-flight → 409
       `drive_reconnect_required`.
-- [ ] Unauthorized trip access → 403/404 per project convention.
-- [ ] Integration test: connected user, real-ish (mock Drive) round-trip →
+- [x] Unauthorized trip access → 403/404 per project convention.
+- [x] Integration test: connected user, real-ish (mock Drive) round-trip →
       mapping written, second call updates same doc.
 </content>

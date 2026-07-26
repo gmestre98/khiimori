@@ -26,9 +26,9 @@ Doc and updates one in place, authenticated by an `oauth2.TokenSource`.
 
 ## Acceptance
 
-- [ ] Create returns a real file id + `webViewLink`; the file opens as an editable
+- [x] Create returns a real file id + `webViewLink`; the file opens as an editable
       Google Doc with the rendered structure.
-- [ ] Update replaces contents of an existing doc, same id/URL.
-- [ ] 404-on-update → `ErrDocMissing`; auth failure → `ErrDriveDisconnected`.
-- [ ] Tested against a mock Drive HTTP server (create, update, 404, 401 paths).
+- [x] Update replaces contents of an existing doc, same id/URL.
+- [x] 404-on-update → `ErrDocMissing`; auth failure → `ErrDriveDisconnected`.
+- [x] Tested against a mock Drive HTTP server (create, update, 404, 401 paths).
 </content>
