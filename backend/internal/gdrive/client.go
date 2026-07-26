@@ -107,7 +107,9 @@ func (c *Client) do(ctx context.Context, ts oauth2.TokenSource, method, url, con
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
-	req.Header.Set("Content-Type", contentType)
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
