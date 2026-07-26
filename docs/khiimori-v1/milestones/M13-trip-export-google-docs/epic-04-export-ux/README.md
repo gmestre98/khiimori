@@ -1,7 +1,17 @@
 # Epic M13.4 — Export UX
 
+> **Status:** ✅ Done (S3 deferred) — the export dialog shipped in
+> [#525](https://github.com/gmestre98/khiimori/pull/525), covering S1 (entry +
+> options + connect gate), S2 (progress + result links + "Update" relabel), and
+> S4 (error / reconnect handling) as one cohesive dialog. **S3 (Google Picker)
+> is deferred by choice** — it needs GCP config (Picker API + a browser API key)
+> the app owner must provision and can't be verified without it; the app-created
+> "Khiimori travelogues" folder satisfies the core requirement, and the export
+> endpoint already accepts a `folderId`, so the Picker can be added later without
+> backend changes. The dialog was verified in a browser (light bottom-sheet with
+> options, result links, connect/reconnect states).
+
 > Milestone: [13 — Trip export to Google Docs](../README.md) · PRD refs: §7.0.
-> Status: ⬜ Planned.
 
 ## Description
 
@@ -12,16 +22,16 @@ not-connected / reconnect / doc-deleted states.
 
 ## Acceptance Criteria
 
-- [ ] A trip-level "Export to Google Docs" action opens a dialog with options
+- [x] A trip-level "Export to Google Docs" action opens a dialog with options
       (include photos, include budget); if Drive isn't connected it routes to the
       connect flow (E01·S4) first. — **S1**
-- [ ] Export shows progress, then success with "Open in Google Docs" and "Open
+- [x] Export shows progress, then success with "Open in Google Docs" and "Open
       folder" links; re-export shows the last-exported time and updates the same
       doc. — **S2**
 - [ ] The user can choose a destination folder via the Google Picker; the picked
       folder id is passed to the export endpoint. — **S3** *(optional / can ship
       after S1–S2)*
-- [ ] Reconnect-required and other failures are surfaced with a clear recovery
+- [x] Reconnect-required and other failures are surfaced with a clear recovery
       action. — **S4**
 
 ## User stories

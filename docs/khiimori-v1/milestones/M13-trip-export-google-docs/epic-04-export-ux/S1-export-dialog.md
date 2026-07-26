@@ -21,8 +21,8 @@ Give the user a way to start an export and choose what goes in.
 
 ## Acceptance
 
-- [ ] The action opens the dialog with the two toggles.
-- [ ] When Drive isn't connected, the dialog leads through connect first, then
+- [x] The action opens the dialog with the two toggles.
+- [x] When Drive isn't connected, the dialog leads through connect first, then
       lets the user export.
-- [ ] Verified in a browser.
+- [x] Verified in a browser.
 </content>

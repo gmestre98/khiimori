@@ -1,5 +1,25 @@
 # Milestone 13 — Trip export to Google Docs
 
+> **Status:** ✅ Done — shipped across PRs #510–#525. A traveller can connect
+> Google Drive (once, on their profile) and export any trip to a single editable
+> Google Doc in their Drive, in a "Khiimori travelogues" folder; re-exporting
+> updates the same document in place. Epics 01–03 (Drive auth + encrypted token
+> store, the HTML document builder, and the stdlib-net/http Drive delivery with
+> one-doc-per-trip) and Epic 04's export dialog are complete and verified
+> (backend end-to-end via an ephemeral-DB integration test; the doc render and
+> the dialog verified in a browser). **One optional piece is deferred by choice:**
+> Epic 04 · S3 (the Google Picker for choosing an *existing* folder) — it needs
+> GCP config (Picker API + a browser API key) the app owner must provision and
+> can't be verified without it; the endpoint already accepts a `folderId` so it
+> can be added later without backend changes. No new Go module was added (Drive
+> is called over stdlib `net/http`); export is synchronous (€0-idle preserved).
+>
+> **Before it works in production**, the app owner must wire the Google Cloud
+> config (see per-epic Costs Impact): enable the Drive API, add the `drive.file`
+> scope to the OAuth consent screen (a "sensitive" scope → app verification for
+> external users), set `GOOGLE_DRIVE_REDIRECT_URI` + `GOOGLE_DRIVE_TOKEN_KEY`
+> (a base64 AES-256 key in Secret Manager), and register the Drive callback URI.
+
 > Milestone: 13 · PRD refs: §7.0 (dependency posture), §9 (Data model), §6 (Auth).
 
 Khiimori holds a full record of a trip — the planned timeline, the stays, what
@@ -33,7 +53,7 @@ Epic 01 and is the real spine of this milestone; everything else builds on it.
 | [01](epic-01-drive-authorization/README.md) | Drive authorization & token store | ✅ Done (PRs #511–#514) |
 | [02](epic-02-document-builder/README.md) | Trip document builder | ✅ Done (PRs #516–#518) |
 | [03](epic-03-drive-delivery/README.md) | Drive delivery & one-doc-per-trip | ✅ Done (PRs #520–#523) |
-| [04](epic-04-export-ux/README.md) | Export UX | ⬜ Planned |
+| [04](epic-04-export-ux/README.md) | Export UX | ✅ Done (S3 Picker deferred) — #525 |
 
 ### Sequencing
 

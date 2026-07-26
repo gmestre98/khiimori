@@ -18,7 +18,7 @@ Show the export running, then the result, and reflect re-export state.
 
 ## Acceptance
 
-- [ ] Running an export shows progress, then the two result links.
-- [ ] Re-exporting shows the last-exported time and the button reflects "update".
-- [ ] Verified in a browser (link opens the created Doc).
+- [x] Running an export shows progress, then the two result links.
+- [x] Re-exporting shows the last-exported time and the button reflects "update".
+- [x] Verified in a browser (link opens the created Doc).
 </content>
