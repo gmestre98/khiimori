@@ -130,7 +130,7 @@ func truncateAll(t *testing.T) {
 	t.Helper()
 	_, err := authzTestPool.Exec(context.Background(),
 		`TRUNCATE journal.journal_entries, journal.photos, budget.cost_entries, budget.budget_lines,
-		         trip.plan_items, trip.stays, trip.days, trip.trips,
+		         trip.plan_items, trip.stays, trip.days, trip.trip_exports, trip.trips,
 		         sharing.trip_memberships, sharing.invitations
 		         RESTART IDENTITY`)
 	if err != nil {
