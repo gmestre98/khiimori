@@ -124,4 +124,16 @@ func TestResolveFolder_PropagatesErrors(t *testing.T) {
 			t.Errorf("err = %v", err)
 		}
 	})
+	t.Run("exists error does not recreate", func(t *testing.T) {
+		// A transient FolderExists failure must propagate, NOT recreate — otherwise
+		// we'd orphan the cached folder and make a duplicate on every failed check.
+		mgr := &fakeFolderMgr{existsErr: sentinel, createID: "must-not-be-used"}
+		_, _, err := ResolveFolder(context.Background(), mgr, &fakeFolderCache{id: "cached-1"}, nil, "u", "")
+		if !errors.Is(err, sentinel) {
+			t.Errorf("err = %v, want the exists error", err)
+		}
+		if mgr.createCalls != 0 {
+			t.Error("must not recreate the folder on a transient exists error")
+		}
+	})
 }
