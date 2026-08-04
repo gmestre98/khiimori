@@ -63,3 +63,12 @@ export const geocodingApi = enableApi('geocoding', 'geocoding-backend.googleapis
  * 3+ chars. Enabled here for reproducibility (khiimori#391 follow-up).
  */
 export const placesApi = enableApi('places', 'places-backend.googleapis.com')
+
+/**
+ * Google Drive API — the trip-export feature (M13.3) creates/updates a Google
+ * Doc in the user's Drive over stdlib net/http. Enabled here so a fresh stack
+ * stands the feature up without a manual console step. (The `drive.file` scope
+ * still has to be added to the OAuth consent screen — a console/verification
+ * step Pulumi can't perform; see infra/README.)
+ */
+export const driveApi = enableApi('drive', 'drive.googleapis.com')

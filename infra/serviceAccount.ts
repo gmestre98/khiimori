@@ -9,6 +9,7 @@ import * as gcp from '@pulumi/gcp'
 import * as pulumi from '@pulumi/pulumi'
 import {
   databaseUrlSecret,
+  driveTokenKeySecret,
   e2eLoginSecret,
   mapsApiKeySecret,
   oauthClientSecret,
@@ -38,6 +39,7 @@ const secretsByName = {
   'maps-api-key': mapsApiKeySecret,
   'session-secret': sessionSecret,
   'e2e-login-secret': e2eLoginSecret,
+  'drive-token-key': driveTokenKeySecret,
 }
 for (const [name, secret] of Object.entries(secretsByName)) {
   new gcp.secretmanager.SecretIamMember(`run-access-${name}`, {

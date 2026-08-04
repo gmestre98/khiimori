@@ -29,6 +29,13 @@ config:
   # users back out). This exact URI must also be an authorized redirect URI on
   # the Google OAuth client.
   khiimori:oauthRedirectUri: https://intricate-reef-424222-d6-web.web.app/api/auth/callback
+  # Google Drive export (M13.3). Leave COMMENTED until the manual console steps
+  # are done (add the drive.file scope to the OAuth consent screen + add this
+  # exact URI as an authorized redirect URI on the OAuth client). Uncommenting it
+  # turns the Export feature on for the next `pulumi up` (the token key is
+  # auto-generated; nothing else to set). See the "Google Drive export" runbook
+  # in README.md.
+  # khiimori:googleDriveRedirectUri: https://intricate-reef-424222-d6-web.web.app/api/integrations/google-drive/callback
   # Admin-bootstrap email (M02.2 S4). The one verified Google email provisioned
   # with is_admin=true (gates the M08 admin backoffice). OR-promoted on sign-in;
   # no public/self-serve route. Non-secret. Unset → nobody is admin.

@@ -11,6 +11,7 @@ import { cloudRunApi } from './services'
 import { serviceAccount } from './serviceAccount'
 import {
   databaseUrlSecret,
+  driveTokenKeySecret,
   e2eLoginSecret,
   mapsApiKeySecret,
   oauthClientSecret,
@@ -71,6 +72,13 @@ const corsAllowedOrigins =
 // unconfigured (503) rather than starting a broken flow.
 const oauthClientId = cfg.get('oauthClientId') ?? ''
 const oauthRedirectUri = cfg.get('oauthRedirectUri') ?? ''
+
+// Google Drive export (M13.3): the exact callback URI registered on the OAuth
+// client for the drive.file consent flow — analogous to oauthRedirectUri but a
+// separate path (…/api/integrations/google-drive/callback). Non-secret. Unset
+// leaves the Drive integration unconfigured (the Export endpoints stay off and
+// the token key below is simply never read).
+const googleDriveRedirectUri = cfg.get('googleDriveRedirectUri') ?? ''
 
 // Web app URL the OAuth callback redirects the browser back to after sign-in
 // (M02.5). Defaults to the Firebase Hosting origin (where the web app is
@@ -133,9 +141,16 @@ export const service = new gcp.cloudrunv2.Service(
             // Admin-bootstrap email (M02.2 S4): the sole email provisioned as
             // admin. Non-secret literal; empty leaves everyone non-admin.
             { name: 'ADMIN_EMAIL', value: adminEmail },
+            // Google Drive export (M13.3): the drive.file callback URI (non-secret
+            // literal, like OAUTH_REDIRECT_URI) + the AES key that encrypts stored
+            // refresh tokens (Secret Manager-backed, auto-generated). Both unset →
+            // the feature stays off; a malformed key leaves it off without crashing
+            // boot (the app treats a bad key as "unconfigured").
+            { name: 'GOOGLE_DRIVE_REDIRECT_URI', value: googleDriveRedirectUri },
             secretEnv('DATABASE_URL', databaseUrlSecret),
             secretEnv('OAUTH_CLIENT_SECRET', oauthClientSecret),
             secretEnv('MAPS_API_KEY', mapsApiKeySecret),
+            secretEnv('GOOGLE_DRIVE_TOKEN_KEY', driveTokenKeySecret),
             // Session cookie signing key (M02.3 S4), auto-generated and stored in
             // Secret Manager by the infra; the app reads it from SESSION_SECRET.
             secretEnv('SESSION_SECRET', sessionSecret),
