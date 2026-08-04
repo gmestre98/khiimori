@@ -176,6 +176,44 @@ echoes an allowed `Origin` back and answers preflight `OPTIONS`.
 - **Local dev:** the origin is the Vite dev server (`http://localhost:5173`),
   set via `CORS_ALLOWED_ORIGINS` in `backend/.env` (see `backend/.env.example`).
 
+## Google Drive export (M13.3) — enabling it
+
+The trip-export feature is **config-gated off** until wired. The infra already
+does the automatable parts (`pulumi up` on this stack):
+
+- enables the **Drive API** (`services.ts`);
+- **auto-generates the AES-256 token key** that encrypts stored refresh tokens
+  and stores it in Secret Manager (`khiimori-drive-token-key`), mounted as
+  `GOOGLE_DRIVE_TOKEN_KEY` — no operator action, like the session key;
+- grants the Cloud Run SA `secretAccessor` on it (`serviceAccount.ts`);
+- sets `GOOGLE_DRIVE_REDIRECT_URI` from the `googleDriveRedirectUri` stack config.
+
+Two steps are **manual** (Google console — Pulumi can't do them):
+
+1. **OAuth consent screen** → add the scope
+   `https://www.googleapis.com/auth/drive.file`. It's a _sensitive_ scope, so an
+   app used by external users needs Google verification (brand review). In
+   _testing_ mode it works for listed test users without verification.
+2. **OAuth client** → add this exact **authorized redirect URI**:
+   `https://<web-app-url>/api/integrations/google-drive/callback`
+   (the web app origin, so the session cookie stays first-party — same reasoning
+   as the sign-in `oauthRedirectUri`).
+
+Then turn it on:
+
+```sh
+pulumi config set khiimori:googleDriveRedirectUri \
+  https://<web-app-url>/api/integrations/google-drive/callback
+pulumi up
+```
+
+On the next deploy `DriveConfigured()` flips true: the connect/export endpoints
+register and the trip **Export** button appears. Until then everything stays
+off (a missing — or malformed — key leaves the feature unconfigured; it never
+blocks boot). Rotating the token key (bump `keepers` on the `drive-token-key`
+`RandomBytes`) invalidates every stored refresh token, so all users must
+reconnect Drive — fine for an opt-in feature.
+
 ## Teardown (`pulumi destroy`)
 
 ```sh

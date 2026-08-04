@@ -135,6 +135,32 @@ export const databaseUrlDirectSecret = managedSecret(
   'databaseUrlDirect',
 )
 
+/**
+ * AES-256 key that encrypts stored Google Drive refresh tokens at rest (M13.1
+ * S2). Like the session key, this value is *ours* to generate, so the infra
+ * mints it with @pulumi/random and stores it as the secret's version — no
+ * operator action and the deploy is never blocked on a missing value. The app
+ * reads it from GOOGLE_DRIVE_TOKEN_KEY and requires base64 of exactly 32 bytes
+ * (→ AES-256); RandomBytes(length: 32).base64 satisfies that. Rotating it
+ * (bump `keepers`) makes every stored refresh token undecryptable, forcing all
+ * users to reconnect Drive — acceptable for an opt-in export feature.
+ */
+export const driveTokenKeySecret = new gcp.secretmanager.Secret(
+  'drive-token-key',
+  { secretId: 'khiimori-drive-token-key', replication: { auto: {} } },
+  { dependsOn: [secretManagerApi] },
+)
+
+const driveTokenKey = new random.RandomBytes('drive-token-key', { length: 32 })
+
+versions.push(
+  new gcp.secretmanager.SecretVersion('drive-token-key', {
+    secret: driveTokenKeySecret.id,
+    // base64 of 32 random bytes — the app decodes it to a 32-byte AES-256 key.
+    secretData: driveTokenKey.base64,
+  }),
+)
+
 /** All runtime secrets — the Cloud Run SA is granted accessor on each. */
 export const allSecrets = [
   databaseUrlSecret,
@@ -142,6 +168,7 @@ export const allSecrets = [
   mapsApiKeySecret,
   sessionSecret,
   e2eLoginSecret,
+  driveTokenKeySecret,
 ]
 
 /**
@@ -158,4 +185,5 @@ export const secretIds = {
   mapsApiKey: mapsApiKeySecret.secretId,
   sessionSecret: sessionSecret.secretId,
   e2eLoginSecret: e2eLoginSecret.secretId,
+  driveTokenKey: driveTokenKeySecret.secretId,
 }
