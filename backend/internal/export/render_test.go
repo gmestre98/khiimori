@@ -107,8 +107,8 @@ func TestRender_EmptyDayOmitsSections(t *testing.T) {
 		t.Fatalf("Render: %v", err)
 	}
 	html := string(out)
-	if strings.Contains(html, "class=\"stay\"") || strings.Contains(html, "<h3>Plan</h3>") ||
-		strings.Contains(html, "What happened") || strings.Contains(html, "<h3>Diary</h3>") {
+	if strings.Contains(html, "class=\"stay\"") || strings.Contains(html, "section-label\">Plan<") ||
+		strings.Contains(html, "What happened") || strings.Contains(html, "section-label\">Diary<") {
 		t.Error("empty day should omit stay/plan/what-happened/diary blocks")
 	}
 	if strings.Contains(html, "<h2>Budget</h2>") {
@@ -193,5 +193,28 @@ func TestRenderCombined_Empty(t *testing.T) {
 	}
 	if !strings.Contains(string(out), "any trips to export") {
 		t.Error("empty combined doc should note there are no trips")
+	}
+}
+
+// TestRender_DayIsTheOnlyDaySection guards the outline: a day's sub-sections
+// (Plan / What happened / Diary) are bold labels, not headings, so the Google
+// Docs outline lists days (and the trip/budget), never a pile of "Plan" entries.
+func TestRender_DayIsTheOnlyDaySection(t *testing.T) {
+	out, err := Render(sampleModel())
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	html := string(out)
+	if strings.Contains(html, "<h3") {
+		t.Error("no <h3> headings expected — day sub-sections should be labels, not outline entries")
+	}
+	for _, label := range []string{`section-label">Plan<`, `section-label">What happened<`} {
+		if !strings.Contains(html, label) {
+			t.Errorf("expected bold label %q", label)
+		}
+	}
+	// The day itself remains the section heading.
+	if !strings.Contains(html, "<h2>Day 3 — Thursday, 14 May</h2>") {
+		t.Error("the day should stay an <h2> section heading")
 	}
 }
