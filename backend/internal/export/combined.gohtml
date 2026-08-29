@@ -21,9 +21,12 @@
       </ol>
       <p class="meta">Tip: open the document outline (View → Show outline) to jump between trips.</p>
 
-      {{ range .Trips }}
+      {{ $total := len .Trips }}
+      {{ range $i, $t := .Trips }}
         <div class="trip">
-{{ template "tripSection" . }}
+          <hr class="trip-sep" />
+          <div class="trip-sep-label">Trip {{ add $i 1 }} of {{ $total }}</div>
+{{ template "tripSection" $t }}
         </div>
       {{ end }}
     {{ else }}
