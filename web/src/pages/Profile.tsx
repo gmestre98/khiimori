@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { ProfileValidationError, UnauthorizedError, updateProfile } from '../lib/api'
 import { Button, FormField, Input } from '../components/ui'
 import { DriveConnectionCard } from '../components/DriveConnectionCard'
+import { ExportDialog } from '../trips/ExportDialog'
 import { applyTheme } from '../design/theme'
 
 const THEMES = [
@@ -75,6 +76,7 @@ export function Profile() {
   // Whether the current avatar renders; false falls back to initials.
   const [avatarOk, setAvatarOk] = useState(true)
   const [avatarError, setAvatarError] = useState<string | null>(null)
+  const [exportOpen, setExportOpen] = useState(false)
 
   const fileRef = useRef<HTMLInputElement>(null)
   const nameId = useId()
@@ -280,6 +282,21 @@ export function Profile() {
       </form>
 
       <DriveConnectionCard />
+
+      <div className="profile-card profile-export">
+        <div className="profile-export-text">
+          <h3 className="profile-export-title">Export all trips</h3>
+          <p className="profile-export-sub">
+            Combine every trip into a single Google Doc — a section per trip, with an outline to
+            jump between them.
+          </p>
+        </div>
+        <Button variant="secondary" onClick={() => setExportOpen(true)}>
+          Export all
+        </Button>
+      </div>
+
+      {exportOpen && <ExportDialog open allTrips onClose={() => setExportOpen(false)} />}
     </section>
   )
 }

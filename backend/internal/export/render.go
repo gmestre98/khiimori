@@ -55,6 +55,7 @@ func templateFuncs() template.FuncMap {
 		"stars":       stars,
 		"nonEmpty":    func(s string) bool { return strings.TrimSpace(s) != "" },
 		"join":        func(sep string, xs []string) string { return strings.Join(xs, sep) },
+		"add":         func(a, b int) int { return a + b },
 		// safeURL marks a photo's data: URI as a trusted URL. html/template would
 		// otherwise rewrite a data: src to "#ZgotmplZ" (its unsafe-scheme guard).
 		// This is safe because Data is server-constructed by dataURI, whose

@@ -5658,3 +5658,29 @@
   color: var(--ink);
   text-decoration: underline;
 }
+.profile-export {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s4);
+  flex-wrap: wrap;
+}
+.profile-export-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  min-width: 12rem;
+  flex: 1;
+}
+.profile-export-title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--fw-semi);
+  color: var(--ink);
+}
+.profile-export-sub {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--t-sm-lh);
+}

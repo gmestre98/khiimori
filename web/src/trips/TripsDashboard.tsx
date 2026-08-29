@@ -15,7 +15,6 @@ import {
   type TripsResponse,
 } from '../lib/api'
 import { CurrentTripCard } from './CurrentTripCard'
-import { ExportDialog } from './ExportDialog'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { BudgetGlance } from './RollupDisplay'
 import { formatDateRange, monthYear, tripDayCount } from '../lib/format'
@@ -179,7 +178,6 @@ export function TripsDashboard() {
   const [acceptingId, setAcceptingId] = useState<string | null>(null)
   const [decliningId, setDecliningId] = useState<string | null>(null)
   const [inviteError, setInviteError] = useState<string | null>(null)
-  const [exportOpen, setExportOpen] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -330,8 +328,6 @@ export function TripsDashboard() {
   const totalCount = data
     ? data.current.length + data.upcoming.length + data.past.length + archived.length
     : 0
-  // Non-archived trips are what the all-trips export includes (matches the API).
-  const exportableCount = data ? data.current.length + data.upcoming.length + data.past.length : 0
 
   return (
     <>
@@ -362,30 +358,11 @@ export function TripsDashboard() {
           <CacheStatus fromCache={fromCache} isValidating={validating} />
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          {exportableCount > 0 && (
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => setExportOpen(true)}
-              aria-label="Export all trips to Google Docs"
-            >
-              Export all
-            </button>
-          )}
           <Link to="/trips/new" className="btn-primary trips-new-btn">
             <PlusIcon /> New trip
           </Link>
         </div>
       </div>
-
-      {exportOpen && (
-        <ExportDialog
-          open
-          allTrips
-          tripCount={exportableCount}
-          onClose={() => setExportOpen(false)}
-        />
-      )}
 
       <div className="trips-dashboard">
         {actionError && (

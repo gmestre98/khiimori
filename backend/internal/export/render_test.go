@@ -170,6 +170,9 @@ func TestRenderCombined_StructureAndTrips(t *testing.T) {
 		"<h1>Northern Portugal</h1>",       // trip 1 as a top-level heading
 		"<h1>Kyoto Spring</h1>",            // trip 2 as a top-level heading
 		`class="trip"`,                     // per-trip page-break wrapper
+		`class="trip-sep"`,                 // a separator before each trip
+		"Trip 1 of 2",                      // numbered separator label
+		"Trip 2 of 2",
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("combined output missing %q", want)
