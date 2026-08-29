@@ -30,6 +30,10 @@ import (
 // ExportGoogleDocPath is the trip-export endpoint (M13.3 S4).
 const ExportGoogleDocPath = "/trips/{tripID}/export/google-doc"
 
+// ExportAllGoogleDocPath is the all-trips export endpoint (M13.5): every trip the
+// user can see, combined into one Google Doc with a per-trip outline.
+const ExportAllGoogleDocPath = "/export/all/google-doc"
+
 // driveClient is the Drive operations the export handler needs; *gdrive.Client
 // satisfies it, and tests inject a fake. It is a superset of
 // exportstore.FolderManager, so it can be passed straight to ResolveFolder.
@@ -58,7 +62,8 @@ type exportDeps struct {
 	budget       *budget.Module
 	drive        driveClient
 	mappings     *exportstore.Store
-	imageFetcher export.ImageFetcher // nil when GCS is unconfigured (text-only)
+	userMappings *exportstore.UserStore // one combined "all trips" doc per user
+	imageFetcher export.ImageFetcher    // nil when GCS is unconfigured (text-only)
 }
 
 // registerExportRoutes mounts the export endpoint behind requireAuth, but only
@@ -68,6 +73,7 @@ func registerExportRoutes(mux *http.ServeMux, requireAuth httpx.Middleware, enab
 		return
 	}
 	mux.Handle("POST "+ExportGoogleDocPath, requireAuth(http.HandlerFunc(d.handleExport)))
+	mux.Handle("POST "+ExportAllGoogleDocPath, requireAuth(http.HandlerFunc(d.handleExportAll)))
 }
 
 // exportRequest is the JSON body of an export.
@@ -167,6 +173,132 @@ func (d exportDeps) handleExport(w http.ResponseWriter, r *http.Request) {
 		"folder_url":  folderURL,
 		"exported_at": time.Now().UTC().Format(time.RFC3339),
 	})
+}
+
+// handleExportAll combines every trip the user can see into one Google Doc, in
+// chronological order, with a cover + contents list and a per-trip <h1> outline.
+// It reuses the single-trip build/render/embed pieces per trip and the same
+// folder-resolution + reconcile delivery, but against a per-user mapping (one
+// combined doc per user) rather than the per-trip mapping.
+func (d exportDeps) handleExportAll(w http.ResponseWriter, r *http.Request) {
+	log := platformlog.FromContext(r.Context())
+	p, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusUnauthorized, "auth_required", "authentication required"))
+		return
+	}
+
+	var req exportRequest
+	if r.Body != nil {
+		_ = json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&req) // body is optional
+	}
+	includePhotos := req.IncludePhotos == nil || *req.IncludePhotos // default on
+	includeBudget := req.IncludeBudget == nil || *req.IncludeBudget // default on
+
+	// The user's Drive token — absent means "not connected".
+	ts, err := d.tokens.DriveTokenSource(r.Context(), p.UserID)
+	if errors.Is(err, auth.ErrNoDriveConnection) {
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusConflict, "drive_not_connected", "connect Google Drive to export"))
+		return
+	}
+	if err != nil {
+		log.Error("export all: drive token source", "err", err.Error())
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusInternalServerError, "server_error", "could not read Drive connection"))
+		return
+	}
+
+	// Only the trips the user is a member of — the export can never reveal a trip
+	// they can't see. No per-trip authz check needed: the query already scopes it.
+	tripIDs, err := d.userTripIDs(r.Context(), p.UserID)
+	if err != nil {
+		log.Error("export all: list trips", "err", err.Error())
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusInternalServerError, "server_error", "could not list your trips"))
+		return
+	}
+	if len(tripIDs) == 0 {
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusUnprocessableEntity, "no_trips", "you have no trips to export"))
+		return
+	}
+
+	// Build → embed photos per trip, in list (chronological) order.
+	reader := exportReader{pool: d.pool, budget: d.budget, includeBudget: includeBudget}
+	trips := make([]export.Model, 0, len(tripIDs))
+	for _, id := range tripIDs {
+		model, err := export.BuildExportModel(r.Context(), reader, id)
+		if err != nil {
+			log.Error("export all: build model", "trip", id, "err", err.Error())
+			httpx.WriteError(w, r, httpx.NewAPIError(http.StatusInternalServerError, "server_error", "could not assemble your trips"))
+			return
+		}
+		export.EmbedPhotos(r.Context(), &model, d.imageFetcher, export.EmbedOptions{Include: includePhotos})
+		trips = append(trips, model)
+	}
+
+	html, err := export.RenderCombined(export.CombinedModel{
+		Title:       "My travelogues",
+		GeneratedAt: time.Now().UTC(),
+		Trips:       trips,
+	})
+	if err != nil {
+		log.Error("export all: render", "err", err.Error())
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusInternalServerError, "server_error", "could not render the document"))
+		return
+	}
+
+	folderID, folderURL, err := exportstore.ResolveFolder(
+		r.Context(), d.drive, d.folders, ts, p.UserID, req.FolderID)
+	if err != nil {
+		d.writeDriveError(w, r, "resolve folder", err)
+		return
+	}
+
+	// Deliver against the per-user mapping (one combined doc per user).
+	mapping, err := exportstore.Reconcile(r.Context(), d.userMappings, driveWriter{d.drive}, ts, exportstore.ReconcileParams{
+		UserID:   p.UserID,
+		Name:     "My travelogues",
+		FolderID: folderID,
+		HTML:     html,
+	})
+	if err != nil {
+		d.writeDriveError(w, r, "deliver", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"doc_url":     mapping.DocURL,
+		"folder_url":  folderURL,
+		"exported_at": time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+// userTripIDs returns the ids of every non-archived trip the user is a member of
+// (owner/editor/viewer), oldest first — the same visibility rule the trips list
+// uses, so the export never reveals a trip the user can't see.
+func (d exportDeps) userTripIDs(ctx context.Context, userID string) ([]string, error) {
+	const q = `
+		SELECT t.id::text
+		  FROM trip.trips t
+		  JOIN sharing.trip_memberships m ON m.trip_id = t.id
+		 WHERE m.user_id = $1::uuid
+		   AND t.status != 'archived'
+		 ORDER BY t.start_date ASC`
+	rows, err := d.pool.Query(ctx, q, userID)
+	if err != nil {
+		return nil, fmt.Errorf("export: list user trips: %w", err)
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("export: scan trip id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 // writeDriveError maps Drive/auth failures to responses: a revoked or rejected

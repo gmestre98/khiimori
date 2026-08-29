@@ -85,4 +85,33 @@ describe('ExportDialog', () => {
     // The button returns to an actionable state.
     expect(screen.getByRole('button', { name: /^export$/i })).toBeEnabled()
   })
+
+  it('all-trips mode calls the combined export and shows the links', async () => {
+    vi.spyOn(api, 'fetchDriveConnection').mockResolvedValue({ connected: true })
+    const allSpy = vi.spyOn(api, 'exportAllTripsToGoogleDoc').mockResolvedValue({
+      doc_url: 'https://docs.google.com/d/all',
+      folder_url: 'https://drive.google.com/drive/folders/f1',
+      exported_at: '2026-07-25T10:00:00Z',
+    })
+    render(<ExportDialog open allTrips tripCount={3} onClose={() => {}} />)
+
+    // The all-trips copy is shown, not a single trip's.
+    expect(await screen.findByText(/your 3 trips/i)).toBeInTheDocument()
+    fireEvent.click(await screen.findByRole('button', { name: /^export$/i }))
+
+    expect(await screen.findByRole('link', { name: /open in google docs/i })).toHaveAttribute(
+      'href',
+      'https://docs.google.com/d/all',
+    )
+    expect(allSpy).toHaveBeenCalledWith({ includePhotos: true, includeBudget: true })
+  })
+
+  it('all-trips mode surfaces the "no trips" case', async () => {
+    vi.spyOn(api, 'fetchDriveConnection').mockResolvedValue({ connected: true })
+    vi.spyOn(api, 'exportAllTripsToGoogleDoc').mockRejectedValue(new api.NoTripsError())
+    render(<ExportDialog open allTrips onClose={() => {}} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /^export$/i }))
+    expect(await screen.findByText(/no trips to export/i)).toBeInTheDocument()
+  })
 })

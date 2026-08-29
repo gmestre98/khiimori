@@ -2,7 +2,7 @@ package export
 
 import (
 	"bytes"
-	_ "embed"
+	"embed"
 	"fmt"
 	"html/template"
 	"strconv"
@@ -10,13 +10,15 @@ import (
 	"time"
 )
 
-//go:embed template.gohtml
-var docTemplateSource string
+//go:embed template.gohtml combined.gohtml partials.gohtml
+var templateFS embed.FS
 
-// docTemplate is parsed once at startup. html/template auto-escapes every
+// docTemplates is parsed once at startup: the single-trip document
+// (template.gohtml), the all-trips document (combined.gohtml), and the shared
+// partials both reuse (partials.gohtml). html/template auto-escapes every
 // interpolation, so user text (titles, diary, captions) can never inject markup.
-var docTemplate = template.Must(
-	template.New("doc").Funcs(templateFuncs()).Parse(docTemplateSource),
+var docTemplates = template.Must(
+	template.New("export").Funcs(templateFuncs()).ParseFS(templateFS, "*.gohtml"),
 )
 
 // Render turns a Model into a self-contained HTML document for Google Drive to
@@ -24,8 +26,20 @@ var docTemplate = template.Must(
 // and per-day page breaks; it references no external CSS, fonts, or scripts.
 func Render(m Model) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := docTemplate.Execute(&buf, m); err != nil {
+	if err := docTemplates.ExecuteTemplate(&buf, "template.gohtml", m); err != nil {
 		return nil, fmt.Errorf("export: render: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+// RenderCombined turns a CombinedModel — several trips plus a cover and a
+// contents list — into one self-contained HTML document. Each trip's name is an
+// <h1>, so Google Docs' outline pane lists every trip at the top level, giving
+// native jump-to-trip navigation without infinite scrolling.
+func RenderCombined(cm CombinedModel) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := docTemplates.ExecuteTemplate(&buf, "combined.gohtml", cm); err != nil {
+		return nil, fmt.Errorf("export: render combined: %w", err)
 	}
 	return buf.Bytes(), nil
 }

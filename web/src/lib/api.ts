@@ -269,6 +269,41 @@ export async function exportTripToGoogleDoc(
   return (await res.json()) as ExportResult
 }
 
+// NoTripsError marks the 422 the all-trips export returns when the user has no
+// trips to export — the UI shows a friendly note rather than a generic failure.
+export class NoTripsError extends Error {
+  constructor() {
+    super('no trips to export')
+    this.name = 'NoTripsError'
+  }
+}
+
+// exportAllTripsToGoogleDoc exports every trip the user can see into one combined
+// Google Doc (POST /export/all/google-doc), with a cover, a contents list, and a
+// per-trip section the Docs outline pane lists. Same error contract as the
+// single-trip export, plus a 422 → NoTripsError when there are no trips.
+export async function exportAllTripsToGoogleDoc(opts: ExportOptions = {}): Promise<ExportResult> {
+  const res = await apiFetch('/export/all/google-doc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(opts),
+  })
+  if (res.status === 401) {
+    throw new UnauthorizedError()
+  }
+  if (res.status === 409) {
+    const body = (await res.json().catch(() => null)) as { error?: { code?: string } } | null
+    throw new DriveActionRequiredError(body?.error?.code ?? 'drive_not_connected')
+  }
+  if (res.status === 422) {
+    throw new NoTripsError()
+  }
+  if (!res.ok) {
+    throw new Error(`API returned HTTP ${res.status}`)
+  }
+  return (await res.json()) as ExportResult
+}
+
 // --- Trips (M03.5 S1) -------------------------------------------------------
 
 // Trip is the wire shape of a single trip returned by GET /trips.

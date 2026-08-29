@@ -30,6 +30,15 @@ type Model struct {
 	PhotosOmitted int
 }
 
+// CombinedModel is the whole "export all my trips" document: a cover title, a
+// contents list, and every trip's full section in turn. Trips are already in the
+// order they should appear (chronological by start date).
+type CombinedModel struct {
+	Title       string
+	GeneratedAt time.Time
+	Trips       []Model
+}
+
 // Header is the trip-level cover data returned by Reader.Header.
 type Header struct {
 	Name         string

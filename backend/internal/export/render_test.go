@@ -142,3 +142,53 @@ func TestRender_Golden(t *testing.T) {
 		t.Errorf("render output drifted from golden; re-run with EXPORT_GOLDEN_UPDATE=1 to inspect/update")
 	}
 }
+
+// TestRenderCombined_StructureAndTrips checks the all-trips document: a cover
+// title, a contents list with every trip, and each trip rendered as its own
+// <h1> section (the heading level Google Docs' outline pane lists).
+func TestRenderCombined_StructureAndTrips(t *testing.T) {
+	second := sampleModel()
+	second.TripName = "Kyoto Spring"
+	second.Destinations = []string{"Kyoto"}
+	second.StartDate = date("2026-04-01")
+	second.EndDate = date("2026-04-05")
+
+	out, err := RenderCombined(CombinedModel{
+		Title:       "My travelogues",
+		GeneratedAt: time.Date(2026, 7, 24, 9, 30, 0, 0, time.UTC),
+		Trips:       []Model{sampleModel(), second},
+	})
+	if err != nil {
+		t.Fatalf("RenderCombined: %v", err)
+	}
+	html := string(out)
+
+	for _, want := range []string{
+		`class="doc-title">My travelogues`, // cover
+		"2 trips ·",                        // trip count
+		"Contents",                         // contents list
+		"<h1>Northern Portugal</h1>",       // trip 1 as a top-level heading
+		"<h1>Kyoto Spring</h1>",            // trip 2 as a top-level heading
+		`class="trip"`,                     // per-trip page-break wrapper
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("combined output missing %q", want)
+		}
+	}
+	// Both trips' day content is present (each trip keeps its full section).
+	if strings.Count(html, `class="day"`) < 2 {
+		t.Errorf("expected each trip's day sections; got %d .day blocks", strings.Count(html, `class="day"`))
+	}
+}
+
+// TestRenderCombined_Empty renders a friendly note when the user has no trips
+// rather than an empty shell.
+func TestRenderCombined_Empty(t *testing.T) {
+	out, err := RenderCombined(CombinedModel{Title: "My travelogues", GeneratedAt: time.Now(), Trips: nil})
+	if err != nil {
+		t.Fatalf("RenderCombined: %v", err)
+	}
+	if !strings.Contains(string(out), "any trips to export") {
+		t.Error("empty combined doc should note there are no trips")
+	}
+}

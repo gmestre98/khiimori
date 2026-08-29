@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ .Title }} — Khiimori travelogues</title>
+    <style>
+{{ template "docStyles" . }}
+    </style>
+  </head>
+  <body>
+    <div class="meta">Khiimori travelogues</div>
+    <div class="doc-title">{{ .Title }}</div>
+    <div class="subtitle">{{ len .Trips }} trips · Exported {{ weekdayDate .GeneratedAt }}</div>
+
+    {{ if .Trips }}
+      <div class="toc-h">Contents</div>
+      <ol class="toc">
+        {{ range .Trips }}
+          <li>{{ .TripName }}{{ with dateRange .StartDate .EndDate }} — {{ . }}{{ end }}</li>
+        {{ end }}
+      </ol>
+      <p class="meta">Tip: open the document outline (View → Show outline) to jump between trips.</p>
+
+      {{ range .Trips }}
+        <div class="trip">
+{{ template "tripSection" . }}
+        </div>
+      {{ end }}
+    {{ else }}
+      <p class="muted">You don’t have any trips to export yet.</p>
+    {{ end }}
+  </body>
+</html>
