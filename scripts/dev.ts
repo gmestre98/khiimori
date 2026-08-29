@@ -163,7 +163,15 @@ function start(
   cwd: string,
   env: NodeJS.ProcessEnv,
 ): ChildProcess {
-  const child = spawn(command, args, { cwd, env, stdio: ['ignore', 'inherit', 'inherit'] })
+  // On Windows, npm (and other tools) are `.cmd` shims that Node's spawn won't
+  // resolve without a shell — `spawn('npm', …)` fails with ENOENT. Use a shell on
+  // win32 so the child command is resolved the same way it is on POSIX.
+  const child = spawn(command, args, {
+    cwd,
+    env,
+    stdio: ['ignore', 'inherit', 'inherit'],
+    shell: process.platform === 'win32',
+  })
   children.push(child)
   child.on('exit', (code, signal) => {
     if (shuttingDown) return
