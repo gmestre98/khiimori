@@ -264,6 +264,7 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 		budget:       budgetModule,
 		drive:        gdrive.NewClient(),
 		mappings:     exportstore.New(pool),
+		userMappings: exportstore.NewUserStore(pool),
 		imageFetcher: imageFetcher,
 	})
 

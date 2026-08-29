@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import {
   DriveActionRequiredError,
+  NoTripsError,
   UnauthorizedError,
   driveConnectUrl,
+  exportAllTripsToGoogleDoc,
   exportTripToGoogleDoc,
   fetchDriveConnection,
   type ExportResult,
@@ -19,17 +21,31 @@ type Phase =
   | { kind: 'error'; message: string }
 
 export interface ExportDialogProps {
-  tripId: string
-  tripName: string
   open: boolean
   onClose: () => void
+  // Single-trip export (the default). Required unless allTrips is set.
+  tripId?: string
+  tripName?: string
+  // All-trips export: combine every trip into one Google Doc with a per-trip
+  // outline. tripCount is shown in the copy ("Combine your 5 trips…").
+  allTrips?: boolean
+  tripCount?: number
 }
 
-// ExportDialog exports a trip to a Google Doc in the user's Drive (M13.4). It
-// gates on the Drive connection, offers include-photos / include-budget toggles,
-// runs the export, and shows the resulting Doc + folder links. Re-exporting
-// updates the same Doc, so the button reads "Update" once a doc exists.
-export function ExportDialog({ tripId, tripName, open, onClose }: ExportDialogProps) {
+// ExportDialog exports to a Google Doc in the user's Drive (M13.4): a single trip
+// by default, or every trip combined into one outlined document when allTrips is
+// set (M13.5). It gates on the Drive connection, offers include-photos /
+// include-budget toggles, runs the export, and shows the resulting Doc + folder
+// links. Re-exporting updates the same Doc, so the button reads "Update" once a
+// doc exists.
+export function ExportDialog({
+  tripId,
+  tripName,
+  open,
+  onClose,
+  allTrips = false,
+  tripCount,
+}: ExportDialogProps) {
   // Starts in "checking"; the connection probe below updates it. The dialog is
   // mounted fresh each open (gated by the parent), so this initializer resets
   // state without a synchronous setState inside the effect.
@@ -64,7 +80,10 @@ export function ExportDialog({ tripId, tripName, open, onClose }: ExportDialogPr
   async function runExport() {
     setPhase({ kind: 'exporting' })
     try {
-      const result = await exportTripToGoogleDoc(tripId, { includePhotos, includeBudget })
+      const opts = { includePhotos, includeBudget }
+      const result = allTrips
+        ? await exportAllTripsToGoogleDoc(opts)
+        : await exportTripToGoogleDoc(tripId ?? '', opts)
       setAlreadyExported(true)
       setPhase({ kind: 'done', result })
     } catch (err) {
@@ -73,17 +92,37 @@ export function ExportDialog({ tripId, tripName, open, onClose }: ExportDialogPr
         setPhase({ kind: 'not_connected', reconnect: err.code === 'drive_reconnect_required' })
         return
       }
+      if (err instanceof NoTripsError) {
+        setPhase({ kind: 'error', message: 'You have no trips to export yet.' })
+        return
+      }
       setPhase({ kind: 'error', message: 'Couldn’t export to Google Drive. Please try again.' })
     }
   }
 
+  const sheetTitle = allTrips
+    ? 'Export all trips to Google Docs'
+    : `Export ${tripName} to Google Docs`
+
   return (
-    <Sheet open={open} onClose={onClose} title={`Export ${tripName} to Google Docs`}>
+    <Sheet open={open} onClose={onClose} title={sheetTitle}>
       <div className="export-dialog">
-        <h2 className="export-dialog-title">Export to Google Docs</h2>
+        <h2 className="export-dialog-title">
+          {allTrips ? 'Export all trips to Google Docs' : 'Export to Google Docs'}
+        </h2>
         <p className="export-dialog-sub">
-          Saves “{tripName}” as a Google Doc in your Drive, in a “Khiimori travelogues” folder.
-          Re-exporting updates the same document.
+          {allTrips ? (
+            <>
+              Combines {tripCount ? `your ${tripCount} trips` : 'all your trips'} into one Google
+              Doc in a “Khiimori travelogues” folder — a section per trip, with an outline to jump
+              between them. Re-exporting updates the same document.
+            </>
+          ) : (
+            <>
+              Saves “{tripName}” as a Google Doc in your Drive, in a “Khiimori travelogues” folder.
+              Re-exporting updates the same document.
+            </>
+          )}
         </p>
 
         {phase.kind === 'checking' && (
@@ -150,22 +189,80 @@ export function ExportDialog({ tripId, tripName, open, onClose }: ExportDialogPr
 
         {phase.kind === 'done' && (
           <div className="export-dialog-done">
-            <p role="status" className="profile-saved">
-              Your travelogue is ready.
-            </p>
+            <span className="export-done-badge" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
+                <path
+                  d="M5 12.5l4.2 4.2L19 7"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            <div className="export-done-head">
+              <p role="status" className="export-done-title">
+                {allTrips ? 'All your travelogues are ready' : 'Your travelogue is ready'}
+              </p>
+              <p className="export-done-sub">
+                {allTrips
+                  ? 'Saved to Google Docs — one document, a section per trip. Use the outline (View → Show outline) to jump between them.'
+                  : `“${tripName}” was saved to Google Docs. Re-exporting updates this same document.`}
+              </p>
+            </div>
             <div className="export-dialog-links">
-              <a href={phase.result.doc_url} target="_blank" rel="noopener noreferrer">
+              <a
+                className="export-link export-link--primary"
+                href={phase.result.doc_url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
+                  <path
+                    d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M14 3v5h5"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M8.5 13h7M8.5 16.5h7M8.5 9.5h2"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                  />
+                </svg>
                 Open in Google Docs
               </a>
-              <a href={phase.result.folder_url} target="_blank" rel="noopener noreferrer">
+              <a
+                className="export-link"
+                href={phase.result.folder_url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
+                  <path
+                    d="M4 7a2 2 0 012-2h3.2a2 2 0 011.6.8L12 7h6a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V7z"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinejoin="round"
+                  />
+                </svg>
                 Open folder
               </a>
             </div>
-            <div className="export-dialog-actions">
-              <Button variant="secondary" onClick={() => setPhase({ kind: 'ready' })}>
-                Export again
-              </Button>
-            </div>
+            <button
+              type="button"
+              className="export-done-again"
+              onClick={() => setPhase({ kind: 'ready' })}
+            >
+              Export again
+            </button>
           </div>
         )}
       </div>
