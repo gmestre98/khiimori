@@ -248,8 +248,8 @@ describe('TripPlanPage', () => {
     expect(screen.queryByLabelText('Journal entry')).not.toBeInTheDocument()
 
     await user.click(diary)
-    // A past trip's journal is read-only, so the entry field is present but
-    // disabled — the point is that the diary + photos are reachable here again.
+    // Opening the diary mounts the journal editor — the entry field (and photos)
+    // are reachable here. Journals stay editable even for past trips.
     expect(await screen.findByLabelText('Journal entry')).toBeInTheDocument()
   })
 

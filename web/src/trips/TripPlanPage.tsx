@@ -74,8 +74,6 @@ function dayCaption(day: Day): string {
 export function TripPlanPage() {
   const { trip } = useTripShell()
   const dates = datesInRange(trip.start_date, trip.end_date)
-  // A past trip's journal is read-only (matches the day view's behaviour).
-  const isPast = trip.end_date < new Date().toISOString().slice(0, 10)
 
   const [days, setDays] = useState<Day[] | null>(null)
   const [error, setError] = useState(false)
@@ -325,7 +323,7 @@ export function TripPlanPage() {
                       key={`journal-${selected.id}`}
                       tripId={trip.id}
                       dayId={selected.id}
-                      readOnly={isPast}
+                      readOnly={false}
                     />
                   </section>
                 </div>
@@ -380,7 +378,7 @@ export function TripPlanPage() {
                                 title={null}
                                 showBacklogLink={false}
                               />
-                              <DayDiary tripId={trip.id} dayId={d.id} readOnly={isPast} />
+                              <DayDiary tripId={trip.id} dayId={d.id} readOnly={false} />
                             </div>
                           )}
                         </div>

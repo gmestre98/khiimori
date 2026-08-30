@@ -1444,9 +1444,6 @@ function FacetTabs({ value, onChange }: { value: Facet; onChange: (f: Facet) => 
 // FacetTabs; on wider screens they render together in the two-column grid.
 export function DayView() {
   const { tripId, date } = useParams<{ tripId: string; date: string }>()
-  const { trip } = useTripShell()
-  // A trip is "past" when its end date is before today; journals become read-only.
-  const isPast = trip.end_date < new Date().toISOString().slice(0, 10)
 
   const mobile = useMobile()
   // On phones only one facet shows at a time; `view` tracks which. It lives in
@@ -1619,7 +1616,7 @@ export function DayView() {
         const mapSlot = <MapSlot day={liveDay} selectedId={selectedId} onSelect={setSelectedId} />
         const journalSlot =
           day && tripId ? (
-            <JournalSlot tripId={tripId} dayId={day.id} readOnly={isPast} />
+            <JournalSlot tripId={tripId} dayId={day.id} readOnly={false} />
           ) : (
             <section className="day-slot day-slot-journal" aria-label="Journal" data-slot="journal">
               <h2 className="day-slot-title">Journal</h2>
