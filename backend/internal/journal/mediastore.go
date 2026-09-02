@@ -5,9 +5,14 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/storage"
 )
+
+// signedURLTTL is how long a generated read URL stays valid. Kept short since
+// the app re-fetches photo metadata (and thus fresh URLs) on each view.
+const signedURLTTL = 15 * time.Minute
 
 // MediaStore is the storage seam for journal photo objects.
 // Callers depend only on this interface; the Cloud Storage backend can be
@@ -27,6 +32,12 @@ type MediaStore interface {
 	// Delete removes the object identified by url from the backing store.
 	// url is the value previously returned by Put.
 	Delete(ctx context.Context, url string) error
+
+	// SignedURL converts a gs:// URI previously returned by Put into a
+	// short-lived, browser-loadable https URL. The backing bucket is private,
+	// so objects can only be served via signed URLs; callers put the result in
+	// an <img src>. url is the value stored by Put (a gs:// URI).
+	SignedURL(ctx context.Context, url string) (string, error)
 }
 
 // gcsMediaStore implements MediaStore over Google Cloud Storage.
@@ -72,6 +83,26 @@ func (s *gcsMediaStore) Delete(ctx context.Context, url string) error {
 	return nil
 }
 
+// SignedURL returns a short-lived https GET URL for the gs:// object at url.
+// The bucket is private, so this is the only way the browser can load the
+// image. On Cloud Run the storage client uses ADC; bucket.SignedURL with no
+// explicit key auto-detects the runtime service account and signs via the IAM
+// SignBlob API.
+func (s *gcsMediaStore) SignedURL(_ context.Context, url string) (string, error) {
+	key, err := keyFromURL(s.bucket, url)
+	if err != nil {
+		return "", err
+	}
+	signed, err := s.client.Bucket(s.bucket).SignedURL(key, &storage.SignedURLOptions{
+		Method:  "GET",
+		Expires: time.Now().Add(signedURLTTL),
+	})
+	if err != nil {
+		return "", fmt.Errorf("mediastore: sign url for %q: %w", key, err)
+	}
+	return signed, nil
+}
+
 // NoopMediaStore is a MediaStore implementation that returns an error on every
 // call. It is used when MEDIA_BUCKET_NAME is not configured (e.g. local dev
 // without GCS) so the service boots without requiring GCS credentials.
@@ -83,6 +114,10 @@ func (NoopMediaStore) Put(_ context.Context, _, _ string, _ int64, _ io.Reader) 
 
 func (NoopMediaStore) Delete(_ context.Context, _ string) error {
 	return fmt.Errorf("mediastore: photo upload not configured (MEDIA_BUCKET_NAME unset)")
+}
+
+func (NoopMediaStore) SignedURL(_ context.Context, url string) (string, error) {
+	return url, nil
 }
 
 // keyFromURL extracts the object key from a gs://{bucket}/{key} URL.

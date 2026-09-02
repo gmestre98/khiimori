@@ -179,16 +179,34 @@ type photoResponse struct {
 	CreatedAt      string `json:"created_at"`
 }
 
-func photoToResponse(p Photo) photoResponse {
+// photoToResponse builds the wire shape for a photo, converting the stored
+// gs:// URIs into short-lived signed https URLs the browser can load directly
+// (the media bucket is private). If signing fails we log and fall back to the
+// raw gs:// value rather than dropping the photo from the response.
+func (m *Module) photoToResponse(ctx context.Context, p Photo) photoResponse {
 	return photoResponse{
 		ID:             p.ID,
 		JournalEntryID: p.JournalEntryID,
-		StorageURL:     p.StorageURL,
-		ThumbnailURL:   p.ThumbnailURL,
+		StorageURL:     m.signOrLog(ctx, p.StorageURL),
+		ThumbnailURL:   m.signOrLog(ctx, p.ThumbnailURL),
 		Caption:        p.Caption,
 		SizeBytes:      p.SizeBytes,
 		CreatedAt:      p.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
 	}
+}
+
+// signOrLog converts a stored gs:// URI into a signed https URL. Empty inputs
+// (e.g. a thumbnail that has not been generated yet) pass through unchanged.
+func (m *Module) signOrLog(ctx context.Context, gsURL string) string {
+	if gsURL == "" {
+		return ""
+	}
+	signed, err := m.media.SignedURL(ctx, gsURL)
+	if err != nil {
+		platformlog.FromContext(ctx).Error("journal: sign photo url", "err", err.Error())
+		return gsURL
+	}
+	return signed
 }
 
 // newRandomID returns a random hex string suitable for use as a unique object
@@ -318,7 +336,7 @@ func (m *Module) handleUploadPhoto(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	writeJSON(w, http.StatusCreated, photoToResponse(photo))
+	writeJSON(w, http.StatusCreated, m.photoToResponse(r.Context(), photo))
 }
 
 // usageResponse is the wire shape for the per-trip storage usage endpoint.
@@ -435,7 +453,7 @@ func (m *Module) handleListPhotos(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]photoResponse, len(photos))
 	for i, p := range photos {
-		resp[i] = photoToResponse(p)
+		resp[i] = m.photoToResponse(r.Context(), p)
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
