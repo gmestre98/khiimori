@@ -57,5 +57,16 @@ export const bucketAccess = new gcp.storage.BucketIAMMember('run-bucket-access',
   member,
 })
 
+// Self-impersonation: allow the runtime SA to sign blobs *as itself* via the
+// IAM credentials API. Cloud Run has no exported private key, so generating
+// V4 signed URLs for the private media bucket (journal photo display) relies on
+// the SignBlob API, which requires serviceAccountTokenCreator on the SA itself.
+// Scoped to this one SA — never project-wide.
+export const signBlobAccess = new gcp.serviceaccount.IAMMember('run-sign-blob', {
+  serviceAccountId: serviceAccount.name,
+  role: 'roles/iam.serviceAccountTokenCreator',
+  member,
+})
+
 /** SA email — exported for S6 to attach to the Cloud Run service. */
 export const serviceAccountEmail = serviceAccount.email

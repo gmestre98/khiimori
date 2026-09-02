@@ -14,6 +14,7 @@ type fakeMediaStore struct {
 	objects map[string][]byte // key → content
 	putErr  error
 	delErr  error
+	signErr error
 }
 
 func newFakeMediaStore() *fakeMediaStore {
@@ -39,6 +40,14 @@ func (f *fakeMediaStore) Delete(_ context.Context, url string) error {
 	key := strings.TrimPrefix(url, "gs://test-bucket/")
 	delete(f.objects, key)
 	return nil
+}
+
+func (f *fakeMediaStore) SignedURL(_ context.Context, url string) (string, error) {
+	if f.signErr != nil {
+		return "", f.signErr
+	}
+	key := strings.TrimPrefix(url, "gs://test-bucket/")
+	return "https://storage.example/test-bucket/" + key + "?sig=fake", nil
 }
 
 // --- tests ---
