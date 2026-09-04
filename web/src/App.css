@@ -1399,13 +1399,15 @@
   font-variant-numeric: tabular-nums;
 }
 .day-pill--active {
-  background: var(--fill-strong);
-  color: #fff;
+  background: var(--surface-2);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--line-2);
 }
 .day-pill--active .day-pill-dow {
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--muted);
 }
 .day-pill--active .day-pill-num {
+  color: var(--ink);
   font-weight: var(--fw-bold);
 }
 
