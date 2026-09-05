@@ -14,7 +14,7 @@ const HERO_PALETTES: Array<[string, string, string]> = [
 ]
 
 // hashString is a small stable string hash used to pick a palette per place.
-export function hashString(s: string): number {
+function hashString(s: string): number {
   let h = 0
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0
   return Math.abs(h)
