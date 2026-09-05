@@ -15,6 +15,7 @@ import {
   type TripsResponse,
 } from '../lib/api'
 import { CurrentTripCard } from './CurrentTripCard'
+import { HeroScene } from './heroScene'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { BudgetGlance } from './RollupDisplay'
 import { formatDateRange, monthYear, tripDayCount } from '../lib/format'
@@ -104,7 +105,19 @@ function TripCard({
             .join(' ')}
           aria-hidden="true"
         >
-          <div className="trip-card-panel-glow" />
+          {/* Past trips keep the calm grey panel; upcoming/lead trips get a
+              destination scene (Direction B). */}
+          {isPast ? (
+            <div className="trip-card-panel-glow" />
+          ) : (
+            <>
+              <HeroScene
+                seed={trip.destinations[0] || trip.name}
+                className="trip-card-panel-scene"
+              />
+              <div className="current-trip-panel-scrim" />
+            </>
+          )}
           <div className="trip-card-panel-label">
             <div className="trip-card-panel-now">{panelTop}</div>
             <div className="trip-card-panel-day">{panelBottom}</div>
@@ -351,200 +364,202 @@ export function TripsDashboard() {
         />
       )}
 
-      {/* Top nav bar */}
-      <div className="trips-dashboard-topnav">
-        <div className="trips-dashboard-crumbs">
-          My trips
-          <CacheStatus fromCache={fromCache} isValidating={validating} />
+      <div className="trips-page">
+        {/* Top nav bar */}
+        <div className="trips-dashboard-topnav">
+          <div className="trips-dashboard-crumbs">
+            My trips
+            <CacheStatus fromCache={fromCache} isValidating={validating} />
+          </div>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <Link to="/trips/new" className="btn-primary trips-new-btn">
+              <PlusIcon /> New trip
+            </Link>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <Link to="/trips/new" className="btn-primary trips-new-btn">
-            <PlusIcon /> New trip
-          </Link>
-        </div>
-      </div>
 
-      <div className="trips-dashboard">
-        {actionError && (
-          <p role="alert" className="trips-error">
-            {actionError}
-          </p>
-        )}
+        <div className="trips-dashboard">
+          {actionError && (
+            <p role="alert" className="trips-error">
+              {actionError}
+            </p>
+          )}
 
-        {/* Invitations inbox — trips someone has shared with you, awaiting your
+          {/* Invitations inbox — trips someone has shared with you, awaiting your
             accept. Shown regardless of email delivery so sharing always works. */}
-        {invites.length > 0 && (
-          <section className="trip-invites" aria-label="Trip invitations">
-            <h2 className="trips-section-title">Invitations</h2>
-            {inviteError && (
-              <p role="alert" className="trips-error">
-                {inviteError}
-              </p>
-            )}
-            <div className="trip-invites-list">
-              {invites.map((inv) => (
-                <div
-                  key={inv.id}
-                  className="card pad trip-invite-row"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 12,
-                    marginBottom: 'var(--s3)',
-                  }}
+          {invites.length > 0 && (
+            <section className="trip-invites" aria-label="Trip invitations">
+              <h2 className="trips-section-title">Invitations</h2>
+              {inviteError && (
+                <p role="alert" className="trips-error">
+                  {inviteError}
+                </p>
+              )}
+              <div className="trip-invites-list">
+                {invites.map((inv) => (
+                  <div
+                    key={inv.id}
+                    className="card pad trip-invite-row"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      marginBottom: 'var(--s3)',
+                    }}
+                  >
+                    <div>
+                      <strong>{inv.trip_name || 'A trip'}</strong>
+                      <span className="meta"> · you're invited as {inv.role}</span>
+                    </div>
+                    <div className="row gap2">
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        disabled={acceptingId === inv.id || decliningId === inv.id}
+                        onClick={() => handleDecline(inv)}
+                        aria-label={`Decline invitation to ${inv.trip_name || 'trip'}`}
+                      >
+                        {decliningId === inv.id ? 'Declining…' : 'Decline'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        disabled={acceptingId === inv.id || decliningId === inv.id}
+                        onClick={() => handleAccept(inv)}
+                        aria-label={`Accept invitation to ${inv.trip_name || 'trip'}`}
+                      >
+                        {acceptingId === inv.id ? 'Joining…' : 'Accept'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Tab bar */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 'var(--s6)',
+            }}
+          >
+            <div className="trips-tabs" role="tablist">
+              {(['current', 'past'] as Tab[]).map((t) => (
+                <button
+                  key={t}
+                  role="tab"
+                  aria-selected={tab === t}
+                  className={['trips-tabs-btn', tab === t ? 'trips-tabs-btn--active' : '']
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={() => setTab(t)}
                 >
-                  <div>
-                    <strong>{inv.trip_name || 'A trip'}</strong>
-                    <span className="meta"> · you're invited as {inv.role}</span>
-                  </div>
-                  <div className="row gap2">
-                    <button
-                      type="button"
-                      className="btn-ghost"
-                      disabled={acceptingId === inv.id || decliningId === inv.id}
-                      onClick={() => handleDecline(inv)}
-                      aria-label={`Decline invitation to ${inv.trip_name || 'trip'}`}
-                    >
-                      {decliningId === inv.id ? 'Declining…' : 'Decline'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      disabled={acceptingId === inv.id || decliningId === inv.id}
-                      onClick={() => handleAccept(inv)}
-                      aria-label={`Accept invitation to ${inv.trip_name || 'trip'}`}
-                    >
-                      {acceptingId === inv.id ? 'Joining…' : 'Accept'}
-                    </button>
-                  </div>
-                </div>
+                  {t === 'current' ? 'Current & Upcoming' : 'Past'}
+                </button>
               ))}
             </div>
-          </section>
-        )}
-
-        {/* Tab bar */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 'var(--s6)',
-          }}
-        >
-          <div className="trips-tabs" role="tablist">
-            {(['current', 'past'] as Tab[]).map((t) => (
-              <button
-                key={t}
-                role="tab"
-                aria-selected={tab === t}
-                className={['trips-tabs-btn', tab === t ? 'trips-tabs-btn--active' : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                onClick={() => setTab(t)}
-              >
-                {t === 'current' ? 'Current & Upcoming' : 'Past'}
-              </button>
-            ))}
+            {data && (
+              <span className="trips-tab-meta">
+                {totalCount} {totalCount === 1 ? 'trip' : 'trips'}
+              </span>
+            )}
           </div>
-          {data && (
-            <span className="trips-tab-meta">
-              {totalCount} {totalCount === 1 ? 'trip' : 'trips'}
-            </span>
+
+          {/* Loading / error states */}
+          {loading && (
+            <p className="trips-loading" aria-busy="true">
+              Loading trips…
+            </p>
           )}
-        </div>
+          {error && (
+            <p role="alert" className="trips-error">
+              {error}
+            </p>
+          )}
 
-        {/* Loading / error states */}
-        {loading && (
-          <p className="trips-loading" aria-busy="true">
-            Loading trips…
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="trips-error">
-            {error}
-          </p>
-        )}
-
-        {/* Tab content */}
-        {!loading && !error && data && (
-          <>
-            {tab === 'current' && (
-              <>
-                {/* Lead trip — the current-trip hero, or (with no current trip) the
+          {/* Tab content */}
+          {!loading && !error && data && (
+            <>
+              {tab === 'current' && (
+                <>
+                  {/* Lead trip — the current-trip hero, or (with no current trip) the
                     next upcoming trip promoted to its own full-width row. */}
-                {currentTrip ? (
-                  <CurrentTripCard
-                    trip={currentTrip}
-                    budgetGlance={
-                      currentRollup ? <BudgetGlance rollup={currentRollup} /> : undefined
-                    }
-                    onArchive={() => setPending({ type: 'archive', trip: currentTrip })}
-                    onDelete={() => setPending({ type: 'delete', trip: currentTrip })}
-                  />
-                ) : leadTrip ? (
-                  <TripCard
-                    trip={leadTrip}
-                    featured
-                    onArchive={(trip) => setPending({ type: 'archive', trip })}
-                    onDelete={(trip) => setPending({ type: 'delete', trip })}
-                  />
-                ) : (
-                  <p className="trips-empty">
-                    No current trip.{' '}
-                    <Link to="/trips/new" style={{ color: 'var(--accent)' }}>
-                      Plan one →
-                    </Link>
-                  </p>
-                )}
-
-                {/* Upcoming — the remaining trips, 2 to a row below the lead. */}
-                <section className="trips-section" aria-label="Upcoming trips">
-                  <h2 className="trips-section-title">Upcoming</h2>
-                  {restTrips.length === 0 ? (
+                  {currentTrip ? (
+                    <CurrentTripCard
+                      trip={currentTrip}
+                      budgetGlance={
+                        currentRollup ? <BudgetGlance rollup={currentRollup} /> : undefined
+                      }
+                      onArchive={() => setPending({ type: 'archive', trip: currentTrip })}
+                      onDelete={() => setPending({ type: 'delete', trip: currentTrip })}
+                    />
+                  ) : leadTrip ? (
+                    <TripCard
+                      trip={leadTrip}
+                      featured
+                      onArchive={(trip) => setPending({ type: 'archive', trip })}
+                      onDelete={(trip) => setPending({ type: 'delete', trip })}
+                    />
+                  ) : (
                     <p className="trips-empty">
-                      No upcoming trips.{' '}
+                      No current trip.{' '}
                       <Link to="/trips/new" style={{ color: 'var(--accent)' }}>
                         Plan one →
                       </Link>
                     </p>
+                  )}
+
+                  {/* Upcoming — the remaining trips, 2 to a row below the lead. */}
+                  <section className="trips-section" aria-label="Upcoming trips">
+                    <h2 className="trips-section-title">Upcoming</h2>
+                    {restTrips.length === 0 ? (
+                      <p className="trips-empty">
+                        No upcoming trips.{' '}
+                        <Link to="/trips/new" style={{ color: 'var(--accent)' }}>
+                          Plan one →
+                        </Link>
+                      </p>
+                    ) : (
+                      <div className="trips-grid">
+                        {restTrips.map((t) => (
+                          <TripCard
+                            key={t.id}
+                            trip={t}
+                            onArchive={(trip) => setPending({ type: 'archive', trip })}
+                            onDelete={(trip) => setPending({ type: 'delete', trip })}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                </>
+              )}
+
+              {tab === 'past' && (
+                <>
+                  {data.past.length === 0 && archived.length === 0 ? (
+                    <p className="trips-empty">No past trips yet.</p>
                   ) : (
                     <div className="trips-grid">
-                      {restTrips.map((t) => (
+                      {[...data.past, ...archived].map((t) => (
                         <TripCard
                           key={t.id}
                           trip={t}
-                          onArchive={(trip) => setPending({ type: 'archive', trip })}
+                          isPast
                           onDelete={(trip) => setPending({ type: 'delete', trip })}
                         />
                       ))}
                     </div>
                   )}
-                </section>
-              </>
-            )}
-
-            {tab === 'past' && (
-              <>
-                {data.past.length === 0 && archived.length === 0 ? (
-                  <p className="trips-empty">No past trips yet.</p>
-                ) : (
-                  <div className="trips-grid">
-                    {[...data.past, ...archived].map((t) => (
-                      <TripCard
-                        key={t.id}
-                        trip={t}
-                        isPast
-                        onDelete={(trip) => setPending({ type: 'delete', trip })}
-                      />
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </>
-        )}
+                </>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </>
   )
