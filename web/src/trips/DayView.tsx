@@ -67,11 +67,15 @@ function statusLabel(status: string): string {
 // happened" without re-hiding it on every day.
 const PLAN_HIDDEN_KEY = 'khiimori:planHidden'
 
-function readPlanHidden(): boolean {
+// readPlanHidden returns the saved preference, or null when the user has never
+// set it — letting a past day default the plan collapsed without overriding an
+// explicit choice.
+function readPlanHidden(): boolean | null {
   try {
-    return localStorage.getItem(PLAN_HIDDEN_KEY) === '1'
+    const v = localStorage.getItem(PLAN_HIDDEN_KEY)
+    return v === null ? null : v === '1'
   } catch {
-    return false
+    return null
   }
 }
 
@@ -453,6 +457,7 @@ function PlanItemRow({
         .filter(Boolean)
         .join(' ')}
       data-item-id={item.id}
+      data-kind={item.kind ?? 'activity'}
       aria-label={item.title + (label ? ` — ${label}` : '')}
       draggable={isDraggable}
       onDragStart={isDraggable && onDragStart ? (e) => onDragStart(e, item.id) : undefined}
@@ -1002,6 +1007,7 @@ export function PlanningSection({
   onSelect,
   title = 'Plan',
   showBacklogLink = true,
+  showWhatHappened = true,
 }: {
   day: Day
   // items / setItems are owned by the parent so a sibling view (the day map, or
@@ -1033,11 +1039,14 @@ export function PlanningSection({
   // showBacklogLink renders the in-section backlog link (day view). The Plan
   // subtab surfaces the backlog once in its rail instead, so it opts out.
   showBacklogLink?: boolean
+  // showWhatHappened gates the "What happened" log — hidden on future days, where
+  // there's nothing to record yet (phase-aware day layout, Direction B).
+  showWhatHappened?: boolean
 }) {
   const { trip } = useTripShell()
   const online = useIsOnline()
   const tripDates = datesInRange(trip.start_date, trip.end_date)
-  const [planHidden, setPlanHidden] = useState(readPlanHidden)
+  const [planHidden, setPlanHidden] = useState<boolean>(() => readPlanHidden() ?? false)
 
   // Build a lookup from item/stay id → pin number (1-based) using the same
   // numbering as collectLocatedItems so badges match the map legend. A transport
@@ -1200,33 +1209,35 @@ export function PlanningSection({
         )}
       </div>
 
-      <div className="day-plan-group">
-        <div className="day-plan-group-head">
-          <h3 className="day-plan-group-title">What happened</h3>
+      {showWhatHappened && (
+        <div className="day-plan-group">
+          <div className="day-plan-group-head">
+            <h3 className="day-plan-group-title">What happened</h3>
+          </div>
+          {doneItems.length === 0 ? (
+            <p className="day-plan-empty">Nothing logged yet — add what you actually did.</p>
+          ) : (
+            <ReorderableItemList
+              items={doneItems}
+              tripId={tripId}
+              day={day}
+              tripDates={tripDates}
+              selectedId={selectedId}
+              pinNumberForId={pinNumberForId}
+              onSelect={onSelect}
+              onUpdated={handleUpdated}
+              onAdded={handleAdded}
+              onRemoved={handleRemoved}
+              onReordered={handleDoneReordered}
+              onItemMoved={onItemMoved}
+              // Free manual order (the sequence you actually did things), not the
+              // planned clock order — every row drags.
+              pinTimed={false}
+            />
+          )}
+          <QuickAddForm tripId={tripId} dayId={day.id} onAdded={handleAdded} logDone />
         </div>
-        {doneItems.length === 0 ? (
-          <p className="day-plan-empty">Nothing logged yet — add what you actually did.</p>
-        ) : (
-          <ReorderableItemList
-            items={doneItems}
-            tripId={tripId}
-            day={day}
-            tripDates={tripDates}
-            selectedId={selectedId}
-            pinNumberForId={pinNumberForId}
-            onSelect={onSelect}
-            onUpdated={handleUpdated}
-            onAdded={handleAdded}
-            onRemoved={handleRemoved}
-            onReordered={handleDoneReordered}
-            onItemMoved={onItemMoved}
-            // Free manual order (the sequence you actually did things), not the
-            // planned clock order — every row drags.
-            pinTimed={false}
-          />
-        )}
-        <QuickAddForm tripId={tripId} dayId={day.id} onAdded={handleAdded} logDone />
-      </div>
+      )}
 
       {showBacklogLink && <BacklogLink tripId={tripId} />}
     </section>
@@ -1401,6 +1412,144 @@ function MapSlot({
   )
 }
 
+// ── Phase-aware day header (Direction B) ────────────────────────────────────
+// The day screen adapts to where the trip is in time: a future day leads with
+// planning, today shows everything, a past day leads with the memory. dayRelation
+// classifies the viewed day against today so the layout and the hero chip follow.
+type DayRel = 'future' | 'today' | 'past'
+
+function localToday(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function dayRelation(date: string): DayRel {
+  const today = localToday()
+  if (date < today) return 'past'
+  if (date > today) return 'future'
+  return 'today'
+}
+
+// daysUntil returns whole days from today to an ISO date (negative if past).
+function daysUntil(iso: string): number {
+  const target = new Date(iso + 'T00:00:00').getTime()
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.round((target - today.getTime()) / 86_400_000)
+}
+
+// HERO_PALETTES are the golden-hour scenes for the day header. With no backend
+// photo field (yet), each destination gets a stable, intentional-feeling scene
+// picked by a hash of its name — variety without a network image.
+const HERO_PALETTES: Array<[string, string, string]> = [
+  ['#f6b26b', '#e58b52', '#b65a3f'], // sunset
+  ['#e6c493', '#cf9f5f', '#a87b3c'], // sand
+  ['#7aa0c4', '#5f7fae', '#3f5680'], // dusk blue
+  ['#9ab97e', '#5f8a5a', '#356f57'], // forest
+  ['#d69bb0', '#b06a86', '#6d4a6a'], // plum dusk
+]
+
+function hashString(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0
+  return Math.abs(h)
+}
+
+// HeroScene paints a calm golden-hour silhouette behind the day title. Purely
+// decorative (aria-hidden); the gradient stops are chosen from the destination.
+function HeroScene({ seed }: { seed: string }) {
+  const [a, b, c] = HERO_PALETTES[hashString(seed) % HERO_PALETTES.length]
+  const gid = `hero-${hashString(seed)}`
+  return (
+    <svg
+      className="day-hero-scene"
+      viewBox="0 0 1000 240"
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={a} />
+          <stop offset="0.55" stopColor={b} />
+          <stop offset="1" stopColor={c} />
+        </linearGradient>
+      </defs>
+      <rect width="1000" height="240" fill={`url(#${gid})`} />
+      <circle cx="770" cy="74" r="34" fill="#ffe6bd" opacity="0.85" />
+      <path
+        d="M0 160 L120 128 L240 152 L360 116 L480 148 L600 112 L740 146 L860 116 L1000 148 V240 H0 Z"
+        fill="#3a2018"
+        opacity="0.35"
+      />
+      <path
+        d="M0 184 L160 160 L320 182 L500 154 L680 184 L860 160 L1000 178 V240 H0 Z"
+        fill="#2a1610"
+        opacity="0.5"
+      />
+    </svg>
+  )
+}
+
+// DayHeader is the Direction B day hero: a destination scene with the day number,
+// date, and a phase-aware status line (Today / In N days / Past · stops · stay).
+function DayHeader({
+  date,
+  dayNumber,
+  totalDays,
+  destination,
+  rel,
+  stops,
+  stayName,
+  cacheStatus,
+}: {
+  date: string
+  dayNumber: number | null
+  totalDays: number
+  destination: string
+  rel: DayRel
+  stops: number
+  stayName: string | null
+  cacheStatus: React.ReactNode
+}) {
+  const relChip =
+    rel === 'today'
+      ? 'Today'
+      : rel === 'future'
+        ? daysUntil(date) === 1
+          ? 'Tomorrow'
+          : `In ${daysUntil(date)} days`
+        : 'Past day'
+  return (
+    <header
+      className="day-hero"
+      data-rel={rel}
+      aria-label={`Day ${dayNumber ?? ''} — ${destination}`}
+    >
+      <HeroScene seed={destination || 'trip'} />
+      <div className="day-hero-grad" aria-hidden="true" />
+      <div className="day-hero-body">
+        <div className="day-hero-eyebrow">
+          {dayNumber !== null ? `Day ${dayNumber} of ${totalDays}` : 'Day'}
+          {destination && ` · ${destination}`}
+        </div>
+        <h2 className="day-hero-title">
+          {fullDate(date)}
+          {cacheStatus}
+        </h2>
+        <div className="day-hero-sub">
+          <span className="chip glass">{relChip}</span>
+          {stops > 0 && (
+            <span className="day-hero-meta num">
+              {stops} {stops === 1 ? 'stop' : 'stops'}
+            </span>
+          )}
+          {stayName && <span className="day-hero-meta">{stayName}</span>}
+        </div>
+      </div>
+    </header>
+  )
+}
+
 // FACETS are the four day sections. On phones they are shown one at a time and
 // switched with a segmented control (a trip's facets aren't top-level nav
 // destinations, so they live here rather than in the bottom bar). On laptop/
@@ -1444,6 +1593,7 @@ function FacetTabs({ value, onChange }: { value: Facet; onChange: (f: Facet) => 
 // FacetTabs; on wider screens they render together in the two-column grid.
 export function DayView() {
   const { tripId, date } = useParams<{ tripId: string; date: string }>()
+  const { trip } = useTripShell()
 
   const mobile = useMobile()
   // On phones only one facet shows at a time; `view` tracks which. It lives in
@@ -1555,19 +1705,36 @@ export function DayView() {
   // day.index is 0-based (server-provided); +1 gives the 1-based display number.
   const dayNumber = day ? day.index + 1 : null
 
+  // Phase-aware layout (Direction B): a future day leads with planning, today
+  // shows everything, a past day leads with the memory. rel drives both the hero
+  // chip and which sections show / lead.
+  const rel: DayRel = date ? dayRelation(date) : 'today'
+  const totalDays = datesInRange(trip.start_date, trip.end_date).length
+  const stayName = day?.stays?.[0]?.name ?? null
+  // The day's locale: prefer where you're staying (the most day-specific signal we
+  // have without a per-day place from the backend), else the trip's destinations.
+  const destination = day?.stays?.[0]?.location || trip.destinations.join(' · ')
+  // "Stops" = places you go, so plain notes don't inflate the count.
+  const stopCount = planItems.filter((i) => (i.kind ?? 'activity') !== 'note').length
+
   return (
     <article className="day-view" aria-label={date ? `Day ${dayNumber ?? ''} — ${date}` : 'Day'}>
-      <header className="day-view-header">
-        <h2 className="day-view-title">
-          {dayNumber !== null ? `Day ${dayNumber}` : 'Day'}
-          <CacheStatus fromCache={seededFromCache} isValidating={revalidating} />
-        </h2>
-        {date && (
-          <time className="day-view-date" dateTime={date}>
-            {fullDate(date)}
-          </time>
-        )}
-      </header>
+      {date ? (
+        <DayHeader
+          date={date}
+          dayNumber={dayNumber}
+          totalDays={totalDays}
+          destination={destination}
+          rel={rel}
+          stops={stopCount}
+          stayName={stayName}
+          cacheStatus={<CacheStatus fromCache={seededFromCache} isValidating={revalidating} />}
+        />
+      ) : (
+        <header className="day-view-header">
+          <h2 className="day-view-title">Day</h2>
+        </header>
+      )}
 
       {loading && (
         <p className="day-view-loading" aria-busy="true">
@@ -1595,6 +1762,10 @@ export function DayView() {
               tripId={tripId}
               selectedId={selectedId}
               onSelect={setSelectedId}
+              // Future days have nothing that "happened" yet. (Past days lead with
+              // the memory via section order, but keep the plan expanded so the
+              // itinerary stays readable when reliving a trip.)
+              showWhatHappened={rel !== 'future'}
             />
           ) : (
             <section
@@ -1623,8 +1794,26 @@ export function DayView() {
             </section>
           )
 
+        // dayColumn orders the plan + journal by phase: a past day leads with the
+        // journal (the memory), a future day drops it (nothing to write yet), and
+        // today shows plan first then journal.
+        const dayColumn =
+          rel === 'past' ? (
+            <>
+              {journalSlot}
+              {planningSlot}
+            </>
+          ) : rel === 'future' ? (
+            planningSlot
+          ) : (
+            <>
+              {planningSlot}
+              {journalSlot}
+            </>
+          )
+
         // Phones: a segmented control switches between the Day scroll (plan +
-        // what happened + journal + a compact budget strip) and the Map.
+        // journal + a compact budget strip, ordered by phase) and the Map.
         if (mobile) {
           return (
             <div className="day-facets">
@@ -1632,8 +1821,7 @@ export function DayView() {
               <div className="day-facet-panel">
                 {view === 'day' && (
                   <>
-                    {planningSlot}
-                    {journalSlot}
+                    {dayColumn}
                     {budgetStrip}
                   </>
                 )}
@@ -1643,14 +1831,11 @@ export function DayView() {
           )
         }
 
-        // Laptop/tablet: two columns — the merged Day (plan + what happened +
-        // journal) on the left, the map with the compact budget strip on the right.
+        // Laptop/tablet: two columns — the merged Day (plan + journal, phase-
+        // ordered) on the left, the map with the compact budget strip on the right.
         return (
           <div className="day-grid">
-            <div className="day-grid-col day-grid-left">
-              {planningSlot}
-              {journalSlot}
-            </div>
+            <div className="day-grid-col day-grid-left">{dayColumn}</div>
             <div className="day-grid-col day-grid-right">
               {mapSlot}
               {budgetStrip}

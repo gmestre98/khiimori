@@ -6,7 +6,12 @@ import { AppLayout } from './AppLayout'
 import { SidebarNav } from './SidebarNav'
 import { OfflineBanner } from './OfflineBanner'
 import { SyncStatus } from './SyncStatus'
-import { buildPrimaryNavItems, buildSidebarNavItems, buildSidebarSecondaryItems } from './navItems'
+import {
+  buildPrimaryNavItems,
+  buildSidebarNavItems,
+  buildSidebarSecondaryItems,
+  buildTripBottomNavItems,
+} from './navItems'
 
 export function AuthenticatedLayout() {
   const { signOut, user } = useAuth()
@@ -19,6 +24,13 @@ export function AuthenticatedLayout() {
   const routeTripId = tripMatch?.params.tripId ?? null
   const tripSwitcher = useSelectedTrip(routeTripId === 'new' ? null : routeTripId)
   const activeTripId = tripSwitcher.selectedTrip?.id ?? null
+
+  // Inside a trip (an actual /trips/:id route, not "new"), the mobile bottom nav
+  // becomes the trip's facets so Budget/Sharing are thumb-reachable; elsewhere it
+  // stays the global Trips/Me bar. (UI-refactor D)
+  const onTripRoute = routeTripId !== null && routeTripId !== 'new'
+  const bottomNavItems =
+    onTripRoute && activeTripId ? buildTripBottomNavItems(activeTripId) : buildPrimaryNavItems()
 
   const userName = user?.name ?? user?.email?.split('@')[0] ?? 'You'
 
@@ -34,7 +46,7 @@ export function AuthenticatedLayout() {
   )
 
   return (
-    <AppLayout sidebar={sidebar} bottomNav={<BottomNav items={buildPrimaryNavItems()} />}>
+    <AppLayout sidebar={sidebar} bottomNav={<BottomNav items={bottomNavItems} />}>
       <OfflineBanner />
       <SyncStatus />
       <Outlet />
