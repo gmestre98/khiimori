@@ -90,10 +90,13 @@ describe('TripShell', () => {
   })
 
   it('renders edit link for the trip', async () => {
-    renderShellAtDay('2026-06-01')
+    const { container } = renderShellAtDay('2026-06-01')
+    // Edit now lives in the "⋯" overflow menu (a collapsed <details>, so its
+    // accessible name is pruned in jsdom). Assert the link + target directly.
     await waitFor(() => {
-      const link = screen.getByRole('link', { name: /edit test trip/i })
-      expect(link).toHaveAttribute('href', '/trips/trip-1/edit')
+      const link = container.querySelector('a[href="/trips/trip-1/edit"]')
+      expect(link).toBeTruthy()
+      expect(link).toHaveTextContent(/edit/i)
     })
   })
 })
@@ -145,7 +148,7 @@ describe('DayView', () => {
     vi.mocked(api.fetchDay).mockResolvedValue(makeMockDay('2026-06-03', 2))
     renderShellAtDay('2026-06-03')
     await waitFor(() => {
-      expect(screen.getByText('Day 3')).toBeInTheDocument()
+      expect(screen.getByText(/^Day 3 of/)).toBeInTheDocument()
       expect(screen.getByText('Wednesday, Jun 03 2026')).toBeInTheDocument()
     })
   })

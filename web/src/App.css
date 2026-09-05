@@ -5686,3 +5686,277 @@
   font-size: var(--text-sm);
   line-height: var(--t-sm-lh);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DIRECTION B — Day screen: warmth & personality (M-UI redesign)
+   Scoped to .day-view so it can ship and be reviewed before the rest of the app
+   adopts the warm palette. Redefining tokens on .day-view re-skins every
+   descendant (slots, plan items, journal) without touching other screens.
+   ══════════════════════════════════════════════════════════════════════════ */
+.trip-shell {
+  /* Warm "paper" palette (light) — scoped to the whole trip so the chrome, day
+     strip and content share one surface (no seam above the day hero). */
+  --bg: #fbf8f4;
+  --surface: #ffffff;
+  --surface-2: #f6f1ea;
+  --surface-3: #ece2d4;
+  --surface-muted: #f6f1ea;
+  --line: #ece5db;
+  --line-2: #e0d7ca;
+  background: var(--bg);
+}
+[data-theme='dark'] .trip-shell {
+  --bg: #17130f;
+  --surface: #201911;
+  --surface-2: #1c1610;
+  --surface-3: #2a2015;
+  --surface-muted: #1c1610;
+  --line: #2c2319;
+  --line-2: #3a2f22;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']) .trip-shell {
+    --bg: #17130f;
+    --surface: #201911;
+    --surface-2: #1c1610;
+    --surface-3: #2a2015;
+    --surface-muted: #1c1610;
+    --line: #2c2319;
+    --line-2: #3a2f22;
+  }
+}
+.day-view {
+  padding: 0 0 26px;
+}
+
+/* Keep the loading/error/notes lines and inner sections inset now that the
+   article itself has no side padding (the hero is full-bleed). */
+.day-view > .day-view-loading,
+.day-view > .day-view-error,
+.day-view > .day-view-notes,
+.day-view > .day-facets,
+.day-view > .day-grid {
+  margin-left: 26px;
+  margin-right: 26px;
+}
+@media (max-width: 900px) {
+  .day-view > .day-view-loading,
+  .day-view > .day-view-error,
+  .day-view > .day-view-notes,
+  .day-view > .day-facets,
+  .day-view > .day-grid {
+    margin-left: 16px;
+    margin-right: 16px;
+  }
+}
+
+/* ── Day hero (destination scene + phase-aware status) ── */
+.day-hero {
+  position: relative;
+  isolation: isolate;
+  min-height: 176px;
+  display: flex;
+  align-items: flex-end;
+  margin-bottom: var(--s5);
+  overflow: hidden;
+}
+.day-hero-scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -2;
+}
+.day-hero-grad {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    rgba(20, 12, 8, 0.04) 0%,
+    rgba(20, 12, 8, 0.18) 45%,
+    rgba(20, 12, 8, 0.74) 100%
+  );
+}
+.day-hero-body {
+  width: 100%;
+  padding: 22px 26px;
+  color: #fff;
+}
+@media (max-width: 900px) {
+  .day-hero-body {
+    padding: 18px 16px;
+  }
+}
+.day-hero-eyebrow {
+  font-size: var(--t-eyebrow);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: var(--fw-semi);
+  color: rgba(255, 255, 255, 0.85);
+}
+.day-hero-title {
+  margin: 8px 0 0;
+  font-size: 28px;
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.28);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.day-hero-title .cache-updating {
+  color: rgba(255, 255, 255, 0.85);
+}
+.day-hero-sub {
+  margin-top: 11px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: var(--t-sm);
+}
+.day-hero-meta {
+  color: rgba(255, 255, 255, 0.92);
+}
+.day-hero-sub .chip.glass {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: var(--fw-semi);
+  padding: 4px 11px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  color: #fff;
+  backdrop-filter: blur(6px);
+}
+
+/* ── Category color bar on plan items (Direction B) ── */
+.day-view .plan-item {
+  position: relative;
+  padding-left: 19px;
+}
+.day-view .plan-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--cat-activities);
+}
+.day-view .plan-item[data-kind='transport']::before {
+  background: var(--cat-transport);
+}
+.day-view .plan-item[data-kind='food']::before {
+  background: var(--cat-food);
+}
+.day-view .plan-item[data-kind='note']::before {
+  background: var(--cat-other);
+}
+.day-view .plan-item--editing::before {
+  display: none;
+}
+
+/* ── Trip chrome: segmented tab bar + overflow menu (UI-refactor B) ──────────
+   Replaces the old row of six look-alike ghost buttons. The tab bar shows the
+   trip's sections with a clear active state on laptop; on mobile it's hidden and
+   the trip-scoped bottom nav carries the same destinations. Edit/Export move into
+   a "⋯" overflow so utilities don't compete with navigation. */
+.trip-shell-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex-shrink: 0;
+}
+.trip-tabs {
+  display: none;
+  gap: 4px;
+  background: var(--surface-2);
+  padding: 4px;
+  border-radius: var(--r-pill);
+}
+@media (min-width: 1024px) {
+  .trip-tabs {
+    display: inline-flex;
+  }
+}
+.trip-tab {
+  padding: 7px 15px;
+  border-radius: var(--r-pill);
+  font-size: 13px;
+  font-weight: var(--fw-med);
+  color: var(--muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    color var(--dur) var(--ease),
+    background var(--dur);
+}
+.trip-tab:hover {
+  color: var(--ink);
+}
+.trip-tab--active {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: var(--fw-semi);
+  box-shadow: var(--shadow-1);
+}
+.trip-overflow {
+  position: relative;
+}
+.trip-overflow-btn {
+  list-style: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  color: var(--ink-2);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+.trip-overflow-btn::-webkit-details-marker {
+  display: none;
+}
+.trip-overflow-btn:hover,
+.trip-overflow[open] .trip-overflow-btn {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.trip-overflow-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 168px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+  padding: 6px;
+  z-index: 30;
+}
+.trip-overflow-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 11px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--ink);
+  text-decoration: none;
+  cursor: pointer;
+}
+.trip-overflow-item:hover {
+  background: var(--surface-2);
+}

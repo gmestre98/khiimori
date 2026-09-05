@@ -30,6 +30,50 @@ export function TripShellRoute() {
   return <TripShell key={tripId} />
 }
 
+// TRIP_TABS are the trip's sections, shown as a segmented control in the trip
+// chrome (replacing the old row of look-alike ghost buttons). "Days" points at
+// the whole-trip overview but stays active across a single day and the backlog,
+// which are all part of planning the days. On mobile this bar is hidden — the
+// bottom nav carries the same destinations into the thumb zone. (UI-refactor B)
+const TRIP_TABS = [
+  { key: 'days', label: 'Days', suffix: '/plan' },
+  { key: 'map', label: 'Map', suffix: '/map' },
+  { key: 'budget', label: 'Budget', suffix: '/budget' },
+  { key: 'sharing', label: 'Sharing', suffix: '/sharing' },
+] as const
+
+// activeTripTab resolves which section the current path belongs to. Anything that
+// isn't Map/Budget/Sharing (a day, the plan overview, the backlog) reads as Days.
+function activeTripTab(pathname: string): (typeof TRIP_TABS)[number]['key'] {
+  if (pathname.endsWith('/map')) return 'map'
+  if (pathname.endsWith('/budget')) return 'budget'
+  if (pathname.endsWith('/sharing')) return 'sharing'
+  return 'days'
+}
+
+function TripTabs({ trip, pathname }: { trip: Trip; pathname: string }) {
+  const active = activeTripTab(pathname)
+  return (
+    <nav className="trip-tabs" role="tablist" aria-label="Trip sections">
+      {TRIP_TABS.map((tab) => (
+        <Link
+          key={tab.key}
+          to={`/trips/${trip.id}${tab.suffix}`}
+          state={{ trip }}
+          role="tab"
+          aria-selected={active === tab.key}
+          aria-current={active === tab.key ? 'page' : undefined}
+          className={['trip-tab', active === tab.key ? 'trip-tab--active' : '']
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {tab.label}
+        </Link>
+      ))}
+    </nav>
+  )
+}
+
 // TripShell is the authenticated wrapper for a single trip. It resolves the trip
 // (from router state if available, falling back to the trips listing), then
 // redirects to today's day (or the nearest valid day). Child routes render via
@@ -122,55 +166,36 @@ function TripShell() {
             </>
           )}
         </div>
-        <div className="row gap2 trip-shell-actions">
-          <Link
-            to={`/trips/${trip.id}/plan`}
-            state={{ trip }}
-            className="btn btn-ghost btn-sm"
-            aria-label={`Days for ${trip.name}`}
-          >
-            Days
-          </Link>
-          <Link
-            to={`/trips/${trip.id}/map`}
-            state={{ trip }}
-            className="btn btn-ghost btn-sm"
-            aria-label={`Map for ${trip.name}`}
-          >
-            Map
-          </Link>
-          <Link
-            to={`/trips/${trip.id}/budget`}
-            state={{ trip }}
-            className="btn btn-ghost btn-sm"
-            aria-label={`Budget for ${trip.name}`}
-          >
-            Budget
-          </Link>
-          <Link
-            to={`/trips/${trip.id}/sharing`}
-            state={{ trip }}
-            className="btn btn-ghost btn-sm"
-            aria-label={`Sharing for ${trip.name}`}
-          >
-            Sharing
-          </Link>
-          <Link
-            to={`/trips/${trip.id}/edit`}
-            state={{ trip }}
-            className="btn btn-ghost btn-sm"
-            aria-label={`Edit ${trip.name}`}
-          >
-            Edit
-          </Link>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={() => setExportOpen(true)}
-            aria-label={`Export ${trip.name} to Google Docs`}
-          >
-            Export
-          </button>
+        <div className="trip-shell-actions">
+          <TripTabs trip={trip} pathname={location.pathname} />
+          <details className="trip-overflow">
+            <summary className="trip-overflow-btn" aria-label={`More actions for ${trip.name}`}>
+              <span aria-hidden="true">⋯</span>
+            </summary>
+            <div className="trip-overflow-menu" role="menu">
+              <Link
+                to={`/trips/${trip.id}/edit`}
+                state={{ trip }}
+                className="trip-overflow-item"
+                role="menuitem"
+                aria-label={`Edit ${trip.name}`}
+              >
+                Edit trip
+              </Link>
+              <button
+                type="button"
+                className="trip-overflow-item"
+                role="menuitem"
+                onClick={(e) => {
+                  e.currentTarget.closest('details')?.removeAttribute('open')
+                  setExportOpen(true)
+                }}
+                aria-label={`Export ${trip.name} to Google Docs`}
+              >
+                Export…
+              </button>
+            </div>
+          </details>
         </div>
       </header>
       {exportOpen && (

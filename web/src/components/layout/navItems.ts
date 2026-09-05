@@ -104,15 +104,33 @@ export function buildSidebarSecondaryItems(isAdmin: boolean): BottomNavItem[] {
 // Static default (admin) — used by tests and as a stable fallback.
 export const SIDEBAR_SECONDARY_ITEMS: BottomNavItem[] = buildSidebarSecondaryItems(true)
 
-// buildPrimaryNavItems returns the mobile bottom-nav items in the thumb zone.
-// Only the two true global destinations live here: Trips and Me. A trip's facets
-// (Plan / Map / Budget / Journal) are not top-level destinations — they're
-// switched via the in-trip segmented tab bar (see DayView), so putting Map and
-// Journal in the bottom bar was redundant (both just reopened the trip).
+// buildPrimaryNavItems returns the mobile bottom-nav items in the thumb zone when
+// the user is NOT inside a trip: the two true global destinations, Trips and Me.
 export function buildPrimaryNavItems(): BottomNavItem[] {
   return [
     { to: '/', label: 'Trips', icon: ICONS.trips },
     { to: '/profile', label: 'Me', icon: ICONS.profile },
+  ]
+}
+
+// buildTripBottomNavItems returns the mobile bottom-nav while inside a trip. On a
+// phone there's no sidebar, so the trip's facets have to be thumb-reachable — the
+// old bottom bar (Trips/Me) left Budget and Sharing with no mobile path at all.
+// "Trips" stays first as the way back to the list; Days/Map/Budget/Sharing are the
+// same destinations as the laptop sidebar + the in-trip tab bar. (UI-refactor D)
+export function buildTripBottomNavItems(activeTripId: string): BottomNavItem[] {
+  return [
+    { to: '/', label: 'Trips', icon: ICONS.trips },
+    {
+      to: `/trips/${activeTripId}/plan`,
+      label: 'Days',
+      icon: ICONS.journal,
+      // "Days" covers the whole-trip overview, a single day, and the backlog.
+      activeWhen: (p) => p.includes('/plan') || p.includes('/days/') || p.endsWith('/backlog'),
+    },
+    { to: `/trips/${activeTripId}/map`, label: 'Map', icon: ICONS.map },
+    { to: `/trips/${activeTripId}/budget`, label: 'Budget', icon: ICONS.budget },
+    { to: `/trips/${activeTripId}/sharing`, label: 'Sharing', icon: ICONS.sharing },
   ]
 }
 

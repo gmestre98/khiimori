@@ -150,7 +150,7 @@ describe('DayView', () => {
   it('renders day header and date after load', async () => {
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
     renderDayView()
-    await waitFor(() => expect(screen.getByText('Day 1')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/^Day 1 of/)).toBeInTheDocument())
     expect(screen.getByText('Monday, Jun 01 2026')).toBeInTheDocument()
   })
 
@@ -213,8 +213,11 @@ describe('DayView', () => {
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ stays: [stay] }))
     renderDayView()
     await waitFor(() => expect(screen.getByText('Staying')).toBeInTheDocument())
-    expect(screen.getByText('Hotel Paris')).toBeInTheDocument()
-    expect(screen.getByText('Paris')).toBeInTheDocument()
+    // The stay name/location also appear in the day hero now, so scope to the
+    // Staying section to assert the stay card itself renders them.
+    const planning = document.querySelector('[data-slot="planning"]') as HTMLElement
+    expect(within(planning).getByText('Hotel Paris')).toBeInTheDocument()
+    expect(within(planning).getByText('Paris')).toBeInTheDocument()
   })
 
   it('shows done badge on done items', async () => {
@@ -1762,8 +1765,12 @@ describe('DayView', () => {
       const stay = makeStay({ id: 'stay-1', name: 'Hotel Paris', location: 'Paris' })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ stays: [stay] }))
       renderDayView()
-      await waitFor(() => expect(screen.getByText('Hotel Paris')).toBeInTheDocument())
-      expect(screen.getByRole('button', { name: /Map pin 1 for Hotel Paris/ })).toBeInTheDocument()
+      // "Hotel Paris" also shows in the day hero; assert the stay card's pin badge.
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', { name: /Map pin 1 for Hotel Paris/ }),
+        ).toBeInTheDocument(),
+      )
     })
 
     it('location-less item alongside located item does not get a pin badge', async () => {
