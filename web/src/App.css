@@ -5960,3 +5960,61 @@
 .trip-overflow-item:hover {
   background: var(--surface-2);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DIRECTION B — Trips dashboard (warmth + destination scenes)
+   ══════════════════════════════════════════════════════════════════════════ */
+/* Shared destination scene fills its (relatively-positioned) container. */
+.hero-scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Warm "paper" palette for the dashboard page (it lives outside .trip-shell). */
+.trips-page {
+  --bg: #fbf8f4;
+  --surface: #ffffff;
+  --surface-2: #f6f1ea;
+  --surface-3: #ece2d4;
+  --surface-muted: #f6f1ea;
+  --line: #ece5db;
+  --line-2: #e0d7ca;
+  background: var(--bg);
+  min-height: 100%;
+}
+[data-theme='dark'] .trips-page {
+  --bg: #17130f;
+  --surface: #201911;
+  --surface-2: #1c1610;
+  --surface-3: #2a2015;
+  --surface-muted: #1c1610;
+  --line: #2c2319;
+  --line-2: #3a2f22;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']) .trips-page {
+    --bg: #17130f;
+    --surface: #201911;
+    --surface-2: #1c1610;
+    --surface-3: #2a2015;
+    --surface-muted: #1c1610;
+    --line: #2c2319;
+    --line-2: #3a2f22;
+  }
+}
+
+/* Scene panels on the current-trip hero and the upcoming trip cards. The scene
+   fills the panel; a scrim keeps the white "Now / Day n" label legible. */
+.current-trip-panel-scrim,
+.trip-card-panel .current-trip-panel-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(20, 12, 8, 0.02), rgba(20, 12, 8, 0.55));
+  z-index: 1;
+}
+.current-trip-panel-label,
+.trip-card-panel-label {
+  z-index: 2;
+}

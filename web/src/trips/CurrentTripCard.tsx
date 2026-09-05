@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { Trip } from '../lib/api'
 import { formatDateRange, tripDayCount } from '../lib/format'
+import { HeroScene } from './heroScene'
 
 function todayDayNumber(startDate: string): number | null {
   const start = new Date(startDate + 'T00:00:00')
@@ -55,9 +56,13 @@ export function CurrentTripCard({
         aria-label={`Open ${trip.name}`}
       />
       <div className="current-trip-card-inner">
-        {/* Teal panel — day counter */}
+        {/* Destination scene panel — day counter (Direction B) */}
         <div className="current-trip-panel" aria-hidden="true">
-          <div className="current-trip-panel-glow" />
+          <HeroScene
+            seed={trip.destinations[0] || trip.name}
+            className="current-trip-panel-scene"
+          />
+          <div className="current-trip-panel-scrim" />
           <div className="current-trip-panel-label">
             <div className="current-trip-panel-now">Now</div>
             <div className="current-trip-panel-day">
