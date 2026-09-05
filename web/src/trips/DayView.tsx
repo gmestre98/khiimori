@@ -1520,7 +1520,11 @@ function DayHeader({
           : `In ${daysUntil(date)} days`
         : 'Past day'
   return (
-    <header className="day-hero" data-rel={rel} aria-label={`Day ${dayNumber ?? ''} — ${destination}`}>
+    <header
+      className="day-hero"
+      data-rel={rel}
+      aria-label={`Day ${dayNumber ?? ''} — ${destination}`}
+    >
       <HeroScene seed={destination || 'trip'} />
       <div className="day-hero-grad" aria-hidden="true" />
       <div className="day-hero-body">

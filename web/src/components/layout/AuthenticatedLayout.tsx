@@ -30,9 +30,7 @@ export function AuthenticatedLayout() {
   // stays the global Trips/Me bar. (UI-refactor D)
   const onTripRoute = routeTripId !== null && routeTripId !== 'new'
   const bottomNavItems =
-    onTripRoute && activeTripId
-      ? buildTripBottomNavItems(activeTripId)
-      : buildPrimaryNavItems()
+    onTripRoute && activeTripId ? buildTripBottomNavItems(activeTripId) : buildPrimaryNavItems()
 
   const userName = user?.name ?? user?.email?.split('@')[0] ?? 'You'
 
