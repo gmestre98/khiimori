@@ -4846,18 +4846,20 @@
 
 /* ── Mobile (PWA) refinements — per-trip screens ────────────────────────────── */
 @media (max-width: 720px) {
-  /* Per-trip header: stack the breadcrumb above the actions, no overlap. */
+  /* Per-trip header: the tab bar is hidden here (bottom nav carries it), so the
+     crumb and the "⋯" overflow share one row — crumb truncates, "⋯" hugs right. */
   .topnav {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 10px;
     padding: 12px 16px;
   }
   .trip-shell-crumbs {
-    flex: 1 1 100%;
+    flex: 1 1 auto;
+    min-width: 0;
   }
   .trip-shell-actions {
-    flex: 1 1 100%;
-    justify-content: flex-start;
+    flex: 0 0 auto;
+    justify-content: flex-end;
   }
   /* The destination list is secondary on mobile — drop it (and its separator). */
   .trip-shell-sep--dest,
@@ -6017,4 +6019,41 @@
 .current-trip-panel-label,
 .trip-card-panel-label {
   z-index: 2;
+}
+
+/* ── Direction B — warm palette for Profile & Admin (rollout completion) ──────
+   Same "paper" surface as the trip shell and dashboard, scoped to each page so
+   the whole authenticated app reads as one warm system in light + dark. */
+.profile,
+.admin-app {
+  --bg: #fbf8f4;
+  --surface: #ffffff;
+  --surface-2: #f6f1ea;
+  --surface-3: #ece2d4;
+  --surface-muted: #f6f1ea;
+  --line: #ece5db;
+  --line-2: #e0d7ca;
+  background: var(--bg);
+}
+[data-theme='dark'] .profile,
+[data-theme='dark'] .admin-app {
+  --bg: #17130f;
+  --surface: #201911;
+  --surface-2: #1c1610;
+  --surface-3: #2a2015;
+  --surface-muted: #1c1610;
+  --line: #2c2319;
+  --line-2: #3a2f22;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']) .profile,
+  :root:not([data-theme='light']):not([data-theme='dark']) .admin-app {
+    --bg: #17130f;
+    --surface: #201911;
+    --surface-2: #1c1610;
+    --surface-3: #2a2015;
+    --surface-muted: #1c1610;
+    --line: #2c2319;
+    --line-2: #3a2f22;
+  }
 }

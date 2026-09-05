@@ -1449,6 +1449,7 @@ function DayHeader({
   rel,
   stops,
   stayName,
+  coverImage,
   cacheStatus,
 }: {
   date: string
@@ -1458,6 +1459,7 @@ function DayHeader({
   rel: DayRel
   stops: number
   stayName: string | null
+  coverImage?: string
   cacheStatus: React.ReactNode
 }) {
   const relChip =
@@ -1474,7 +1476,7 @@ function DayHeader({
       data-rel={rel}
       aria-label={`Day ${dayNumber ?? ''} — ${destination}`}
     >
-      <HeroScene seed={destination || 'trip'} className="day-hero-scene" />
+      <HeroScene seed={destination || 'trip'} image={coverImage} className="day-hero-scene" />
       <div className="day-hero-grad" aria-hidden="true" />
       <div className="day-hero-body">
         <div className="day-hero-eyebrow">
@@ -1677,6 +1679,7 @@ export function DayView() {
           rel={rel}
           stops={stopCount}
           stayName={stayName}
+          coverImage={trip.cover}
           cacheStatus={<CacheStatus fromCache={seededFromCache} isValidating={revalidating} />}
         />
       ) : (
