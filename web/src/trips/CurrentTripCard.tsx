@@ -60,6 +60,7 @@ export function CurrentTripCard({
         <div className="current-trip-panel" aria-hidden="true">
           <HeroScene
             seed={trip.destinations[0] || trip.name}
+            image={trip.cover}
             className="current-trip-panel-scene"
           />
           <div className="current-trip-panel-scrim" />

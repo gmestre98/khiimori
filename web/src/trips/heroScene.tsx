@@ -20,10 +20,40 @@ function hashString(s: string): number {
   return Math.abs(h)
 }
 
+// looksLikeUrl guards the optional cover image: only real image sources (http,
+// root-relative, or data URLs) are used; anything else falls back to the scene.
+function looksLikeUrl(s: string): boolean {
+  return /^(https?:\/\/|\/|data:image\/)/.test(s)
+}
+
 // HeroScene paints a calm golden-hour silhouette. Purely decorative
 // (aria-hidden); position it with the passed className (callers fill their
-// container). The gradient is chosen deterministically from `seed`.
-export function HeroScene({ seed, className = '' }: { seed: string; className?: string }) {
+// container). When `image` is a real image URL (e.g. a trip's cover, once the
+// backend sets one) it's used instead of the generated scene — same slot, so
+// call sites don't change when photos arrive. The gradient/scene is chosen
+// deterministically from `seed`.
+export function HeroScene({
+  seed,
+  image,
+  className = '',
+}: {
+  seed: string
+  image?: string
+  className?: string
+}) {
+  if (image && looksLikeUrl(image)) {
+    return (
+      <div
+        className={['hero-scene', className].filter(Boolean).join(' ')}
+        style={{
+          backgroundImage: `url("${image}")`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+        aria-hidden="true"
+      />
+    )
+  }
   const [a, b, c] = HERO_PALETTES[hashString(seed) % HERO_PALETTES.length]
   const gid = `hero-${hashString(seed)}`
   return (

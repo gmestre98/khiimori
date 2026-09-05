@@ -113,6 +113,7 @@ function TripCard({
             <>
               <HeroScene
                 seed={trip.destinations[0] || trip.name}
+                image={trip.cover}
                 className="trip-card-panel-scene"
               />
               <div className="current-trip-panel-scrim" />
