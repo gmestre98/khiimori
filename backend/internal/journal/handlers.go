@@ -26,10 +26,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 // upsertEntryRequest is the wire shape for the idempotent save endpoint.
 type upsertEntryRequest struct {
-	Body    json.RawMessage `json:"body"`
-	Rating  *int            `json:"rating,omitempty"`
-	Weather string          `json:"weather,omitempty"`
-	Mood    string          `json:"mood,omitempty"`
+	Body json.RawMessage `json:"body"`
 }
 
 // journalEntryResponse is the wire shape returned after a successful operation.
@@ -38,9 +35,6 @@ type journalEntryResponse struct {
 	DayID     string          `json:"day_id"`
 	AuthorID  string          `json:"author_id"`
 	Body      json.RawMessage `json:"body"`
-	Rating    *int            `json:"rating,omitempty"`
-	Weather   string          `json:"weather,omitempty"`
-	Mood      string          `json:"mood,omitempty"`
 	CreatedAt string          `json:"created_at"`
 	UpdatedAt string          `json:"updated_at"`
 }
@@ -51,9 +45,6 @@ func entryToResponse(e JournalEntry) journalEntryResponse {
 		DayID:     e.DayID,
 		AuthorID:  e.AuthorID,
 		Body:      e.Body,
-		Rating:    e.Rating,
-		Weather:   e.Weather,
-		Mood:      e.Mood,
 		CreatedAt: e.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
 		UpdatedAt: e.UpdatedAt.UTC().Format("2006-01-02T15:04:05Z"),
 	}
@@ -119,9 +110,6 @@ func (m *Module) handleUpsertEntry(w http.ResponseWriter, r *http.Request) {
 		DayID:    dayID,
 		AuthorID: principal.UserID,
 		Body:     body,
-		Rating:   req.Rating,
-		Weather:  req.Weather,
-		Mood:     req.Mood,
 	}
 	if err := input.validate(); err != nil {
 		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusBadRequest, "validation_error", err.Error()))

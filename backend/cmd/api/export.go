@@ -467,8 +467,7 @@ func (e exportReader) Stays(ctx context.Context, tripID string) ([]export.DaySta
 
 func (e exportReader) Journals(ctx context.Context, tripID string) ([]export.DayJournal, error) {
 	const q = `
-		SELECT je.id::text, je.day_id::text, je.body, je.rating,
-		       COALESCE(je.weather, ''), COALESCE(je.mood, '')
+		SELECT je.id::text, je.day_id::text, je.body
 		FROM journal.journal_entries je
 		JOIN trip.days d ON d.id = je.day_id
 		WHERE d.trip_id = $1::uuid`
@@ -486,7 +485,7 @@ func (e exportReader) Journals(ctx context.Context, tripID string) ([]export.Day
 	for rows.Next() {
 		var en entry
 		var body []byte
-		if err := rows.Scan(&en.id, &en.dayID, &body, &en.j.Rating, &en.j.Weather, &en.j.Mood); err != nil {
+		if err := rows.Scan(&en.id, &en.dayID, &body); err != nil {
 			return nil, fmt.Errorf("export: scan journal: %w", err)
 		}
 		en.j.Text = journalText(body)

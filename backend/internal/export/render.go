@@ -52,7 +52,6 @@ func templateFuncs() template.FuncMap {
 		"dayHeading":  dayHeading,
 		"dateRange":   dateRange,
 		"money":       money, // template auto-dereferences a *float64 cost for this
-		"stars":       stars,
 		"nonEmpty":    func(s string) bool { return strings.TrimSpace(s) != "" },
 		"join":        func(sep string, xs []string) string { return strings.Join(xs, sep) },
 		"add":         func(a, b int) int { return a + b },
@@ -157,17 +156,3 @@ func groupThousands(digits string) string {
 	return b.String()
 }
 
-// stars renders a 1–5 rating as filled/empty stars; nil returns "".
-func stars(r *int) string {
-	if r == nil {
-		return ""
-	}
-	n := *r
-	if n < 0 {
-		n = 0
-	}
-	if n > 5 {
-		n = 5
-	}
-	return strings.Repeat("★", n) + strings.Repeat("☆", 5-n)
-}

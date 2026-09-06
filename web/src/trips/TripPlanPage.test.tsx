@@ -167,9 +167,6 @@ describe('TripPlanPage', () => {
         day_id: 'day-0',
         author_id: 'user-owner',
         body: 'Best day of the trip — sunset kayak.',
-        rating: 5,
-        weather: 'sunny',
-        mood: 'happy',
         created_at: '2026-06-01T00:00:00Z',
         updated_at: '2026-06-01T00:00:00Z',
       }

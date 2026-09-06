@@ -31,7 +31,7 @@ function summarize(entry: JournalEntry | null, photos: Photo[]): string {
 
 // DayDiary is the collapsed-by-default diary affordance for a day in the
 // whole-trip stack: a single row you click to reveal the full JournalEditor
-// (text, rating/weather/mood, photos). It keeps an expanded day short while
+// (text and photos). It keeps an expanded day short while
 // still putting "write a note and add pictures" one click away on every day.
 //
 // The preview paints from the on-device cache first and then revalidates, so a
