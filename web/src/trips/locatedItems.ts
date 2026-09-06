@@ -25,12 +25,23 @@ export interface LocatedItem {
   role: 'point' | 'from' | 'to'
 }
 
-// collectLocatedItems returns stays then plan items (by sort_order) that have a
-// location, in the same order passed to fetchDayRoute. A transport plan item is
-// expanded into its origin then destination (each a located point) so both ends
-// route and pin; every other kind contributes a single point from its `location`.
-// Used by the maps and the planning list (pin badges).
-export function collectLocatedItems(day: Pick<Day, 'stays' | 'plan_items'>): LocatedItem[] {
+// ItemOrder chooses which sequence the located stops follow. 'plan' is the
+// planned itinerary (sort_order); 'actual' is what actually happened
+// (actual_order, falling back to sort_order) — used to draw a past trip's route
+// in the order things were really done rather than the order they were planned.
+export type ItemOrder = 'plan' | 'actual'
+
+// collectLocatedItems returns stays then plan items that have a location, in the
+// same order passed to fetchDayRoute. `order` picks the plan-items sequence:
+// 'plan' (sort_order, the default) or 'actual' (actual_order ?? sort_order). A
+// transport plan item is expanded into its origin then destination (each a
+// located point) so both ends route and pin; every other kind contributes a
+// single point from its `location`. Used by the maps and the planning list (pin
+// badges).
+export function collectLocatedItems(
+  day: Pick<Day, 'stays' | 'plan_items'>,
+  order: ItemOrder = 'plan',
+): LocatedItem[] {
   const out: LocatedItem[] = []
   let feature = 0
 
@@ -49,7 +60,11 @@ export function collectLocatedItems(day: Pick<Day, 'stays' | 'plan_items'>): Loc
     feature++
   }
 
-  const items = [...(day.plan_items ?? [])].sort((a, b) => a.sort_order - b.sort_order)
+  const items = [...(day.plan_items ?? [])].sort((a, b) =>
+    order === 'actual'
+      ? (a.actual_order ?? a.sort_order) - (b.actual_order ?? b.sort_order)
+      : a.sort_order - b.sort_order,
+  )
   for (const i of items) {
     const done = i.status === 'done'
     const skipped = i.status === 'skipped'
@@ -115,9 +130,13 @@ export function collectLocatedItems(day: Pick<Day, 'stays' | 'plan_items'>): Loc
 // collectLocations is the flat list of location strings passed to fetchDayRoute,
 // in the same order as collectLocatedItems so returned waypoints line up
 // positionally with located items (all entries are non-empty; the server drops
-// any it can't resolve).
-export function collectLocations(day: Pick<Day, 'stays' | 'plan_items'>): string[] {
-  return collectLocatedItems(day).map((i) => i.location)
+// any it can't resolve). `order` must match the collectLocatedItems call it's
+// paired with, or waypoints and items fall out of alignment.
+export function collectLocations(
+  day: Pick<Day, 'stays' | 'plan_items'>,
+  order: ItemOrder = 'plan',
+): string[] {
+  return collectLocatedItems(day, order).map((i) => i.location)
 }
 
 // FeatureInfo is one numbered itinerary unit (a legend/badge entry). A transport

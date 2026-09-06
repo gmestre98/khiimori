@@ -4,7 +4,14 @@ import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from 'reac
 import 'leaflet/dist/leaflet.css'
 import { UnauthorizedError, type Day, type LatLng } from '../lib/api'
 import { loadDayWaypoints } from '../lib/dayRouteCache'
-import { buildFeatures, collectLocatedItems, collectLocations, featureList } from './locatedItems'
+import { localToday } from '../lib/format'
+import {
+  buildFeatures,
+  collectLocatedItems,
+  collectLocations,
+  featureList,
+  type ItemOrder,
+} from './locatedItems'
 
 // DEFAULT_CENTER / DEFAULT_ZOOM frame a gentle world view when the day has no
 // located stops yet — the map stays visible ("always available") rather than
@@ -111,8 +118,11 @@ export default function DayMap({
   selectedId: string | null
   onSelect: (id: string | null) => void
 }) {
-  const locatedItems = useMemo(() => collectLocatedItems(day), [day])
-  const locations = useMemo(() => collectLocations(day), [day])
+  // A past day's route reads in the order things actually happened (actual_order);
+  // today or a future day still reads in planned order (sort_order).
+  const order: ItemOrder = day.date < localToday() ? 'actual' : 'plan'
+  const locatedItems = useMemo(() => collectLocatedItems(day, order), [day, order])
+  const locations = useMemo(() => collectLocations(day, order), [day, order])
   const hasAnyLocation = locations.length > 0
 
   // Skip the async fetch when nothing has a location: start "resolved empty".
