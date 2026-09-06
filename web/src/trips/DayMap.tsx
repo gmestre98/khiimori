@@ -184,10 +184,7 @@ export default function DayMap({
   )
   // allPoints ignores the skip filter so the caption can tell "couldn't place any
   // stop" (a real geocode failure) apart from "everything visible was skipped".
-  const allPoints = useMemo(
-    () => positioned.filter((w): w is LatLng => Boolean(w)),
-    [positioned],
-  )
+  const allPoints = useMemo(() => positioned.filter((w): w is LatLng => Boolean(w)), [positioned])
   // Render features group the expanded points back into numbered pins (a leg's
   // two ends become one ball at their midpoint plus an endpoint marker on each).
   const features = useMemo(

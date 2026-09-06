@@ -145,10 +145,7 @@ export function TripMapPage() {
 
   // Whether any loaded day carries a skipped stop — the "Show skipped" toggle is
   // only worth showing when there's something for it to reveal.
-  const hasSkipped = useMemo(
-    () => mapDays.some((d) => d.items.some((it) => it.skipped)),
-    [mapDays],
-  )
+  const hasSkipped = useMemo(() => mapDays.some((d) => d.items.some((it) => it.skipped)), [mapDays])
 
   // Apply the visibility filters per day, keeping items and waypoints
   // positionally aligned, and drop days left with nothing to draw. By default
