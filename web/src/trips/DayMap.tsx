@@ -156,15 +156,45 @@ export default function DayMap({
   // `positioned` keeps its index alignment with locatedItems (holes and all) for
   // pin numbering; `points` is the hole-free subset used to draw the route and
   // fit the map bounds (indexing those with `undefined` would throw).
-  const positioned = hasAnyLocation ? (waypoints ?? []) : []
-  const points = useMemo(() => positioned.filter((w): w is LatLng => Boolean(w)), [positioned])
+  const positioned = useMemo(
+    () => (hasAnyLocation ? (waypoints ?? []) : []),
+    [hasAnyLocation, waypoints],
+  )
+  // Skipped stops are hidden by default behind a toggle. hasSkipped decides
+  // whether the toggle is worth showing at all.
+  const [showSkipped, setShowSkipped] = useState(false)
+  const hasSkipped = useMemo(() => locatedItems.some((it) => it.skipped), [locatedItems])
+  // Filter located items and their waypoints together so the two stay
+  // positionally aligned (buildFeatures pairs them by index). When skipped stops
+  // are hidden, drop them from both lists before deriving anything drawable.
+  const { visibleItems, visiblePositioned } = useMemo(() => {
+    if (showSkipped) return { visibleItems: locatedItems, visiblePositioned: positioned }
+    const items: typeof locatedItems = []
+    const wps: typeof positioned = []
+    locatedItems.forEach((it, i) => {
+      if (it.skipped) return
+      items.push(it)
+      wps.push(positioned[i])
+    })
+    return { visibleItems: items, visiblePositioned: wps }
+  }, [locatedItems, positioned, showSkipped])
+  const points = useMemo(
+    () => visiblePositioned.filter((w): w is LatLng => Boolean(w)),
+    [visiblePositioned],
+  )
+  // allPoints ignores the skip filter so the caption can tell "couldn't place any
+  // stop" (a real geocode failure) apart from "everything visible was skipped".
+  const allPoints = useMemo(
+    () => positioned.filter((w): w is LatLng => Boolean(w)),
+    [positioned],
+  )
   // Render features group the expanded points back into numbered pins (a leg's
   // two ends become one ball at their midpoint plus an endpoint marker on each).
   const features = useMemo(
-    () => buildFeatures(locatedItems, positioned),
-    [locatedItems, positioned],
+    () => buildFeatures(visibleItems, visiblePositioned),
+    [visibleItems, visiblePositioned],
   )
-  const legend = useMemo(() => featureList(locatedItems), [locatedItems])
+  const legend = useMemo(() => featureList(visibleItems), [visibleItems])
   const selectedAnchor = useMemo(
     () => features.find((f) => f.id === selectedId)?.anchor ?? null,
     [features, selectedId],
@@ -179,9 +209,12 @@ export default function DayMap({
     caption = 'Couldn’t load stop positions right now. The map is still available above.'
   } else if (waypoints === null) {
     caption = 'Loading stops…'
-  } else if (points.length === 0) {
+  } else if (allPoints.length === 0) {
     caption =
       'We couldn’t place any of this day’s locations. Try adding a city or country to each one.'
+  } else if (points.length === 0) {
+    // Every placeable stop was skipped and skipped stops are hidden.
+    caption = 'Every place this day was skipped. Turn on “Show skipped” to see them.'
   }
 
   return (
@@ -232,6 +265,17 @@ export default function DayMap({
       </MapContainer>
 
       {caption && <p className="day-map-caption">{caption}</p>}
+
+      {hasSkipped && (
+        <button
+          type="button"
+          className="day-map-toggle"
+          aria-pressed={showSkipped}
+          onClick={() => setShowSkipped((s) => !s)}
+        >
+          {showSkipped ? 'Hide skipped' : 'Show skipped'}
+        </button>
+      )}
 
       {legend.length > 0 && (
         <nav className="day-map-pins" aria-label="Map pins">

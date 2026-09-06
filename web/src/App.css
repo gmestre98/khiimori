@@ -1570,6 +1570,28 @@
   margin: 0;
 }
 
+/* "Show skipped" — a quiet self-aligned toggle beneath the day map that reveals
+   stops the traveller skipped (hidden by default). Mirrors .trip-map-toggle. */
+.day-map-toggle {
+  align-self: flex-start;
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-full);
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.day-map-toggle:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.day-map-toggle[aria-pressed='true'] {
+  background: var(--accent-subtle);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
 .day-map,
 .day-map-container {
   display: flex;
@@ -1685,10 +1707,15 @@
   flex-direction: column;
   gap: 4px;
 }
-/* "Hide what didn't happen" — a quiet self-aligned toggle under the map header. */
-.trip-map-toggle {
-  align-self: flex-start;
+/* The map's visibility toggles ("Hide what didn't happen", "Show skipped") — a
+   quiet self-aligned row under the map header that wraps on narrow screens. */
+.trip-map-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: 4px;
+}
+.trip-map-toggle {
   font-size: 13px;
   color: var(--text-secondary);
   background: var(--surface-2);

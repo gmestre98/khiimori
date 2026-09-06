@@ -18,6 +18,9 @@ export interface LocatedItem {
   label: string
   location: string
   done: boolean
+  // skipped marks a stop the traveller chose to skip (status 'skipped'); the
+  // trip map hides these by default behind a toggle.
+  skipped: boolean
   feature: number
   role: 'point' | 'from' | 'to'
 }
@@ -39,6 +42,7 @@ export function collectLocatedItems(day: Pick<Day, 'stays' | 'plan_items'>): Loc
       label: s.name,
       location: s.location,
       done: true,
+      skipped: false,
       feature,
       role: 'point',
     })
@@ -48,6 +52,7 @@ export function collectLocatedItems(day: Pick<Day, 'stays' | 'plan_items'>): Loc
   const items = [...(day.plan_items ?? [])].sort((a, b) => a.sort_order - b.sort_order)
   for (const i of items) {
     const done = i.status === 'done'
+    const skipped = i.status === 'skipped'
     if ((i.kind ?? 'activity') === 'transport') {
       // Transport stores its endpoints in origin/destination (not `location`).
       const from = i.origin?.trim() ?? ''
@@ -59,6 +64,7 @@ export function collectLocatedItems(day: Pick<Day, 'stays' | 'plan_items'>): Loc
           label: i.title,
           location: from,
           done,
+          skipped,
           feature,
           role: 'from',
         })
@@ -68,6 +74,7 @@ export function collectLocatedItems(day: Pick<Day, 'stays' | 'plan_items'>): Loc
           label: i.title,
           location: to,
           done,
+          skipped,
           feature,
           role: 'to',
         })
@@ -80,6 +87,7 @@ export function collectLocatedItems(day: Pick<Day, 'stays' | 'plan_items'>): Loc
           label: i.title,
           location: from || to,
           done,
+          skipped,
           feature,
           role: 'point',
         })
@@ -94,6 +102,7 @@ export function collectLocatedItems(day: Pick<Day, 'stays' | 'plan_items'>): Loc
       label: i.title,
       location: i.location,
       done,
+      skipped,
       feature,
       role: 'point',
     })

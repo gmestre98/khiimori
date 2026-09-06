@@ -224,4 +224,30 @@ describe('TripMapPage', () => {
     // Only the done day's pin remains.
     expect(screen.getAllByTestId('map-marker')).toHaveLength(1)
   })
+
+  it('hides skipped stops by default and reveals them with the toggle', async () => {
+    vi.mocked(api.fetchDay).mockImplementation(async (_tripId, date) => {
+      const idx = ['2026-06-01', '2026-06-02', '2026-06-03'].indexOf(date)
+      const day = makeDay(date, idx, idx < 2 ? `City ${idx}` : null)
+      // Day 2's only stop was skipped; Day 1's stands.
+      if (idx === 1 && day.plan_items[0]) day.plan_items[0].status = 'skipped'
+      return day
+    })
+    const user = userEvent.setup()
+    renderPage()
+    // Skipped stop is hidden on load → only the one kept day pins.
+    await waitFor(() => expect(screen.getAllByTestId('map-marker')).toHaveLength(1))
+
+    await user.click(screen.getByRole('button', { name: 'Show skipped' }))
+    expect(screen.getAllByTestId('map-marker')).toHaveLength(2)
+
+    await user.click(screen.getByRole('button', { name: 'Hide skipped' }))
+    expect(screen.getAllByTestId('map-marker')).toHaveLength(1)
+  })
+
+  it('omits the skipped toggle when no stop was skipped', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getAllByTestId('map-marker')).toHaveLength(2))
+    expect(screen.queryByRole('button', { name: /skipped/i })).not.toBeInTheDocument()
+  })
 })

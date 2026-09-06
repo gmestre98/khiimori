@@ -103,6 +103,9 @@ export function TripMapPage() {
   // hideNotHappened drops pins for things that didn't happen (not done), leaving
   // only what actually took place — a cleaner read of a past trip.
   const [hideNotHappened, setHideNotHappened] = useState(false)
+  // Skipped stops clutter the map with places the traveller decided against, so
+  // they're hidden by default; showSkipped brings them back on when toggled.
+  const [showSkipped, setShowSkipped] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -140,19 +143,33 @@ export function TripMapPage() {
   )
   const hasAnyPlace = mapDays.length > 0
 
-  // When hiding what didn't happen, keep only done pins per day — filtering items
-  // and waypoints together so they stay positionally aligned — and drop days left
-  // with nothing to draw.
+  // Whether any loaded day carries a skipped stop — the "Show skipped" toggle is
+  // only worth showing when there's something for it to reveal.
+  const hasSkipped = useMemo(
+    () => mapDays.some((d) => d.items.some((it) => it.skipped)),
+    [mapDays],
+  )
+
+  // Apply the visibility filters per day, keeping items and waypoints
+  // positionally aligned, and drop days left with nothing to draw. By default
+  // skipped stops are hidden; "Hide what didn't happen" additionally keeps only
+  // done pins.
   const shownDays: TripDayMarkers[] = useMemo(() => {
-    if (!hideNotHappened) return mapDays
+    if (!hideNotHappened && showSkipped) return mapDays
     return mapDays
       .map((d) => {
         // Iterate the waypoints (the drawn set) so we never index past them when
         // a day has more located items than placeable waypoints; items[j] is the
-        // label for waypoint j. Keep a slot only when it resolved (non-null) and
-        // the item happened — a null waypoint has no pin to show.
+        // label for waypoint j. Keep a slot only when it resolved (non-null),
+        // isn't a hidden skipped stop, and — when hiding — actually happened.
         const keep = d.waypoints
-          .map((w, j) => (w && d.items[j]?.done ? j : -1))
+          .map((w, j) => {
+            const it = d.items[j]
+            if (!w || !it) return -1
+            if (!showSkipped && it.skipped) return -1
+            if (hideNotHappened && !it.done) return -1
+            return j
+          })
           .filter((j) => j >= 0)
         return {
           ...d,
@@ -161,7 +178,7 @@ export function TripMapPage() {
         }
       })
       .filter((d) => d.waypoints.length > 0)
-  }, [mapDays, hideNotHappened])
+  }, [mapDays, hideNotHappened, showSkipped])
   // A pin exists but everything shown got hidden — tell the user why the map is empty.
   const allHidden = hasAnyPlace && shownDays.length === 0
 
@@ -186,14 +203,26 @@ export function TripMapPage() {
         <header className="trip-map-head">
           <h1 className="h1">Trip map</h1>
           <p className="meta">Every day’s places on one map. Toggle days to compare a few.</p>
-          <button
-            type="button"
-            className="trip-map-toggle"
-            aria-pressed={hideNotHappened}
-            onClick={() => setHideNotHappened((h) => !h)}
-          >
-            {hideNotHappened ? 'Show what didn’t happen' : 'Hide what didn’t happen'}
-          </button>
+          <div className="trip-map-toggles">
+            <button
+              type="button"
+              className="trip-map-toggle"
+              aria-pressed={hideNotHappened}
+              onClick={() => setHideNotHappened((h) => !h)}
+            >
+              {hideNotHappened ? 'Show what didn’t happen' : 'Hide what didn’t happen'}
+            </button>
+            {hasSkipped && (
+              <button
+                type="button"
+                className="trip-map-toggle"
+                aria-pressed={showSkipped}
+                onClick={() => setShowSkipped((s) => !s)}
+              >
+                {showSkipped ? 'Hide skipped' : 'Show skipped'}
+              </button>
+            )}
+          </div>
         </header>
 
         {error ? (
@@ -268,7 +297,9 @@ export function TripMapPage() {
               )}
               {allHidden && (
                 <p className="trip-map-caption">
-                  Nothing here happened yet. Turn off “Hide what didn’t happen” to see the plan.
+                  {hideNotHappened
+                    ? 'Nothing here happened yet. Turn off “Hide what didn’t happen” to see the plan.'
+                    : 'Every place here was skipped. Turn on “Show skipped” to see them.'}
                 </p>
               )}
             </div>
