@@ -42,6 +42,15 @@ func (f *fakeMediaStore) Delete(_ context.Context, url string) error {
 	return nil
 }
 
+func (f *fakeMediaStore) Get(_ context.Context, url string) (io.ReadCloser, string, error) {
+	key := strings.TrimPrefix(url, "gs://test-bucket/")
+	data, ok := f.objects[key]
+	if !ok {
+		return nil, "", fmt.Errorf("fakeMediaStore: object %q not found", key)
+	}
+	return io.NopCloser(bytes.NewReader(data)), "image/jpeg", nil
+}
+
 func (f *fakeMediaStore) SignedURL(_ context.Context, url string) (string, error) {
 	if f.signErr != nil {
 		return "", f.signErr

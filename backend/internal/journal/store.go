@@ -21,6 +21,11 @@ type journalStore interface {
 	TripUsageBytes(ctx context.Context, tripID string) (int64, error)
 	// UpdatePhotoThumbnail sets thumbnail_url on an existing photo row.
 	UpdatePhotoThumbnail(ctx context.Context, photoID, thumbnailURL string) error
+	// UpdatePhotoPreview sets the inline blur-up preview (data URI) on a photo row.
+	UpdatePhotoPreview(ctx context.Context, photoID, preview string) error
+	// PhotosMissingPreview returns up to limit photos that have no preview yet but
+	// do have a thumbnail to derive one from — used by the startup backfill.
+	PhotosMissingPreview(ctx context.Context, limit int) ([]Photo, error)
 	// DeletePhotoForTrip atomically fetches and deletes the photo row, verifying
 	// it belongs to tripID. Returns ErrPhotoNotFound if the photo does not exist
 	// or does not belong to the trip.
@@ -96,12 +101,12 @@ func (s *pgxJournalStore) InsertPhoto(ctx context.Context, p Photo) (Photo, erro
 		VALUES ($1::uuid, $2, NULLIF($3, ''), $4, $5)
 		RETURNING id::text, journal_entry_id::text, storage_url,
 		          COALESCE(caption, ''), size_bytes, is_thumbnail,
-		          COALESCE(thumbnail_url, ''), created_at`
+		          COALESCE(thumbnail_url, ''), COALESCE(preview, ''), created_at`
 
 	var out Photo
 	err := s.pool.QueryRow(ctx, q, p.JournalEntryID, p.StorageURL, p.Caption, p.SizeBytes, p.IsThumbnail).Scan(
 		&out.ID, &out.JournalEntryID, &out.StorageURL, &out.Caption, &out.SizeBytes, &out.IsThumbnail,
-		&out.ThumbnailURL, &out.CreatedAt,
+		&out.ThumbnailURL, &out.Preview, &out.CreatedAt,
 	)
 	if err != nil {
 		return Photo{}, fmt.Errorf("journal: insert photo: %w", err)
@@ -117,6 +122,48 @@ func (s *pgxJournalStore) UpdatePhotoThumbnail(ctx context.Context, photoID, thu
 		return fmt.Errorf("journal: update photo thumbnail: %w", err)
 	}
 	return nil
+}
+
+// UpdatePhotoPreview sets the inline blur-up preview (data URI) on a photo row.
+func (s *pgxJournalStore) UpdatePhotoPreview(ctx context.Context, photoID, preview string) error {
+	const q = `UPDATE journal.photos SET preview = $2 WHERE id = $1::uuid`
+	_, err := s.pool.Exec(ctx, q, photoID, preview)
+	if err != nil {
+		return fmt.Errorf("journal: update photo preview: %w", err)
+	}
+	return nil
+}
+
+// PhotosMissingPreview returns up to limit photos that have a thumbnail but no
+// preview yet. The startup backfill uses this to generate previews for photos
+// uploaded before the preview column existed. Only id and thumbnail_url are
+// populated — that is all the backfill needs.
+func (s *pgxJournalStore) PhotosMissingPreview(ctx context.Context, limit int) ([]Photo, error) {
+	const q = `
+		SELECT id::text, thumbnail_url
+		FROM journal.photos
+		WHERE preview IS NULL AND thumbnail_url IS NOT NULL AND thumbnail_url <> ''
+		ORDER BY created_at ASC
+		LIMIT $1`
+
+	rows, err := s.pool.Query(ctx, q, limit)
+	if err != nil {
+		return nil, fmt.Errorf("journal: photos missing preview: %w", err)
+	}
+	defer rows.Close()
+
+	var out []Photo
+	for rows.Next() {
+		var p Photo
+		if err := rows.Scan(&p.ID, &p.ThumbnailURL); err != nil {
+			return nil, fmt.Errorf("journal: scan photo missing preview: %w", err)
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("journal: photos missing preview rows: %w", err)
+	}
+	return out, nil
 }
 
 // TripUsageBytes returns the total original-photo bytes stored for a trip.
@@ -141,7 +188,7 @@ func (s *pgxJournalStore) ListPhotos(ctx context.Context, journalEntryID string)
 	const q = `
 		SELECT id::text, journal_entry_id::text, storage_url,
 		       COALESCE(caption, ''), size_bytes, is_thumbnail,
-		       COALESCE(thumbnail_url, ''), created_at
+		       COALESCE(thumbnail_url, ''), COALESCE(preview, ''), created_at
 		FROM journal.photos
 		WHERE journal_entry_id = $1::uuid
 		ORDER BY created_at ASC`
@@ -155,7 +202,7 @@ func (s *pgxJournalStore) ListPhotos(ctx context.Context, journalEntryID string)
 	var out []Photo
 	for rows.Next() {
 		var p Photo
-		if err := rows.Scan(&p.ID, &p.JournalEntryID, &p.StorageURL, &p.Caption, &p.SizeBytes, &p.IsThumbnail, &p.ThumbnailURL, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.JournalEntryID, &p.StorageURL, &p.Caption, &p.SizeBytes, &p.IsThumbnail, &p.ThumbnailURL, &p.Preview, &p.CreatedAt); err != nil {
 			return nil, fmt.Errorf("journal: scan photo: %w", err)
 		}
 		out = append(out, p)

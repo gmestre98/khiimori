@@ -2045,6 +2045,7 @@
   gap: 8px;
 }
 .trip-journal-thumb {
+  position: relative;
   width: 84px;
   height: 84px;
   padding: 0;
@@ -2057,11 +2058,32 @@
 .trip-journal-thumb:hover {
   border-color: var(--accent);
 }
-.trip-journal-thumb img {
+.trip-journal-thumb-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(8px);
+  transform: scale(1.1);
+}
+.trip-journal-thumb-img {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.trip-journal-thumb-img--loaded {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .trip-journal-thumb-img {
+    transition: none;
+  }
 }
 
 /* ── Trip plan (whole-trip Plan subtab) ─────────────────────────────────────── */
@@ -4514,11 +4536,38 @@
   cursor: pointer;
 }
 
+/* Inline blur-up preview: a tiny (~24px) data URI stretched to fill the tile and
+   blurred, shown instantly behind the thumbnail so tiles never flash empty. The
+   scale hides the blur bleed at the edges. */
+.photo-thumb-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(8px);
+  transform: scale(1.1);
+}
+
 .photo-thumb-img {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.photo-thumb-img--loaded {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo-thumb-img {
+    transition: none;
+  }
 }
 
 .photo-thumb-caption {

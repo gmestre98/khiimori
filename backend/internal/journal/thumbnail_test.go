@@ -2,10 +2,12 @@ package journal
 
 import (
 	"bytes"
+	"encoding/base64"
 	"image"
 	"image/color"
 	"image/jpeg"
 	"image/png"
+	"strings"
 	"testing"
 )
 
@@ -89,6 +91,42 @@ func TestGenerateThumbnail_PNG(t *testing.T) {
 	}
 	if img.Bounds().Dx() > thumbMaxDim || img.Bounds().Dy() > thumbMaxDim {
 		t.Errorf("thumbnail too large: %dx%d", img.Bounds().Dx(), img.Bounds().Dy())
+	}
+}
+
+// TestGeneratePreview_DataURI verifies a preview is a decodable JPEG data URI
+// scaled down to at most previewMaxDim.
+func TestGeneratePreview_DataURI(t *testing.T) {
+	t.Parallel()
+	src := makeTestJPEG(t, 800, 600)
+	out, err := generatePreview(bytes.NewReader(src), "image/jpeg")
+	if err != nil {
+		t.Fatalf("generatePreview: %v", err)
+	}
+
+	const prefix = "data:image/jpeg;base64,"
+	if !strings.HasPrefix(out, prefix) {
+		t.Fatalf("preview missing data URI prefix: %q", out[:min(len(out), 32)])
+	}
+
+	raw, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(out, prefix))
+	if err != nil {
+		t.Fatalf("decode base64: %v", err)
+	}
+	img, err := jpeg.Decode(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatalf("decode preview jpeg: %v", err)
+	}
+	if img.Bounds().Dx() > previewMaxDim || img.Bounds().Dy() > previewMaxDim {
+		t.Errorf("preview too large: %dx%d (max %d)", img.Bounds().Dx(), img.Bounds().Dy(), previewMaxDim)
+	}
+}
+
+// TestGeneratePreview_UnsupportedType verifies an unknown content type errors.
+func TestGeneratePreview_UnsupportedType(t *testing.T) {
+	t.Parallel()
+	if _, err := generatePreview(bytes.NewReader([]byte("nope")), "application/pdf"); err == nil {
+		t.Fatal("expected error for unsupported content type, got nil")
 	}
 }
 

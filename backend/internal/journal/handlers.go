@@ -174,6 +174,7 @@ type photoResponse struct {
 	JournalEntryID string `json:"journal_entry_id"`
 	StorageURL     string `json:"storage_url"`
 	ThumbnailURL   string `json:"thumbnail_url,omitempty"`
+	Preview        string `json:"preview,omitempty"`
 	Caption        string `json:"caption,omitempty"`
 	SizeBytes      int64  `json:"size_bytes"`
 	CreatedAt      string `json:"created_at"`
@@ -189,9 +190,11 @@ func (m *Module) photoToResponse(ctx context.Context, p Photo) photoResponse {
 		JournalEntryID: p.JournalEntryID,
 		StorageURL:     m.signOrLog(ctx, p.StorageURL),
 		ThumbnailURL:   m.signOrLog(ctx, p.ThumbnailURL),
-		Caption:        p.Caption,
-		SizeBytes:      p.SizeBytes,
-		CreatedAt:      p.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
+		// Preview is a self-contained data URI — served inline, never signed.
+		Preview:   p.Preview,
+		Caption:   p.Caption,
+		SizeBytes: p.SizeBytes,
+		CreatedAt: p.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
 	}
 }
 
@@ -313,9 +316,9 @@ func (m *Module) handleUploadPhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Inline thumbnail generation — seek to start of file to re-read for resize.
-	// On failure we log and continue: the original is stored and the row exists;
-	// the thumbnail_url will simply remain empty (scale-up: move to async job).
+	// Inline thumbnail + preview generation — seek to start of file to re-read for
+	// resize. On failure we log and continue: the original is stored and the row
+	// exists; thumbnail_url/preview simply remain empty (scale-up: move to async job).
 	if seeker, ok := file.(io.Seeker); ok {
 		if _, err := seeker.Seek(0, io.SeekStart); err == nil {
 			thumbBytes, thumbErr := generateThumbnail(file, contentType)
@@ -332,6 +335,19 @@ func (m *Module) handleUploadPhoto(w http.ResponseWriter, r *http.Request) {
 				} else {
 					photo.ThumbnailURL = thumbURL
 				}
+			}
+		}
+
+		// Inline blur-up preview (LQIP) — re-read from start again since thumbnail
+		// generation consumed the reader. Stored inline as a data URI on the row.
+		if _, err := seeker.Seek(0, io.SeekStart); err == nil {
+			preview, previewErr := generatePreview(file, contentType)
+			if previewErr != nil {
+				platformlog.FromContext(r.Context()).Error("journal: generate preview", "err", previewErr.Error())
+			} else if updateErr := m.store.UpdatePhotoPreview(r.Context(), photo.ID, preview); updateErr != nil {
+				platformlog.FromContext(r.Context()).Error("journal: update photo preview", "err", updateErr.Error())
+			} else {
+				photo.Preview = preview
 			}
 		}
 	}

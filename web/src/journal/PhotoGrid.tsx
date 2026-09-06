@@ -12,6 +12,7 @@ import { useIsOnline } from '../lib/useIsOnline'
 import { useFocusTrap } from '../components/ui/useFocusTrap'
 import { writeCache } from '../lib/resourceCache'
 import { cacheKeys } from '../lib/cacheKeys'
+import { PreviewImage } from './PreviewImage'
 
 // PhotoLightbox renders a single photo full-screen with caption. Exported so the
 // trip Journal subtab's travelogue can reuse the same viewer for its thumbnails.
@@ -83,7 +84,14 @@ function PhotoThumb({
         aria-label={photo.caption ? `View photo: ${photo.caption}` : 'View photo'}
         onClick={onOpen}
       >
-        <img src={src} alt={photo.caption || ''} className="photo-thumb-img" loading="lazy" />
+        <PreviewImage
+          src={src}
+          preview={photo.preview}
+          alt={photo.caption || ''}
+          previewClassName="photo-thumb-preview"
+          imgClassName="photo-thumb-img"
+          loadedClassName="photo-thumb-img--loaded"
+        />
         {photo.caption && <span className="photo-thumb-caption">{photo.caption}</span>}
       </button>
       {!readOnly && (

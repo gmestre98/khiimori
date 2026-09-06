@@ -93,6 +93,29 @@ func (s *fakeStore) UpdatePhotoThumbnail(_ context.Context, photoID, thumbnailUR
 	return nil
 }
 
+func (s *fakeStore) UpdatePhotoPreview(_ context.Context, photoID, preview string) error {
+	for i, p := range s.photos {
+		if p.ID == photoID {
+			s.photos[i].Preview = preview
+			return nil
+		}
+	}
+	return nil
+}
+
+func (s *fakeStore) PhotosMissingPreview(_ context.Context, limit int) ([]Photo, error) {
+	var out []Photo
+	for _, p := range s.photos {
+		if p.Preview == "" && p.ThumbnailURL != "" {
+			out = append(out, Photo{ID: p.ID, ThumbnailURL: p.ThumbnailURL})
+			if len(out) >= limit {
+				break
+			}
+		}
+	}
+	return out, nil
+}
+
 func (s *fakeStore) DeletePhotoForTrip(_ context.Context, photoID, _ string) (Photo, error) {
 	for i, p := range s.photos {
 		if p.ID == photoID {
