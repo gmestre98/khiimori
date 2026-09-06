@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { collectLocatedItems } from './locatedItems'
+import { collectLocatedItems, type ItemOrder } from './locatedItems'
 import { StaySlot } from './StaySlot'
 import { splitAmount } from './splitAmount'
 import {
@@ -1053,8 +1053,10 @@ export function PlanningSection({
   // numbering as collectLocatedItems so badges match the map legend. A transport
   // leg is one numbered feature spanning two located points, so we read the
   // shared `feature` rather than the point's array index. Only needed when a map
-  // is present (onSelect wired) — otherwise no badges are shown.
-  const locatedItems = collectLocatedItems({ ...day, plan_items: items })
+  // is present (onSelect wired) — otherwise no badges are shown. Match DayMap's
+  // ordering (a past day numbers by what happened) so badges and map pins agree.
+  const mapOrder: ItemOrder = day.date < localToday() ? 'actual' : 'plan'
+  const locatedItems = collectLocatedItems({ ...day, plan_items: items }, mapOrder)
   const pinNumberForId = onSelect
     ? (id: string): number | undefined => {
         const li = locatedItems.find((it) => it.id === id)
