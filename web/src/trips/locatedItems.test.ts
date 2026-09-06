@@ -40,6 +40,47 @@ describe('collectLocatedItems', () => {
     expect(items.find((i) => i.id === 'planned')?.done).toBe(false)
   })
 
+  it('orders plan items by sort_order by default (the plan)', () => {
+    const day = {
+      stays: [],
+      plan_items: [
+        planItem({ id: 'a', location: 'A', sort_order: 0, actual_order: 2 }),
+        planItem({ id: 'b', location: 'B', sort_order: 1, actual_order: 0 }),
+        planItem({ id: 'c', location: 'C', sort_order: 2, actual_order: 1 }),
+      ],
+    } as Pick<Day, 'stays' | 'plan_items'>
+
+    expect(collectLocatedItems(day).map((i) => i.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('orders plan items by actual_order when asked (what happened)', () => {
+    const day = {
+      stays: [],
+      plan_items: [
+        planItem({ id: 'a', location: 'A', sort_order: 0, actual_order: 2 }),
+        planItem({ id: 'b', location: 'B', sort_order: 1, actual_order: 0 }),
+        planItem({ id: 'c', location: 'C', sort_order: 2, actual_order: 1 }),
+      ],
+    } as Pick<Day, 'stays' | 'plan_items'>
+
+    expect(collectLocatedItems(day, 'actual').map((i) => i.id)).toEqual(['b', 'c', 'a'])
+    // collectLocations follows the same order so waypoints stay aligned.
+    expect(collectLocations(day, 'actual')).toEqual(['B', 'C', 'A'])
+  })
+
+  it('actual order falls back to sort_order for items without actual_order', () => {
+    const day = {
+      stays: [],
+      plan_items: [
+        planItem({ id: 'a', location: 'A', sort_order: 1 }),
+        planItem({ id: 'b', location: 'B', sort_order: 0, actual_order: 5 }),
+      ],
+    } as Pick<Day, 'stays' | 'plan_items'>
+
+    // a has no actual_order → falls back to sort_order 1; b's actual_order 5 sorts after.
+    expect(collectLocatedItems(day, 'actual').map((i) => i.id)).toEqual(['a', 'b'])
+  })
+
   it('treats a stay as done (you slept there) and drops location-less items', () => {
     const day = {
       stays: [

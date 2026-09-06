@@ -378,6 +378,81 @@ describe('DayMap — pin legend (M07.4 S2)', () => {
     expect(btn).toHaveClass('day-map-pin--selected')
   })
 
+  // Dates relative to the real clock so the past/future ordering tests stay
+  // correct over time (the code compares day.date against today).
+  const daysFromNow = (n: number) =>
+    new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10)
+
+  it('orders a past day’s route by what happened (actual_order)', async () => {
+    vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
+    renderDayMap(
+      makeDay({
+        date: daysFromNow(-30),
+        plan_items: [
+          {
+            id: 'i1',
+            trip_id: 'trip-1',
+            day_id: 'day-1',
+            title: 'Planned first',
+            location: 'Loc A',
+            sort_order: 0,
+            actual_order: 1,
+            status: 'done',
+          },
+          {
+            id: 'i2',
+            trip_id: 'trip-1',
+            day_id: 'day-1',
+            title: 'Happened first',
+            location: 'Loc B',
+            sort_order: 1,
+            actual_order: 0,
+            status: 'done',
+          },
+        ],
+      }),
+    )
+    await waitFor(() => {
+      // Route follows actual_order: Loc B (happened first) before Loc A.
+      expect(api.fetchDayRoute).toHaveBeenCalledWith(['Loc B', 'Loc A'], expect.any(AbortSignal))
+    })
+  })
+
+  it('orders a future day’s route by the plan (sort_order)', async () => {
+    vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
+    renderDayMap(
+      makeDay({
+        date: daysFromNow(30),
+        plan_items: [
+          {
+            id: 'i1',
+            trip_id: 'trip-1',
+            day_id: 'day-1',
+            title: 'Planned first',
+            location: 'Loc A',
+            sort_order: 0,
+            actual_order: 1,
+            status: 'planned',
+          },
+          {
+            id: 'i2',
+            trip_id: 'trip-1',
+            day_id: 'day-1',
+            title: 'Planned second',
+            location: 'Loc B',
+            sort_order: 1,
+            actual_order: 0,
+            status: 'planned',
+          },
+        ],
+      }),
+    )
+    await waitFor(() => {
+      // Route follows sort_order: Loc A before Loc B, ignoring actual_order.
+      expect(api.fetchDayRoute).toHaveBeenCalledWith(['Loc A', 'Loc B'], expect.any(AbortSignal))
+    })
+  })
+
   it('hides skipped stops by default and reveals them via the toggle', async () => {
     const user = userEvent.setup()
     const waypoints = [

@@ -12,6 +12,14 @@ export function shortDate(iso: string): string {
   return parseISO(iso).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })
 }
 
+// localToday returns today's date as YYYY-MM-DD in the client's local time, so
+// it compares directly against the app's YYYY-MM-DD date strings (trip/day
+// dates). Used to tell a past date from an upcoming one.
+export function localToday(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 // formatDateRange renders a friendly trip date range, matching the v1 design
 // reference: "Apr 02 – Apr 14, 2026". When the two dates span different years,
 // each side carries its own year ("Dec 28, 2025 – Jan 04, 2026").

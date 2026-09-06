@@ -1,8 +1,13 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { datesInRange, fetchDay, UnauthorizedError, type LatLng } from '../lib/api'
 import { loadDayRoute } from '../lib/dayRouteCache'
-import { shortDate } from '../lib/format'
-import { collectLocatedItems, collectLocations, type LocatedItem } from './locatedItems'
+import { localToday, shortDate } from '../lib/format'
+import {
+  collectLocatedItems,
+  collectLocations,
+  type ItemOrder,
+  type LocatedItem,
+} from './locatedItems'
 import { useTripShell } from './useTripShell'
 import type { TripDayMarkers } from './TripMap'
 
@@ -35,6 +40,7 @@ async function loadDay(
   tripId: string,
   date: string,
   index: number,
+  order: ItemOrder,
   signal: AbortSignal,
 ): Promise<DayEntry> {
   const base: DayEntry = {
@@ -46,8 +52,9 @@ async function loadDay(
     status: 'no-places',
   }
   const day = await fetchDay(tripId, date, signal)
-  const items = collectLocatedItems(day)
-  const locations = collectLocations(day)
+  // items and locations must share the same order so waypoints stay aligned.
+  const items = collectLocatedItems(day, order)
+  const locations = collectLocations(day, order)
   if (locations.length === 0) return { ...base, items, status: 'no-places' }
   try {
     // Network-first with an offline fallback to cached waypoints (dayRouteCache).
@@ -92,6 +99,9 @@ function dayCaption(entry: DayEntry): string {
 export function TripMapPage() {
   const { trip } = useTripShell()
   const dates = datesInRange(trip.start_date, trip.end_date)
+  // A finished trip's route reads in the order things actually happened
+  // (actual_order); an ongoing/upcoming trip still reads in planned order.
+  const order: ItemOrder = trip.end_date < localToday() ? 'actual' : 'plan'
 
   const [entries, setEntries] = useState<DayEntry[] | null>(null)
   const [error, setError] = useState(false)
@@ -109,7 +119,7 @@ export function TripMapPage() {
 
   useEffect(() => {
     const controller = new AbortController()
-    Promise.all(dates.map((d, i) => loadDay(trip.id, d, i, controller.signal)))
+    Promise.all(dates.map((d, i) => loadDay(trip.id, d, i, order, controller.signal)))
       .then((loaded) => {
         if (controller.signal.aborted) return
         setEntries(loaded)
