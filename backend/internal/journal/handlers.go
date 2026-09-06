@@ -191,10 +191,10 @@ func (m *Module) photoToResponse(ctx context.Context, p Photo) photoResponse {
 		StorageURL:     m.signOrLog(ctx, p.StorageURL),
 		ThumbnailURL:   m.signOrLog(ctx, p.ThumbnailURL),
 		// Preview is a self-contained data URI — served inline, never signed.
-		Preview: p.Preview,
-		Caption: p.Caption,
-		SizeBytes:      p.SizeBytes,
-		CreatedAt:      p.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
+		Preview:   p.Preview,
+		Caption:   p.Caption,
+		SizeBytes: p.SizeBytes,
+		CreatedAt: p.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
 	}
 }
 
