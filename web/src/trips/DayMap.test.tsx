@@ -378,6 +378,73 @@ describe('DayMap — pin legend (M07.4 S2)', () => {
     expect(btn).toHaveClass('day-map-pin--selected')
   })
 
+  it('hides skipped stops by default and reveals them via the toggle', async () => {
+    const user = userEvent.setup()
+    const waypoints = [
+      { lat: 48.8566, lng: 2.3522 },
+      { lat: 48.86, lng: 2.36 },
+    ]
+    vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints })
+    renderDayMap(
+      makeDay({
+        plan_items: [
+          {
+            id: 'i1',
+            trip_id: 'trip-1',
+            day_id: 'day-1',
+            title: 'Kept',
+            location: 'Paris',
+            sort_order: 0,
+            status: 'planned',
+          },
+          {
+            id: 'i2',
+            trip_id: 'trip-1',
+            day_id: 'day-1',
+            title: 'Skipped stop',
+            location: 'Versailles',
+            sort_order: 1,
+            status: 'skipped',
+          },
+        ],
+      }),
+    )
+    // Skipped stop hidden on load → only the kept pin (marker + legend button).
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Pin 1: Kept' })).toBeTruthy())
+    expect(screen.queryByRole('button', { name: /Pin 2: Skipped stop/ })).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('map-marker')).toHaveLength(1)
+
+    await user.click(screen.getByRole('button', { name: 'Show skipped' }))
+    expect(screen.getByRole('button', { name: 'Pin 2: Skipped stop' })).toBeTruthy()
+    expect(screen.getAllByTestId('map-marker')).toHaveLength(2)
+
+    await user.click(screen.getByRole('button', { name: 'Hide skipped' }))
+    expect(screen.queryByRole('button', { name: /Pin 2: Skipped stop/ })).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('map-marker')).toHaveLength(1)
+  })
+
+  it('omits the skipped toggle when nothing was skipped', async () => {
+    const waypoints = [{ lat: 48.8566, lng: 2.3522 }]
+    vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints })
+    renderDayMap(
+      makeDay({
+        plan_items: [
+          {
+            id: 'i1',
+            trip_id: 'trip-1',
+            day_id: 'day-1',
+            title: 'Eiffel Tower',
+            location: 'Eiffel Tower',
+            sort_order: 0,
+            status: 'planned',
+          },
+        ],
+      }),
+    )
+    await waitFor(() => screen.getByRole('button', { name: 'Pin 1: Eiffel Tower' }))
+    expect(screen.queryByRole('button', { name: /skipped/i })).not.toBeInTheDocument()
+  })
+
   it('location-less items do not appear in the pin legend', async () => {
     const waypoints = [{ lat: 48.8566, lng: 2.3522 }]
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints })
