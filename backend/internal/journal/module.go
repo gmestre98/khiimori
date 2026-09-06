@@ -1,12 +1,17 @@
 package journal
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/gmestre98/khiimori/backend/internal/platform/httpx"
+	platformlog "github.com/gmestre98/khiimori/backend/internal/platform/log"
 )
+
+// previewBackfillBatch is how many photos the backfill processes per query.
+const previewBackfillBatch = 50
 
 // Module is the journal module's public surface. It satisfies httpx.RouteRegistrar
 // so cmd/api can mount the module's routes without reaching into its internals.
@@ -30,6 +35,67 @@ func New(pool *pgxpool.Pool, requireAuth httpx.Middleware, authz Authorizer, med
 		media:       media,
 		quotaCap:    DefaultQuotaCap,
 	}
+}
+
+// BackfillPreviews generates inline blur-up previews for photos uploaded before
+// the preview column existed. It derives each preview from the already-small
+// stored thumbnail (cheap to read), processing in batches until none remain.
+// Safe to run on every startup: it only targets rows where preview IS NULL, so
+// it is idempotent and self-healing. Intended to run in a background goroutine.
+func (m *Module) BackfillPreviews(ctx context.Context) {
+	log := platformlog.FromContext(ctx)
+	total := 0
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+		photos, err := m.store.PhotosMissingPreview(ctx, previewBackfillBatch)
+		if err != nil {
+			log.Error("journal: preview backfill query", "err", err.Error())
+			return
+		}
+		if len(photos) == 0 {
+			if total > 0 {
+				log.Info("journal: preview backfill complete", "count", total)
+			}
+			return
+		}
+
+		progressed := 0
+		for _, p := range photos {
+			if ctx.Err() != nil {
+				return
+			}
+			if err := m.backfillOnePreview(ctx, p); err != nil {
+				log.Error("journal: preview backfill photo", "photo_id", p.ID, "err", err.Error())
+				continue
+			}
+			progressed++
+			total++
+		}
+
+		// If a whole batch failed to make progress, stop rather than spin forever
+		// on rows we cannot process (the query would keep returning them).
+		if progressed == 0 {
+			log.Error("journal: preview backfill stalled", "remaining_batch", len(photos), "done", total)
+			return
+		}
+	}
+}
+
+// backfillOnePreview reads a photo's thumbnail, generates a preview, and stores it.
+func (m *Module) backfillOnePreview(ctx context.Context, p Photo) error {
+	rc, contentType, err := m.media.Get(ctx, p.ThumbnailURL)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rc.Close() }()
+
+	preview, err := generatePreview(rc, contentType)
+	if err != nil {
+		return err
+	}
+	return m.store.UpdatePhotoPreview(ctx, p.ID, preview)
 }
 
 // RegisterRoutes mounts the journal module's HTTP routes onto mux.

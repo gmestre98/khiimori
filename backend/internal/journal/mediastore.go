@@ -33,6 +33,11 @@ type MediaStore interface {
 	// url is the value previously returned by Put.
 	Delete(ctx context.Context, url string) error
 
+	// Get opens the object at url (a gs:// URI returned by Put) for reading and
+	// returns its content type. The caller must Close the reader. Used by the
+	// preview backfill to re-read a stored thumbnail.
+	Get(ctx context.Context, url string) (io.ReadCloser, string, error)
+
 	// SignedURL converts a gs:// URI previously returned by Put into a
 	// short-lived, browser-loadable https URL. The backing bucket is private,
 	// so objects can only be served via signed URLs; callers put the result in
@@ -83,6 +88,20 @@ func (s *gcsMediaStore) Delete(ctx context.Context, url string) error {
 	return nil
 }
 
+// Get opens the GCS object at url for reading, returning the reader and the
+// object's content type. url must be a gs:// URI returned by Put.
+func (s *gcsMediaStore) Get(ctx context.Context, url string) (io.ReadCloser, string, error) {
+	key, err := keyFromURL(s.bucket, url)
+	if err != nil {
+		return nil, "", err
+	}
+	rc, err := s.client.Bucket(s.bucket).Object(key).NewReader(ctx)
+	if err != nil {
+		return nil, "", fmt.Errorf("mediastore: open object %q: %w", key, err)
+	}
+	return rc, rc.Attrs.ContentType, nil
+}
+
 // SignedURL returns a short-lived https GET URL for the gs:// object at url.
 // The bucket is private, so this is the only way the browser can load the
 // image. On Cloud Run the storage client uses ADC; bucket.SignedURL with no
@@ -114,6 +133,10 @@ func (NoopMediaStore) Put(_ context.Context, _, _ string, _ int64, _ io.Reader) 
 
 func (NoopMediaStore) Delete(_ context.Context, _ string) error {
 	return fmt.Errorf("mediastore: photo upload not configured (MEDIA_BUCKET_NAME unset)")
+}
+
+func (NoopMediaStore) Get(_ context.Context, _ string) (io.ReadCloser, string, error) {
+	return nil, "", fmt.Errorf("mediastore: photo upload not configured (MEDIA_BUCKET_NAME unset)")
 }
 
 func (NoopMediaStore) SignedURL(_ context.Context, url string) (string, error) {

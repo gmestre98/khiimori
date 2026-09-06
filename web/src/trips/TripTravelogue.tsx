@@ -10,6 +10,7 @@ import {
 } from '../lib/api'
 import { fullDate } from '../lib/format'
 import { MOOD_LABELS, WEATHER_LABELS } from '../journal/journalMeta'
+import { PreviewImage } from '../journal/PreviewImage'
 import { PhotoLightbox } from '../journal/PhotoGrid'
 import { useTripShell } from './useTripShell'
 
@@ -147,10 +148,13 @@ function TravelogueDay({
               onClick={() => onOpenPhoto(p)}
               aria-label={p.caption ? `Photo: ${p.caption}` : 'Open photo'}
             >
-              <img
+              <PreviewImage
                 src={p.thumbnail_url || p.storage_url}
+                preview={p.preview}
                 alt={p.caption || 'Photo'}
-                loading="lazy"
+                previewClassName="trip-journal-thumb-preview"
+                imgClassName="trip-journal-thumb-img"
+                loadedClassName="trip-journal-thumb-img--loaded"
               />
             </button>
           ))}

@@ -14,6 +14,7 @@ type Photo struct {
 	JournalEntryID string
 	StorageURL     string // gs:// URI of the original, returned by MediaStore.Put
 	ThumbnailURL   string // gs:// URI of the generated thumbnail; empty until thumbnail generation succeeds
+	Preview        string // inline base64 data URI of the tiny blur-up preview (LQIP); empty until generated
 	Caption        string // optional
 	SizeBytes      int64
 	IsThumbnail    bool

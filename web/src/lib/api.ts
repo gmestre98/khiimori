@@ -1068,6 +1068,8 @@ export interface Photo {
   journal_entry_id: string
   storage_url: string
   thumbnail_url: string
+  /** Tiny inline base64 data URI (LQIP) shown blurred as an instant placeholder. */
+  preview?: string
   caption: string
   size_bytes: number
   created_at: string

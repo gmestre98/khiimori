@@ -221,11 +221,13 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 	// Held in a variable (not just the modules slice) so the export endpoint can
 	// reuse its trip budget rollup (M13.3 S4).
 	budgetModule := budget.New(pool, authModule.RequireAuth, membershipBudgetAuthzAdapter{tripAuthz}, tripCostReaderAdapter{pool: pool})
+	// Held in a variable so we can kick off the one-time preview backfill below.
+	journalModule := journal.New(pool, authModule.RequireAuth, membershipJournalAuthzAdapter{tripAuthz}, mediaStore)
 	modules := []httpx.RouteRegistrar{
 		authModule,
 		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships(pool), membershipAuthzAdapter{tripAuthz}),
 		budgetModule,
-		journal.New(pool, authModule.RequireAuth, membershipJournalAuthzAdapter{tripAuthz}, mediaStore),
+		journalModule,
 		sharing.New(pool, sharing.Options{
 			Authz:          tripAuthz,
 			EmailSender:    sharing.NewResendSender(cfg.ResendAPIKey, "Khiimori <noreply@mail.khiimori.app>"),
@@ -249,6 +251,14 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 	}
 	for _, m := range modules {
 		m.RegisterRoutes(mux)
+	}
+
+	// One-time preview backfill for photos uploaded before the inline blur-up
+	// preview existed. Runs in the background off real GCS thumbnails, so it is
+	// gated on a configured media bucket and a live pool (skips unit tests, which
+	// pass a nil pool / no bucket). Idempotent — only touches rows with preview NULL.
+	if pool != nil && cfg.MediaBucketName != "" {
+		go journalModule.BackfillPreviews(context.Background())
 	}
 
 	// Trip export to Google Docs (M13.3 S4). Lives in the composition root because
