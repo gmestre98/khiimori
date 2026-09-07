@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { TripForm } from './TripForm'
@@ -7,6 +7,12 @@ import type { Trip } from '../lib/api'
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+})
+
+// jsdom has no object-URL support; stub it so the cover preview can be created.
+beforeEach(() => {
+  globalThis.URL.createObjectURL = vi.fn(() => 'blob:mock-preview')
+  globalThis.URL.revokeObjectURL = vi.fn()
 })
 
 const baseTrip: Trip = {
@@ -182,5 +188,90 @@ describe('TripForm — edit mode', () => {
     // Dialog closes, form is back.
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument()
+  })
+})
+
+describe('TripForm — cover upload', () => {
+  // routeFetch dispatches by URL/method: create → 201, cover upload → 200 with a
+  // signed cover_url, everything else → 200 echo.
+  function routeFetch() {
+    return vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = typeof input === 'string' ? input : (input as Request).url
+      const method = (init?.method ?? 'GET').toUpperCase()
+      if (url.includes('/cover') && method === 'POST') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ ...baseTrip, cover: 'gs://b/x', cover_url: 'https://signed/x' }),
+            { status: 200 },
+          ),
+        )
+      }
+      if (url.endsWith('/trips') && method === 'POST') {
+        return Promise.resolve(new Response(JSON.stringify(baseTrip), { status: 201 }))
+      }
+      return Promise.resolve(new Response(JSON.stringify(baseTrip), { status: 200 }))
+    })
+  }
+
+  function fillRequired() {
+    fireEvent.change(screen.getByRole('textbox', { name: /name/i }), {
+      target: { value: 'Japan 2024' },
+    })
+    fireEvent.change(screen.getByLabelText(/start date/i), { target: { value: '2024-04-01' } })
+    fireEvent.change(screen.getByLabelText(/end date/i), { target: { value: '2024-04-14' } })
+  }
+
+  it('uploads the picked cover after creating the trip', async () => {
+    const fetchSpy = routeFetch()
+    const { onSuccess } = renderForm()
+    fillRequired()
+
+    const file = new File(['bytes'], 'photo.jpg', { type: 'image/jpeg' })
+    fireEvent.change(screen.getByLabelText(/cover photo/i), { target: { files: [file] } })
+    // The preview replaces the drop zone.
+    expect(await screen.findByRole('button', { name: /replace/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /create trip/i }))
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled())
+    // Resolved with the uploaded trip (signed cover_url), not the bare create result.
+    expect(onSuccess.mock.calls[0][0].cover_url).toBe('https://signed/x')
+    // Exactly one cover upload was made, to the created trip.
+    const coverCalls = fetchSpy.mock.calls.filter(([u, i]) => {
+      const url = typeof u === 'string' ? u : (u as Request).url
+      return (
+        url.includes(`/trips/${baseTrip.id}/cover`) && (i?.method ?? '').toUpperCase() === 'POST'
+      )
+    })
+    expect(coverCalls).toHaveLength(1)
+  })
+
+  it('round-trips the stored cover reference on edit without clobbering it', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify(baseTrip), { status: 200 }))
+
+    renderForm({ trip: { ...baseTrip, cover: 'gs://b/existing', cover_url: 'https://signed/e' } })
+    fireEvent.change(screen.getByRole('textbox', { name: /name/i }), {
+      target: { value: 'Renamed' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalled())
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string)
+    expect(body.cover).toBe('gs://b/existing')
+  })
+
+  it('rejects a non-image file with an error and no upload', () => {
+    const fetchSpy = routeFetch()
+    renderForm()
+
+    const file = new File(['x'], 'notes.txt', { type: 'text/plain' })
+    fireEvent.change(screen.getByLabelText(/cover photo/i), { target: { files: [file] } })
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/JPG, PNG/i)
+    // No preview, nothing uploaded.
+    expect(screen.queryByRole('button', { name: /replace/i })).not.toBeInTheDocument()
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 })

@@ -24,6 +24,12 @@ type fakeTripStore struct {
 	gotUpdate      EditTrip
 	updateErr      error
 
+	gotSetCoverID    string
+	gotSetCoverOwner string
+	gotSetCover      string
+	prevCover        string
+	setCoverErr      error
+
 	gotArchiveID    string
 	gotArchiveOwner string
 	archiveErr      error
@@ -91,6 +97,29 @@ func (f *fakeTripStore) Create(_ context.Context, nt NewTrip) (Trip, error) {
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}, nil
+}
+
+func (f *fakeTripStore) SetCover(_ context.Context, id, ownerID, cover string) (Trip, string, error) {
+	f.gotSetCoverID = id
+	f.gotSetCoverOwner = ownerID
+	f.gotSetCover = cover
+	if f.setCoverErr != nil {
+		return Trip{}, "", f.setCoverErr
+	}
+	now := time.Date(2026, 6, 16, 12, 0, 0, 0, time.UTC)
+	return Trip{
+		ID:           id,
+		OwnerID:      ownerID,
+		Name:         "trip",
+		Destinations: []string{},
+		StartDate:    now,
+		EndDate:      now,
+		BaseCurrency: baseCurrencyEUR,
+		Cover:        cover,
+		Status:       statusActive,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}, f.prevCover, nil
 }
 
 func (f *fakeTripStore) Archive(_ context.Context, id, ownerID string) (Trip, error) {

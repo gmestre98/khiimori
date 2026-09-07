@@ -158,6 +158,42 @@ func (s *pgxTripStore) Update(ctx context.Context, id, ownerID string, e EditTri
 	return updated, nil
 }
 
+// SetCover replaces a trip's cover reference (owner-scoped) and returns the
+// updated row together with the previous cover value. The old value lets the
+// caller delete the replaced storage object. cover may be "" to clear it. A
+// missing/other-owner trip yields errTripNotFound (the same indistinguishable
+// 404 as the other owner-scoped ops). The row is locked (FOR UPDATE) inside the
+// CTE so a concurrent cover change can't lose the previous value.
+func (s *pgxTripStore) SetCover(ctx context.Context, id, ownerID, cover string) (Trip, string, error) {
+	const q = `
+		WITH prev AS (
+			SELECT cover FROM trip.trips
+			WHERE id = $1::uuid AND owner_id = $2::uuid
+			FOR UPDATE
+		)
+		UPDATE trip.trips t
+		SET cover = $3, updated_at = now()
+		FROM prev
+		WHERE t.id = $1::uuid AND t.owner_id = $2::uuid
+		RETURNING prev.cover,
+		          t.id::text, t.owner_id::text, t.name, t.destinations, t.start_date, t.end_date,
+		          t.base_currency, t.cover, t.status, t.created_at, t.updated_at`
+	var prev string
+	var t Trip
+	err := s.pool.QueryRow(ctx, q, id, ownerID, cover).Scan(
+		&prev,
+		&t.ID, &t.OwnerID, &t.Name, &t.Destinations, &t.StartDate, &t.EndDate,
+		&t.BaseCurrency, &t.Cover, &t.Status, &t.CreatedAt, &t.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Trip{}, "", errTripNotFound
+		}
+		return Trip{}, "", fmt.Errorf("trip: set cover: %w", err)
+	}
+	return t, prev, nil
+}
+
 // setStatus sets a trip's status to the given value (owner-scoped, atomic).
 // It is the shared primitive behind Archive and Unarchive.
 func (s *pgxTripStore) setStatus(ctx context.Context, id, ownerID, status string) (Trip, error) {

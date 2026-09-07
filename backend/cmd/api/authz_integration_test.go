@@ -105,7 +105,7 @@ func authzMux(callerID string) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	trip.New(authzTestPool, requireAuth, sharing.NewMemberships(authzTestPool),
-		membershipAuthzAdapter{authz}).RegisterRoutes(mux)
+		membershipAuthzAdapter{authz}, journal.NoopMediaStore{}).RegisterRoutes(mux)
 	budget.New(authzTestPool, requireAuth, membershipBudgetAuthzAdapter{authz},
 		tripCostReaderAdapter{pool: authzTestPool}).RegisterRoutes(mux)
 	journal.New(authzTestPool, requireAuth, membershipJournalAuthzAdapter{authz},

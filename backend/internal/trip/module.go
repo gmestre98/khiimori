@@ -24,6 +24,11 @@ type Module struct {
 	// OwnerOnlyAuthorizer for v1; Milestone 08 swaps in the membership-based
 	// implementation with no caller changes (PRD §7.0).
 	authz Authorizer
+	// media stores/serves trip cover images. It is the same GCS-backed store the
+	// journal module uses (a consumer-side interface, see cover.go); nil when
+	// MEDIA_BUCKET_NAME is unset, in which case cover uploads return 503 and
+	// stored covers are returned unsigned.
+	media mediaStore
 	// now returns the current time. Defaults to time.Now; tests inject a fixed
 	// clock so bucketing assertions are not date-dependent.
 	now func() time.Time
@@ -37,7 +42,7 @@ type Module struct {
 // trip-scoped endpoint; v1 uses OwnerOnlyAuthorizer, Milestone 08 swaps in the
 // membership-based implementation (PRD §7.0). Day generation defaults to the
 // Epic 01 no-op seam; Epic 02 supplies the real generator.
-func New(pool *pgxpool.Pool, requireAuth httpx.Middleware, memberships OwnerMemberships, authz Authorizer) *Module {
+func New(pool *pgxpool.Pool, requireAuth httpx.Middleware, memberships OwnerMemberships, authz Authorizer, media mediaStore) *Module {
 	return &Module{
 		store: &pgxTripStore{
 			pool:        pool,
@@ -48,6 +53,7 @@ func New(pool *pgxpool.Pool, requireAuth httpx.Middleware, memberships OwnerMemb
 		planItems:   &pgxPlanItemStore{pool: pool},
 		requireAuth: requireAuth,
 		authz:       authz,
+		media:       media,
 		now:         time.Now,
 	}
 }
@@ -62,6 +68,8 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("POST "+TripsPath+"/{id}/archive", m.requireAuth(http.HandlerFunc(m.handleArchive)))
 	mux.Handle("POST "+TripsPath+"/{id}/unarchive", m.requireAuth(http.HandlerFunc(m.handleUnarchive)))
 	mux.Handle("DELETE "+TripsPath+"/{id}", m.requireAuth(http.HandlerFunc(m.handleDelete)))
+	mux.Handle("POST "+TripsPath+"/{id}/cover", m.requireAuth(http.HandlerFunc(m.handleUploadCover)))
+	mux.Handle("DELETE "+TripsPath+"/{id}/cover", m.requireAuth(http.HandlerFunc(m.handleDeleteCover)))
 	mux.Handle("GET "+TripsPath+"/{id}/days/{date}", m.requireAuth(http.HandlerFunc(m.handleGetDay)))
 	mux.Handle("GET "+TripsPath+"/{id}/plan-items/backlog", m.requireAuth(http.HandlerFunc(m.handleListBacklog)))
 	mux.Handle("POST "+TripsPath+"/{id}/plan-items/reorder", m.requireAuth(http.HandlerFunc(m.handleReorderPlanItems)))
