@@ -78,6 +78,7 @@ vi.mock('../lib/api', async (importOriginal) => {
       planned_by_category: {},
       planned_by_day: {},
     }),
+    listCostEntries: vi.fn().mockResolvedValue([]),
     createPlanItem: vi.fn(),
     updatePlanItem: vi.fn(),
     setPlanItemStatus: vi.fn(),
@@ -124,6 +125,7 @@ beforeEach(() => {
     planned_by_category: {},
     planned_by_day: {},
   })
+  vi.mocked(api.listCostEntries).mockResolvedValue([])
   vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
   // Location field defaults: no suggestions, unresolved geocode — individual
   // tests override as needed. Restored here since afterEach resets mock state.
@@ -942,6 +944,40 @@ describe('DayView', () => {
       // DayRollup shows the day's spend and its upcoming (not-yet-done) estimate.
       expect(await screen.findByText(/48/)).toBeInTheDocument()
       expect(screen.getByText(/20.*upcoming/i)).toBeInTheDocument()
+    })
+
+    it('lists this day’s previously-logged cost entries on load (filtered by day)', async () => {
+      setMobile(false)
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      vi.mocked(api.listCostEntries).mockResolvedValue([
+        {
+          id: 'c1',
+          trip_id: 'trip-1',
+          day_id: 'day-1',
+          plan_item_id: '',
+          category: 'Food',
+          amount: 12.5,
+          note: 'Lunch',
+          created_at: '2026-06-01T12:00:00Z',
+        },
+        {
+          id: 'c2',
+          trip_id: 'trip-1',
+          day_id: 'day-2',
+          plan_item_id: '',
+          category: 'Food',
+          amount: 99,
+          note: 'Other day',
+          created_at: '2026-06-02T12:00:00Z',
+        },
+      ])
+      renderDayView()
+
+      // This day's entry shows (line item + day total both read €12.50);
+      // another day's is filtered out.
+      expect(await screen.findByText('Lunch')).toBeInTheDocument()
+      expect(screen.getAllByText('€12.50').length).toBeGreaterThan(0)
+      expect(screen.queryByText('Other day')).not.toBeInTheDocument()
     })
 
     it('sets a day extra on a category from the day budget', async () => {
