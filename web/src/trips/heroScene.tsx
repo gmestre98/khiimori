@@ -21,9 +21,10 @@ function hashString(s: string): number {
 }
 
 // looksLikeUrl guards the optional cover image: only real image sources (http,
-// root-relative, or data URLs) are used; anything else falls back to the scene.
+// root-relative, data, or blob: object URLs — the latter for an unsaved local
+// preview while creating a trip) are used; anything else falls back to the scene.
 function looksLikeUrl(s: string): boolean {
-  return /^(https?:\/\/|\/|data:image\/)/.test(s)
+  return /^(https?:\/\/|\/|data:image\/|blob:)/.test(s)
 }
 
 // HeroScene paints a calm golden-hour silhouette. Purely decorative

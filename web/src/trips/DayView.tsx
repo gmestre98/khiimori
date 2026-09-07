@@ -1681,7 +1681,7 @@ export function DayView() {
           rel={rel}
           stops={stopCount}
           stayName={stayName}
-          coverImage={trip.cover}
+          coverImage={trip.cover_url || trip.cover}
           cacheStatus={<CacheStatus fromCache={seededFromCache} isValidating={revalidating} />}
         />
       ) : (

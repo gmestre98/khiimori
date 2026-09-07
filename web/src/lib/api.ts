@@ -315,7 +315,14 @@ export interface Trip {
   start_date: string
   end_date: string
   base_currency: string
+  // cover is the stored reference (a gs:// object key for an uploaded cover, or an
+  // external URL). It is round-tripped unchanged on edit and is not directly
+  // loadable — display uses cover_url instead.
   cover: string
+  // cover_url is the browser-loadable image URL derived server-side from cover: a
+  // short-lived signed URL for an uploaded cover, an external URL passed through,
+  // or "" when there is no cover. Read-only; never sent back to the server.
+  cover_url?: string
   status: string
   created_at: string
   updated_at: string
@@ -413,6 +420,33 @@ export async function updateTrip(id: string, input: TripInput, forceShrink = fal
     const match = /^(\d+) day/.exec(msg)
     throw new TripShrinkConflictError(match ? parseInt(match[1], 10) : 1)
   }
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as Trip
+}
+
+// uploadTripCover uploads an image as the trip's cover (POST /trips/:id/cover,
+// multipart/form-data, field "cover") and returns the updated trip carrying a
+// fresh, browser-loadable cover_url. Throws TripValidationError on a rejected
+// file (413 too large / 422 unsupported type) and UnauthorizedError on 401.
+export async function uploadTripCover(id: string, file: File): Promise<Trip> {
+  const form = new FormData()
+  form.append('cover', file)
+  const res = await apiFetch(`/trips/${id}/cover`, { method: 'POST', body: form })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 413) throw new TripValidationError('That image is too large (max 10 MB).')
+  if (res.status === 422) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new TripValidationError(body?.error?.message ?? 'That file is not a supported image.')
+  }
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as Trip
+}
+
+// deleteTripCover removes the trip's cover (DELETE /trips/:id/cover) and returns
+// the updated trip.
+export async function deleteTripCover(id: string): Promise<Trip> {
+  const res = await apiFetch(`/trips/${id}/cover`, { method: 'DELETE' })
+  if (res.status === 401) throw new UnauthorizedError()
   if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
   return (await res.json()) as Trip
 }

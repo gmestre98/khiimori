@@ -24,6 +24,10 @@ const TripsPath = "/trips"
 type tripStore interface {
 	Create(ctx context.Context, nt NewTrip) (Trip, error)
 	Update(ctx context.Context, id, ownerID string, e EditTrip) (Trip, error)
+	// SetCover replaces a trip's cover reference (owner-scoped) and returns the
+	// updated trip together with the previous cover value, so the caller can
+	// delete the replaced storage object. cover may be "" to clear it.
+	SetCover(ctx context.Context, id, ownerID, cover string) (Trip, string, error)
 	Archive(ctx context.Context, id, ownerID string) (Trip, error)
 	Unarchive(ctx context.Context, id, ownerID string) (Trip, error)
 	Delete(ctx context.Context, id, ownerID string) error
@@ -137,10 +141,16 @@ type tripResponse struct {
 	StartDate    string   `json:"start_date"`
 	EndDate      string   `json:"end_date"`
 	BaseCurrency string   `json:"base_currency"`
-	Cover        string   `json:"cover"`
-	Status       string   `json:"status"`
-	CreatedAt    string   `json:"created_at"`
-	UpdatedAt    string   `json:"updated_at"`
+	// Cover is the stored reference the client round-trips on edit (a gs:// object
+	// key for an uploaded cover, or an external URL). It is not directly loadable.
+	Cover string `json:"cover"`
+	// CoverURL is a browser-loadable image URL derived from Cover at read time: an
+	// uploaded cover is a short-lived signed URL, an external URL is passed through,
+	// and an empty cover yields "". Read-only — clients display this, never send it.
+	CoverURL  string `json:"cover_url"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
 }
 
 // newTripResponse projects a Trip into the wire shape, formatting dates and
@@ -164,6 +174,16 @@ func newTripResponse(t Trip) tripResponse {
 		CreatedAt:    t.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:    t.UpdatedAt.UTC().Format(time.RFC3339),
 	}
+}
+
+// tripResp projects a Trip into the wire shape and fills the read-only, signed
+// cover_url. Every handler that returns a trip goes through here so cover_url is
+// always populated consistently (signing needs the module's media store, which
+// newTripResponse — a free function — can't reach).
+func (m *Module) tripResp(ctx context.Context, t Trip) tripResponse {
+	resp := newTripResponse(t)
+	resp.CoverURL = m.signCover(ctx, t.Cover)
+	return resp
 }
 
 // handleCreate creates a trip for the authenticated user. It runs behind
@@ -203,7 +223,7 @@ func (m *Module) handleCreate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(newTripResponse(t))
+	_ = json.NewEncoder(w).Encode(m.tripResp(r.Context(), t))
 }
 
 // handleUpdate edits the editable fields of one of the authenticated user's
@@ -264,7 +284,7 @@ func (m *Module) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(newTripResponse(t))
+	_ = json.NewEncoder(w).Encode(m.tripResp(r.Context(), t))
 }
 
 // handleSetStatus is the shared handler body for archive and unarchive. fn is
@@ -301,7 +321,7 @@ func (m *Module) handleSetStatus(
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(newTripResponse(t))
+	_ = json.NewEncoder(w).Encode(m.tripResp(r.Context(), t))
 }
 
 // handleArchive sets a trip's status to archived. The trip is retained but
@@ -450,7 +470,7 @@ func (m *Module) handleList(w http.ResponseWriter, r *http.Request) {
 	for _, t := range trips {
 		bucket, isCurrent := bucketTrip(t.StartDate, t.EndDate, today)
 		lt := listedTripResponse{
-			tripResponse: newTripResponse(t),
+			tripResponse: m.tripResp(r.Context(), t),
 			IsCurrent:    isCurrent,
 		}
 		switch bucket {

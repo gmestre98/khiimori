@@ -225,7 +225,7 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 	journalModule := journal.New(pool, authModule.RequireAuth, membershipJournalAuthzAdapter{tripAuthz}, mediaStore)
 	modules := []httpx.RouteRegistrar{
 		authModule,
-		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships(pool), membershipAuthzAdapter{tripAuthz}),
+		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships(pool), membershipAuthzAdapter{tripAuthz}, mediaStore),
 		budgetModule,
 		journalModule,
 		sharing.New(pool, sharing.Options{

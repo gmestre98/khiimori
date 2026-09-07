@@ -1,4 +1,4 @@
-import { useNavigate, useLocation, useParams, Navigate } from 'react-router-dom'
+import { useNavigate, useLocation, useParams, Navigate, Link } from 'react-router-dom'
 import { TripForm } from './TripForm'
 import type { Trip } from '../lib/api'
 
@@ -29,10 +29,23 @@ export function TripFormPage() {
     navigate(-1)
   }
 
+  // Where "← back" returns to. In edit mode we came from the trip; step back into
+  // it. In create mode the form is reached from the dashboard, so go there.
+  const backTo = isEdit && existingTrip ? `/trips/${existingTrip.id}/plan` : '/'
+  const backLabel = isEdit && existingTrip ? `← ${existingTrip.name}` : '← Trips'
+
   return (
     <section className="trip-form-page">
-      <h2 className="trip-form-page-title">{isEdit ? 'Edit trip' : 'New trip'}</h2>
-      <TripForm trip={existingTrip} onSuccess={handleSuccess} onCancel={handleCancel} />
+      <div className="trip-form-wrap">
+        <Link
+          to={backTo}
+          state={isEdit ? { trip: existingTrip } : undefined}
+          className="trip-form-back"
+        >
+          {backLabel}
+        </Link>
+        <TripForm trip={existingTrip} onSuccess={handleSuccess} onCancel={handleCancel} />
+      </div>
     </section>
   )
 }
