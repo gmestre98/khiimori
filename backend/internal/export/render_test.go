@@ -9,7 +9,6 @@ import (
 )
 
 func ptrF(f float64) *float64 { return &f }
-func ptrI(i int) *int         { return &i }
 
 // sampleModel is a fixed, deterministic Model (a stable GeneratedAt) used by the
 // golden and substring tests.
@@ -42,7 +41,7 @@ func sampleModel() Model {
 				WhatHappened: []Item{
 					{Title: "Sunset by the river", Status: "done"},
 				},
-				Journal: &Journal{Rating: ptrI(5), Weather: "sunny", Mood: "content", Text: "Best day so far."},
+				Journal: &Journal{Text: "Best day so far."},
 			},
 		},
 	}
@@ -66,7 +65,6 @@ func TestRender_ContainsKeySections(t *testing.T) {
 		"São Bento → Pinhão",
 		"arrives 17:40",
 		"What happened",
-		"★★★★★", // rating 5 → 5 filled stars
 		"Best day so far.",
 		`class="day"`, // page-break wrapper
 	} {

@@ -111,15 +111,10 @@
         {{ end }}
 
         {{ with .Journal }}
-          {{ if or (nonEmpty .Text) .Rating (nonEmpty .Weather) (nonEmpty .Mood) }}
+          {{ if nonEmpty .Text }}
             <div class="section-label">Diary</div>
             <div class="diary">
-              <div class="caption">
-                {{ if .Rating }}{{ stars .Rating }} {{ end }}
-                {{ if nonEmpty .Weather }}· {{ .Weather }} {{ end }}
-                {{ if nonEmpty .Mood }}· {{ .Mood }}{{ end }}
-              </div>
-              {{ if nonEmpty .Text }}<div>{{ .Text }}</div>{{ end }}
+              <div>{{ .Text }}</div>
             </div>
           {{ end }}
 

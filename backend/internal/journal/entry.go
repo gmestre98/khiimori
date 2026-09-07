@@ -12,9 +12,6 @@ type JournalEntry struct {
 	DayID     string
 	AuthorID  string
 	Body      json.RawMessage // JSONB envelope; plain {"text":"..."} for now
-	Rating    *int            // nil == not set; 1–5 when set
-	Weather   string          // empty == not set
-	Mood      string          // empty == not set
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -25,9 +22,6 @@ type UpsertEntry struct {
 	DayID    string
 	AuthorID string
 	Body     json.RawMessage
-	Rating   *int   // nil == clear/leave unset
-	Weather  string // empty == clear
-	Mood     string // empty == clear
 }
 
 // ErrEntryNotFound is returned when a get/update targets a non-existent entry.
@@ -39,9 +33,6 @@ func (u UpsertEntry) validate() error {
 	}
 	if u.AuthorID == "" {
 		return errors.New("journal: author_id is required")
-	}
-	if u.Rating != nil && (*u.Rating < 1 || *u.Rating > 5) {
-		return errors.New("journal: rating must be between 1 and 5")
 	}
 	return nil
 }

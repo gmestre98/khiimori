@@ -9,21 +9,17 @@ import {
   type Photo,
 } from '../lib/api'
 import { fullDate } from '../lib/format'
-import { MOOD_LABELS, WEATHER_LABELS } from '../journal/journalMeta'
 import { PreviewImage } from '../journal/PreviewImage'
 import { PhotoLightbox } from '../journal/PhotoGrid'
 import { useTripShell } from './useTripShell'
 
 // DaySummary is everything the travelogue needs for one day: the resolved day id
-// plus the entry fields (rating, weather, mood, body) and its photos.
+// plus the entry body and its photos.
 interface DaySummary {
   date: string
   index: number
   dayId: string
   hasEntry: boolean
-  rating: number | null
-  weather: string
-  mood: string
   body: string
   photos: Photo[]
 }
@@ -43,9 +39,6 @@ async function loadDaySummary(
     index,
     dayId: day.id,
     hasEntry: false,
-    rating: null,
-    weather: '',
-    mood: '',
     body: '',
     photos: [],
   }
@@ -62,9 +55,6 @@ async function loadDaySummary(
     return {
       ...base,
       hasEntry: true,
-      rating: entry.rating,
-      weather: entry.weather,
-      mood: entry.mood,
       body: entry.body,
       photos,
     }
@@ -75,38 +65,13 @@ async function loadDaySummary(
 }
 
 // hasContent is true when a day has anything worth showing in the travelogue —
-// text, a rating, weather, mood, or photos.
+// text or photos.
 function hasContent(s: DaySummary): boolean {
-  return (
-    s.body.trim() !== '' ||
-    s.rating !== null ||
-    s.weather !== '' ||
-    s.mood !== '' ||
-    s.photos.length > 0
-  )
+  return s.body.trim() !== '' || s.photos.length > 0
 }
 
-// Stars renders a read-only 1–5 rating as filled/empty stars, or nothing when
-// unrated.
-function Stars({ rating }: { rating: number | null }) {
-  if (rating === null) return null
-  return (
-    <span className="trip-journal-stars" aria-label={`Rated ${rating} of 5`}>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <span
-          key={n}
-          className={`trip-journal-star${n <= rating ? ' trip-journal-star--on' : ''}`}
-          aria-hidden="true"
-        >
-          ★
-        </span>
-      ))}
-    </span>
-  )
-}
-
-// TravelogueDay renders one day's entry in the read-only feed: its meta chips,
-// body text, and a thumbnail strip that opens the shared lightbox.
+// TravelogueDay renders one day's entry in the read-only feed: its body text and
+// a thumbnail strip that opens the shared lightbox.
 function TravelogueDay({
   summary,
   onOpenPhoto,
@@ -120,21 +85,7 @@ function TravelogueDay({
         <h2 className="trip-journal-entry-title">
           Day {summary.index + 1} · {fullDate(summary.date)}
         </h2>
-        <Stars rating={summary.rating} />
       </header>
-
-      {(summary.weather || summary.mood) && (
-        <p className="trip-journal-entry-meta">
-          {summary.weather && (
-            <span className="trip-journal-chip">
-              {WEATHER_LABELS[summary.weather] ?? summary.weather}
-            </span>
-          )}
-          {summary.mood && (
-            <span className="trip-journal-chip">{MOOD_LABELS[summary.mood] ?? summary.mood}</span>
-          )}
-        </p>
-      )}
 
       {summary.body.trim() !== '' && <p className="trip-journal-entry-body">{summary.body}</p>}
 

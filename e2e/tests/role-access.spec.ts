@@ -131,7 +131,7 @@ test('editor can edit plan, budget, and journal (server accepts writes)', async 
   expect(cost.status(), 'editor cost create should be allowed').toBe(201)
 
   const journal = await editor.ctx.put(`${apiBaseURL}/trips/${tripId}/days/${dayId}/journal`, {
-    data: { body: { text: `Editor journal ${runId}` }, rating: null, weather: '', mood: '' },
+    data: { body: { text: `Editor journal ${runId}` } },
   })
   expect(
     journal.ok(),

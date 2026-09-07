@@ -48,9 +48,6 @@ func (s *fakeStore) UpsertEntry(_ context.Context, e UpsertEntry) (JournalEntry,
 	}
 	entry.AuthorID = e.AuthorID
 	entry.Body = e.Body
-	entry.Rating = e.Rating
-	entry.Weather = e.Weather
-	entry.Mood = e.Mood
 	s.entries[e.DayID] = entry
 	return entry, nil
 }
@@ -238,17 +235,13 @@ func TestUpsertEntry_Update(t *testing.T) {
 	store := newFakeStore()
 	srv := newTestServer(t, store, allowAuthz{})
 
-	rating := 3
 	resp, _ := putJSON(srv, "/trips/trip-1/days/day-3/journal", map[string]any{
-		"body":   json.RawMessage(`{"text":"first"}`),
-		"rating": rating,
+		"body": json.RawMessage(`{"text":"first"}`),
 	})
 	_ = resp.Body.Close()
 
-	rating2 := 5
 	resp2, _ := putJSON(srv, "/trips/trip-1/days/day-3/journal", map[string]any{
-		"body":   json.RawMessage(`{"text":"updated"}`),
-		"rating": rating2,
+		"body": json.RawMessage(`{"text":"updated"}`),
 	})
 	defer func() { _ = resp2.Body.Close() }()
 
@@ -256,53 +249,8 @@ func TestUpsertEntry_Update(t *testing.T) {
 	if err := json.NewDecoder(resp2.Body).Decode(&out); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if out.Rating == nil || *out.Rating != 5 {
-		t.Errorf("rating: got %v, want 5", out.Rating)
-	}
-}
-
-func TestUpsertEntry_OptionalFields(t *testing.T) {
-	t.Parallel()
-	store := newFakeStore()
-	srv := newTestServer(t, store, allowAuthz{})
-
-	weather := "sunny"
-	mood := "happy"
-	rating := 4
-	resp, _ := putJSON(srv, "/trips/trip-1/days/day-4/journal", map[string]any{
-		"weather": weather,
-		"mood":    mood,
-		"rating":  rating,
-	})
-	defer func() { _ = resp.Body.Close() }()
-
-	var out journalEntryResponse
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if out.Weather != "sunny" {
-		t.Errorf("weather: got %q", out.Weather)
-	}
-	if out.Mood != "happy" {
-		t.Errorf("mood: got %q", out.Mood)
-	}
-	if out.Rating == nil || *out.Rating != 4 {
-		t.Errorf("rating: got %v, want 4", out.Rating)
-	}
-}
-
-func TestUpsertEntry_InvalidRating(t *testing.T) {
-	t.Parallel()
-	store := newFakeStore()
-	srv := newTestServer(t, store, allowAuthz{})
-
-	bad := 9
-	resp, _ := putJSON(srv, "/trips/trip-1/days/day-5/journal", map[string]any{
-		"rating": bad,
-	})
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Errorf("want 400, got %d", resp.StatusCode)
+	if string(out.Body) != `{"text":"updated"}` {
+		t.Errorf("body: got %s, want updated", out.Body)
 	}
 }
 

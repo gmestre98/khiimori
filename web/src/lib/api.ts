@@ -968,9 +968,6 @@ export interface JournalEntry {
   day_id: string
   author_id: string
   body: string // plain text; stored server-side as {"text":"..."} JSONB
-  rating: number | null
-  weather: string
-  mood: string
   created_at: string
   updated_at: string
 }
@@ -978,9 +975,6 @@ export interface JournalEntry {
 // JournalEntryInput is the editable payload for upserting a day's entry.
 export interface JournalEntryInput {
   body?: string
-  rating?: number | null
-  weather?: string
-  mood?: string
 }
 
 // JournalEntryNotFoundError is returned by fetchJournalEntry when the day has
@@ -998,9 +992,6 @@ type RawJournalEntry = {
   day_id: string
   author_id: string
   body: { text?: string } | string
-  rating?: number | null
-  weather?: string
-  mood?: string
   created_at: string
   updated_at: string
 }
@@ -1014,9 +1005,6 @@ function parseJournalEntry(raw: RawJournalEntry): JournalEntry {
     day_id: raw.day_id,
     author_id: raw.author_id,
     body: typeof raw.body === 'string' ? raw.body : (raw.body?.text ?? ''),
-    rating: raw.rating ?? null,
-    weather: raw.weather ?? '',
-    mood: raw.mood ?? '',
     created_at: raw.created_at,
     updated_at: raw.updated_at,
   }
@@ -1046,9 +1034,6 @@ export async function upsertJournalEntry(
 ): Promise<JournalEntry> {
   const body = {
     body: { text: input.body ?? '' },
-    rating: input.rating ?? null,
-    weather: input.weather ?? '',
-    mood: input.mood ?? '',
   }
   const res = await apiFetch(`/trips/${tripId}/days/${dayId}/journal`, {
     method: 'PUT',

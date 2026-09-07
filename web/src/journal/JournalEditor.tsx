@@ -13,7 +13,6 @@ import { readCache, writeCache, deleteCache } from '../lib/resourceCache'
 import { cacheKeys } from '../lib/cacheKeys'
 import { PhotoGrid } from './PhotoGrid'
 import { UsageBar } from './UsageBar'
-import { MOOD_LABELS, MOOD_OPTIONS, WEATHER_LABELS, WEATHER_OPTIONS } from './journalMeta'
 
 const DEBOUNCE_MS = 800
 
@@ -39,9 +38,6 @@ export function JournalEditor({
   const online = useIsOnline()
   const [entry, setEntry] = useState<JournalEntry | null>(null)
   const [body, setBody] = useState('')
-  const [rating, setRating] = useState<number | null>(null)
-  const [weather, setWeather] = useState('')
-  const [mood, setMood] = useState('')
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   // savedAsQueued records whether the most recent save was written to the
   // offline queue rather than the server. Derived from the save path, not
@@ -74,14 +70,14 @@ export function JournalEditor({
   // The field values last written by a *load* (cache seed or fetch), so the
   // auto-save effect can tell a programmatic hydrate from a real user edit and
   // skip saving the former (see the auto-save effect below).
-  type Fields = { body: string; rating: number | null; weather: string; mood: string }
+  type Fields = { body: string }
   const lastLoadedRef = useRef<Fields | null>(null)
   // The current field values, mirrored into a ref so the load effect can check
   // whether the user has edited since the last load without clobbering their
   // in-progress writing when a background refresh lands.
-  const fieldsRef = useRef<Fields>({ body, rating, weather, mood })
+  const fieldsRef = useRef<Fields>({ body })
   useEffect(() => {
-    fieldsRef.current = { body, rating, weather, mood }
+    fieldsRef.current = { body }
   })
 
   // Load the entry on mount / dayId change with the instant-render cache
@@ -98,15 +94,7 @@ export function JournalEditor({
     const apply = (e: JournalEntry | null) => {
       setEntry(e)
       setBody(e?.body ?? '')
-      setRating(e?.rating ?? null)
-      setWeather(e?.weather ?? '')
-      setMood(e?.mood ?? '')
-      lastLoadedRef.current = {
-        body: e?.body ?? '',
-        rating: e?.rating ?? null,
-        weather: e?.weather ?? '',
-        mood: e?.mood ?? '',
-      }
+      lastLoadedRef.current = { body: e?.body ?? '' }
       setLoadedDayId(dayId)
     }
 
@@ -115,13 +103,7 @@ export function JournalEditor({
     const hasEdited = () => {
       const ll = lastLoadedRef.current
       const cur = fieldsRef.current
-      return (
-        ll !== null &&
-        (cur.body !== ll.body ||
-          cur.rating !== ll.rating ||
-          cur.weather !== ll.weather ||
-          cur.mood !== ll.mood)
-      )
+      return ll !== null && cur.body !== ll.body
     }
 
     void readCache<JournalEntry>(key).then((cached) => {
@@ -184,33 +166,27 @@ export function JournalEditor({
     [tripId, dayId, online],
   )
 
-  // Auto-save whenever body/rating/weather/mood change. `loaded` (derived from
-  // loadedDayId === dayId) ensures this never fires with stale values from the
+  // Auto-save whenever the body changes. `loaded` (derived from
+  // loadedDayId === dayId) ensures this never fires with a stale value from the
   // previous day — the auto-save is gated on the current fetch having resolved.
   useEffect(() => {
     if (!loaded) return
     if (readOnly) return
-    // Skip when the current values are exactly what a load (cache seed or fetch)
+    // Skip when the current value is exactly what a load (cache seed or fetch)
     // just wrote — hydrating the form is not a user edit and must not trigger a
     // save (which, offline, would needlessly queue a write).
     const ll = lastLoadedRef.current
-    if (
-      ll &&
-      ll.body === body &&
-      ll.rating === rating &&
-      ll.weather === weather &&
-      ll.mood === mood
-    ) {
+    if (ll && ll.body === body) {
       return
     }
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
-      void save({ body, rating, weather, mood })
+      void save({ body })
     }, DEBOUNCE_MS)
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [body, rating, weather, mood, save, readOnly, loaded])
+  }, [body, save, readOnly, loaded])
 
   const error = loadError?.dayId === dayId ? loadError.msg : null
 
@@ -220,63 +196,6 @@ export function JournalEditor({
 
   return (
     <div className="journal-editor">
-      <div className="journal-editor-meta">
-        <fieldset className="journal-rating" disabled={readOnly}>
-          <legend className="journal-meta-label">Rating</legend>
-          <div className="journal-rating-stars" role="group" aria-label="Rating 1–5">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                type="button"
-                className={`journal-star${rating !== null && n <= rating ? ' journal-star--active' : ''}`}
-                aria-label={`Rate ${n} star${n > 1 ? 's' : ''}`}
-                aria-pressed={rating === n}
-                onClick={() => {
-                  if (!readOnly) setRating(rating === n ? null : n)
-                }}
-                disabled={readOnly}
-              >
-                ★
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
-        <label className="journal-meta-field">
-          <span className="journal-meta-label">Weather</span>
-          <select
-            className="journal-select"
-            value={weather}
-            onChange={(e) => setWeather(e.target.value)}
-            disabled={readOnly}
-            aria-label="Weather"
-          >
-            {WEATHER_OPTIONS.map((w) => (
-              <option key={w} value={w}>
-                {WEATHER_LABELS[w]}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="journal-meta-field">
-          <span className="journal-meta-label">Mood</span>
-          <select
-            className="journal-select"
-            value={mood}
-            onChange={(e) => setMood(e.target.value)}
-            disabled={readOnly}
-            aria-label="Mood"
-          >
-            {MOOD_OPTIONS.map((m) => (
-              <option key={m} value={m}>
-                {MOOD_LABELS[m]}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
       <textarea
         className="journal-body"
         placeholder={readOnly ? 'No journal entry for this day.' : 'Write about your day…'}
@@ -297,7 +216,7 @@ export function JournalEditor({
               <button
                 type="button"
                 className="journal-save-retry"
-                onClick={() => void save({ body, rating, weather, mood })}
+                onClick={() => void save({ body })}
               >
                 Retry
               </button>
@@ -320,7 +239,7 @@ export function JournalEditor({
             : async () => {
                 // Ensure an entry row exists before the server accepts a photo.
                 if (!entry) {
-                  await save({ body, rating, weather, mood })
+                  await save({ body })
                 }
               }
         }

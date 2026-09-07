@@ -345,11 +345,8 @@ const journalEntry = {
   id: 'j1',
   day_id: DAY4_ID,
   body: {
-    text: 'The orange torii gates went on forever. We got lost near the top but found the best ramen of the trip on the way down. Mood: tired + happy.',
+    text: 'The orange torii gates went on forever. We got lost near the top but found the best ramen of the trip on the way down.',
   },
-  rating: 9,
-  weather: 'Sunny · 18°C',
-  mood: 'Content',
 }
 
 const usage = { used_bytes: 320_000_000, cap_bytes: 1_073_741_824, near_cap: false, used_pct: 30 }

@@ -25,9 +25,6 @@ function makeEntry(body: string): JournalEntry {
     day_id: 'day-1',
     author_id: 'user-1',
     body,
-    rating: null,
-    weather: '',
-    mood: '',
     created_at: '2026-06-01T00:00:00Z',
     updated_at: '2026-06-01T00:00:00Z',
   }

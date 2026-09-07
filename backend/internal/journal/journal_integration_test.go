@@ -20,6 +20,7 @@ import (
 	"net/http/httptest"
 	"net/textproto"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -291,20 +292,16 @@ func TestIntegration_UpsertEntry_OnePerDay(t *testing.T) {
 	}
 }
 
-// TestIntegration_UpsertEntry_UpdatedFields verifies body+optional fields are
-// persisted and returned after update.
-func TestIntegration_UpsertEntry_UpdatedFields(t *testing.T) {
+// TestIntegration_UpsertEntry_Body verifies the entry body is persisted and
+// returned by the upsert endpoint.
+func TestIntegration_UpsertEntry_Body(t *testing.T) {
 	ownerID := freshOwnerID(t)
 	srv := newIntegrationServer(t, ownerID)
 	tripID := insertTrip(t, ownerID)
 	dayID := insertDay(t, tripID)
 
-	rating := 4
 	resp, err := putEntry(srv, tripID, dayID, map[string]any{
-		"body":    json.RawMessage(`{"text":"nice day"}`),
-		"rating":  rating,
-		"weather": "sunny",
-		"mood":    "great",
+		"body": json.RawMessage(`{"text":"nice day"}`),
 	})
 	if err != nil {
 		t.Fatalf("put: %v", err)
@@ -315,45 +312,11 @@ func TestIntegration_UpsertEntry_UpdatedFields(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if out.Rating == nil || *out.Rating != 4 {
-		t.Errorf("rating: got %v, want 4", out.Rating)
+	if out.ID == "" {
+		t.Error("expected a persisted entry id, got empty")
 	}
-	if out.Weather != "sunny" {
-		t.Errorf("weather: got %q, want sunny", out.Weather)
-	}
-	if out.Mood != "great" {
-		t.Errorf("mood: got %q, want great", out.Mood)
-	}
-}
-
-// TestIntegration_UpsertEntry_OptionalFieldsAbsent verifies nil/empty optional
-// fields are stored without errors.
-func TestIntegration_UpsertEntry_OptionalFieldsAbsent(t *testing.T) {
-	ownerID := freshOwnerID(t)
-	srv := newIntegrationServer(t, ownerID)
-	tripID := insertTrip(t, ownerID)
-	dayID := insertDay(t, tripID)
-
-	resp, err := putEntry(srv, tripID, dayID, map[string]any{
-		"body": json.RawMessage(`{"text":"plain"}`),
-	})
-	if err != nil {
-		t.Fatalf("put: %v", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	var out journalEntryResponse
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if out.Rating != nil {
-		t.Errorf("rating: expected nil, got %v", out.Rating)
-	}
-	if out.Weather != "" {
-		t.Errorf("weather: expected empty, got %q", out.Weather)
-	}
-	if out.Mood != "" {
-		t.Errorf("mood: expected empty, got %q", out.Mood)
+	if !strings.Contains(string(out.Body), "nice day") {
+		t.Errorf("body: got %s, want it to contain \"nice day\"", out.Body)
 	}
 }
 

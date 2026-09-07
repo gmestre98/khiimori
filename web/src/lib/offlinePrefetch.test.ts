@@ -89,9 +89,6 @@ beforeEach(() => {
     day_id: 'd',
     author_id: 'a',
     body: '',
-    rating: null,
-    weather: '',
-    mood: '',
     created_at: '',
     updated_at: '',
   })

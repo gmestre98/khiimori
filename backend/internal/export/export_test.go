@@ -94,7 +94,7 @@ func TestBuildExportModel_AttachesStayAndJournalToTheirDay(t *testing.T) {
 			// A duplicate for the same day must not overwrite the first.
 			{DayID: "d2", Stay: Stay{Name: "Should be ignored"}},
 		},
-		journals: []DayJournal{{DayID: "d1", Journal: Journal{Text: "Great day", Mood: "content"}}},
+		journals: []DayJournal{{DayID: "d1", Journal: Journal{Text: "Great day"}}},
 	}
 	m := build(t, r)
 

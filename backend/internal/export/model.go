@@ -92,11 +92,8 @@ type Item struct {
 
 // Journal is a day's diary entry.
 type Journal struct {
-	Rating  *int // 1–5; nil = unset
-	Weather string
-	Mood    string
-	Text    string
-	Photos  []Photo // populated by S3; empty here
+	Text   string
+	Photos []Photo // populated by S3; empty here
 }
 
 // Photo is one journal photo. S3 fills Data (a data: URI) when photos are
