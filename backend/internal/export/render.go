@@ -155,4 +155,3 @@ func groupThousands(digits string) string {
 	}
 	return b.String()
 }
-
