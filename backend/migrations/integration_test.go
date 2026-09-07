@@ -297,7 +297,8 @@ func assertTripPlanItemsTable(t *testing.T, db *sql.DB) {
 
 // assertJournalEntriesTable checks the journal.journal_entries migration (00016)
 // applied with the shape S2–S3 depend on: the table exists and the day_id UNIQUE
-// constraint enforces one entry per day.
+// constraint enforces one entry per day. (The rating/weather/mood columns from
+// 00016 were later dropped by 00036, so they are no longer asserted.)
 func assertJournalEntriesTable(t *testing.T, db *sql.DB) {
 	t.Helper()
 
@@ -332,23 +333,6 @@ func assertJournalEntriesTable(t *testing.T, db *sql.DB) {
 	}
 	if !uniqueOnDayID {
 		t.Error("journal.journal_entries.day_id lacks a unique constraint (one-per-day guard)")
-	}
-
-	// The rating CHECK (1–5) must be present.
-	var ratingCheck bool
-	if err := db.QueryRow(
-		`SELECT EXISTS (
-			SELECT 1
-			FROM pg_constraint c
-			WHERE c.conrelid = 'journal.journal_entries'::regclass
-			  AND c.contype  = 'c'
-			  AND c.conname  LIKE '%rating%'
-		)`,
-	).Scan(&ratingCheck); err != nil {
-		t.Fatalf("query journal_entries rating check: %v", err)
-	}
-	if !ratingCheck {
-		t.Error("journal.journal_entries lacks a CHECK constraint on rating")
 	}
 }
 
