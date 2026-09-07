@@ -4173,6 +4173,18 @@
   gap: 6px;
 }
 
+.day-activity-costs {
+  margin-bottom: var(--space-2);
+}
+
+.day-activity-costs-head {
+  margin-bottom: 2px;
+}
+
+.day-activity-cost-upcoming {
+  font-style: italic;
+}
+
 .cost-entry-category {
   font-size: 13px;
   font-weight: 500;

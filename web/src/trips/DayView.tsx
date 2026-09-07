@@ -25,7 +25,7 @@ import {
   type PlanItem,
   type Stay,
 } from '../lib/api'
-import { fullDate } from '../lib/format'
+import { euro, fullDate } from '../lib/format'
 import { enqueue } from '../lib/mutationQueue'
 import { useIsOnline } from '../lib/useIsOnline'
 import { readCache, writeCache } from '../lib/resourceCache'
@@ -1253,6 +1253,37 @@ export function PlanningSection({
 // DayRollup) plus quick-add for a cost, with a link to the whole-trip Budget tab
 // for deeper setup. The full per-day budget *editor* lives on the Budget tab, so
 // the day screen shows the day's budget without re-hosting the setup UI.
+// ActivityCostList surfaces the day's plan items that carry a cost (an activity,
+// transport leg, etc. with a price) as read-only budget line items. These feed
+// the day total on the server exactly like a manual cost entry — a done item is
+// spent, a not-yet-done one is still upcoming — but were previously invisible in
+// the budget list, which only showed manually logged entries. Skipped/cancelled
+// items are excluded (they never happen, so the budget drops them). The amount is
+// edited from the item itself in the plan list, so these rows are display-only.
+function ActivityCostList({ items }: { items: PlanItem[] }) {
+  const costed = items.filter(
+    (i) => (i.cost ?? 0) > 0 && i.status !== 'skipped' && i.status !== 'cancelled',
+  )
+  if (costed.length === 0) return null
+  return (
+    <div className="day-activity-costs">
+      <div className="day-activity-costs-head meta">From activities</div>
+      <ul className="cost-entry-list" aria-label="Activity costs">
+        {costed.map((i) => (
+          <li key={i.id} className="cost-entry">
+            <span className="cost-entry-category">{i.type || 'Activity'}</span>
+            <span className="cost-entry-amount">{euro(i.cost as number)}</span>
+            <span className="cost-entry-note">{i.title}</span>
+            {i.status !== 'done' && (
+              <span className="day-activity-cost-upcoming meta">upcoming</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 function DayBudgetStrip({
   tripId,
   day,
@@ -1403,6 +1434,7 @@ function DayBudgetStrip({
           onChanged={(line) => (line ? applyOfflineLine(line) : loadRollup())}
         />
       )}
+      <ActivityCostList items={planItems} />
       <FastAddCost
         tripId={tripId}
         dayId={day.id}
