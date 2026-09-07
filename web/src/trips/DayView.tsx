@@ -11,6 +11,7 @@ import {
   demotePlanItem,
   fetchBudgetRollup,
   fetchDay,
+  listCostEntries,
   movePlanItem,
   reorderPlanItems,
   reorderPlanItemsActual,
@@ -1283,6 +1284,25 @@ function DayBudgetStrip({
     [tripId],
   )
 
+  // loadEntries fetches the trip's manually-logged cost entries and keeps only
+  // this day's, so expenses logged on an earlier visit show in the list when the
+  // day is reopened — not just the ones added in the current session. Cost entries
+  // are stored per trip, so we filter by day_id here. The full list is cached
+  // (matching the service worker's key) so an offline reopen still shows them.
+  const loadEntries = useCallback(
+    (signal?: AbortSignal) => {
+      listCostEntries(tripId, signal)
+        .then((all) => {
+          void writeCache(cacheKeys.costEntries(tripId), all)
+          setEntries(all.filter((e) => e.day_id === day.id))
+        })
+        .catch((err: unknown) => {
+          if (err instanceof DOMException && err.name === 'AbortError') return
+        })
+    },
+    [tripId, day.id],
+  )
+
   // applyOfflineLine reflects a day extra saved offline into the rollup + cache so
   // it shows immediately and survives an offline reload (mirrors TripBudgetPage).
   const applyOfflineLine = useCallback(
@@ -1307,11 +1327,18 @@ function DayBudgetStrip({
       if (cached) setRollup(cached.data)
       loadRollup(controller.signal)
     })
+    // Same instant-render sequence for this day's logged cost entries: seed the
+    // list from the cached trip entries (filtered to this day), then refresh.
+    void readCache<CostEntry[]>(cacheKeys.costEntries(tripId)).then((cached) => {
+      if (done) return
+      if (cached) setEntries(cached.data.filter((e) => e.day_id === day.id))
+      loadEntries(controller.signal)
+    })
     return () => {
       done = true
       controller.abort()
     }
-  }, [loadRollup, day.id, tripId])
+  }, [loadRollup, loadEntries, day.id, tripId])
 
   // Refresh the rollup when a plan item's cost or status changes — a "what
   // happened" item marked done (or given a cost) counts as spent, so the day
