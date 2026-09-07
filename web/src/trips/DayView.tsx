@@ -1252,7 +1252,19 @@ export function PlanningSection({
 // DayRollup) plus quick-add for a cost, with a link to the whole-trip Budget tab
 // for deeper setup. The full per-day budget *editor* lives on the Budget tab, so
 // the day screen shows the day's budget without re-hosting the setup UI.
-function DayBudgetStrip({ tripId, day }: { tripId: string; day: Day }) {
+function DayBudgetStrip({
+  tripId,
+  day,
+  planItems,
+}: {
+  tripId: string
+  day: Day
+  // planItems is the day's live plan items; a change to any item's cost or status
+  // (e.g. marking a "what happened" item done) shifts the day's spent/upcoming
+  // totals, so the strip watches them to refresh the rollup — otherwise those
+  // costs would only appear after a full page reload, not when logged as expenses.
+  planItems: PlanItem[]
+}) {
   const [rollup, setRollup] = useState<BudgetRollup | null>(null)
   const [entries, setEntries] = useState<CostEntry[]>([])
   const [extraOpen, setExtraOpen] = useState(false)
@@ -1300,6 +1312,18 @@ function DayBudgetStrip({ tripId, day }: { tripId: string; day: Day }) {
       controller.abort()
     }
   }, [loadRollup, day.id, tripId])
+
+  // Refresh the rollup when a plan item's cost or status changes — a "what
+  // happened" item marked done (or given a cost) counts as spent, so the day
+  // total must move without waiting for a full reload. We watch only the
+  // cost/status signature so unrelated edits (title, time, reorder) don't refetch.
+  const costSignature = planItems.map((i) => `${i.id}:${i.cost ?? 0}:${i.status}`).join('|')
+  const lastCostSignature = useRef(costSignature)
+  useEffect(() => {
+    if (costSignature === lastCostSignature.current) return
+    lastCostSignature.current = costSignature
+    loadRollup()
+  }, [costSignature, loadRollup])
 
   function handleEntryAdded(entry: CostEntry) {
     setEntries((prev) => [...prev, entry])
@@ -1732,7 +1756,7 @@ export function DayView() {
           )
         const budgetStrip =
           day && tripId ? (
-            <DayBudgetStrip tripId={tripId} day={day} />
+            <DayBudgetStrip tripId={tripId} day={day} planItems={planItems} />
           ) : (
             <section className="day-slot day-slot-budget" aria-label="Budget" data-slot="budget">
               <h2 className="day-slot-title">Budget</h2>
