@@ -1297,6 +1297,26 @@ describe('DayView', () => {
       )
     })
 
+    it('refreshes the day budget when a plan item is marked done (its cost becomes spent)', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum', status: 'planned', cost: 12 })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      vi.mocked(api.setPlanItemStatus).mockResolvedValue(
+        makePlanItem({ title: 'Visit museum', status: 'done', cost: 12 }),
+      )
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByLabelText('Status: planned')).toBeInTheDocument())
+      // The budget strip fetched the rollup once on mount.
+      await waitFor(() => expect(api.fetchBudgetRollup).toHaveBeenCalledTimes(1))
+
+      await user.selectOptions(screen.getByLabelText('Status: planned'), 'done')
+
+      // Marking the item done shifts its cost into spend, so the strip refetches
+      // the rollup rather than waiting for a full reload.
+      await waitFor(() => expect(api.fetchBudgetRollup).toHaveBeenCalledTimes(2))
+    })
+
     it('marks a plan item done offline: queues the status write, no server call, badge updates', async () => {
       const user = userEvent.setup()
       const item = makePlanItem({ title: 'Visit museum', status: 'planned' })
