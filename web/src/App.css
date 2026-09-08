@@ -4173,16 +4173,26 @@
   gap: 6px;
 }
 
-.day-activity-costs {
-  margin-bottom: var(--space-2);
+.day-cost-breakdown {
+  margin: var(--space-3) 0 var(--space-2);
 }
 
-.day-activity-costs-head {
-  margin-bottom: 2px;
+.day-cost-breakdown-head {
+  margin-bottom: var(--space-1);
 }
 
 .day-activity-cost-upcoming {
   font-style: italic;
+}
+
+/* Read-only rows (costs sourced from a plan item) have no edit/delete actions,
+   so their amount + label fill the row like an editable entry minus the buttons. */
+.cost-entry--readonly .cost-entry-note {
+  margin-right: auto;
+}
+
+.day-budget-actions {
+  margin-top: var(--space-2);
 }
 
 .cost-entry-category {

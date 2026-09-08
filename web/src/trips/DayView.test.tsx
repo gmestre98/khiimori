@@ -1024,9 +1024,9 @@ describe('DayView', () => {
       )
       renderDayView()
 
-      // Scope to the budget area's activity list — the same items also render in
+      // Scope to the budget area's cost breakdown — the same items also render in
       // the plan/what-happened lists, so assert only within this section.
-      const list = await screen.findByLabelText('Activity costs')
+      const list = await screen.findByLabelText('Day costs')
       const q = within(list)
       // Costed activities show; the planned one is tagged upcoming.
       expect(q.getByText('Museum ticket')).toBeInTheDocument()
@@ -1037,6 +1037,50 @@ describe('DayView', () => {
       // A zero-cost activity and a skipped one are excluded.
       expect(q.queryByText('Free walk')).not.toBeInTheDocument()
       expect(q.queryByText('Cancelled gig')).not.toBeInTheDocument()
+    })
+
+    it('merges activity costs and logged entries into one "Day costs" list', async () => {
+      setMobile(false)
+      vi.mocked(api.fetchDay).mockResolvedValue(
+        makeDay({
+          plan_items: [
+            makePlanItem({
+              id: 'a1',
+              title: 'Flight',
+              type: 'Transport',
+              cost: 120,
+              status: 'done',
+            }),
+          ],
+        }),
+      )
+      vi.mocked(api.listCostEntries).mockResolvedValue([
+        {
+          id: 'c1',
+          trip_id: 'trip-1',
+          day_id: 'day-1',
+          plan_item_id: '',
+          category: 'Food',
+          amount: 12.75,
+          note: 'Dinner',
+          created_at: '2026-06-01T20:00:00Z',
+        },
+      ])
+      renderDayView()
+
+      // One unified list holds both the activity cost and the logged entry — no
+      // separate "From activities" / "Logged costs" split.
+      const list = await screen.findByLabelText('Day costs')
+      const q = within(list)
+      // The logged entry loads asynchronously — wait for it, then assert both.
+      expect(await q.findByText('Dinner')).toBeInTheDocument()
+      expect(q.getByText('Flight')).toBeInTheDocument()
+      expect(q.getByText('€120.00')).toBeInTheDocument()
+      expect(q.getByText('€12.75')).toBeInTheDocument()
+      // The logged entry stays editable; the activity row is read-only.
+      expect(q.getByRole('button', { name: /Edit Food cost/ })).toBeInTheDocument()
+      // The confusing trailing subtotal is gone.
+      expect(screen.queryByText(/Logged costs:/)).not.toBeInTheDocument()
     })
 
     it('sets a day extra on a category from the day budget', async () => {
