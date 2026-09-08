@@ -4,6 +4,7 @@ import { collectLocatedItems, type ItemOrder } from './locatedItems'
 import { StaySlot } from './StaySlot'
 import { splitAmount } from './splitAmount'
 import {
+  BUDGET_CATEGORIES,
   PlanItemValidationError,
   UnauthorizedError,
   createPlanItem,
@@ -32,7 +33,7 @@ import { readCache, writeCache } from '../lib/resourceCache'
 import { cacheKeys } from '../lib/cacheKeys'
 import { CacheStatus } from '../components/CacheStatus'
 import { JournalEditor } from '../journal/JournalEditor'
-import { FastAddCost } from './FastAddCost'
+import { AddCostForm, CostEntryItem } from './FastAddCost'
 import { DayExtraEditor } from './BudgetEditor'
 import { DayRollup } from './RollupDisplay'
 import { dayBudgetTotal, patchRollupPlanned } from './budgetModel'
@@ -1253,32 +1254,77 @@ export function PlanningSection({
 // DayRollup) plus quick-add for a cost, with a link to the whole-trip Budget tab
 // for deeper setup. The full per-day budget *editor* lives on the Budget tab, so
 // the day screen shows the day's budget without re-hosting the setup UI.
-// ActivityCostList surfaces the day's plan items that carry a cost (an activity,
-// transport leg, etc. with a price) as read-only budget line items. These feed
-// the day total on the server exactly like a manual cost entry — a done item is
-// spent, a not-yet-done one is still upcoming — but were previously invisible in
-// the budget list, which only showed manually logged entries. Skipped/cancelled
-// items are excluded (they never happen, so the budget drops them). The amount is
-// edited from the item itself in the plan list, so these rows are display-only.
-function ActivityCostList({ items }: { items: PlanItem[] }) {
-  const costed = items.filter(
-    (i) => (i.cost ?? 0) > 0 && i.status !== 'skipped' && i.status !== 'cancelled',
-  )
-  if (costed.length === 0) return null
+// DayCostBreakdown is the single itemised list of everything that makes up the
+// day's spend: costs attached to plan items (an activity/transport leg with a
+// price) and manually-logged cost entries, merged into one list and sorted by
+// category so like costs sit together. It replaces the earlier split ("From
+// activities" list + a separate logged-entries list with its own subtotal), which
+// stacked two headers and echoed the same numbers — confusing to read. Manually
+// logged rows stay editable inline (CostEntryItem); activity rows are read-only
+// (edit the amount on the item in the plan) and a not-yet-done one is tagged
+// "upcoming" since it isn't spent yet. Skipped/cancelled activities are excluded.
+function DayCostBreakdown({
+  planItems,
+  entries,
+  onEntryUpdated,
+  onEntryDeleted,
+  isOnline,
+}: {
+  planItems: PlanItem[]
+  entries: CostEntry[]
+  onEntryUpdated: (e: CostEntry) => void
+  onEntryDeleted: (id: string) => void
+  isOnline: boolean
+}) {
+  const order = (cat: string) => {
+    const i = (BUDGET_CATEGORIES as readonly string[]).indexOf(cat)
+    return i === -1 ? BUDGET_CATEGORIES.length : i
+  }
+  const activityRows = planItems
+    .filter((i) => (i.cost ?? 0) > 0 && i.status !== 'skipped' && i.status !== 'cancelled')
+    .map((i) => ({
+      key: `item-${i.id}`,
+      category: i.type || 'Other',
+      amount: i.cost as number,
+      label: i.title,
+      upcoming: i.status !== 'done',
+      entry: null as CostEntry | null,
+    }))
+  const entryRows = entries.map((e) => ({
+    key: `entry-${e.id}`,
+    category: e.category as string,
+    amount: e.amount,
+    label: e.note || e.category,
+    upcoming: false,
+    entry: e,
+  }))
+  // Concatenate activities first, then a stable sort by category, so within a
+  // category the plan's costs read before the manually-logged ones.
+  const rows = [...activityRows, ...entryRows].sort((a, b) => order(a.category) - order(b.category))
+  if (rows.length === 0) return null
+
   return (
-    <div className="day-activity-costs">
-      <div className="day-activity-costs-head meta">From activities</div>
-      <ul className="cost-entry-list" aria-label="Activity costs">
-        {costed.map((i) => (
-          <li key={i.id} className="cost-entry">
-            <span className="cost-entry-category">{i.type || 'Activity'}</span>
-            <span className="cost-entry-amount">{euro(i.cost as number)}</span>
-            <span className="cost-entry-note">{i.title}</span>
-            {i.status !== 'done' && (
-              <span className="day-activity-cost-upcoming meta">upcoming</span>
-            )}
-          </li>
-        ))}
+    <div className="day-cost-breakdown">
+      <div className="eyebrow day-cost-breakdown-head">Costs</div>
+      <ul className="cost-entry-list" aria-label="Day costs">
+        {rows.map((r) =>
+          r.entry ? (
+            <CostEntryItem
+              key={r.key}
+              entry={r.entry}
+              onUpdated={onEntryUpdated}
+              onDeleted={onEntryDeleted}
+              isOnline={isOnline}
+            />
+          ) : (
+            <li key={r.key} className="cost-entry cost-entry--readonly">
+              <span className="cost-entry-category">{r.category}</span>
+              <span className="cost-entry-amount">{euro(r.amount)}</span>
+              <span className="cost-entry-note">{r.label}</span>
+              {r.upcoming && <span className="day-activity-cost-upcoming meta">upcoming</span>}
+            </li>
+          ),
+        )}
       </ul>
     </div>
   )
@@ -1297,6 +1343,7 @@ function DayBudgetStrip({
   // costs would only appear after a full page reload, not when logged as expenses.
   planItems: PlanItem[]
 }) {
+  const isOnline = useIsOnline()
   const [rollup, setRollup] = useState<BudgetRollup | null>(null)
   const [entries, setEntries] = useState<CostEntry[]>([])
   const [extraOpen, setExtraOpen] = useState(false)
@@ -1418,31 +1465,43 @@ function DayBudgetStrip({
       ) : (
         <p className="day-budget-empty meta">Nothing spent or budgeted for this day yet.</p>
       )}
-      <button
-        type="button"
-        className="day-budget-extra-toggle"
-        onClick={() => setExtraOpen((o) => !o)}
-        aria-expanded={extraOpen}
-      >
-        {extraOpen ? 'Done' : '+ Add extra to a category'}
-      </button>
-      {extraOpen && (
-        <DayExtraEditor
+
+      <DayCostBreakdown
+        planItems={planItems}
+        entries={entries}
+        onEntryUpdated={handleEntryUpdated}
+        onEntryDeleted={handleEntryDeleted}
+        isOnline={isOnline}
+      />
+
+      <div className="day-budget-actions">
+        {!isOnline && (
+          <p className="fast-add-cost-offline">Offline — changes will sync when reconnected.</p>
+        )}
+        <AddCostForm
           tripId={tripId}
           dayId={day.id}
-          rollup={rollup}
-          onChanged={(line) => (line ? applyOfflineLine(line) : loadRollup())}
+          defaultCategory="Other"
+          isOnline={isOnline}
+          onAdded={handleEntryAdded}
         />
-      )}
-      <ActivityCostList items={planItems} />
-      <FastAddCost
-        tripId={tripId}
-        dayId={day.id}
-        entries={entries}
-        onAdded={handleEntryAdded}
-        onUpdated={handleEntryUpdated}
-        onDeleted={handleEntryDeleted}
-      />
+        <button
+          type="button"
+          className="day-budget-extra-toggle"
+          onClick={() => setExtraOpen((o) => !o)}
+          aria-expanded={extraOpen}
+        >
+          {extraOpen ? 'Done' : '+ Add extra to a category'}
+        </button>
+        {extraOpen && (
+          <DayExtraEditor
+            tripId={tripId}
+            dayId={day.id}
+            rollup={rollup}
+            onChanged={(line) => (line ? applyOfflineLine(line) : loadRollup())}
+          />
+        )}
+      </div>
     </section>
   )
 }

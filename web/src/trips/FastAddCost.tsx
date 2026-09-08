@@ -10,7 +10,6 @@ import {
   type UpdateCostEntryInput,
 } from '../lib/api'
 import { enqueue } from '../lib/mutationQueue'
-import { useIsOnline } from '../lib/useIsOnline'
 
 // formatEUR formats a number as a compact EUR string, e.g. "€12.50".
 function formatEUR(amount: number): string {
@@ -18,7 +17,7 @@ function formatEUR(amount: number): string {
 }
 
 // CostEntryItem renders a single cost entry with inline edit / delete controls.
-function CostEntryItem({
+export function CostEntryItem({
   entry,
   onUpdated,
   onDeleted,
@@ -172,7 +171,7 @@ function CostEntryItem({
 }
 
 // AddCostForm is the quick-add form for logging a new cost entry.
-function AddCostForm({
+export function AddCostForm({
   tripId,
   dayId,
   defaultCategory,
@@ -317,59 +316,5 @@ function AddCostForm({
         </button>
       </div>
     </form>
-  )
-}
-
-// FastAddCost renders the cost entry list and quick-add form for a day.
-export function FastAddCost({
-  tripId,
-  dayId,
-  entries,
-  onAdded,
-  onUpdated,
-  onDeleted,
-}: {
-  tripId: string
-  dayId: string
-  entries: CostEntry[]
-  onAdded: (e: CostEntry) => void
-  onUpdated: (e: CostEntry) => void
-  onDeleted: (id: string) => void
-}) {
-  const isOnline = useIsOnline()
-  const total = entries.reduce((sum, e) => sum + e.amount, 0)
-
-  return (
-    <div className="fast-add-cost">
-      {!isOnline && (
-        <p className="fast-add-cost-offline">Offline — changes will sync when reconnected.</p>
-      )}
-      {entries.length > 0 && (
-        <>
-          <ul className="cost-entry-list" aria-label="Cost entries">
-            {entries.map((e) => (
-              <CostEntryItem
-                key={e.id}
-                entry={e}
-                onUpdated={onUpdated}
-                onDeleted={onDeleted}
-                isOnline={isOnline}
-              />
-            ))}
-          </ul>
-          <div className="cost-entry-total">
-            <span className="cost-entry-total-label">Logged costs:</span>
-            <span className="cost-entry-total-value">{formatEUR(total)}</span>
-          </div>
-        </>
-      )}
-      <AddCostForm
-        tripId={tripId}
-        dayId={dayId}
-        defaultCategory="Other"
-        isOnline={isOnline}
-        onAdded={onAdded}
-      />
-    </div>
   )
 }
