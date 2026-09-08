@@ -778,7 +778,9 @@ describe('DayView', () => {
       )
 
       renderDayView()
-      await waitFor(() => expect(screen.getByText('Flight')).toBeInTheDocument())
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: /Edit Flight/ })).toBeInTheDocument(),
+      )
 
       await user.click(screen.getByRole('button', { name: /Edit Flight/ }))
       const editingLi = document.querySelector('.plan-item--editing')!
@@ -803,7 +805,9 @@ describe('DayView', () => {
         'trip-1',
         expect.objectContaining({ title: 'Flight (part 2/2)', cost: 5 }),
       )
-      await waitFor(() => expect(screen.getByText('Flight (part 2/2)')).toBeInTheDocument())
+      await waitFor(() =>
+        expect(screen.getAllByText('Flight (part 2/2)').length).toBeGreaterThan(0),
+      )
     })
 
     it('lets you type a fresh part count without clamping mid-keystroke', async () => {
@@ -812,7 +816,9 @@ describe('DayView', () => {
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
 
       renderDayView()
-      await waitFor(() => expect(screen.getByText('Flight')).toBeInTheDocument())
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: /Edit Flight/ })).toBeInTheDocument(),
+      )
 
       await user.click(screen.getByRole('button', { name: /Edit Flight/ }))
       const editingLi = document.querySelector('.plan-item--editing')!
@@ -978,6 +984,59 @@ describe('DayView', () => {
       expect(await screen.findByText('Lunch')).toBeInTheDocument()
       expect(screen.getAllByText('€12.50').length).toBeGreaterThan(0)
       expect(screen.queryByText('Other day')).not.toBeInTheDocument()
+    })
+
+    it('lists activities that carry a cost in the budget area (excluding skipped)', async () => {
+      setMobile(false)
+      vi.mocked(api.fetchDay).mockResolvedValue(
+        makeDay({
+          plan_items: [
+            makePlanItem({
+              id: 'a1',
+              title: 'Museum ticket',
+              type: 'Activities',
+              cost: 18,
+              status: 'done',
+            }),
+            makePlanItem({
+              id: 'a2',
+              title: 'Boat tour',
+              type: 'Activities',
+              cost: 40,
+              status: 'planned',
+            }),
+            makePlanItem({
+              id: 'a3',
+              title: 'Free walk',
+              type: 'Activities',
+              cost: 0,
+              status: 'done',
+            }),
+            makePlanItem({
+              id: 'a4',
+              title: 'Cancelled gig',
+              type: 'Activities',
+              cost: 25,
+              status: 'skipped',
+            }),
+          ],
+        }),
+      )
+      renderDayView()
+
+      // Scope to the budget area's activity list — the same items also render in
+      // the plan/what-happened lists, so assert only within this section.
+      const list = await screen.findByLabelText('Activity costs')
+      const q = within(list)
+      // Costed activities show; the planned one is tagged upcoming.
+      expect(q.getByText('Museum ticket')).toBeInTheDocument()
+      expect(q.getByText('€18.00')).toBeInTheDocument()
+      expect(q.getByText('Boat tour')).toBeInTheDocument()
+      expect(q.getByText('€40.00')).toBeInTheDocument()
+      expect(q.getByText('upcoming')).toBeInTheDocument()
+      // A zero-cost activity and a skipped one are excluded.
+      expect(q.queryByText('Free walk')).not.toBeInTheDocument()
+      expect(q.queryByText('Cancelled gig')).not.toBeInTheDocument()
     })
 
     it('sets a day extra on a category from the day budget', async () => {
