@@ -358,7 +358,7 @@ export function FastAddCost({
             ))}
           </ul>
           <div className="cost-entry-total">
-            <span className="cost-entry-total-label">Day total:</span>
+            <span className="cost-entry-total-label">Logged costs:</span>
             <span className="cost-entry-total-value">{formatEUR(total)}</span>
           </div>
         </>
