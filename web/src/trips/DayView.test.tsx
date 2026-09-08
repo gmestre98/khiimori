@@ -991,10 +991,34 @@ describe('DayView', () => {
       vi.mocked(api.fetchDay).mockResolvedValue(
         makeDay({
           plan_items: [
-            makePlanItem({ id: 'a1', title: 'Museum ticket', type: 'Activities', cost: 18, status: 'done' }),
-            makePlanItem({ id: 'a2', title: 'Boat tour', type: 'Activities', cost: 40, status: 'planned' }),
-            makePlanItem({ id: 'a3', title: 'Free walk', type: 'Activities', cost: 0, status: 'done' }),
-            makePlanItem({ id: 'a4', title: 'Cancelled gig', type: 'Activities', cost: 25, status: 'skipped' }),
+            makePlanItem({
+              id: 'a1',
+              title: 'Museum ticket',
+              type: 'Activities',
+              cost: 18,
+              status: 'done',
+            }),
+            makePlanItem({
+              id: 'a2',
+              title: 'Boat tour',
+              type: 'Activities',
+              cost: 40,
+              status: 'planned',
+            }),
+            makePlanItem({
+              id: 'a3',
+              title: 'Free walk',
+              type: 'Activities',
+              cost: 0,
+              status: 'done',
+            }),
+            makePlanItem({
+              id: 'a4',
+              title: 'Cancelled gig',
+              type: 'Activities',
+              cost: 25,
+              status: 'skipped',
+            }),
           ],
         }),
       )
