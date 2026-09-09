@@ -130,10 +130,8 @@ test('critical journey: create trip → plan → budget → journal → share', 
     await costForm.getByLabel('Note').fill(costNote)
     await costForm.getByRole('button', { name: 'Log', exact: true }).click()
 
-    // Real outcome: the cost entry appears in the day's cost list.
-    await expect(
-      budget.getByRole('list', { name: 'Cost entries' }).getByText(costNote),
-    ).toBeVisible()
+    // Real outcome: the cost entry appears in the day's unified cost breakdown.
+    await expect(budget.getByRole('list', { name: 'Day costs' }).getByText(costNote)).toBeVisible()
   })
 
   await test.step('write a journal entry', async () => {
