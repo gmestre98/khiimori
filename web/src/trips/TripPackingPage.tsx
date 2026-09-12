@@ -455,7 +455,11 @@ function PackingItemRow({
   }
 
   return (
-    <li className={['packing-item', item.packed ? 'packing-item--packed' : ''].filter(Boolean).join(' ')}>
+    <li
+      className={['packing-item', item.packed ? 'packing-item--packed' : '']
+        .filter(Boolean)
+        .join(' ')}
+    >
       <label className="packing-check">
         <input
           type="checkbox"

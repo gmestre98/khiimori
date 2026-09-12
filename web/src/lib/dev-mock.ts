@@ -420,7 +420,12 @@ function resolvePacking(path: string, method: string, body: unknown): Response |
     const created: MockPackingItem[] = []
     if (tmpl) {
       for (const ti of tmpl.items) {
-        const it = mkItem({ category: ti.category, label: ti.label, quantity: ti.quantity, note: ti.note })
+        const it = mkItem({
+          category: ti.category,
+          label: ti.label,
+          quantity: ti.quantity,
+          note: ti.note,
+        })
         packingItems.push(it)
         created.push(it)
       }

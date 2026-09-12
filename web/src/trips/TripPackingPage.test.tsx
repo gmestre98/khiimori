@@ -94,7 +94,9 @@ describe('TripPackingPage', () => {
     mockedApi.fetchPackingItems.mockResolvedValue([
       mkItem({ id: 'i1', label: 'Gloves', packed: false }),
     ])
-    mockedApi.updatePackingItem.mockResolvedValue(mkItem({ id: 'i1', label: 'Gloves', packed: true }))
+    mockedApi.updatePackingItem.mockResolvedValue(
+      mkItem({ id: 'i1', label: 'Gloves', packed: true }),
+    )
     renderPage()
 
     const checkbox = await screen.findByRole('checkbox', { name: /Mark Gloves as packed/i })
@@ -145,8 +147,6 @@ describe('TripPackingPage', () => {
     const dialog = screen.getByRole('dialog')
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
 
-    await waitFor(() =>
-      expect(mockedApi.deletePackingItem).toHaveBeenCalledWith('trip-1', 'i1'),
-    )
+    await waitFor(() => expect(mockedApi.deletePackingItem).toHaveBeenCalledWith('trip-1', 'i1'))
   })
 })
