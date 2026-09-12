@@ -1587,3 +1587,197 @@ export async function adminChangeRole(tripID: string, userID: string, role: stri
   if (res.status === 403) throw new Error('forbidden')
   if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
 }
+
+// --- Packing list (per-trip) ------------------------------------------------
+
+// PackingItem is the wire shape of a single packing-list entry. Items are grouped
+// in the UI by `category` (empty reads as "Uncategorised") and checked off via
+// `packed`. `quantity` is at least 1; `note` is an optional qualifier.
+export interface PackingItem {
+  id: string
+  trip_id: string
+  category: string
+  label: string
+  quantity: number
+  note: string
+  packed: boolean
+  position: number
+  created_at: string
+  updated_at: string
+}
+
+// PackingItemInput is the payload for creating an item (POST). Only label is
+// required; quantity defaults to 1 server-side when 0/omitted.
+export interface PackingItemInput {
+  category?: string
+  label: string
+  quantity?: number
+  note?: string
+}
+
+// PackingItemPatch is a partial update (PATCH): omitted fields are left unchanged,
+// so toggling `packed` alone never clears the label.
+export interface PackingItemPatch {
+  category?: string
+  label?: string
+  quantity?: number
+  note?: string
+  packed?: boolean
+}
+
+// PackingValidationError carries the API's 400 message so the form can show it.
+export class PackingValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'PackingValidationError'
+  }
+}
+
+// fetchPackingItems loads a trip's packing list (GET /trips/:id/packing).
+export async function fetchPackingItems(
+  tripId: string,
+  signal?: AbortSignal,
+): Promise<PackingItem[]> {
+  const res = await apiFetch(`/trips/${tripId}/packing`, { signal })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as PackingItem[]
+}
+
+// createPackingItem adds an item (POST /trips/:id/packing).
+export async function createPackingItem(
+  tripId: string,
+  input: PackingItemInput,
+): Promise<PackingItem> {
+  const res = await apiFetch(`/trips/${tripId}/packing`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 400) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new PackingValidationError(body?.error?.message ?? 'Invalid item')
+  }
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as PackingItem
+}
+
+// updatePackingItem applies a partial update (PATCH /trips/:id/packing/:itemId).
+export async function updatePackingItem(
+  tripId: string,
+  itemId: string,
+  patch: PackingItemPatch,
+): Promise<PackingItem> {
+  const res = await apiFetch(`/trips/${tripId}/packing/${itemId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 400) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new PackingValidationError(body?.error?.message ?? 'Invalid item')
+  }
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as PackingItem
+}
+
+// deletePackingItem removes an item (DELETE /trips/:id/packing/:itemId).
+// Idempotent from the UI's view: a 404 (already gone) is treated as success.
+export async function deletePackingItem(tripId: string, itemId: string): Promise<void> {
+  const res = await apiFetch(`/trips/${tripId}/packing/${itemId}`, { method: 'DELETE' })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok && res.status !== 204 && res.status !== 404) {
+    throw new Error(`API returned HTTP ${res.status}`)
+  }
+}
+
+// PackingTemplate is a saved, reusable list (metadata only). item_count is how
+// many items it holds.
+export interface PackingTemplate {
+  id: string
+  name: string
+  item_count: number
+  created_at: string
+  updated_at: string
+}
+
+// PackingTemplateItem is one entry of a template (no packed state).
+export interface PackingTemplateItem {
+  id: string
+  category: string
+  label: string
+  quantity: number
+  note: string
+  position: number
+}
+
+// PackingTemplateDetail is a template together with its items.
+export interface PackingTemplateDetail extends PackingTemplate {
+  items: PackingTemplateItem[]
+}
+
+// fetchPackingTemplates lists the current user's saved templates.
+export async function fetchPackingTemplates(signal?: AbortSignal): Promise<PackingTemplate[]> {
+  const res = await apiFetch('/packing/templates', { signal })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as PackingTemplate[]
+}
+
+// fetchPackingTemplate loads one template with its items.
+export async function fetchPackingTemplate(
+  templateId: string,
+  signal?: AbortSignal,
+): Promise<PackingTemplateDetail> {
+  const res = await apiFetch(`/packing/templates/${templateId}`, { signal })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as PackingTemplateDetail
+}
+
+// createPackingTemplate saves a template. When fromTripId is given, the trip's
+// current items are snapshotted into the new template.
+export async function createPackingTemplate(
+  name: string,
+  fromTripId?: string,
+): Promise<PackingTemplate> {
+  const res = await apiFetch('/packing/templates', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, from_trip_id: fromTripId ?? '' }),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 400) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new PackingValidationError(body?.error?.message ?? 'Invalid template')
+  }
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as PackingTemplate
+}
+
+// deletePackingTemplate removes a saved template (its items cascade).
+export async function deletePackingTemplate(templateId: string): Promise<void> {
+  const res = await apiFetch(`/packing/templates/${templateId}`, { method: 'DELETE' })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok && res.status !== 204 && res.status !== 404) {
+    throw new Error(`API returned HTTP ${res.status}`)
+  }
+}
+
+// applyPackingTemplate copies a template's items into a trip's list and returns
+// the newly created items.
+export async function applyPackingTemplate(
+  tripId: string,
+  templateId: string,
+): Promise<PackingItem[]> {
+  const res = await apiFetch(`/trips/${tripId}/packing/apply-template`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ template_id: templateId }),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as PackingItem[]
+}

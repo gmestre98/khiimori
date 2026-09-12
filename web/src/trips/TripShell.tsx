@@ -39,14 +39,17 @@ const TRIP_TABS = [
   { key: 'days', label: 'Days', suffix: '/plan' },
   { key: 'map', label: 'Map', suffix: '/map' },
   { key: 'budget', label: 'Budget', suffix: '/budget' },
+  { key: 'packing', label: 'Packing', suffix: '/packing' },
   { key: 'sharing', label: 'Sharing', suffix: '/sharing' },
 ] as const
 
 // activeTripTab resolves which section the current path belongs to. Anything that
-// isn't Map/Budget/Sharing (a day, the plan overview, the backlog) reads as Days.
+// isn't Map/Budget/Packing/Sharing (a day, the plan overview, the backlog) reads
+// as Days.
 function activeTripTab(pathname: string): (typeof TRIP_TABS)[number]['key'] {
   if (pathname.endsWith('/map')) return 'map'
   if (pathname.endsWith('/budget')) return 'budget'
+  if (pathname.endsWith('/packing')) return 'packing'
   if (pathname.endsWith('/sharing')) return 'sharing'
   return 'days'
 }
@@ -140,6 +143,7 @@ function TripShell() {
     !location.pathname.endsWith('/map') &&
     !location.pathname.endsWith('/journal') &&
     !location.pathname.endsWith('/budget') &&
+    !location.pathname.endsWith('/packing') &&
     !location.pathname.endsWith('/sharing')
   if (isAtRoot) {
     const today = todayStr()

@@ -351,6 +351,153 @@ const journalEntry = {
 
 const usage = { used_bytes: 320_000_000, cap_bytes: 1_073_741_824, near_cap: false, used_pct: 30 }
 
+// --- Packing list mock state (M-packing) ---
+// A tiny in-memory store so add/toggle/edit/delete and templates behave for real
+// in local dev. Seeded with the iron-ore-train example the feature was built for.
+type MockPackingItem = {
+  id: string
+  trip_id: string
+  category: string
+  label: string
+  quantity: number
+  note: string
+  packed: boolean
+  position: number
+  created_at: string
+  updated_at: string
+}
+let packingSeq = 0
+const nowIso = () => new Date().toISOString()
+function mkItem(partial: Partial<MockPackingItem>): MockPackingItem {
+  packingSeq += 1
+  return {
+    id: `pk-${packingSeq}`,
+    trip_id: MOCK_CURRENT_TRIP_ID,
+    category: '',
+    label: '',
+    quantity: 1,
+    note: '',
+    packed: false,
+    position: packingSeq,
+    created_at: nowIso(),
+    updated_at: nowIso(),
+    ...partial,
+  }
+}
+const packingItems: MockPackingItem[] = [
+  mkItem({ category: 'Safety gear', label: 'Steel-toe boots', packed: true }),
+  mkItem({ category: 'Safety gear', label: 'Ear protection', note: 'the iron ore train is loud' }),
+  mkItem({ category: 'Safety gear', label: 'Dust mask (FFP2)', quantity: 3 }),
+  mkItem({ category: 'Clothing', label: 'Warm jacket' }),
+  mkItem({ category: 'Clothing', label: 'Wool socks', quantity: 4 }),
+  mkItem({ label: 'Passport' }),
+]
+type MockTemplate = {
+  id: string
+  name: string
+  item_count: number
+  created_at: string
+  updated_at: string
+  items: MockPackingItem[]
+}
+const packingTemplates: MockTemplate[] = []
+// templateMeta returns a template without its items array (the list/create wire shape).
+function templateMeta(t: MockTemplate) {
+  return {
+    id: t.id,
+    name: t.name,
+    item_count: t.item_count,
+    created_at: t.created_at,
+    updated_at: t.updated_at,
+  }
+}
+
+function resolvePacking(path: string, method: string, body: unknown): Response | null {
+  // Apply a template into a trip.
+  if (/\/trips\/[^/]+\/packing\/apply-template$/.test(path) && method === 'POST') {
+    const id = (body as { template_id?: string })?.template_id ?? ''
+    const tmpl = packingTemplates.find((t) => t.id === id)
+    const created: MockPackingItem[] = []
+    if (tmpl) {
+      for (const ti of tmpl.items) {
+        const it = mkItem({
+          category: ti.category,
+          label: ti.label,
+          quantity: ti.quantity,
+          note: ti.note,
+        })
+        packingItems.push(it)
+        created.push(it)
+      }
+    }
+    return json(created, 201)
+  }
+  // Item update / delete.
+  const itemMatch = path.match(/\/trips\/[^/]+\/packing\/([^/]+)$/)
+  if (itemMatch) {
+    const idx = packingItems.findIndex((it) => it.id === itemMatch[1])
+    if (method === 'PATCH') {
+      const b = (body ?? {}) as Partial<MockPackingItem>
+      if (idx >= 0) {
+        packingItems[idx] = { ...packingItems[idx], ...b, updated_at: nowIso() }
+        return json(packingItems[idx])
+      }
+      return json({ error: { message: 'not found' } }, 404)
+    }
+    if (method === 'DELETE') {
+      if (idx >= 0) packingItems.splice(idx, 1)
+      return new Response(null, { status: 204 })
+    }
+  }
+  // Item list / create.
+  if (/\/trips\/[^/]+\/packing$/.test(path)) {
+    if (method === 'GET') return json(packingItems)
+    if (method === 'POST') {
+      const b = (body ?? {}) as Partial<MockPackingItem>
+      const it = mkItem({
+        category: b.category ?? '',
+        label: b.label ?? '',
+        quantity: b.quantity && b.quantity > 0 ? b.quantity : 1,
+        note: b.note ?? '',
+      })
+      packingItems.push(it)
+      return json(it, 201)
+    }
+  }
+  // Templates.
+  if (path === '/packing/templates') {
+    if (method === 'GET') return json(packingTemplates.map(templateMeta))
+    if (method === 'POST') {
+      const b = (body ?? {}) as { name?: string; from_trip_id?: string }
+      const items = b.from_trip_id ? packingItems.map((it) => ({ ...it })) : []
+      packingSeq += 1
+      const tmpl: MockTemplate = {
+        id: `tmpl-${packingSeq}`,
+        name: b.name ?? 'Template',
+        item_count: items.length,
+        created_at: nowIso(),
+        updated_at: nowIso(),
+        items,
+      }
+      packingTemplates.unshift(tmpl)
+      return json(templateMeta(tmpl), 201)
+    }
+  }
+  const tmplMatch = path.match(/\/packing\/templates\/([^/]+)$/)
+  if (tmplMatch) {
+    const idx = packingTemplates.findIndex((t) => t.id === tmplMatch[1])
+    if (method === 'GET') {
+      if (idx >= 0) return json(packingTemplates[idx])
+      return json({ error: { message: 'not found' } }, 404)
+    }
+    if (method === 'DELETE') {
+      if (idx >= 0) packingTemplates.splice(idx, 1)
+      return new Response(null, { status: 204 })
+    }
+  }
+  return null
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -362,6 +509,12 @@ function json(body: unknown, status = 200): Response {
 function resolve(path: string, method: string, search: string, body: unknown): Response | null {
   // /me — auth probe
   if (path === '/me') return json(profile)
+
+  // Packing list + templates (stateful in-memory mock).
+  if (path.includes('/packing') || path.startsWith('/packing/')) {
+    const res = resolvePacking(path, method, body)
+    if (res) return res
+  }
   if (path === '/trips' && method === 'GET') return null // handled by fetchTrips' own mock branch
 
   // Single-location geocode proxy — powers the location field's live feedback.
@@ -556,6 +709,7 @@ export function installDevMock() {
         u.pathname.startsWith('/invitations') ||
         u.pathname.startsWith('/admin') ||
         u.pathname.startsWith('/readyz') ||
+        u.pathname.startsWith('/packing') ||
         u.pathname.startsWith('/geo')
       if (isApi) {
         let body: unknown = undefined
