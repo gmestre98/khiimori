@@ -52,6 +52,12 @@ const ICONS = {
   map: ic('M9 4L3 7v13l6-3 6 3 6-3V4l-6 3-6-3zM9 4v13M15 7v13'),
   journal: ic('M5 3h11l3 3v15H5zM9 8h7M9 12h7M9 16h4'),
   budget: ic('M4 19V9m5 10V5m5 14v-7m5 7V8'),
+  // Clipboard with a check — the packing checklist.
+  packing: icMulti(
+    'M9 4h6a1 1 0 011 1v1H8V5a1 1 0 011-1z',
+    'M8 6h8a2 2 0 012 2v11a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 012-2z',
+    'M9.5 13.5l1.8 1.8 3.2-3.6',
+  ),
   sharing: icMulti(
     'M16 19a4 4 0 00-8 0',
     'M12 11a3 3 0 100-6 3 3 0 000 6z',
@@ -85,6 +91,7 @@ export function buildSidebarNavItems(activeTripId: string | null): BottomNavItem
     { to: tripPath(activeTripId, '/plan'), label: 'Days', icon: ICONS.journal },
     { to: tripPath(activeTripId, '/map'), label: 'Map', icon: ICONS.map },
     { to: tripPath(activeTripId, '/budget'), label: 'Budget', icon: ICONS.budget },
+    { to: tripPath(activeTripId, '/packing'), label: 'Packing', icon: ICONS.packing },
     { to: tripPath(activeTripId, '/sharing'), label: 'Sharing', icon: ICONS.sharing },
   ]
 }
@@ -130,6 +137,7 @@ export function buildTripBottomNavItems(activeTripId: string): BottomNavItem[] {
     },
     { to: `/trips/${activeTripId}/map`, label: 'Map', icon: ICONS.map },
     { to: `/trips/${activeTripId}/budget`, label: 'Budget', icon: ICONS.budget },
+    { to: `/trips/${activeTripId}/packing`, label: 'Packing', icon: ICONS.packing },
     { to: `/trips/${activeTripId}/sharing`, label: 'Sharing', icon: ICONS.sharing },
   ]
 }

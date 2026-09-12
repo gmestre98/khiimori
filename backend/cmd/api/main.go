@@ -33,6 +33,7 @@ import (
 	"github.com/gmestre98/khiimori/backend/internal/gdrive"
 	"github.com/gmestre98/khiimori/backend/internal/geo"
 	"github.com/gmestre98/khiimori/backend/internal/journal"
+	"github.com/gmestre98/khiimori/backend/internal/packing"
 	"github.com/gmestre98/khiimori/backend/internal/platform/config"
 	"github.com/gmestre98/khiimori/backend/internal/platform/db"
 	"github.com/gmestre98/khiimori/backend/internal/platform/health"
@@ -228,6 +229,7 @@ func newRouter(dbPinger db.Pinger, pool *pgxpool.Pool, cfg config.Config, mediaS
 		trip.New(pool, authModule.RequireAuth, sharing.NewMemberships(pool), membershipAuthzAdapter{tripAuthz}, mediaStore),
 		budgetModule,
 		journalModule,
+		packing.New(pool, authModule.RequireAuth, membershipPackingAuthzAdapter{tripAuthz}),
 		sharing.New(pool, sharing.Options{
 			Authz:          tripAuthz,
 			EmailSender:    sharing.NewResendSender(cfg.ResendAPIKey, "Khiimori <noreply@mail.khiimori.app>"),
@@ -339,6 +341,20 @@ func (a membershipBudgetAuthzAdapter) CanRead(ctx context.Context, userID, tripI
 }
 
 func (a membershipBudgetAuthzAdapter) CanWrite(ctx context.Context, userID, tripID string) (bool, error) {
+	return a.inner.Can(ctx, userID, string(trip.ActionWrite), tripID)
+}
+
+// membershipPackingAuthzAdapter adapts *sharing.MembershipAuthorizer to packing.Authorizer.
+// CanRead allows Owner/Editor/Viewer; CanWrite allows Owner/Editor only.
+type membershipPackingAuthzAdapter struct {
+	inner *sharing.MembershipAuthorizer
+}
+
+func (a membershipPackingAuthzAdapter) CanRead(ctx context.Context, userID, tripID string) (bool, error) {
+	return a.inner.Can(ctx, userID, string(trip.ActionRead), tripID)
+}
+
+func (a membershipPackingAuthzAdapter) CanWrite(ctx context.Context, userID, tripID string) (bool, error) {
 	return a.inner.Can(ctx, userID, string(trip.ActionWrite), tripID)
 }
 
