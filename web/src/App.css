@@ -930,11 +930,11 @@
 
 /* Colour panel — status eyebrow over the trip length (mirrors the hero panel). */
 .trip-card-panel {
-  width: 96px;
-  flex: 0 0 96px;
+  width: 132px;
+  flex: 0 0 132px;
   background: linear-gradient(135deg, #2f6f6a, #1d4f4b);
   position: relative;
-  min-height: 118px;
+  min-height: 132px;
 }
 
 .trip-card-panel--past {
@@ -942,9 +942,9 @@
 }
 
 .trip-card--featured .trip-card-panel {
-  width: 150px;
-  flex-basis: 150px;
-  min-height: 150px;
+  width: 184px;
+  flex-basis: 184px;
+  min-height: 172px;
 }
 
 .trip-card-panel-glow {
@@ -6163,11 +6163,17 @@
 .day-hero {
   position: relative;
   isolation: isolate;
-  min-height: 176px;
+  /* Taller banner so a cover photo reads as a photo, not a cropped strip. */
+  min-height: 260px;
   display: flex;
   align-items: flex-end;
   margin-bottom: var(--s5);
   overflow: hidden;
+}
+@media (max-width: 900px) {
+  .day-hero {
+    min-height: 216px;
+  }
 }
 .day-hero-scene {
   position: absolute;
