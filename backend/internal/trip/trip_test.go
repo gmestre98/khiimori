@@ -35,24 +35,27 @@ func TestValidateTripFields(t *testing.T) {
 		destinations []string
 		start, end   time.Time
 		cover        string
+		continent    string
 		wantErr      bool
 	}{
-		{"valid", "Lisbon", []string{"Lisbon", "Porto"}, start, end, "", false},
-		{"valid same-day", "Day trip", nil, start, start, "", false},
-		{"blank name", "   ", nil, start, end, "", true},
-		{"empty name", "", nil, start, end, "", true},
-		{"name too long", strings.Repeat("a", maxNameLen+1), nil, start, end, "", true},
-		{"too many destinations", "Trip", tooMany, start, end, "", true},
-		{"blank destination", "Trip", []string{"Lisbon", "  "}, start, end, "", true},
-		{"destination too long", "Trip", []string{strings.Repeat("d", maxDestinationLen+1)}, start, end, "", true},
-		{"end before start", "Trip", nil, end, start, "", true},
-		{"cover too long", "Trip", nil, start, end, strings.Repeat("c", maxCoverLen+1), true},
+		{"valid", "Lisbon", []string{"Lisbon", "Porto"}, start, end, "", "", false},
+		{"valid same-day", "Day trip", nil, start, start, "", "", false},
+		{"valid continent", "Trip", nil, start, end, "", "europe", false},
+		{"blank name", "   ", nil, start, end, "", "", true},
+		{"empty name", "", nil, start, end, "", "", true},
+		{"name too long", strings.Repeat("a", maxNameLen+1), nil, start, end, "", "", true},
+		{"too many destinations", "Trip", tooMany, start, end, "", "", true},
+		{"blank destination", "Trip", []string{"Lisbon", "  "}, start, end, "", "", true},
+		{"destination too long", "Trip", []string{strings.Repeat("d", maxDestinationLen+1)}, start, end, "", "", true},
+		{"end before start", "Trip", nil, end, start, "", "", true},
+		{"cover too long", "Trip", nil, start, end, strings.Repeat("c", maxCoverLen+1), "", true},
+		{"unknown continent", "Trip", nil, start, end, "", "atlantis", true},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			err := validateTripFields(tc.tripName, tc.destinations, tc.start, tc.end, tc.cover)
+			err := validateTripFields(tc.tripName, tc.destinations, tc.start, tc.end, tc.cover, tc.continent)
 			if tc.wantErr && err == nil {
 				t.Fatal("expected an error, got nil")
 			}

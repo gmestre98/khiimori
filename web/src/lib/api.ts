@@ -323,6 +323,9 @@ export interface Trip {
   // short-lived signed URL for an uploaded cover, an external URL passed through,
   // or "" when there is no cover. Read-only; never sent back to the server.
   cover_url?: string
+  // continent is the user-set continent tag, "" when unset. One of the fixed
+  // continent slugs (see lib/continents); used to filter the Past-trips list.
+  continent?: string
   status: string
   created_at: string
   updated_at: string
@@ -362,6 +365,7 @@ export interface TripInput {
   start_date: string
   end_date: string
   cover: string
+  continent: string
 }
 
 // TripValidationError carries the API's 400 message so the form can surface it.

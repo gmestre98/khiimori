@@ -41,13 +41,13 @@ type dayRegenerator interface {
 // tripColumns is the trip.trips column list returned by every read/write, in
 // scan order. Centralised so the SQL and scanTrip can't drift apart.
 const tripColumns = `id::text, owner_id::text, name, destinations, start_date, end_date, ` +
-	`base_currency, cover, status, created_at, updated_at`
+	`base_currency, cover, continent, status, created_at, updated_at`
 
 // scanTrip scans a trip.trips row (in tripColumns order) into t.
 func scanTrip(row pgx.Row, t *Trip) error {
 	return row.Scan(
 		&t.ID, &t.OwnerID, &t.Name, &t.Destinations, &t.StartDate, &t.EndDate,
-		&t.BaseCurrency, &t.Cover, &t.Status, &t.CreatedAt, &t.UpdatedAt,
+		&t.BaseCurrency, &t.Cover, &t.Continent, &t.Status, &t.CreatedAt, &t.UpdatedAt,
 	)
 }
 
@@ -77,13 +77,13 @@ func (s *pgxTripStore) Create(ctx context.Context, nt NewTrip) (Trip, error) {
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	const query = `
-		INSERT INTO trip.trips (owner_id, name, destinations, start_date, end_date, cover)
-		VALUES ($1::uuid, $2, $3, $4, $5, $6)
+		INSERT INTO trip.trips (owner_id, name, destinations, start_date, end_date, cover, continent)
+		VALUES ($1::uuid, $2, $3, $4, $5, $6, $7)
 		RETURNING ` + tripColumns
 
 	var t Trip
 	if err := scanTrip(tx.QueryRow(ctx, query,
-		nt.OwnerID, nt.Name, nt.Destinations, nt.StartDate, nt.EndDate, nt.Cover), &t); err != nil {
+		nt.OwnerID, nt.Name, nt.Destinations, nt.StartDate, nt.EndDate, nt.Cover, nt.Continent), &t); err != nil {
 		return Trip{}, fmt.Errorf("trip: insert: %w", err)
 	}
 
@@ -134,12 +134,12 @@ func (s *pgxTripStore) Update(ctx context.Context, id, ownerID string, e EditTri
 	const update = `
 		UPDATE trip.trips
 		SET name = $3, destinations = $4, start_date = $5, end_date = $6, cover = $7,
-		    updated_at = now()
+		    continent = $8, updated_at = now()
 		WHERE id = $1::uuid AND owner_id = $2::uuid
 		RETURNING ` + tripColumns
 	var updated Trip
 	if err := scanTrip(tx.QueryRow(ctx, update,
-		id, ownerID, e.Name, e.Destinations, e.StartDate, e.EndDate, e.Cover), &updated); err != nil {
+		id, ownerID, e.Name, e.Destinations, e.StartDate, e.EndDate, e.Cover, e.Continent), &updated); err != nil {
 		return Trip{}, fmt.Errorf("trip: update: %w", err)
 	}
 
@@ -177,13 +177,13 @@ func (s *pgxTripStore) SetCover(ctx context.Context, id, ownerID, cover string) 
 		WHERE t.id = $1::uuid AND t.owner_id = $2::uuid
 		RETURNING prev.cover,
 		          t.id::text, t.owner_id::text, t.name, t.destinations, t.start_date, t.end_date,
-		          t.base_currency, t.cover, t.status, t.created_at, t.updated_at`
+		          t.base_currency, t.cover, t.continent, t.status, t.created_at, t.updated_at`
 	var prev string
 	var t Trip
 	err := s.pool.QueryRow(ctx, q, id, ownerID, cover).Scan(
 		&prev,
 		&t.ID, &t.OwnerID, &t.Name, &t.Destinations, &t.StartDate, &t.EndDate,
-		&t.BaseCurrency, &t.Cover, &t.Status, &t.CreatedAt, &t.UpdatedAt,
+		&t.BaseCurrency, &t.Cover, &t.Continent, &t.Status, &t.CreatedAt, &t.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -268,7 +268,7 @@ func (s *pgxTripStore) Delete(ctx context.Context, id, ownerID string) error {
 func (s *pgxTripStore) List(ctx context.Context, userID string) ([]Trip, error) {
 	const q = `
 		SELECT t.id::text, t.owner_id::text, t.name, t.destinations, t.start_date, t.end_date,
-		       t.base_currency, t.cover, t.status, t.created_at, t.updated_at
+		       t.base_currency, t.cover, t.continent, t.status, t.created_at, t.updated_at
 		FROM trip.trips t
 		JOIN sharing.trip_memberships m ON m.trip_id = t.id
 		WHERE m.user_id = $1::uuid

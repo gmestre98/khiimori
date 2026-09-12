@@ -391,3 +391,131 @@ describe('TripsDashboard', () => {
     await waitFor(() => expect(screen.queryByText('Shared Trip')).not.toBeInTheDocument())
   })
 })
+
+describe('TripsDashboard — Past tab', () => {
+  // Three past trips across two years and two continents, given in the server's
+  // ascending start_date order (oldest first) to prove the client re-orders.
+  const norway2024 = {
+    ...tripA,
+    id: 'p-norway',
+    name: 'Norway Fjords',
+    destinations: ['Bergen'],
+    start_date: '2024-05-01',
+    end_date: '2024-05-08', // 8 days
+    continent: 'europe',
+  }
+  const vietnam2025 = {
+    ...tripA,
+    id: 'p-vietnam',
+    name: 'Vietnam Loop',
+    destinations: ['Hanoi', 'Da Nang'],
+    start_date: '2025-03-01',
+    end_date: '2025-03-20', // 20 days (the longest)
+    continent: 'asia',
+  }
+  const scotland2025 = {
+    ...tripA,
+    id: 'p-scotland',
+    name: 'Scotland Highlands',
+    destinations: ['Edinburgh'],
+    start_date: '2025-08-01',
+    end_date: '2025-08-06', // 6 days
+    continent: 'europe',
+  }
+  const pastResponse: TripsResponse = {
+    current: [],
+    upcoming: [],
+    past: [norway2024, vietnam2025, scotland2025],
+  }
+
+  // renderPast mounts the dashboard and switches to the Past tab.
+  async function renderPast() {
+    mockFetchTrips(pastResponse)
+    render(
+      <MemoryRouter>
+        <TripsDashboard />
+      </MemoryRouter>,
+    )
+    await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('tab', { name: /past/i }))
+  }
+
+  // pastTripOrder reads the visible trip-card names top-to-bottom (the cards use
+  // an <h3>), so a test can assert the applied ordering.
+  function pastTripOrder(): string[] {
+    return screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent ?? '')
+  }
+
+  it('defaults to newest-first and groups trips by year', async () => {
+    await renderPast()
+
+    expect(pastTripOrder()).toEqual(['Scotland Highlands', 'Vietnam Loop', 'Norway Fjords'])
+    // Year headers appear, newest year first.
+    expect(screen.getByText('2025')).toBeInTheDocument()
+    expect(screen.getByText('2024')).toBeInTheDocument()
+  })
+
+  it('reorders oldest-first', async () => {
+    await renderPast()
+    fireEvent.change(screen.getByRole('combobox', { name: /sort/i }), {
+      target: { value: 'oldest' },
+    })
+    expect(pastTripOrder()).toEqual(['Norway Fjords', 'Vietnam Loop', 'Scotland Highlands'])
+  })
+
+  it('sorts by longest trip as a flat list (no year grouping)', async () => {
+    await renderPast()
+    fireEvent.change(screen.getByRole('combobox', { name: /sort/i }), {
+      target: { value: 'longest' },
+    })
+    // Vietnam (20 days) > Norway (8) > Scotland (6); year headers are dropped.
+    expect(pastTripOrder()).toEqual(['Vietnam Loop', 'Norway Fjords', 'Scotland Highlands'])
+    expect(screen.queryByText('2025')).not.toBeInTheDocument()
+  })
+
+  it('sorts A–Z by name as a flat list', async () => {
+    await renderPast()
+    fireEvent.change(screen.getByRole('combobox', { name: /sort/i }), {
+      target: { value: 'az' },
+    })
+    expect(pastTripOrder()).toEqual(['Norway Fjords', 'Scotland Highlands', 'Vietnam Loop'])
+  })
+
+  it('filters by continent', async () => {
+    await renderPast()
+    fireEvent.change(screen.getByRole('combobox', { name: /continent/i }), {
+      target: { value: 'europe' },
+    })
+    expect(pastTripOrder()).toEqual(['Scotland Highlands', 'Norway Fjords'])
+    expect(screen.queryByText('Vietnam Loop')).not.toBeInTheDocument()
+    expect(screen.getByText(/2 of 3 trips/i)).toBeInTheDocument()
+  })
+
+  it('searches over name and destinations', async () => {
+    await renderPast()
+    fireEvent.change(screen.getByLabelText(/search past trips/i), {
+      target: { value: 'hanoi' }, // a destination, not a name
+    })
+    expect(pastTripOrder()).toEqual(['Vietnam Loop'])
+  })
+
+  it('shows an empty state with a clear-filters action when nothing matches', async () => {
+    await renderPast()
+    fireEvent.change(screen.getByLabelText(/search past trips/i), {
+      target: { value: 'nowhere' },
+    })
+    expect(screen.getByText(/no past trips match/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }))
+    // All three trips return.
+    expect(pastTripOrder()).toHaveLength(3)
+  })
+
+  it('only offers continents that are actually present', async () => {
+    await renderPast()
+    const continentSelect = screen.getByRole('combobox', { name: /continent/i })
+    const options = Array.from(continentSelect.querySelectorAll('option')).map((o) => o.textContent)
+    // europe + asia are present; africa/oceania/etc. are not offered.
+    expect(options).toEqual(['All continents', 'Europe', 'Asia'])
+  })
+})

@@ -19,12 +19,69 @@ import { HeroScene } from './heroScene'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { BudgetGlance } from './RollupDisplay'
 import { formatDateRange, monthYear, tripDayCount } from '../lib/format'
+import { CONTINENTS, continentLabel } from '../lib/continents'
 import { readCache, writeCache } from '../lib/resourceCache'
 import { cacheKeys } from '../lib/cacheKeys'
 import { CacheStatus } from '../components/CacheStatus'
 
 type Tab = 'current' | 'past'
 type PendingAction = { type: 'archive' | 'delete'; trip: Trip }
+
+// PastSort is how the Past tab orders trips. Newest-first is the default (past
+// trips read most-recent-first); 'longest' and 'az' are non-chronological, so the
+// year grouping falls back to a flat grid for them (see the Past tab below).
+type PastSort = 'newest' | 'oldest' | 'longest' | 'az'
+
+const PAST_SORTS: { value: PastSort; label: string }[] = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'longest', label: 'Longest trip' },
+  { value: 'az', label: 'A–Z by name' },
+]
+
+// tripYear is the calendar year a trip started in (used to group past trips).
+// Taken from the YYYY-MM-DD prefix so it is timezone-independent.
+function tripYear(iso: string): number {
+  return Number(iso.slice(0, 4))
+}
+
+// comparePast orders two trips for the given sort.
+function comparePast(a: Trip, b: Trip, sort: PastSort): number {
+  switch (sort) {
+    case 'oldest':
+      return a.start_date.localeCompare(b.start_date)
+    case 'longest':
+      return tripDayCount(b.start_date, b.end_date) - tripDayCount(a.start_date, a.end_date)
+    case 'az':
+      return a.name.localeCompare(b.name)
+    case 'newest':
+    default:
+      return b.start_date.localeCompare(a.start_date)
+  }
+}
+
+// YearGroup is one year's worth of past trips, for the grouped (chronological)
+// view.
+type YearGroup = { year: number; trips: Trip[] }
+
+// groupByYear buckets already-sorted trips into year groups, preserving the
+// incoming order both across and within years (the caller sorts newest- or
+// oldest-first, and the first trip seen for a year fixes that year's position).
+function groupByYear(trips: Trip[]): YearGroup[] {
+  const groups: YearGroup[] = []
+  const byYear = new Map<number, YearGroup>()
+  for (const t of trips) {
+    const year = tripYear(t.start_date)
+    let g = byYear.get(year)
+    if (!g) {
+      g = { year, trips: [] }
+      byYear.set(year, g)
+      groups.push(g)
+    }
+    g.trips.push(t)
+  }
+  return groups
+}
 
 // daysUntil returns whole days from today to an ISO date (negative if past).
 function daysUntil(iso: string): number {
@@ -48,6 +105,26 @@ function PlusIcon() {
       strokeLinejoin="round"
     >
       <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
+// SearchIcon — inline SVG for the past-trips search field.
+function SearchIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.3-4.3" />
     </svg>
   )
 }
@@ -77,8 +154,9 @@ function TripCard({
   // Panel copy mirrors the hero's "Now / Day N" — a status eyebrow over a figure.
   const panelTop = isPast ? 'Journal' : until <= 0 ? 'Now' : until <= 30 ? 'Soon' : 'Planning'
   const panelBottom = isPast ? monthYear(trip.start_date) : dayLabel
+  const contLabel = continentLabel(trip.continent)
   const dateLine = isPast
-    ? `${monthYear(trip.start_date)} · ${dayLabel}`
+    ? `${monthYear(trip.start_date)} · ${dayLabel}${contLabel ? ` · ${contLabel}` : ''}`
     : formatDateRange(trip.start_date, trip.end_date)
 
   return (
@@ -181,6 +259,11 @@ export function TripsDashboard() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [currentRollup, setCurrentRollup] = useState<BudgetRollup | null>(null)
   const [tab, setTab] = useState<Tab>('current')
+  // Past-tab controls: how the list is ordered, an optional continent filter
+  // ('' = all), and a free-text search over name + destinations.
+  const [pastSort, setPastSort] = useState<PastSort>('newest')
+  const [pastContinent, setPastContinent] = useState<string>('')
+  const [pastSearch, setPastSearch] = useState('')
   // Instant-render cache state (M11.1 S2): true while showing the cached trips
   // list and while a background refresh runs — drives the subtle "Updating…"
   // hint so the dashboard never blocks on the backend cold start.
@@ -343,6 +426,27 @@ export function TripsDashboard() {
     ? data.current.length + data.upcoming.length + data.past.length + archived.length
     : 0
 
+  // Past tab: the full past pool (server's past bucket plus trips archived this
+  // session), then the continent + search filters, then the chosen sort. Only
+  // continents actually present in the pool are offered in the filter.
+  const pastPool = data ? [...data.past, ...archived] : []
+  const pastContinentsPresent = new Set(pastPool.map((t) => t.continent || '').filter(Boolean))
+  const pastQuery = pastSearch.trim().toLowerCase()
+  const pastFiltered = pastPool.filter((t) => {
+    if (pastContinent && (t.continent || '') !== pastContinent) return false
+    if (pastQuery) {
+      const haystack = `${t.name} ${t.destinations.join(' ')}`.toLowerCase()
+      if (!haystack.includes(pastQuery)) return false
+    }
+    return true
+  })
+  const pastSorted = [...pastFiltered].sort((a, b) => comparePast(a, b, pastSort))
+  const pastFilterActive = pastContinent !== '' || pastQuery !== ''
+  // Year grouping is the structure for the chronological sorts; 'longest' and
+  // 'az' order across years, so they render as one flat grid instead.
+  const pastGrouped = pastSort === 'newest' || pastSort === 'oldest'
+  const pastYearGroups = pastGrouped ? groupByYear(pastSorted) : []
+
   return (
     <>
       {pending?.type === 'archive' && (
@@ -465,7 +569,11 @@ export function TripsDashboard() {
             </div>
             {data && (
               <span className="trips-tab-meta">
-                {totalCount} {totalCount === 1 ? 'trip' : 'trips'}
+                {tab === 'past'
+                  ? pastFilterActive
+                    ? `${pastSorted.length} of ${pastPool.length} trips`
+                    : `${pastPool.length} ${pastPool.length === 1 ? 'trip' : 'trips'}`
+                  : `${totalCount} ${totalCount === 1 ? 'trip' : 'trips'}`}
               </span>
             )}
           </div>
@@ -542,19 +650,113 @@ export function TripsDashboard() {
 
               {tab === 'past' && (
                 <>
-                  {data.past.length === 0 && archived.length === 0 ? (
+                  {pastPool.length === 0 ? (
                     <p className="trips-empty">No past trips yet.</p>
                   ) : (
-                    <div className="trips-grid">
-                      {[...data.past, ...archived].map((t) => (
-                        <TripCard
-                          key={t.id}
-                          trip={t}
-                          isPast
-                          onDelete={(trip) => setPending({ type: 'delete', trip })}
-                        />
-                      ))}
-                    </div>
+                    <>
+                      {/* Sort · continent · search. Continent only appears once at
+                          least one past trip is tagged. */}
+                      <div className="past-controls">
+                        <label className="past-control">
+                          <span className="past-control-label">Sort</span>
+                          <select
+                            className="past-select"
+                            value={pastSort}
+                            onChange={(e) => setPastSort(e.target.value as PastSort)}
+                          >
+                            {PAST_SORTS.map((s) => (
+                              <option key={s.value} value={s.value}>
+                                {s.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        {pastContinentsPresent.size > 0 && (
+                          <label className="past-control">
+                            <span className="past-control-label">Continent</span>
+                            <select
+                              className="past-select"
+                              value={pastContinent}
+                              onChange={(e) => setPastContinent(e.target.value)}
+                            >
+                              <option value="">All continents</option>
+                              {CONTINENTS.filter((c) => pastContinentsPresent.has(c.slug)).map(
+                                (c) => (
+                                  <option key={c.slug} value={c.slug}>
+                                    {c.label}
+                                  </option>
+                                ),
+                              )}
+                            </select>
+                          </label>
+                        )}
+
+                        <label className="past-search">
+                          <SearchIcon />
+                          <input
+                            type="search"
+                            value={pastSearch}
+                            onChange={(e) => setPastSearch(e.target.value)}
+                            placeholder="Search past trips"
+                            aria-label="Search past trips"
+                          />
+                        </label>
+                      </div>
+
+                      {pastSorted.length === 0 ? (
+                        <p className="trips-empty">
+                          No past trips match your filters.{' '}
+                          <button
+                            type="button"
+                            className="past-clear"
+                            onClick={() => {
+                              setPastContinent('')
+                              setPastSearch('')
+                            }}
+                          >
+                            Clear filters
+                          </button>
+                        </p>
+                      ) : pastGrouped ? (
+                        pastYearGroups.map((g) => (
+                          <section
+                            key={g.year}
+                            className="past-year"
+                            aria-label={`Trips from ${g.year}`}
+                          >
+                            <div className="past-year-head">
+                              <span className="past-year-num">{g.year}</span>
+                              <span className="past-year-count">
+                                {g.trips.length} {g.trips.length === 1 ? 'trip' : 'trips'}
+                              </span>
+                              <span className="past-year-rule" aria-hidden="true" />
+                            </div>
+                            <div className="trips-grid">
+                              {g.trips.map((t) => (
+                                <TripCard
+                                  key={t.id}
+                                  trip={t}
+                                  isPast
+                                  onDelete={(trip) => setPending({ type: 'delete', trip })}
+                                />
+                              ))}
+                            </div>
+                          </section>
+                        ))
+                      ) : (
+                        <div className="trips-grid">
+                          {pastSorted.map((t) => (
+                            <TripCard
+                              key={t.id}
+                              trip={t}
+                              isPast
+                              onDelete={(trip) => setPending({ type: 'delete', trip })}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </>
               )}
