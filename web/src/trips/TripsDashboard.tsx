@@ -155,6 +155,10 @@ function TripCard({
   const panelTop = isPast ? 'Journal' : until <= 0 ? 'Now' : until <= 30 ? 'Soon' : 'Planning'
   const panelBottom = isPast ? monthYear(trip.start_date) : dayLabel
   const contLabel = continentLabel(trip.continent)
+  // A displayable cover (signed https URL). Past trips normally keep the calm
+  // grey panel, but when they have a real cover we show it too — the photo reads
+  // far better than the placeholder rectangle.
+  const coverImage = trip.cover_url || trip.cover
   const dateLine = isPast
     ? `${monthYear(trip.start_date)} · ${dayLabel}${contLabel ? ` · ${contLabel}` : ''}`
     : formatDateRange(trip.start_date, trip.end_date)
@@ -183,15 +187,16 @@ function TripCard({
             .join(' ')}
           aria-hidden="true"
         >
-          {/* Past trips keep the calm grey panel; upcoming/lead trips get a
-              destination scene (Direction B). */}
-          {isPast ? (
+          {/* Upcoming/lead trips get a destination scene (Direction B); past
+              trips keep the calm grey panel unless they have a real cover photo,
+              in which case they show it too. */}
+          {isPast && !trip.cover_url ? (
             <div className="trip-card-panel-glow" />
           ) : (
             <>
               <HeroScene
                 seed={trip.destinations[0] || trip.name}
-                image={trip.cover_url || trip.cover}
+                image={coverImage}
                 className="trip-card-panel-scene"
               />
               <div className="current-trip-panel-scrim" />
