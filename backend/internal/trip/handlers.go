@@ -48,14 +48,14 @@ type tripStore interface {
 // and normalises destinations to a non-nil slice (so a nil never reaches the
 // NOT NULL destinations column). It returns a client-safe error on the first
 // problem.
-func parseTripInput(name string, destinations []string, startStr, endStr, cover string) (dests []string, start, end time.Time, err error) {
+func parseTripInput(name string, destinations []string, startStr, endStr, cover, continent string) (dests []string, start, end time.Time, err error) {
 	if start, err = parseDate("start_date", startStr); err != nil {
 		return nil, time.Time{}, time.Time{}, err
 	}
 	if end, err = parseDate("end_date", endStr); err != nil {
 		return nil, time.Time{}, time.Time{}, err
 	}
-	if err = validateTripFields(name, destinations, start, end, cover); err != nil {
+	if err = validateTripFields(name, destinations, start, end, cover, continent); err != nil {
 		return nil, time.Time{}, time.Time{}, err
 	}
 	dests = destinations
@@ -74,13 +74,14 @@ type createRequest struct {
 	StartDate    string   `json:"start_date"`
 	EndDate      string   `json:"end_date"`
 	Cover        string   `json:"cover"`
+	Continent    string   `json:"continent"`
 }
 
 // toNewTrip parses and validates the request into a NewTrip owned by ownerID. It
 // returns a client-safe error (rendered as 400) when a field is missing or
 // invalid.
 func (req createRequest) toNewTrip(ownerID string) (NewTrip, error) {
-	dests, start, end, err := parseTripInput(req.Name, req.Destinations, req.StartDate, req.EndDate, req.Cover)
+	dests, start, end, err := parseTripInput(req.Name, req.Destinations, req.StartDate, req.EndDate, req.Cover, req.Continent)
 	if err != nil {
 		return NewTrip{}, err
 	}
@@ -91,6 +92,7 @@ func (req createRequest) toNewTrip(ownerID string) (NewTrip, error) {
 		StartDate:    start,
 		EndDate:      end,
 		Cover:        req.Cover,
+		Continent:    req.Continent,
 	}, nil
 }
 
@@ -109,13 +111,14 @@ type editRequest struct {
 	StartDate    string   `json:"start_date"`
 	EndDate      string   `json:"end_date"`
 	Cover        string   `json:"cover"`
+	Continent    string   `json:"continent"`
 	ForceShrink  bool     `json:"force_shrink"`
 }
 
 // toEditTrip parses and validates the request into an EditTrip. It returns a
 // client-safe error (rendered as 400) when a field is missing or invalid.
 func (req editRequest) toEditTrip() (EditTrip, error) {
-	dests, start, end, err := parseTripInput(req.Name, req.Destinations, req.StartDate, req.EndDate, req.Cover)
+	dests, start, end, err := parseTripInput(req.Name, req.Destinations, req.StartDate, req.EndDate, req.Cover, req.Continent)
 	if err != nil {
 		return EditTrip{}, err
 	}
@@ -125,6 +128,7 @@ func (req editRequest) toEditTrip() (EditTrip, error) {
 		StartDate:       start,
 		EndDate:         end,
 		Cover:           req.Cover,
+		Continent:       req.Continent,
 		ForceRemoveDays: req.ForceShrink,
 	}, nil
 }
@@ -147,7 +151,10 @@ type tripResponse struct {
 	// CoverURL is a browser-loadable image URL derived from Cover at read time: an
 	// uploaded cover is a short-lived signed URL, an external URL is passed through,
 	// and an empty cover yields "". Read-only — clients display this, never send it.
-	CoverURL  string `json:"cover_url"`
+	CoverURL string `json:"cover_url"`
+	// Continent is the user-set continent tag, "" when unset. One of the fixed
+	// continent slugs (validContinents); used for Past-trips filtering.
+	Continent string `json:"continent"`
 	Status    string `json:"status"`
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
@@ -170,6 +177,7 @@ func newTripResponse(t Trip) tripResponse {
 		EndDate:      t.EndDate.Format(dateLayout),
 		BaseCurrency: t.BaseCurrency,
 		Cover:        t.Cover,
+		Continent:    t.Continent,
 		Status:       t.Status,
 		CreatedAt:    t.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:    t.UpdatedAt.UTC().Format(time.RFC3339),

@@ -752,6 +752,127 @@
   margin-bottom: var(--s7);
 }
 
+/* ── Past-trips controls (sort · continent · search) ── */
+.past-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin-bottom: var(--s6);
+  flex-wrap: wrap;
+}
+
+.past-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.past-control-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.past-select {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 8px 34px 8px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-full, 999px);
+  background-color: var(--surface);
+  color: var(--text-h);
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238C8676' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.past-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}
+
+.past-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-left: auto;
+  flex: 1 1 200px;
+  max-width: 320px;
+  padding: 0 14px;
+  height: 38px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-full, 999px);
+  background: var(--surface);
+  color: var(--muted);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.past-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+  color: var(--text-h);
+}
+.past-search input {
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text-h);
+  width: 100%;
+  min-width: 0;
+}
+.past-search input::placeholder {
+  color: var(--muted);
+}
+
+/* ── Past-trips year sections ── */
+.past-year {
+  margin-bottom: var(--s6);
+}
+
+.past-year-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  margin-bottom: var(--s4);
+}
+
+.past-year-num {
+  font-size: 0.95rem;
+  font-weight: var(--fw-semi);
+  letter-spacing: 0.02em;
+  color: var(--text-h);
+}
+
+.past-year-count {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.past-year-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.past-clear {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 /* Upcoming / past tiles echo the current-trip hero: a colour panel beside the
    trip's details, an accent edge, and a lift on hover. */
 .trip-card {
@@ -1233,6 +1354,31 @@
   color: var(--muted);
 }
 .trip-form-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}
+
+/* Continent picker — matches the text inputs, with a custom chevron so the
+   control reads as part of the same form vocabulary across browsers. */
+.trip-form-select {
+  font: inherit;
+  padding: 10px 36px 10px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background-color: var(--bg);
+  color: var(--text-h);
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238C8676' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.trip-form-select:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-tint);

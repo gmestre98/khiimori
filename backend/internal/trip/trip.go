@@ -20,6 +20,20 @@ const (
 	maxCoverLen       = 2048
 )
 
+// validContinents is the fixed set of continent slugs a trip may be tagged with.
+// The empty string means "unset". It mirrors the DB CHECK on trip.trips.continent
+// exactly — the two must be changed together.
+var validContinents = map[string]bool{
+	"":              true,
+	"africa":        true,
+	"antarctica":    true,
+	"asia":          true,
+	"europe":        true,
+	"north_america": true,
+	"oceania":       true,
+	"south_america": true,
+}
+
 // statusActive is the trip lifecycle state a new trip starts in (mirrors the DB
 // CHECK and column default). S4 adds the archived state with the archive path.
 const statusActive = "active"
@@ -41,6 +55,7 @@ type Trip struct {
 	EndDate      time.Time
 	BaseCurrency string
 	Cover        string // Cloud Storage object reference or external URL; may be empty
+	Continent    string // one of validContinents; "" when unset (user-set, see migration 00037)
 	Status       string // active | archived
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
@@ -56,6 +71,7 @@ type NewTrip struct {
 	StartDate    time.Time
 	EndDate      time.Time
 	Cover        string
+	Continent    string
 }
 
 // EditTrip is the validated input to edit a trip. It carries only the
@@ -74,13 +90,14 @@ type EditTrip struct {
 	StartDate       time.Time
 	EndDate         time.Time
 	Cover           string
+	Continent       string
 	ForceRemoveDays bool
 }
 
 // validateTripFields checks the shared, client-supplied trip fields (name,
 // destinations, dates, cover) used by both create (S2) and edit (S3). It returns
 // a client-safe error describing the first problem, or nil when valid.
-func validateTripFields(name string, destinations []string, start, end time.Time, cover string) error {
+func validateTripFields(name string, destinations []string, start, end time.Time, cover, continent string) error {
 	if strings.TrimSpace(name) == "" {
 		return errors.New("name is required")
 	}
@@ -103,6 +120,9 @@ func validateTripFields(name string, destinations []string, start, end time.Time
 	}
 	if len(cover) > maxCoverLen {
 		return fmt.Errorf("cover must be at most %d characters", maxCoverLen)
+	}
+	if !validContinents[continent] {
+		return errors.New("continent is not a recognised value")
 	}
 	return nil
 }

@@ -11,6 +11,7 @@ import {
   type TripInput,
 } from '../lib/api'
 import { shortDate } from '../lib/format'
+import { CONTINENTS } from '../lib/continents'
 import { HeroScene } from './heroScene'
 
 // Cover upload constraints, mirrored client-side for instant feedback (the server
@@ -119,6 +120,7 @@ export function TripForm({ trip, onSuccess, onCancel }: TripFormProps) {
 
   const [name, setName] = useState(trip?.name ?? '')
   const [destinations, setDestinations] = useState(trip?.destinations.join(', ') ?? '')
+  const [continent, setContinent] = useState(trip?.continent ?? '')
   const [startDate, setStartDate] = useState(trip?.start_date ?? '')
   const [endDate, setEndDate] = useState(trip?.end_date ?? '')
 
@@ -228,6 +230,7 @@ export function TripForm({ trip, onSuccess, onCancel }: TripFormProps) {
       start_date: startDate,
       end_date: endDate,
       cover: coverRef,
+      continent,
     }
 
     // Save the trip first (unless a prior attempt already did — retry only the
@@ -348,6 +351,23 @@ export function TripForm({ trip, onSuccess, onCancel }: TripFormProps) {
             placeholder="e.g. Tokyo, Kyoto"
           />
           <span className="trip-form-hint">Comma-separated list</span>
+        </label>
+
+        <label className="trip-form-field">
+          <span>Continent</span>
+          <select
+            className="trip-form-select"
+            value={continent}
+            onChange={(e) => setContinent(e.target.value)}
+          >
+            <option value="">No continent</option>
+            {CONTINENTS.map((c) => (
+              <option key={c.slug} value={c.slug}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <span className="trip-form-hint">Used to filter your past trips</span>
         </label>
 
         <div className="trip-form-row">
