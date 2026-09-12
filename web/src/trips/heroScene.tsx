@@ -33,16 +33,39 @@ function looksLikeUrl(s: string): boolean {
 // backend sets one) it's used instead of the generated scene — same slot, so
 // call sites don't change when photos arrive. The gradient/scene is chosen
 // deterministically from `seed`.
+//
+// `fit` controls how a cover photo fills the slot. 'cover' (default) crops to
+// fill — right for the small trip-card thumbnails. 'contain' shows the WHOLE
+// photo (never re-cropping what the user framed) over a blurred, enlarged copy
+// of itself that fills the rest of the slot — right for the wide day hero, where
+// a plain cover-crop would show only a thin middle strip of a landscape photo.
 export function HeroScene({
   seed,
   image,
   className = '',
+  fit = 'cover',
 }: {
   seed: string
   image?: string
   className?: string
+  fit?: 'cover' | 'contain'
 }) {
   if (image && looksLikeUrl(image)) {
+    if (fit === 'contain') {
+      const url = `url("${image}")`
+      return (
+        <div
+          className={['hero-scene', 'hero-scene--framed', className].filter(Boolean).join(' ')}
+          aria-hidden="true"
+        >
+          {/* Blurred, enlarged fill so the wide slot is never empty beside the
+              photo; the scale hides the blur's soft edges. */}
+          <div className="hero-scene-fill" style={{ backgroundImage: url }} />
+          {/* The whole cover, uncropped. */}
+          <div className="hero-scene-photo" style={{ backgroundImage: url }} />
+        </div>
+      )
+    }
     return (
       <div
         className={['hero-scene', className].filter(Boolean).join(' ')}

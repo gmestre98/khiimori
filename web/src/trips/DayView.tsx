@@ -1620,7 +1620,12 @@ function DayHeader({
       data-rel={rel}
       aria-label={`Day ${dayNumber ?? ''} — ${destination}`}
     >
-      <HeroScene seed={destination || 'trip'} image={coverImage} className="day-hero-scene" />
+      <HeroScene
+        seed={destination || 'trip'}
+        image={coverImage}
+        fit="contain"
+        className="day-hero-scene"
+      />
       <div className="day-hero-grad" aria-hidden="true" />
       <div className="day-hero-body">
         <div className="day-hero-eyebrow">

@@ -6163,8 +6163,9 @@
 .day-hero {
   position: relative;
   isolation: isolate;
-  /* Taller banner so a cover photo reads as a photo, not a cropped strip. */
-  min-height: 260px;
+  /* Tall enough that a landscape cover shown whole (contain) reads as a proper
+     photo rather than a thin strip, with room for the blurred fill beside it. */
+  min-height: 380px;
   display: flex;
   align-items: flex-end;
   margin-bottom: var(--s5);
@@ -6172,7 +6173,7 @@
 }
 @media (max-width: 900px) {
   .day-hero {
-    min-height: 216px;
+    min-height: 240px;
   }
 }
 .day-hero-scene {
@@ -6385,6 +6386,30 @@
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+/* Framed cover (fit="contain"): the whole photo, uncropped, over a blurred
+   enlarged copy of itself that fills the rest of a wide slot. Used by the day
+   hero so a user's deliberate crop is never re-cropped to a thin strip. */
+.hero-scene--framed {
+  background: #14100c;
+}
+.hero-scene-fill,
+.hero-scene-photo {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.hero-scene-fill {
+  background-size: cover;
+  /* Scale hides the soft blur edge; brightness sinks it behind the sharp photo
+     and keeps the overlaid title legible. */
+  transform: scale(1.12);
+  filter: blur(28px) brightness(0.6);
+}
+.hero-scene-photo {
+  background-size: contain;
 }
 
 /* Warm "paper" palette for the dashboard page (it lives outside .trip-shell). */
