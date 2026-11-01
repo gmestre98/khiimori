@@ -25,23 +25,21 @@ export interface BottomNavProps {
 export function BottomNav({ items, className = '' }: BottomNavProps) {
   const { pathname } = useLocation()
   return (
-    <nav
-      className={['bottom-nav', className].filter(Boolean).join(' ')}
-      aria-label="Main navigation"
-    >
+    <nav className={['bottom-nav', className].filter(Boolean).join(' ')} aria-label="Trip">
       <ul className="bottom-nav-list" role="list">
         {items.map((item) => {
-          const forcedActive = item.activeWhen ? item.activeWhen(pathname) : null
+          const active = item.activeWhen
+            ? item.activeWhen(pathname)
+            : pathname === item.to || pathname.startsWith(`${item.to}/`)
           return (
             <li key={item.label} className="bottom-nav-item">
               <NavLink
                 to={item.to}
-                className={({ isActive }) =>
-                  ['bottom-nav-link', (forcedActive ?? isActive) ? 'bottom-nav-link--active' : '']
-                    .filter(Boolean)
-                    .join(' ')
-                }
-                aria-current={undefined}
+                end
+                className={['bottom-nav-link', active ? 'bottom-nav-link--active' : '']
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-current={active ? 'page' : undefined}
               >
                 <span className="bottom-nav-icon" aria-hidden="true">
                   {item.icon}

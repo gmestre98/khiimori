@@ -11,6 +11,9 @@
   flex-direction: column;
   min-height: 100%;
   width: 100%;
+  --bottom-nav-height: 0px;
+}
+.app-layout--with-bottom-nav {
   --bottom-nav-height: 64px;
 }
 
@@ -44,9 +47,27 @@
 }
 
 /* ── Mobile / tablet (< 1024px) ─────────────────────────────────────────────── */
+/* Below the laptop layout the window is the scroller. The content column must
+   not become a scroll container (overflow: hidden/auto do), or position:
+   sticky children — the day's pinned add bar — stick to a box that never
+   scrolls. `clip` still clips horizontal overflow without that side effect. */
 @media (max-width: 1023px) {
+  .app-layout-content,
   .app-layout-main {
+    overflow: clip;
+  }
+}
+
+/* Reserve room for the fixed bottom bar only when one is rendered (inside a
+   trip). Screens without it (Trips, Profile) must not carry a phantom gap. */
+@media (max-width: 1023px) {
+  .app-layout--with-bottom-nav .app-layout-main {
     padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+  }
+}
+@media (min-width: 1024px) {
+  .app-layout {
+    --bottom-nav-height: 0px;
   }
 }
 
@@ -60,7 +81,7 @@
 
   .app-layout-sidebar {
     display: flex;
-    flex: 0 0 212px;
+    flex: 0 0 248px;
     background: var(--surface-2);
     border-right: 1px solid var(--line);
     flex-direction: column;
@@ -83,370 +104,221 @@
   }
 }
 
-/* ── SidebarNav ──────────────────────────────────────────────────────────────── */
+/* ── SidebarNav (desktop: trips with nested sections) ────────────────────── */
 
 .sidebar-nav {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: var(--s5) var(--s3);
-  gap: 0;
+  padding: var(--s6) var(--s4) var(--s4);
+  gap: var(--s4);
   overflow: hidden;
 }
 
-/* Brand row: K logo + name */
-.sidebar-nav-brand {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 4px 10px 18px;
+.sidebar-brand {
+  font-family: var(--font-label);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0 8px;
   flex-shrink: 0;
 }
 
-.sidebar-nav-brand-mark {
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  background: var(--fill-strong);
-  color: var(--on-fill);
-  display: grid;
-  place-items: center;
-  font-weight: var(--fw-bold);
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.sidebar-nav-brand-name {
-  font-weight: var(--fw-bold);
-  font-size: 16px;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-
-/* Nav list */
-.sidebar-nav-list {
+.sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.sidebar-all-trips {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 8px;
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 14px;
+  margin-bottom: var(--s3);
+}
+.sidebar-all-trips--active {
+  background: var(--surface);
+  font-weight: var(--fw-semi);
+}
+
+.sidebar-group-label {
+  font-family: var(--font-label);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0 8px 6px;
+}
+
+.sidebar-trips {
   list-style: none;
   margin: 0;
   padding: 0;
-  flex: 1;
-  overflow-y: auto;
-}
-
-.sidebar-nav-divider {
-  height: 1px;
-  background: var(--line);
-  margin: 12px 8px;
-}
-
-.sidebar-nav-link {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 9px 11px;
-  border-radius: var(--r-sm);
-  text-decoration: none;
-  color: var(--ink-2);
-  font-size: 13.5px;
-  font-weight: var(--fw-med);
-  transition:
-    background var(--dur) var(--ease),
-    color var(--dur);
-  min-height: 38px;
-}
-
-.sidebar-nav-link:hover {
-  background: var(--surface-hover);
-  color: var(--ink);
-}
-
-.sidebar-nav-link--active {
-  background: var(--accent-tint);
-  color: var(--accent-press);
-  font-weight: var(--fw-semi);
-}
-
-.sidebar-nav-link--active .sidebar-nav-icon {
-  opacity: 1;
-}
-
-.sidebar-nav-link:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-
-.sidebar-nav-icon {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  opacity: 0.85;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.sidebar-nav-label {
-  flex: 1;
-}
-
-/* ── Trip sub-tabs (nested under the Trip switcher) ──────────────────────────
-   The trip's facets (Map / Journal / Budget / Sharing) indent under the Trip
-   switcher with a vertical connector so they read as subtabs of the trip. */
-.sidebar-nav-subgroup {
-  list-style: none;
-}
-.sidebar-nav-sublist {
-  list-style: none;
-  margin: 2px 0 2px 21px;
-  padding: 0 0 0 10px;
-  border-left: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
-.sidebar-nav-sublist .sidebar-nav-link {
-  font-size: 13px;
+
+.sidebar-trip-link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.sidebar-trip-link:hover {
+  background: var(--surface-3);
+}
+.sidebar-trip-link--current {
+  background: var(--surface);
+}
+.sidebar-trip-name {
+  font-size: 14px;
+}
+.sidebar-trip-link--current .sidebar-trip-name {
+  font-weight: var(--fw-semi);
+}
+.sidebar-trip-dates {
+  font-size: 12px;
+  color: var(--muted);
 }
 
-/* ── Trip switcher tab ───────────────────────────────────────────────────── */
-
-.trip-switcher {
-  position: relative;
+.sidebar-sections {
   list-style: none;
+  margin: 0;
+  padding: 4px 0 8px 14px;
+  display: flex;
+  flex-direction: column;
 }
-
-/* Row holds the trip link + the caret button side by side, sharing one hover /
-   active surface so it reads as a single nav row. */
-.trip-switcher-row {
+.sidebar-section {
+  min-height: 34px;
   display: flex;
   align-items: center;
-  border-radius: var(--r-sm);
-}
-
-.trip-switcher-row:hover {
-  background: var(--surface-hover);
-}
-
-.trip-switcher-row--active {
-  background: var(--accent-tint);
-}
-
-.trip-switcher-link {
-  flex: 1;
-  min-width: 0;
-  padding-right: 4px;
-}
-
-/* The link fills the row; the row owns the hover/active background instead. */
-.trip-switcher-link:hover {
-  background: transparent;
-}
-
-.trip-switcher-row--active .trip-switcher-link {
-  color: var(--accent-press);
-  font-weight: var(--fw-semi);
-}
-
-.trip-switcher-label {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.trip-switcher-eyebrow {
-  font-size: 10px;
-  font-weight: var(--fw-semi);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.trip-switcher-row--active .trip-switcher-eyebrow {
-  color: var(--accent-press);
-}
-
-.trip-switcher-name {
-  font-size: 13px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.trip-switcher-caret {
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  margin-right: 4px;
-  border: none;
-  background: transparent;
-  border-radius: var(--r-sm);
-  color: var(--ink-2);
-  cursor: pointer;
-}
-
-.trip-switcher-caret:hover {
-  background: rgba(0, 0, 0, 0.06);
+  justify-content: space-between;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 14px;
   color: var(--ink);
+  text-decoration: none;
 }
-
-.trip-switcher-caret:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+.sidebar-section:hover {
+  background: var(--surface-3);
 }
-
-.trip-switcher-caret-icon {
-  transition: transform var(--dur) var(--ease);
-}
-
-.trip-switcher-caret-icon--open {
-  transform: rotate(180deg);
-}
-
-/* Dropdown — flows in the sidebar column below the row. */
-.trip-switcher-menu {
-  list-style: none;
-  margin: 4px 2px 2px;
-  padding: 5px;
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-md);
-  background: var(--surface);
-  box-shadow: var(--shadow-3);
-  max-height: 340px;
-  overflow-y: auto;
-}
-
-.trip-switcher-group {
-  font-size: 10px;
+.sidebar-section--active {
+  color: var(--accent);
   font-weight: var(--fw-semi);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--muted);
-  padding: 8px 9px 4px;
 }
-
-.trip-switcher-option {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  width: 100%;
-  text-align: left;
-  padding: 7px 9px;
-  border: none;
-  background: transparent;
-  border-radius: var(--r-sm);
-  cursor: pointer;
-  font: inherit;
-  color: var(--ink);
-}
-
-.trip-switcher-option:hover {
-  background: var(--surface-hover);
-}
-
-.trip-switcher-option--selected {
-  background: var(--accent-tint);
-  color: var(--accent-press);
-}
-
-.trip-switcher-option:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-
-.trip-switcher-option-name {
-  font-size: 13px;
-  font-weight: var(--fw-med);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.trip-switcher-option-meta {
+.sidebar-section-count {
+  font-family: var(--font-label);
   font-size: 11px;
   color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.trip-switcher-option--selected .trip-switcher-option-meta {
-  color: var(--accent-press);
-  opacity: 0.75;
+.sidebar-past-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 36px;
+  padding: 0 8px;
+  margin-top: var(--s3);
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.sidebar-past-toggle:hover {
+  background: var(--surface-3);
+  color: var(--ink);
 }
 
-/* User footer */
-.sidebar-nav-footer {
-  margin-top: auto;
+.sidebar-new-trip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  margin-top: var(--s5);
+  border-radius: 20px;
+  border: 1.5px dashed var(--line-dashed);
+  color: var(--accent);
+  font-size: 14px;
+  text-decoration: none;
+}
+.sidebar-new-trip:hover {
+  border-color: var(--accent);
+}
+
+.sidebar-footer {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  border-top: 1px solid var(--line);
+  padding-top: var(--s3);
 }
-
-.sidebar-nav-user {
+.sidebar-profile {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  min-height: var(--tap);
+  padding: 0 6px;
   border-radius: var(--r-sm);
-  cursor: pointer;
+  color: var(--ink);
   text-decoration: none;
+  font-size: 14px;
 }
-
-.sidebar-nav-user:hover {
-  background: var(--surface-hover);
+.sidebar-profile:hover {
+  background: var(--surface-3);
 }
-
-.sidebar-nav-avatar {
-  width: 24px;
-  height: 24px;
+.sidebar-avatar {
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: var(--fill-strong);
   color: var(--on-fill);
   display: grid;
   place-items: center;
-  font-size: 10px;
   font-weight: var(--fw-semi);
+  font-size: 13px;
   flex-shrink: 0;
 }
-
-.sidebar-nav-user-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.sidebar-nav-user-name {
-  font-size: 12.5px;
-  font-weight: var(--fw-semi);
-  color: var(--ink);
-  white-space: nowrap;
+.sidebar-profile-name {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-.sidebar-nav-user-meta {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.sidebar-nav-signout {
-  width: 100%;
-  font: inherit;
-  font-size: 13px;
-  padding: 6px 11px;
-  border-radius: var(--r-sm);
+.sidebar-signout {
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
   background: transparent;
-  border: 1px solid var(--line-2);
-  color: var(--ink-2);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
   cursor: pointer;
-  text-align: left;
-  margin-top: var(--s2);
 }
-
-.sidebar-nav-signout:hover {
-  background: var(--surface-hover);
+.sidebar-signout:hover {
+  color: var(--ink);
+  border-color: var(--ink-2);
 }
 
 /* ── ThumbFab (mobile primary action) ─────────────────────────────────────── */

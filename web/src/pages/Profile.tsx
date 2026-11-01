@@ -61,7 +61,7 @@ async function fileToAvatarDataURL(file: File): Promise<string> {
 // updating the context so changes reflect immediately across the app.
 // default_currency is shown read-only (always EUR) with no input.
 export function Profile() {
-  const { user, setProfile } = useAuth()
+  const { user, setProfile, signOut } = useAuth()
 
   // RequireAuth guarantees an authenticated user here; guard defensively.
   const [form, setForm] = useState(() => ({
@@ -280,6 +280,26 @@ export function Profile() {
           </Link>
         </div>
       </form>
+
+      {/* Admin is reachable from Profile only (it's not a trip destination). */}
+      {user.is_admin && (
+        <Link to="/admin" className="fg-link-card profile-admin-link">
+          <span>
+            <span className="fg-link-card-title">Admin</span>
+            <br />
+            <span className="fg-link-card-sub">Users, trips and system health</span>
+          </span>
+          <span aria-hidden="true">›</span>
+        </Link>
+      )}
+
+      <button
+        type="button"
+        className="fg-btn fg-btn--quiet profile-signout"
+        onClick={() => void signOut()}
+      >
+        Sign out
+      </button>
 
       <DriveConnectionCard />
 

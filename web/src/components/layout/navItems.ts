@@ -1,147 +1,64 @@
 import { createElement } from 'react'
 import { type BottomNavItem } from '../ui'
+import { Icon, type IconName } from '../ui/Icon'
 
-// SVG icon helper — matches the Lucide-style stroke icons in khiimori-design.html
-function ic(path: string) {
-  return createElement(
-    'svg',
-    {
-      width: 18,
-      height: 18,
-      viewBox: '0 0 24 24',
-      fill: 'none',
-      stroke: 'currentColor',
-      strokeWidth: '1.7',
-      strokeLinecap: 'round',
-      strokeLinejoin: 'round',
-    },
-    createElement('path', { d: path }),
-  )
+// Navigation model (field-guide redesign). One information architecture, two
+// presentations — never both at once:
+//
+//   - Phone, inside a trip: a 5-tab bottom bar (Days · Map · Journal · Money ·
+//     Prep). "Back to Trips" lives in the trip header, Share in the header too.
+//   - Phone, outside a trip: no bottom bar. The Trips screen carries the profile
+//     avatar; Admin is reached from Profile.
+//   - Desktop: one left sidebar listing trips, with the active trip's sections
+//     nested under it (the same five + Backlog). No top tab bar.
+//
+// Section routes keep their historical paths so bookmarks still land:
+// Money → /budget, Prep → /packing, Share → /sharing.
+
+function icon(name: IconName) {
+  return createElement(Icon, { name, size: 22 })
 }
 
-function icMulti(...paths: string[]) {
-  return createElement(
-    'svg',
-    {
-      width: 18,
-      height: 18,
-      viewBox: '0 0 24 24',
-      fill: 'none',
-      stroke: 'currentColor',
-      strokeWidth: '1.7',
-      strokeLinecap: 'round',
-      strokeLinejoin: 'round',
-    },
-    ...paths.map((d) => createElement('path', { d })),
-  )
+// isDaysPath: "Days" covers the days list, a single day and the backlog.
+function isDaysPath(p: string): boolean {
+  return p.endsWith('/plan') || p.includes('/days/') || p.endsWith('/backlog')
 }
 
-// Icon set, defined once and shared between the sidebar and the mobile bottom nav.
-const ICONS = {
-  trips: ic('M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7M12 11v10'),
-  // Suitcase — the single active trip.
-  trip: icMulti('M4 8h16v11a1 1 0 01-1 1H5a1 1 0 01-1-1V8z', 'M9 8V5a1 1 0 011-1h4a1 1 0 011 1v3'),
-  plan: icMulti(
-    'M9 6h11',
-    'M9 12h11',
-    'M9 18h11',
-    'M4.5 6l1 1 2-2',
-    'M4.5 12l1 1 2-2',
-    'M4.5 18l1 1 2-2',
-  ),
-  map: ic('M9 4L3 7v13l6-3 6 3 6-3V4l-6 3-6-3zM9 4v13M15 7v13'),
-  journal: ic('M5 3h11l3 3v15H5zM9 8h7M9 12h7M9 16h4'),
-  budget: ic('M4 19V9m5 10V5m5 14v-7m5 7V8'),
-  // Clipboard with a check — the packing checklist.
-  packing: icMulti(
-    'M9 4h6a1 1 0 011 1v1H8V5a1 1 0 011-1z',
-    'M8 6h8a2 2 0 012 2v11a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 012-2z',
-    'M9.5 13.5l1.8 1.8 3.2-3.6',
-  ),
-  sharing: icMulti(
-    'M16 19a4 4 0 00-8 0',
-    'M12 11a3 3 0 100-6 3 3 0 000 6z',
-    'M20 19a3.5 3.5 0 00-5-3.2',
-    'M4 19a3.5 3.5 0 015-3.2',
-  ),
-  profile: icMulti('M12 12a4 4 0 100-8 4 4 0 000 8z', 'M5 20a7 7 0 0114 0'),
-  admin: ic('M3 5h18M3 12h18M3 19h18'),
+export interface TripSection extends BottomNavItem {
+  key: 'days' | 'map' | 'journal' | 'money' | 'prep' | 'backlog'
 }
 
-// Days / Map / Budget / Sharing are facets of a single trip, so when a trip is
-// active these point into it. Each has its own trip subtab route. With no active
-// trip they fall back to the dashboard. "Days" is the merged plan + journal
-// surface (plan a day, log what you did, journal it); the old standalone Journal
-// tab folds into it, and /journal redirects to /plan.
-// From any trip screen the "← Trips" crumb returns to the dashboard to pick a
-// different trip.
-function tripPath(activeTripId: string | null, suffix = ''): string {
-  return activeTripId ? `/trips/${activeTripId}${suffix}` : '/'
-}
-
-// TRIP_TAB_ICON is the suitcase icon used by the sidebar's dynamic "Trip · …"
-// switcher tab (rendered separately from the plain nav items).
-export const TRIP_TAB_ICON = ICONS.trip
-
-// buildSidebarNavItems returns the full laptop sidebar destinations, routed into
-// the active trip where applicable.
-export function buildSidebarNavItems(activeTripId: string | null): BottomNavItem[] {
+// buildTripSections lists a trip's sections in display order. The sidebar shows
+// all six; the phone bar drops Backlog (reached from the Days list instead).
+export function buildTripSections(tripId: string): TripSection[] {
+  const base = `/trips/${tripId}`
   return [
-    { to: '/', label: 'My Trips', icon: ICONS.trips },
-    { to: tripPath(activeTripId, '/plan'), label: 'Days', icon: ICONS.journal },
-    { to: tripPath(activeTripId, '/map'), label: 'Map', icon: ICONS.map },
-    { to: tripPath(activeTripId, '/budget'), label: 'Budget', icon: ICONS.budget },
-    { to: tripPath(activeTripId, '/packing'), label: 'Packing', icon: ICONS.packing },
-    { to: tripPath(activeTripId, '/sharing'), label: 'Sharing', icon: ICONS.sharing },
-  ]
-}
-
-// Profile and Admin are user-level, never trip-scoped. Admin is only a real
-// destination for is_admin users — RequireAdmin bounces everyone else back to
-// the home ("My Trips") page, so showing the tab to non-admins looks like the
-// Admin link silently defaulting to My Trips. Gate it on the admin flag.
-export function buildSidebarSecondaryItems(isAdmin: boolean): BottomNavItem[] {
-  const items: BottomNavItem[] = [{ to: '/profile', label: 'Profile', icon: ICONS.profile }]
-  if (isAdmin) {
-    items.push({ to: '/admin', label: 'Admin', icon: ICONS.admin })
-  }
-  return items
-}
-
-// Static default (admin) — used by tests and as a stable fallback.
-export const SIDEBAR_SECONDARY_ITEMS: BottomNavItem[] = buildSidebarSecondaryItems(true)
-
-// buildPrimaryNavItems returns the mobile bottom-nav items in the thumb zone when
-// the user is NOT inside a trip: the two true global destinations, Trips and Me.
-export function buildPrimaryNavItems(): BottomNavItem[] {
-  return [
-    { to: '/', label: 'Trips', icon: ICONS.trips },
-    { to: '/profile', label: 'Me', icon: ICONS.profile },
-  ]
-}
-
-// buildTripBottomNavItems returns the mobile bottom-nav while inside a trip. On a
-// phone there's no sidebar, so the trip's facets have to be thumb-reachable — the
-// old bottom bar (Trips/Me) left Budget and Sharing with no mobile path at all.
-// "Trips" stays first as the way back to the list; Days/Map/Budget/Sharing are the
-// same destinations as the laptop sidebar + the in-trip tab bar. (UI-refactor D)
-export function buildTripBottomNavItems(activeTripId: string): BottomNavItem[] {
-  return [
-    { to: '/', label: 'Trips', icon: ICONS.trips },
     {
-      to: `/trips/${activeTripId}/plan`,
+      key: 'days',
+      to: `${base}/plan`,
       label: 'Days',
-      icon: ICONS.journal,
-      // "Days" covers the whole-trip overview, a single day, and the backlog.
-      activeWhen: (p) => p.includes('/plan') || p.includes('/days/') || p.endsWith('/backlog'),
+      icon: icon('days'),
+      activeWhen: (p) => isDaysPath(p) && !p.endsWith('/backlog'),
     },
-    { to: `/trips/${activeTripId}/map`, label: 'Map', icon: ICONS.map },
-    { to: `/trips/${activeTripId}/budget`, label: 'Budget', icon: ICONS.budget },
-    { to: `/trips/${activeTripId}/packing`, label: 'Packing', icon: ICONS.packing },
-    { to: `/trips/${activeTripId}/sharing`, label: 'Sharing', icon: ICONS.sharing },
+    { key: 'map', to: `${base}/map`, label: 'Map', icon: icon('map') },
+    { key: 'journal', to: `${base}/journal`, label: 'Journal', icon: icon('journal') },
+    { key: 'money', to: `${base}/budget`, label: 'Money', icon: icon('money') },
+    { key: 'prep', to: `${base}/packing`, label: 'Prep', icon: icon('prep') },
+    { key: 'backlog', to: `${base}/backlog`, label: 'Backlog', icon: icon('backlog') },
   ]
 }
 
-// Static defaults (no active trip) — used by tests and as a stable fallback.
-export const SIDEBAR_NAV_ITEMS: BottomNavItem[] = buildSidebarNavItems(null)
-export const PRIMARY_NAV_ITEMS: BottomNavItem[] = buildPrimaryNavItems()
+// buildTripBottomNavItems is the phone bar inside a trip: Days, Map, Journal,
+// Money, Prep. Days stays lit on a single day and on the backlog (both are part
+// of planning the days).
+export function buildTripBottomNavItems(tripId: string): BottomNavItem[] {
+  return buildTripSections(tripId)
+    .filter((s) => s.key !== 'backlog')
+    .map((s) => (s.key === 'days' ? { ...s, activeWhen: isDaysPath } : s))
+}
+
+// sidebarSectionLabel: on desktop the map section also hosts the Stays view, so
+// it reads "Map & stays" there (the phone bar keeps the short label).
+export function sidebarSectionLabel(section: TripSection): string {
+  return section.key === 'map' ? 'Map & stays' : section.label
+}

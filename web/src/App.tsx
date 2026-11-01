@@ -1,4 +1,5 @@
 import './App.css'
+import './screens.css'
 import { lazy, Suspense, useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { ThemeProvider } from './design/ThemeProvider'
@@ -39,8 +40,11 @@ const TripMapPage = lazy(() =>
 const TripSharingPage = lazy(() =>
   import('./trips/TripSharingPage').then((m) => ({ default: m.TripSharingPage })),
 )
-const TripPackingPage = lazy(() =>
-  import('./trips/TripPackingPage').then((m) => ({ default: m.TripPackingPage })),
+const TripPrepPage = lazy(() =>
+  import('./trips/TripPrepPage').then((m) => ({ default: m.TripPrepPage })),
+)
+const TripJournalPage = lazy(() =>
+  import('./trips/TripJournalPage').then((m) => ({ default: m.TripJournalPage })),
 )
 const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 const AdminOverviewPage = lazy(() =>
@@ -172,9 +176,15 @@ function App() {
                     </Suspense>
                   }
                 />
-                {/* Journal folded into the merged Day tab (/plan). Keep the old
-                    path as a redirect so bookmarks and in-app links still land. */}
-                <Route path="journal" element={<Navigate to="../plan" replace />} />
+                {/* The trip travelogue (Days / Photos). */}
+                <Route
+                  path="journal"
+                  element={
+                    <Suspense fallback={<RouteLoading />}>
+                      <TripJournalPage />
+                    </Suspense>
+                  }
+                />
                 <Route
                   path="budget"
                   element={
@@ -183,11 +193,12 @@ function App() {
                     </Suspense>
                   }
                 />
+                {/* Prep: To-dos | Packing. Keeps the historical /packing path. */}
                 <Route
                   path="packing"
                   element={
                     <Suspense fallback={<RouteLoading />}>
-                      <TripPackingPage />
+                      <TripPrepPage />
                     </Suspense>
                   }
                 />
