@@ -1,153 +1,99 @@
 # Design tokens — usage guide
 
-> Source: `tokens.css` · Utilities: `utilities.css` · Epic: M09.1
+> Source: `tokens.css` · Primitives: `field-guide.css` · Utilities: `utilities.css` ·
+> Country colours: `countries.ts`
 
-## Theme
+## Identity — "field guide"
 
-The default theme is **black & white**. The main palette is pure black/white/grey — no colour noise. A single accent colour exists for three specific cases only.
+A calm, paper-and-ink planner. The page is **sea-salt** (`--bg`), cards are **paper**
+(`--surface`), text is **ink**. One accent — **indigo** — marks selection, links and
+progress. Colour otherwise carries _meaning only_: status (booked / over budget) and
+**country** (which country a day is in).
 
-**To re-skin the whole app**, edit `--color-accent-base` in `tokens.css`. Changing that one variable flows through to every accent-aware component automatically.
-
-**To change the neutral palette**, edit the `--color-gray-*` primitives and the semantic mappings below them.
+Dark mode keeps the same identity at night (slate page, ink-blue paper, light indigo).
+Every text/background pair below meets **WCAG AA 4.5:1** in both themes.
 
 ---
 
 ## Colour tokens
 
-### Semantic tokens — use these in components
+| Token             | Light     | Dark      | Use for                                   |
+| ----------------- | --------- | --------- | ----------------------------------------- |
+| `--bg`            | `#EEF0EC` | `#10161D` | page background (sea-salt)                |
+| `--surface`       | `#F8F9F6` | `#161E27` | cards, inputs, sheets (paper)             |
+| `--surface-2/3`   | greys     | slates    | segmented-control track, hover, bar track |
+| `--ink`           | `#16202A` | `#E7EBEE` | headings, body text                       |
+| `--muted`         | `#5B6670` | `#9AA6B1` | secondary text, labels (≥4.5:1)           |
+| `--faint`         | `#8A949C` | `#6C7883` | decorative only (icons, rings) — not text |
+| `--line`          | `#CDD3D0` | `#2A3540` | borders, dividers                         |
+| `--accent`        | `#2A3A8F` | `#9AA9F0` | links, selection, progress fills          |
+| `--accent-tint`   | `#DFE3F3` | `#1F2747` | accent chip backgrounds                   |
+| `--warn`/`-ink`   | `#9A3B1A` | `#F0A584` | over budget, destructive, "find a bed"    |
+| `--warn-tint`     | `#F4E2D8` | `#3A2219` | warning callout background                |
+| `--ok`/`--ok-ink` | `#1E7A55` | `#4CC193` | done ticks, BOOKED chips                  |
+| `--ok-tint`       | `#DCEFE5` | `#13332A` | success chip background                   |
+| `--fill-strong`   | ink       | light ink | primary buttons, active segment           |
+| `--on-fill`       | sea-salt  | slate     | text on `--fill-strong`                   |
 
-| Token              | Light value | Dark value | Use for                      |
-| ------------------ | ----------- | ---------- | ---------------------------- |
-| `--bg`             | white       | near-black | page background              |
-| `--bg-muted`       | gray-50     | gray-900   | subtle page regions          |
-| `--surface`        | white       | gray-900   | cards, inputs, dialogs       |
-| `--surface-muted`  | gray-100    | gray-800   | disabled/subdued surfaces    |
-| `--surface-hover`  | gray-150    | gray-700   | hover states on surfaces     |
-| `--text-h`         | black       | white      | headings, high-emphasis text |
-| `--text`           | gray-600    | gray-400   | body text                    |
-| `--text-secondary` | gray-500    | gray-500   | labels, meta                 |
-| `--muted`          | gray-500    | gray-500   | placeholder, helper text     |
-| `--text-muted`     | gray-400    | gray-600   | very low-emphasis text       |
-| `--border`         | gray-200    | gray-800   | borders, dividers            |
-| `--border-faint`   | gray-100    | gray-900   | very subtle separators       |
+### Country colours
 
-### Status tokens — fixed across themes
+`--country-sn` (Senegal `#1E7A55`), `--country-gm` (The Gambia `#B4542E`),
+`--country-mr` (Mauritania `#B8860B`), plus a six-slot palette `--country-1…6` for any
+other country. Use `countryColor(name)` from `countries.ts` — it returns the named colour
+for those three and a stable, hash-keyed palette slot otherwise.
 
-| Token            | Value     | Use for                            |
-| ---------------- | --------- | ---------------------------------- |
-| `--success`      | green-600 | success messages, saved indicators |
-| `--warning`      | amber-700 | caution states                     |
-| `--danger`       | `--error` | destructive actions                |
-| `--error`        | red-600   | errors, validation failures        |
-| `--color-rating` | amber-400 | star ratings only                  |
-
-### Accent tokens — restrained use only
-
-The accent is a **single configurable colour** (`--color-accent-base`). It is intentionally near-black in the default theme — making it almost invisible as a chromatic element and keeping the B&W aesthetic.
-
-```
---accent          primary accent colour
---accent-bg       8% tint (for accent-tinted backgrounds)
---accent-border   30% tint (for accent-coloured borders)
---accent-hover    6% tint (for hover states on accent elements)
---accent-subtle   5% tint blended with --bg (very light wash)
---accent-on       text colour on a solid accent background (white / black)
-```
-
-**Sanctioned accent uses — the only three places where accent appears:**
-
-1. **Status badges / indicators** — `plan-item-status-badge`, queue indicators, offline banners
-2. **Budget bars** — rollup bar fills, budget editor inputs/values
-3. **Map pins** — `day-map-pin`, `plan-item-pin-badge`
-
-Do not apply accent anywhere else. If you find accent in a new component, use a semantic token instead.
+Country colours are for **borders, strips and pins only** (Mauritania gold is 2.8:1 on
+sea-salt — never use it for text). They are lightened in dark mode.
 
 ---
 
-## Typography tokens
+## Typography
 
 ```
---font-sans      system-ui stack (body, UI)
---font-heading   same as --font-sans (headings use weight/size for hierarchy)
---font-mono      monospace stack (code)
-
---text-xs    11px
---text-sm    12px
---text-base  14px   ← default for UI labels, table cells
---text-md    16px
---text-lg    18px   ← body copy size
---text-xl    20px
---text-2xl   24px
---text-4xl   36px
---text-6xl   56px   ← hero headings
-
---leading-tight   118%   headings
---leading-normal  145%   body copy
-
---tracking-tight   -0.04em   large headings
---tracking-wide     0.05em   uppercase labels
---tracking-wider    0.08em   very compact labels
+--font-display  Gloock            page titles, big dates, place names
+--font          Instrument Sans   body and UI
+--font-label    JetBrains Mono    small uppercase labels, times, durations, counts
 ```
+
+Helpers: `.fg-page-title`, `.fg-display`, `.fg-label`, `.fg-meta`.
 
 ---
 
-## Spacing tokens (4-px grid)
+## The signature: the date box
 
+```html
+<span class="date-box" style="--country: var(--country-sn)">
+  <span class="date-box-num">19</span><span class="date-box-wd">Thu</span>
+</span>
 ```
---space-1   4px
---space-2   8px
---space-3   12px
---space-4   16px
---space-5   20px
---space-6   24px
---space-8   32px
---space-10  40px
---space-12  48px
---space-16  64px
-```
+
+Big serif day number over a mono weekday, with a 3px right border in the country
+colour. Add `.date-box--empty` when the day has nothing planned (dashed + faded), and
+`.date-box--lg` for the day screen header. React: `<DateBox>` in `components/ui`.
 
 ---
 
-## Border-radius tokens
+## Primitives (`field-guide.css`)
 
-```
---radius-sm    4px    small chips, tags
---radius-md    6px    table rows, compact cards
---radius-lg    8px    default inputs, cards
---radius-xl    12px   modals, overlays
---radius-2xl   16px   bottom sheets
---radius-full  9999px  pills, circular buttons
-```
+- `.seg` / `.seg--block` + `.seg-btn[aria-pressed]` — segmented controls
+- `.tag` (`--accent`, `--ok`, `--warn`, `--tour`, `--night`) — mono pill tags
+- `.tick[aria-pressed]` — round planned↔done toggle, 44px hit area
+- `.fg-btn--primary|quiet|danger`, `.fg-icon-btn`, `.fg-back` — buttons ≥44px
+- `.fg-menu` — `<details>` overflow menu
+- `.fg-ticks`, `.fg-bar`, `.route-strip` — progress and route strips
+- `.fg-stats` / `.fg-stat` — big serif figures
+- `.fg-callout` — warning callout · `.fg-empty` — honest empty state
 
----
-
-## Shadow tokens
-
-```
---shadow-sm   subtle depth for inputs
---shadow-md   card/popover depth
---shadow-lg   modal/overlay depth
-```
+Icons: `<Icon name="…">` (`components/ui/Icon.tsx`) — inline stroke SVGs. **No emoji as
+UI icons.**
 
 ---
 
-## Utility classes
+## Spacing, radius, motion
 
-`utilities.css` exports thin wrappers — prefer these over raw token references in feature CSS:
+4-px spacing scale (`--s1`…`--s10`), radius `--r-xs` 6 → `--r-xl` 22 + `--r-pill`.
+`--tap: 44px` is the minimum touch target. All motion is disabled under
+`prefers-reduced-motion: reduce` (see `index.css`).
 
-```css
-.u-accent-text    /* color: var(--accent)         — sanctioned only */
-.u-accent-bg      /* bg: var(--accent); color: var(--accent-on) */
-.u-accent-border  /* border-color: var(--accent)  — sanctioned only */
-.u-accent-surface /* bg + border using --accent-bg / --accent-border */
-
-.u-success        /* color: var(--success) */
-.u-warning        /* color: var(--warning) */
-.u-error          /* color: var(--error) */
-
-.u-text-secondary /* color: var(--text-secondary) */
-.u-text-muted     /* color: var(--text-muted) */
-
-.u-surface        /* background: var(--surface) */
-.u-surface-muted  /* background: var(--surface-muted) */
-```
+Legacy aliases (`--text-h`, `--border`, `--space-*`, `--radius-*` …) still resolve to the
+tokens above so older components re-skin automatically.

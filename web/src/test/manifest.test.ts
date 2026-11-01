@@ -31,7 +31,7 @@ describe('PWA web app manifest', () => {
     expect(manifest.scope).toBe('/')
     // Colours come from the Epic 01 black/white identity. theme_color matches
     // the --ink token used in index.html so the installed app's chrome matches.
-    expect(manifest.theme_color).toBe('#101113')
+    expect(manifest.theme_color).toBe('#16202a')
     expect(manifest.background_color).toBe('#ffffff')
   })
 

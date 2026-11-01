@@ -108,7 +108,7 @@
   height: 26px;
   border-radius: 7px;
   background: var(--fill-strong);
-  color: #fff;
+  color: var(--on-fill);
   display: grid;
   place-items: center;
   font-weight: var(--fw-bold);
@@ -158,7 +158,7 @@
 }
 
 .sidebar-nav-link:hover {
-  background: #eceeef;
+  background: var(--surface-hover);
   color: var(--ink);
 }
 
@@ -226,7 +226,7 @@
 }
 
 .trip-switcher-row:hover {
-  background: #eceeef;
+  background: var(--surface-hover);
 }
 
 .trip-switcher-row--active {
@@ -345,7 +345,7 @@
 }
 
 .trip-switcher-option:hover {
-  background: #eceeef;
+  background: var(--surface-hover);
 }
 
 .trip-switcher-option--selected {
@@ -396,7 +396,7 @@
 }
 
 .sidebar-nav-user:hover {
-  background: #eceeef;
+  background: var(--surface-hover);
 }
 
 .sidebar-nav-avatar {
@@ -404,7 +404,7 @@
   height: 24px;
   border-radius: 50%;
   background: var(--fill-strong);
-  color: #fff;
+  color: var(--on-fill);
   display: grid;
   place-items: center;
   font-size: 10px;
@@ -446,7 +446,7 @@
 }
 
 .sidebar-nav-signout:hover {
-  background: #eceeef;
+  background: var(--surface-hover);
 }
 
 /* ── ThumbFab (mobile primary action) ─────────────────────────────────────── */
@@ -460,7 +460,7 @@
   height: 52px;
   border-radius: 50%;
   background: var(--fill-strong);
-  color: #fff;
+  color: var(--on-fill);
   display: grid;
   place-items: center;
   box-shadow: var(--shadow-3);
