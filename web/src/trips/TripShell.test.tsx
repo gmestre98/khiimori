@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { TripShellRoute } from './TripShell'
 import { DayView } from './DayView'
@@ -78,7 +78,9 @@ describe('TripShell', () => {
 
   it('renders destinations in the header', async () => {
     renderShellAtDay('2026-06-01')
-    await waitFor(() => expect(screen.getByText('Paris, London')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByText('1 Jun – 5 Jun · 5 days · Paris · London')).toBeInTheDocument(),
+    )
   })
 
   it('renders back link to trips dashboard', async () => {
@@ -101,45 +103,52 @@ describe('TripShell', () => {
   })
 })
 
-describe('DayNav', () => {
-  it('disables Prev on the first day', async () => {
+describe('Trip header', () => {
+  it('has a Share link to the sharing page and no top tab bar', async () => {
     renderShellAtDay('2026-06-01')
-    await waitFor(() => {
-      expect(screen.getByText('‹ Prev')).toHaveAttribute('aria-disabled', 'true')
-    })
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: /share test trip/i })).toHaveAttribute(
+        'href',
+        '/trips/trip-1/sharing',
+      ),
+    )
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+  })
+
+  it('shows the desktop day strip with every day', async () => {
+    renderShellAtDay('2026-06-01')
+    const strip = await screen.findByRole('region', { name: 'Days at a glance' })
+    const cells = within(strip).getAllByRole('link')
+    expect(cells).toHaveLength(5)
+    expect(cells[0]).toHaveAttribute('aria-current', 'page')
+  })
+})
+
+describe('Day navigation', () => {
+  it('disables Previous on the first day', async () => {
+    renderShellAtDay('2026-06-01')
+    const nav = await screen.findByRole('navigation', { name: 'Day navigation' })
+    expect(within(nav).getByLabelText('Previous day')).toHaveAttribute('aria-disabled', 'true')
   })
 
   it('disables Next on the last day', async () => {
     renderShellAtDay('2026-06-05')
-    await waitFor(() => {
-      expect(screen.getByText('Next ›')).toHaveAttribute('aria-disabled', 'true')
-    })
+    const nav = await screen.findByRole('navigation', { name: 'Day navigation' })
+    expect(within(nav).getByLabelText('Next day')).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('renders Next link on a non-last day', async () => {
-    renderShellAtDay('2026-06-01')
-    await waitFor(() => {
-      const next = screen.getByRole('link', { name: /next day/i })
-      expect(next).toHaveAttribute('href', '/trips/trip-1/days/2026-06-02')
-    })
-  })
-
-  it('renders Prev link on a non-first day', async () => {
+  it('links Next and Previous to the neighbouring days', async () => {
     renderShellAtDay('2026-06-03')
-    await waitFor(() => {
-      const prev = screen.getByRole('link', { name: /previous day/i })
-      expect(prev).toHaveAttribute('href', '/trips/trip-1/days/2026-06-02')
-    })
-  })
-
-  it('renders a day-select with all trip days', async () => {
-    renderShellAtDay('2026-06-01')
-    await waitFor(() => {
-      const select = screen.getByRole('combobox', { name: /jump to day/i })
-      expect(select).toBeInTheDocument()
-      // 5 days: June 1–5
-      expect(select.querySelectorAll('option').length).toBe(5)
-    })
+    const nav = await screen.findByRole('navigation', { name: 'Day navigation' })
+    expect(within(nav).getByRole('link', { name: /next day/i })).toHaveAttribute(
+      'href',
+      '/trips/trip-1/days/2026-06-04',
+    )
+    expect(within(nav).getByRole('link', { name: /previous day/i })).toHaveAttribute(
+      'href',
+      '/trips/trip-1/days/2026-06-02',
+    )
+    expect(within(nav).getByText('Day 3 / 5')).toBeInTheDocument()
   })
 })
 
@@ -147,13 +156,12 @@ describe('DayView', () => {
   it('shows the day number and date', async () => {
     vi.mocked(api.fetchDay).mockResolvedValue(makeMockDay('2026-06-03', 2))
     renderShellAtDay('2026-06-03')
-    await waitFor(() => {
-      expect(screen.getByText(/^Day 3 of/)).toBeInTheDocument()
-      expect(screen.getByText('Wednesday, Jun 03 2026')).toBeInTheDocument()
-    })
+    // Date box (big day number) + place heading.
+    expect(await screen.findByRole('heading', { level: 1, name: 'Day 3' })).toBeInTheDocument()
+    expect(screen.getByText('Day 3 / 5')).toBeInTheDocument()
   })
 
-  it('renders all four mount-point slots', async () => {
+  it('renders plan, journal, budget and map together on desktop', async () => {
     renderShellAtDay('2026-06-01')
     await waitFor(() => {
       expect(screen.getByRole('region', { name: 'Planning' })).toBeInTheDocument()

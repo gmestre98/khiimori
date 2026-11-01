@@ -29,10 +29,10 @@ describe('PWA web app manifest', () => {
     expect(manifest.display).toBe('standalone')
     expect(manifest.start_url).toBe('/')
     expect(manifest.scope).toBe('/')
-    // Colours come from the Epic 01 black/white identity. theme_color matches
-    // the --ink token used in index.html so the installed app's chrome matches.
+    // Colours come from the field-guide identity: theme_color is the --ink
+    // token, background_color the sea-salt --bg page colour.
     expect(manifest.theme_color).toBe('#16202a')
-    expect(manifest.background_color).toBe('#ffffff')
+    expect(manifest.background_color).toBe('#eef0ec')
   })
 
   it('provides the 192 + 512 any icons and a maskable 512', () => {

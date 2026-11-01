@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 
 export interface BottomNavItem {
   /** Route path for NavLink. */
@@ -33,9 +33,8 @@ export function BottomNav({ items, className = '' }: BottomNavProps) {
             : pathname === item.to || pathname.startsWith(`${item.to}/`)
           return (
             <li key={item.label} className="bottom-nav-item">
-              <NavLink
+              <Link
                 to={item.to}
-                end
                 className={['bottom-nav-link', active ? 'bottom-nav-link--active' : '']
                   .filter(Boolean)
                   .join(' ')}
@@ -45,7 +44,7 @@ export function BottomNav({ items, className = '' }: BottomNavProps) {
                   {item.icon}
                 </span>
                 <span className="bottom-nav-label">{item.label}</span>
-              </NavLink>
+              </Link>
             </li>
           )
         })}

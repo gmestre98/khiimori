@@ -86,7 +86,7 @@ test('offline plan + journal edits sync on reconnect with no loss or duplication
     // test exercises the same path (and isn't sensitive to API round-trip latency).
     const journalLoaded = page.waitForResponse((r) => /\/days\/[^/]+\/journal(\?|$)/.test(r.url()))
     await page.goto(`/trips/${createdTripId}/days/${startDate}`)
-    await expect(planning.getByLabel('Title', { exact: true })).toBeVisible()
+    await expect(planning.getByLabel(/^Add to /)).toBeVisible()
     await journalLoaded
 
     await page.context().setOffline(true)
@@ -95,7 +95,7 @@ test('offline plan + journal edits sync on reconnect with no loss or duplication
   })
 
   await test.step('make a plan edit while offline (queued locally)', async () => {
-    await planning.getByLabel('Title', { exact: true }).fill(planTitle)
+    await planning.getByLabel(/^Add to /).fill(planTitle)
     await planning.getByRole('button', { name: 'Add', exact: true }).click()
     // The queued write is reflected optimistically in the plan.
     await expect(planning.getByText(planTitle)).toBeVisible()

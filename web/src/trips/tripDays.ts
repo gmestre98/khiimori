@@ -61,7 +61,10 @@ export interface DayMeta {
 export function buildDayMetas(dates: string[], days: (Day | null)[]): DayMeta[] {
   let carry = ''
   return dates.map((date, index) => {
-    const day = days[index] ?? null
+    // Guard against a malformed payload (e.g. an error body) so one bad day
+    // can't break the whole list.
+    const raw = days[index] ?? null
+    const day = raw && Array.isArray(raw.plan_items) && Array.isArray(raw.stays) ? raw : null
     const loc = day ? firstLocation(day) : ''
     const country = (loc ? countryOf(loc) : '') || carry
     if (country) carry = country

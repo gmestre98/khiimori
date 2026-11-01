@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { TripMapPage } from './TripMapPage'
@@ -109,23 +109,64 @@ beforeEach(() => {
 })
 
 describe('TripMapPage', () => {
-  it('shows the Trip map heading', async () => {
+  it('shows the Map heading with a Map / Stays switch', async () => {
     renderPage()
-    await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'Trip map' })).toBeInTheDocument(),
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Map' })).toBeInTheDocument())
+    const group = screen.getByRole('group', { name: 'Map or stays' })
+    expect(within(group).getByRole('button', { name: 'Map' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
     )
+  })
+
+  it('switches to the Stays view: bases in order and nights with no bed', async () => {
+    vi.mocked(api.fetchDay).mockImplementation(async (_tripId, date) => {
+      const idx = ['2026-06-01', '2026-06-02', '2026-06-03'].indexOf(date)
+      const day = makeDay(date, idx, null)
+      if (idx === 0) {
+        day.stays = [
+          {
+            id: 's1',
+            trip_id: 'trip-1',
+            name: 'Hotel Paris',
+            location: 'Le Marais, Paris, France',
+            check_in: '2026-06-01',
+            check_out: '2026-06-02',
+            cost: 90,
+            paid: true,
+          },
+        ]
+      }
+      return day
+    })
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('group', { name: 'Map or stays' })
+    await user.click(screen.getByRole('button', { name: 'Stays' }))
+    expect(screen.getByRole('heading', { name: 'Stays' })).toBeInTheDocument()
+    const list = await screen.findByRole('list', { name: 'Stays in order' })
+    const rows = within(list).getAllByRole('listitem')
+    // 3-day trip = 2 nights: one paid stay, then one night with no bed.
+    expect(rows).toHaveLength(2)
+    expect(within(rows[0]).getByText('Le Marais')).toBeInTheDocument()
+    expect(within(rows[0]).getByText('Paid')).toBeInTheDocument()
+    expect(within(rows[1]).getByText('Find a bed')).toBeInTheDocument()
+    expect(screen.getByText('nights with no bed yet')).toBeInTheDocument()
   })
 
   // The day rows live in the "Days" nav; scope queries there since map marker
   // tooltips ("Day 1 · Stop 0") would otherwise collide by accessible name.
+  // Single-day toggles sit behind "Pick single days" (the day-group chips are
+  // the primary control).
   async function daysNav() {
-    return within(await screen.findByRole('navigation', { name: 'Days' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Pick single days' }))
+    return within(screen.getByRole('navigation', { name: 'Days' }))
   }
 
   it('lists every day plus an All days option', async () => {
     renderPage()
     const nav = await daysNav()
-    expect(nav.getByRole('button', { name: /all days/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /all days/i })).toBeInTheDocument()
     expect(nav.getByRole('button', { name: /day 1/i })).toBeInTheDocument()
     expect(nav.getByRole('button', { name: /day 2/i })).toBeInTheDocument()
     expect(nav.getByRole('button', { name: /day 3/i })).toBeInTheDocument()
@@ -155,7 +196,7 @@ describe('TripMapPage', () => {
     const user = userEvent.setup()
     renderPage()
     const nav = await daysNav()
-    const allDays = nav.getByRole('button', { name: /all days/i })
+    const allDays = screen.getByRole('button', { name: /all days/i })
     const day1 = nav.getByRole('button', { name: /day 1/i })
     const day2 = nav.getByRole('button', { name: /day 2/i })
     // Empty selection = all days.
@@ -182,8 +223,17 @@ describe('TripMapPage', () => {
     // Focusing Day 1 hides Day 2's pin rather than dimming it.
     expect(screen.getAllByTestId('map-marker')).toHaveLength(1)
     // Clearing the selection brings every day’s pins back.
-    await user.click(nav.getByRole('button', { name: /all days/i }))
+    await user.click(screen.getByRole('button', { name: /all days/i }))
     expect(screen.getAllByTestId('map-marker')).toHaveLength(2)
+  })
+
+  it('offers a Fit to day control once a day is selected', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('button', { name: /fit to trip/i })
+    const nav = await daysNav()
+    await user.click(nav.getByRole('button', { name: /day 1/i }))
+    expect(screen.getByRole('button', { name: /fit to day/i })).toBeInTheDocument()
   })
 
   it('renders the map surface with day pins', async () => {
@@ -194,21 +244,23 @@ describe('TripMapPage', () => {
     expect(screen.getAllByTestId('map-marker')).toHaveLength(2)
   })
 
-  it('hides pins for things that didn’t happen when toggled', async () => {
+  it('“What happened” hides pins for things that didn’t happen', async () => {
     const user = userEvent.setup()
     renderPage()
     // Both located days are status 'confirmed' (not done) → nothing "happened".
     await waitFor(() => expect(screen.getAllByTestId('map-marker')).toHaveLength(2))
 
-    await user.click(screen.getByRole('button', { name: 'Hide what didn’t happen' }))
+    const happened = screen.getByRole('button', { name: 'What happened' })
+    await user.click(happened)
+    expect(happened).toHaveAttribute('aria-pressed', 'true')
     expect(screen.queryAllByTestId('map-marker')).toHaveLength(0)
-    expect(screen.getByText(/Nothing here happened yet/)).toBeInTheDocument()
+    expect(screen.getByText(/Nothing ticked off yet/)).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Show what didn’t happen' }))
+    await user.click(screen.getByRole('button', { name: 'Everything planned' }))
     expect(screen.getAllByTestId('map-marker')).toHaveLength(2)
   })
 
-  it('keeps done pins visible when hiding what didn’t happen', async () => {
+  it('keeps done pins visible in What happened', async () => {
     vi.mocked(api.fetchDay).mockImplementation(async (_tripId, date) => {
       const idx = ['2026-06-01', '2026-06-02', '2026-06-03'].indexOf(date)
       const day = makeDay(date, idx, idx < 2 ? `City ${idx}` : null)
@@ -220,7 +272,7 @@ describe('TripMapPage', () => {
     renderPage()
     await waitFor(() => expect(screen.getAllByTestId('map-marker')).toHaveLength(2))
 
-    await user.click(screen.getByRole('button', { name: 'Hide what didn’t happen' }))
+    await user.click(screen.getByRole('button', { name: 'What happened' }))
     // Only the done day's pin remains.
     expect(screen.getAllByTestId('map-marker')).toHaveLength(1)
   })
@@ -248,6 +300,8 @@ describe('TripMapPage', () => {
   it('omits the skipped toggle when no stop was skipped', async () => {
     renderPage()
     await waitFor(() => expect(screen.getAllByTestId('map-marker')).toHaveLength(2))
-    expect(screen.queryByRole('button', { name: /skipped/i })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /show skipped|hide skipped/i }),
+    ).not.toBeInTheDocument()
   })
 })

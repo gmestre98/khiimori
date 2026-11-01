@@ -115,6 +115,25 @@ function renderDayView(date = '2026-06-01', tripId = 'trip-1') {
   )
 }
 
+// addBar focuses the day's pinned add bar (its kind chips, place and details
+// appear on focus) and returns its form.
+async function addBar(): Promise<HTMLElement> {
+  const input = await screen.findByLabelText(/^Add to /)
+  fireEvent.focus(input)
+  return input.closest('form') as HTMLElement
+}
+
+// openDetails opens an item's Plan details sheet and returns the dialog.
+async function openDetails(user: ReturnType<typeof userEvent.setup>, title: string) {
+  await user.click(screen.getAllByRole('button', { name: `Edit ${title}` })[0])
+  return screen.getByRole('dialog', { name: 'Plan details' })
+}
+
+// setPhone switches the day to its phone layout (Plan / Journal switch).
+function setPhone(phone: boolean) {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, value: phone ? 375 : 1024 })
+}
+
 beforeEach(() => {
   vi.mocked(api.fetchBudgetRollup).mockResolvedValue({
     trip_total: 0,
@@ -138,6 +157,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  setPhone(false)
   vi.restoreAllMocks()
   vi.useRealTimers()
 })
@@ -152,8 +172,13 @@ describe('DayView', () => {
   it('renders day header and date after load', async () => {
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
     renderDayView()
-    await waitFor(() => expect(screen.getByText(/^Day 1 of/)).toBeInTheDocument())
-    expect(screen.getByText('Monday, Jun 01 2026')).toBeInTheDocument()
+    // Date box + place heading (no place yet → "Day 1") + day position.
+    expect(await screen.findByRole('heading', { level: 1, name: 'Day 1' })).toBeInTheDocument()
+    expect(screen.getByText('Day 1 / 3')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /all days/i })).toHaveAttribute(
+      'href',
+      '/trips/trip-1/plan',
+    )
   })
 
   it('shows error message on fetch failure', async () => {
@@ -167,7 +192,7 @@ describe('DayView', () => {
     const item = makePlanItem({ id: 'i1', title: 'Morning run', start_time: '07:00:00' })
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
     renderDayView()
-    await waitFor(() => expect(screen.getByText('Timeline')).toBeInTheDocument())
+    await screen.findByRole('list', { name: 'Day timeline' })
     expect(screen.getByText('Morning run')).toBeInTheDocument()
     expect(screen.getByText('07:00')).toBeInTheDocument()
   })
@@ -176,11 +201,7 @@ describe('DayView', () => {
     const item = makePlanItem({ id: 'i2', title: 'Buy souvenirs' })
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
     renderDayView()
-    await waitFor(() => {
-      const planSlot = document.querySelector('[data-slot="planning"]')
-      expect(planSlot).not.toBeNull()
-      expect(within(planSlot as HTMLElement).getByText('Timeline')).toBeInTheDocument()
-    })
+    await screen.findByRole('list', { name: 'Day timeline' })
     expect(screen.getByText('Buy souvenirs')).toBeInTheDocument()
   })
 
@@ -193,60 +214,54 @@ describe('DayView', () => {
     const morning = makePlanItem({ id: 'm', title: 'Morning tour', start_time: '09:00:00' })
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [afternoon, lunch, morning] }))
     renderDayView()
-    await waitFor(() => expect(screen.getByText('Timeline')).toBeInTheDocument())
+    await screen.findByRole('list', { name: 'Day timeline' })
 
     const planSlot = document.querySelector('[data-slot="planning"]') as HTMLElement
-    const titles = [...planSlot.querySelectorAll('.plan-item-title, .plan-item-name')].map((n) =>
+    const titles = [...planSlot.querySelectorAll('.plan-row-title')].map((n) =>
       (n.textContent ?? '').trim(),
     )
     // Fall back to reading item rows if the title class differs.
     const order =
       titles.length >= 3
         ? titles
-        : [...planSlot.querySelectorAll('li.plan-item')].map((li) => (li.textContent ?? '').trim())
+        : [...planSlot.querySelectorAll('li.plan-row')].map((li) => (li.textContent ?? '').trim())
     const idx = (t: string) => order.findIndex((s) => s.includes(t))
     expect(idx('Morning tour')).toBeGreaterThanOrEqual(0)
     expect(idx('Morning tour')).toBeLessThan(idx('Lunch somewhere'))
     expect(idx('Lunch somewhere')).toBeLessThan(idx('Afternoon museum'))
   })
 
-  it('renders stays in the Staying section', async () => {
+  it('renders the stay as a compact line', async () => {
     const stay = makeStay()
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ stays: [stay] }))
     renderDayView()
-    await waitFor(() => expect(screen.getByText('Staying')).toBeInTheDocument())
-    // The stay name/location also appear in the day hero now, so scope to the
-    // Staying section to assert the stay card itself renders them.
-    const planning = document.querySelector('[data-slot="planning"]') as HTMLElement
-    expect(within(planning).getByText('Hotel Paris')).toBeInTheDocument()
-    expect(within(planning).getByText('Paris')).toBeInTheDocument()
+    const section = await screen.findByRole('region', { name: 'Accommodation' })
+    expect(within(section).getByText('Hotel Paris')).toBeInTheDocument()
+    expect(within(section).getByText('Night 1 of 2 · check in today')).toBeInTheDocument()
   })
 
-  it('shows done badge on done items', async () => {
+  it('shows a done item ticked, in both the plan and what happened', async () => {
     const item = makePlanItem({ id: 'i4', title: 'Done task', status: 'done' })
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
     renderDayView()
-    // A planned item marked done shows in both Plan and What happened, so it
-    // renders twice — each with the Done badge.
-    await waitFor(() => expect(screen.getAllByText('Done task').length).toBe(2))
-    expect(document.querySelector('.plan-item-status-badge')).toHaveTextContent('Done')
-    expect(screen.getAllByLabelText(/Done task — Done/)).toHaveLength(2)
+    await waitFor(() => expect(screen.getAllByLabelText(/Done task — Done/)).toHaveLength(2))
+    const ticks = screen.getAllByRole('button', { name: 'Mark not done: Done task' })
+    expect(ticks[0]).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('shows skipped badge on skipped items', async () => {
-    const item = makePlanItem({ id: 'i5', title: 'Skipped task', status: 'skipped' })
-    vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+  it('tags skipped and cancelled items instead of offering a tick', async () => {
+    const items = [
+      makePlanItem({ id: 'i5', title: 'Skipped task', status: 'skipped', sort_order: 0 }),
+      makePlanItem({ id: 'i6', title: 'Cancelled task', status: 'cancelled', sort_order: 1 }),
+    ]
+    vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
     renderDayView()
     await waitFor(() => expect(screen.getByText('Skipped task')).toBeInTheDocument())
-    expect(document.querySelector('.plan-item-status-badge')).toHaveTextContent('Skipped')
-  })
-
-  it('shows cancelled badge on cancelled items', async () => {
-    const item = makePlanItem({ id: 'i6', title: 'Cancelled task', status: 'cancelled' })
-    vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
-    renderDayView()
-    await waitFor(() => expect(screen.getByText('Cancelled task')).toBeInTheDocument())
-    expect(document.querySelector('.plan-item-status-badge')).toHaveTextContent('Cancelled')
+    expect(screen.getByLabelText('Skipped task — Skipped')).toHaveTextContent('Skipped')
+    expect(screen.getByLabelText('Cancelled task — Cancelled')).toHaveTextContent('Cancelled')
+    expect(
+      screen.queryByRole('button', { name: /Mark done: Skipped task/ }),
+    ).not.toBeInTheDocument()
   })
 
   it('shows empty message when no items or stays', async () => {
@@ -270,7 +285,7 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Sunset kayak')).toBeInTheDocument())
 
-      const planTimeline = screen.getByRole('region', { name: 'Day timeline' })
+      const planTimeline = screen.getByRole('list', { name: 'Day timeline' })
       // The planned item is in the plan; the logged one is not.
       expect(within(planTimeline).getByText('Belém Tower')).toBeInTheDocument()
       expect(within(planTimeline).queryByText('Sunset kayak')).not.toBeInTheDocument()
@@ -279,19 +294,7 @@ describe('DayView', () => {
       expect(screen.getByText('What happened')).toBeInTheDocument()
     })
 
-    it('hides the plan when "Hide plan" is clicked', async () => {
-      const planned = makePlanItem({ id: 'p1', title: 'Belém Tower', status: 'planned' })
-      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [planned] }))
-      const user = userEvent.setup()
-      renderDayView()
-      await waitFor(() => expect(screen.getByText('Belém Tower')).toBeInTheDocument())
-
-      await user.click(screen.getByRole('button', { name: 'Hide plan' }))
-      expect(screen.queryByText('Belém Tower')).not.toBeInTheDocument()
-      expect(screen.getByText(/Plan hidden/)).toBeInTheDocument()
-    })
-
-    it('logs a done item via "Log something you did"', async () => {
+    it('logs a done item via “Something you didn’t plan”', async () => {
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
       vi.mocked(api.createPlanItem).mockResolvedValue(
         makePlanItem({ id: 'log1', title: 'Gelato run', status: 'planned' }),
@@ -301,11 +304,7 @@ describe('DayView', () => {
       )
       const user = userEvent.setup()
       renderDayView()
-      await waitFor(() =>
-        expect(screen.getByRole('button', { name: 'Log something you did' })).toBeInTheDocument(),
-      )
-
-      await user.click(screen.getByRole('button', { name: 'Log something you did' }))
+      await user.click(await screen.findByRole('button', { name: /Something you didn’t plan/ }))
       // Two forms are visible now (plan quick-add + log); scope to the one with
       // the "Log it" submit.
       const form = screen.getByRole('button', { name: 'Log it' }).closest('form') as HTMLElement
@@ -324,14 +323,6 @@ describe('DayView', () => {
     })
   })
 
-  it('renders backlog link', async () => {
-    vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
-    renderDayView()
-    await waitFor(() =>
-      expect(screen.getByRole('link', { name: /Ideas backlog/i })).toBeInTheDocument(),
-    )
-  })
-
   it('renders notes when present', async () => {
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ notes: 'Arrive early' }))
     renderDayView()
@@ -339,10 +330,14 @@ describe('DayView', () => {
   })
 
   describe('quick add', () => {
-    it('renders the quick add form after load', async () => {
+    it('renders a single add bar whose details appear only once focused', async () => {
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+      const input = await screen.findByLabelText('Add to Monday')
+      expect(input).toHaveAttribute('placeholder', 'Add a place, ferry, meal or note…')
+      expect(screen.queryByRole('group', { name: 'Kind' })).not.toBeInTheDocument()
+      fireEvent.focus(input)
+      expect(screen.getByRole('group', { name: 'Kind' })).toBeInTheDocument()
     })
 
     it('adds a new item and shows it in the list', async () => {
@@ -352,10 +347,10 @@ describe('DayView', () => {
       vi.mocked(api.createPlanItem).mockResolvedValue(newItem)
 
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+      const bar = await addBar()
 
-      await user.type(screen.getByLabelText('Title'), 'New activity')
-      await user.click(screen.getByRole('button', { name: 'Add' }))
+      await user.type(within(bar).getByLabelText(/^Add to /), 'New activity')
+      await user.click(within(bar).getByRole('button', { name: 'Add' }))
 
       await waitFor(() => expect(screen.getByText('New activity')).toBeInTheDocument())
       expect(api.createPlanItem).toHaveBeenCalledWith(
@@ -367,7 +362,7 @@ describe('DayView', () => {
     it('offers a kind picker defaulting to Activity', async () => {
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+      await addBar()
 
       const picker = screen.getByRole('group', { name: 'Kind' })
       for (const label of ['Activity', 'Transport', 'Food', 'Note']) {
@@ -387,15 +382,15 @@ describe('DayView', () => {
       )
 
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+      const bar = await addBar()
 
       // Scope to the plan-item form — the day's budget editor also renders a
       // "Transport" category control, so screen-wide queries are ambiguous.
-      const form = screen.getByRole('group', { name: 'Kind' }).closest('form') as HTMLElement
+      const form = bar
       await user.click(within(form).getByRole('button', { name: /Transport/ }))
       // Location is replaced by From / To for a transport leg.
       expect(within(form).queryByLabelText('Location')).not.toBeInTheDocument()
-      await user.type(within(form).getByLabelText('Title'), 'Train to Porto')
+      await user.type(within(form).getByLabelText(/^Add to /), 'Train to Porto')
       await user.type(within(form).getByLabelText('From'), 'Lisbon')
       await user.type(within(form).getByLabelText('To'), 'Porto')
       await user.click(within(form).getByRole('button', { name: 'Add' }))
@@ -418,10 +413,10 @@ describe('DayView', () => {
       vi.mocked(api.createPlanItem).mockResolvedValue(makePlanItem({ id: 'n1', title: 'Kayak' }))
 
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+      const bar = await addBar()
 
-      const form = screen.getByRole('group', { name: 'Kind' }).closest('form') as HTMLElement
-      await user.type(within(form).getByLabelText('Title'), 'Kayak')
+      const form = bar
+      await user.type(within(form).getByLabelText(/^Add to /), 'Kayak')
       // Note lives behind the "More details" disclosure.
       await user.click(within(form).getByRole('button', { name: /More details/ }))
       await user.type(within(form).getByLabelText('Note'), 'Best two hours of the trip')
@@ -438,9 +433,9 @@ describe('DayView', () => {
       const user = userEvent.setup()
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+      const bar = await addBar()
 
-      const form = screen.getByRole('group', { name: 'Kind' }).closest('form') as HTMLElement
+      const form = bar
       await user.click(within(form).getByRole('button', { name: /Note/ }))
       // A note is a plain reminder: no place, and no budget category.
       expect(within(form).queryByLabelText('Location')).not.toBeInTheDocument()
@@ -452,10 +447,10 @@ describe('DayView', () => {
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
       vi.mocked(api.createPlanItem).mockResolvedValue(makePlanItem({ id: 'n1', kind: 'note' }))
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+      const bar = await addBar()
 
-      const form = screen.getByRole('group', { name: 'Kind' }).closest('form') as HTMLElement
-      await user.type(within(form).getByLabelText('Title'), 'Buy port wine')
+      const form = bar
+      await user.type(within(form).getByLabelText(/^Add to /), 'Buy port wine')
       // Enter a cost as an activity, then switch the kind to note (hides cost).
       await user.click(within(form).getByRole('button', { name: /details/i }))
       await user.type(within(form).getByLabelText('Cost'), '50')
@@ -474,12 +469,12 @@ describe('DayView', () => {
       vi.mocked(api.createPlanItem).mockResolvedValue(located)
 
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+      const bar = await addBar()
       // No map pins before adding.
       expect(screen.queryByRole('button', { name: /^Pin 1:/ })).not.toBeInTheDocument()
 
-      await user.type(screen.getByLabelText('Title'), 'Kiyomizu-dera')
-      await user.click(screen.getByRole('button', { name: 'Add' }))
+      await user.type(within(bar).getByLabelText(/^Add to /), 'Kiyomizu-dera')
+      await user.click(within(bar).getByRole('button', { name: 'Add' }))
 
       // The map's pin legend reflects the new located stop without a reload,
       // proving DayView's lifted plan-items state feeds the map live.
@@ -495,10 +490,10 @@ describe('DayView', () => {
       const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
 
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+      const bar = await addBar()
 
-      await user.type(screen.getByLabelText('Title'), 'Offline activity')
-      await user.click(screen.getByRole('button', { name: 'Add' }))
+      await user.type(within(bar).getByLabelText(/^Add to /), 'Offline activity')
+      await user.click(within(bar).getByRole('button', { name: 'Add' }))
 
       // The temp item appears immediately (from the queued write, not the server).
       await waitFor(() => expect(screen.getByText('Offline activity')).toBeInTheDocument())
@@ -529,10 +524,10 @@ describe('DayView', () => {
       vi.mocked(api.createPlanItem).mockRejectedValue(new Error('network'))
 
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+      const bar = await addBar()
 
-      await user.type(screen.getByLabelText('Title'), 'Bad item')
-      await user.click(screen.getByRole('button', { name: 'Add' }))
+      await user.type(within(bar).getByLabelText(/^Add to /), 'Bad item')
+      await user.click(within(bar).getByRole('button', { name: 'Add' }))
 
       await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
       expect(screen.getByRole('alert')).toHaveTextContent('Could not add item.')
@@ -546,11 +541,11 @@ describe('DayView', () => {
       )
 
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+      const bar = await addBar()
 
-      const input = screen.getByLabelText('Title') as HTMLInputElement
+      const input = within(bar).getByLabelText(/^Add to /) as HTMLInputElement
       await user.type(input, 'Grab a coffee')
-      await user.click(screen.getByRole('button', { name: 'Add' }))
+      await user.click(within(bar).getByRole('button', { name: 'Add' }))
 
       await waitFor(() => expect(input.value).toBe(''))
     })
@@ -559,15 +554,15 @@ describe('DayView', () => {
       const user = userEvent.setup()
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+      const bar = await addBar()
 
       // Location is always visible in the composer — no click needed.
-      expect(screen.getByLabelText('Location')).toBeInTheDocument()
+      expect(within(bar).getByLabelText('Location')).toBeInTheDocument()
       // Extra fields stay behind the disclosure.
-      expect(screen.queryByLabelText('Start time')).not.toBeInTheDocument()
+      expect(within(bar).queryByLabelText('Start time')).not.toBeInTheDocument()
 
-      await user.click(screen.getByRole('button', { name: 'More details' }))
-      expect(screen.getByLabelText('Start time')).toBeInTheDocument()
+      await user.click(within(bar).getByRole('button', { name: 'More details' }))
+      expect(within(bar).getByLabelText('Start time')).toBeInTheDocument()
     })
 
     it('confirms a typed location resolves on the map', async () => {
@@ -575,10 +570,10 @@ describe('DayView', () => {
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
       vi.mocked(api.geocodeLocation).mockResolvedValue({ lat: 48.86, lng: 2.34 })
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+      const bar = await addBar()
 
-      await user.click(screen.getByRole('button', { name: 'More details' }))
-      await user.type(screen.getByLabelText('Location'), 'Louvre, Paris')
+      await user.click(within(bar).getByRole('button', { name: 'More details' }))
+      await user.type(within(bar).getByLabelText('Location'), 'Louvre, Paris')
 
       await waitFor(() => expect(screen.getByText(/will show on the map/i)).toBeInTheDocument())
       expect(api.geocodeLocation).toHaveBeenCalledWith('Louvre, Paris', expect.anything())
@@ -589,10 +584,10 @@ describe('DayView', () => {
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
       vi.mocked(api.geocodeLocation).mockResolvedValue(null)
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+      const bar = await addBar()
 
-      await user.click(screen.getByRole('button', { name: 'More details' }))
-      await user.type(screen.getByLabelText('Location'), 'asdfqwer')
+      await user.click(within(bar).getByRole('button', { name: 'More details' }))
+      await user.type(within(bar).getByLabelText('Location'), 'asdfqwer')
 
       await waitFor(() => expect(screen.getByText(/couldn.t place this/i)).toBeInTheDocument())
     })
@@ -606,37 +601,44 @@ describe('DayView', () => {
         { description: 'Fushimi Ward, Kyoto, Japan', place_id: 'p2' },
       ])
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+      const bar = await addBar()
 
-      await user.click(screen.getByRole('button', { name: 'More details' }))
-      await user.type(screen.getByLabelText('Location'), 'Fushimi')
+      await user.click(within(bar).getByRole('button', { name: 'More details' }))
+      await user.type(within(bar).getByLabelText('Location'), 'Fushimi')
 
       const option = await screen.findByRole('option', {
         name: 'Fushimi Inari Taisha, Kyoto, Japan',
       })
       await user.click(option)
 
-      expect(screen.getByLabelText('Location')).toHaveValue('Fushimi Inari Taisha, Kyoto, Japan')
+      expect(within(bar).getByLabelText('Location')).toHaveValue(
+        'Fushimi Inari Taisha, Kyoto, Japan',
+      )
       // Dropdown closes after selection.
       await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument())
     })
   })
 
-  describe('inline edit', () => {
-    it('clicking a plan item shows the edit form', async () => {
+  describe('plan details sheet', () => {
+    it('tapping an item name opens the details sheet with its fields and status', async () => {
       const user = userEvent.setup()
       const item = makePlanItem({ title: 'Visit museum' })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
-      // The editing li has class plan-item--editing; query within it to avoid
-      // matching the quick-add form that is also on the page.
-      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.click(screen.getAllByRole('button', { name: /Edit Visit museum/ })[0])
+      const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       const titleInput = within(editingLi as HTMLElement).getByLabelText('Title')
-      expect(titleInput).toBeInTheDocument()
       expect((titleInput as HTMLInputElement).value).toBe('Visit museum')
+      const status = within(editingLi).getByRole('group', { name: 'Status' })
+      expect(within(status).getByRole('button', { name: 'Planned' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      )
+      for (const action of ['Move to another day', 'Move to the backlog', /Delete/]) {
+        expect(within(editingLi).getByRole('button', { name: action })).toBeInTheDocument()
+      }
     })
 
     it('saves the edit and reflects the update', async () => {
@@ -649,8 +651,8 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
-      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.click(screen.getAllByRole('button', { name: /Edit Visit museum/ })[0])
+      const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       const input = within(editingLi as HTMLElement).getByLabelText('Title')
       await user.clear(input)
       await user.type(input, 'Visit gallery')
@@ -677,8 +679,8 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Train to Porto')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: /Edit Train to Porto/ }))
-      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.click(screen.getAllByRole('button', { name: /Edit Train to Porto/ })[0])
+      const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       const input = within(editingLi as HTMLElement).getByLabelText('Title')
       await user.clear(input)
       await user.type(input, 'Train to Braga')
@@ -709,8 +711,8 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Train to Porto')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: /Edit Train to Porto/ }))
-      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.click(screen.getAllByRole('button', { name: /Edit Train to Porto/ })[0])
+      const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       const input = within(editingLi as HTMLElement).getByLabelText('Title')
       await user.clear(input)
       await user.type(input, 'Train to Braga')
@@ -728,19 +730,19 @@ describe('DayView', () => {
       )
     })
 
-    it('cancels the edit and restores the item row', async () => {
+    it('closes the sheet and keeps the item row', async () => {
       const user = userEvent.setup()
       const item = makePlanItem({ title: 'Visit museum' })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
-      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.click(screen.getAllByRole('button', { name: /Edit Visit museum/ })[0])
+      const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       expect(within(editingLi as HTMLElement).getByLabelText('Title')).toBeInTheDocument()
 
-      await user.click(within(editingLi as HTMLElement).getByRole('button', { name: 'Cancel' }))
-      expect(document.querySelector('.plan-item--editing')).not.toBeInTheDocument()
+      await user.click(within(editingLi as HTMLElement).getByRole('button', { name: 'Close' }))
+      expect(screen.queryByRole('dialog', { name: 'Plan details' })).not.toBeInTheDocument()
       expect(screen.getByText('Visit museum')).toBeInTheDocument()
     })
 
@@ -753,8 +755,8 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
-      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.click(screen.getAllByRole('button', { name: /Edit Visit museum/ })[0])
+      const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       await user.click(within(editingLi as HTMLElement).getByRole('button', { name: 'Save' }))
 
       await waitFor(() =>
@@ -782,8 +784,8 @@ describe('DayView', () => {
         expect(screen.getByRole('button', { name: /Edit Flight/ })).toBeInTheDocument(),
       )
 
-      await user.click(screen.getByRole('button', { name: /Edit Flight/ }))
-      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.click(screen.getAllByRole('button', { name: /Edit Flight/ })[0])
+      const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       // Enable the split (defaults to 2 parts) and save.
       await user.click(
         within(editingLi as HTMLElement).getByRole('checkbox', {
@@ -820,8 +822,8 @@ describe('DayView', () => {
         expect(screen.getByRole('button', { name: /Edit Flight/ })).toBeInTheDocument(),
       )
 
-      await user.click(screen.getByRole('button', { name: /Edit Flight/ }))
-      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.click(screen.getAllByRole('button', { name: /Edit Flight/ })[0])
+      const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       await user.click(
         within(editingLi as HTMLElement).getByRole('checkbox', {
           name: 'Split this cost into several',
@@ -896,35 +898,6 @@ describe('DayView', () => {
       pointer('pointerup', toClientY)
       rectSpy.mockRestore()
     }
-
-    it('shows only Day and Map facets, with plan + journal + budget merged into Day', async () => {
-      setMobile(true)
-      const user = userEvent.setup()
-      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
-      renderDayView()
-      await waitFor(() =>
-        expect(screen.getByRole('tablist', { name: 'Trip sections' })).toBeInTheDocument(),
-      )
-      // The four old facets collapse to two — Plan/Journal/Budget are no longer
-      // their own tabs.
-      expect(screen.getByRole('tab', { name: 'Day' })).toBeInTheDocument()
-      expect(screen.getByRole('tab', { name: 'Map' })).toBeInTheDocument()
-      expect(screen.queryByRole('tab', { name: 'Plan' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('tab', { name: 'Journal' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('tab', { name: 'Budget' })).not.toBeInTheDocument()
-
-      // The Day facet (default) stacks plan + journal + the budget strip together.
-      expect(screen.getByRole('region', { name: 'Planning' })).toBeInTheDocument()
-      expect(screen.getByRole('region', { name: 'Journal' })).toBeInTheDocument()
-      expect(screen.getByRole('region', { name: 'Budget' })).toBeInTheDocument()
-      expect(screen.queryByRole('region', { name: 'Map' })).not.toBeInTheDocument()
-
-      // Switching to Map reveals it and hides the Day scroll.
-      await user.click(screen.getByRole('tab', { name: 'Map' }))
-      expect(screen.getByRole('region', { name: 'Map' })).toBeInTheDocument()
-      expect(screen.queryByRole('region', { name: 'Planning' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('region', { name: 'Journal' })).not.toBeInTheDocument()
-    })
 
     it('shows the day budget (spent + upcoming) with a link to the Budget tab', async () => {
       setMobile(false)
@@ -1113,107 +1086,63 @@ describe('DayView', () => {
       )
     })
 
-    it('does not render facet tabs on desktop (combined grid instead)', async () => {
-      setMobile(false)
+    it('desktop: plan beside a rail with stay, journal, money and map (no Plan/Journal switch)', async () => {
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
       renderDayView()
       await waitFor(() =>
         expect(screen.getByRole('region', { name: 'Planning' })).toBeInTheDocument(),
       )
-      // Desktop shows all facets together, no segmented control.
-      expect(screen.queryByRole('tablist', { name: 'Trip sections' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('group', { name: 'Day view' })).not.toBeInTheDocument()
       expect(screen.getByRole('region', { name: 'Map' })).toBeInTheDocument()
       expect(screen.getByRole('region', { name: 'Journal' })).toBeInTheDocument()
+      expect(screen.getByRole('region', { name: 'Budget' })).toBeInTheDocument()
     })
 
-    it('renders a FAB button on mobile instead of the inline quick-add form', async () => {
+    it('phone: a Plan / Journal switch shows one view at a time', async () => {
+      setPhone(true)
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(
+        makeDay({ plan_items: [makePlanItem({ title: 'Visit museum' })] }),
+      )
+      renderDayView()
+      const group = await screen.findByRole('group', { name: 'Day view' })
+      const plan = within(group).getByRole('button', { name: 'Plan · 1' })
+      const journal = within(group).getByRole('button', { name: 'Journal' })
+      expect(plan).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('region', { name: 'Planning' })).toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Journal' })).not.toBeInTheDocument()
+
+      await user.click(journal)
+      expect(journal).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('region', { name: 'Journal' })).toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Planning' })).not.toBeInTheDocument()
+      // Journal: diary + what happened + log something unplanned.
+      expect(screen.getByText('What happened')).toBeInTheDocument()
+    })
+
+    it('phone: one pinned add bar (no FAB, no always-open form)', async () => {
+      setPhone(true)
       setMobile(true)
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
       renderDayView()
-      await waitFor(() =>
-        expect(screen.getByRole('button', { name: 'Add activity' })).toBeInTheDocument(),
-      )
-      // The inline title input should NOT be visible (it's inside a hidden form on mobile)
-      expect(screen.queryByLabelText('Title')).not.toBeInTheDocument()
+      expect(await screen.findByLabelText('Add to Monday')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Add activity' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('group', { name: 'Kind' })).not.toBeInTheDocument()
     })
 
-    it('FAB opens a bottom sheet with the add form', async () => {
+    it('phone: the details sheet is a modal dialog and Escape closes it', async () => {
+      setPhone(true)
       setMobile(true)
       const user = userEvent.setup()
-      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
-      renderDayView()
-      await waitFor(() =>
-        expect(screen.getByRole('button', { name: 'Add activity' })).toBeInTheDocument(),
+      vi.mocked(api.fetchDay).mockResolvedValue(
+        makeDay({ plan_items: [makePlanItem({ title: 'Visit museum' })] }),
       )
-
-      await user.click(screen.getByRole('button', { name: 'Add activity' }))
-      expect(screen.getByRole('dialog', { name: 'Add to plan' })).toBeInTheDocument()
-      expect(screen.getByLabelText('Title')).toBeInTheDocument()
-    })
-
-    it('adding via FAB sheet closes the sheet on success', async () => {
-      setMobile(true)
-      const user = userEvent.setup()
-      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
-      vi.mocked(api.createPlanItem).mockResolvedValue(makePlanItem({ id: 'n1', title: 'New act' }))
-      renderDayView()
-      await waitFor(() =>
-        expect(screen.getByRole('button', { name: 'Add activity' })).toBeInTheDocument(),
-      )
-
-      await user.click(screen.getByRole('button', { name: 'Add activity' }))
-      await user.type(screen.getByLabelText('Title'), 'New act')
-      await user.click(screen.getByRole('button', { name: 'Add to plan' }))
-
-      await waitFor(() =>
-        expect(screen.queryByRole('dialog', { name: 'Add to plan' })).not.toBeInTheDocument(),
-      )
-      expect(screen.getByText('New act')).toBeInTheDocument()
-    })
-
-    it('editing on mobile opens a bottom sheet', async () => {
-      setMobile(true)
-      const user = userEvent.setup()
-      const item = makePlanItem({ title: 'Visit museum' })
-      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
-
-      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
-      expect(screen.getByRole('dialog', { name: /Edit Visit museum/ })).toBeInTheDocument()
-      expect(screen.getByLabelText('Title')).toBeInTheDocument()
-    })
-
-    it('bottom sheet has role=dialog and aria-modal on the inner panel (M09.5 a11y)', async () => {
-      setMobile(true)
-      const user = userEvent.setup()
-      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
-      renderDayView()
-      await waitFor(() =>
-        expect(screen.getByRole('button', { name: 'Add activity' })).toBeInTheDocument(),
-      )
-
-      await user.click(screen.getByRole('button', { name: 'Add activity' }))
-      const dialog = screen.getByRole('dialog', { name: 'Add to plan' })
+      const dialog = await openDetails(user, 'Visit museum')
       expect(dialog).toHaveAttribute('aria-modal', 'true')
-    })
-
-    it('Escape closes the mobile add sheet (M09.5 a11y)', async () => {
-      setMobile(true)
-      const user = userEvent.setup()
-      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
-      renderDayView()
-      await waitFor(() =>
-        expect(screen.getByRole('button', { name: 'Add activity' })).toBeInTheDocument(),
-      )
-
-      await user.click(screen.getByRole('button', { name: 'Add activity' }))
-      expect(screen.getByRole('dialog', { name: 'Add to plan' })).toBeInTheDocument()
-
-      await user.keyboard('{Escape}')
-      await waitFor(() =>
-        expect(screen.queryByRole('dialog', { name: 'Add to plan' })).not.toBeInTheDocument(),
-      )
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(screen.queryByRole('dialog', { name: 'Plan details' })).not.toBeInTheDocument()
     })
 
     it('renders a drag handle on mobile for untimed items', async () => {
@@ -1407,67 +1336,56 @@ describe('DayView', () => {
     })
   })
 
-  describe('re-planning affordances', () => {
-    it('renders a status select for each plan item', async () => {
-      const item = makePlanItem({ title: 'Visit museum' })
-      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
-      renderDayView()
-      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
-      expect(screen.getByLabelText('Status: planned')).toBeInTheDocument()
-    })
-
-    it('changing the status select calls setPlanItemStatus and updates the badge', async () => {
+  describe('tick to done and re-planning', () => {
+    it('ticking an item marks it done (setPlanItemStatus) and unticking returns it to planned', async () => {
       const user = userEvent.setup()
       const item = makePlanItem({ title: 'Visit museum', status: 'planned' })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
-      const updated = makePlanItem({ title: 'Visit museum', status: 'done' })
-      vi.mocked(api.setPlanItemStatus).mockResolvedValue(updated)
+      vi.mocked(api.setPlanItemStatus)
+        .mockResolvedValueOnce({ ...item, status: 'done' })
+        .mockResolvedValueOnce({ ...item, status: 'planned' })
 
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Status: planned')).toBeInTheDocument())
-
-      await user.selectOptions(screen.getByLabelText('Status: planned'), 'done')
+      const tick = await screen.findByRole('button', { name: 'Mark done: Visit museum' })
+      expect(tick).toHaveAttribute('aria-pressed', 'false')
+      await user.click(tick)
 
       await waitFor(() =>
         expect(api.setPlanItemStatus).toHaveBeenCalledWith('trip-1', 'item-1', 'done'),
       )
+      const ticked = await screen.findAllByRole('button', { name: 'Mark not done: Visit museum' })
+      expect(ticked[0]).toHaveAttribute('aria-pressed', 'true')
+      // It now also shows under What happened.
+      expect(screen.getAllByLabelText('Visit museum — Done')).toHaveLength(2)
+
+      await user.click(ticked[0])
       await waitFor(() =>
-        expect(document.querySelector('.plan-item-status-badge')).toHaveTextContent('Done'),
+        expect(api.setPlanItemStatus).toHaveBeenLastCalledWith('trip-1', 'item-1', 'planned'),
       )
     })
 
-    it('refreshes the day budget when a plan item is marked done (its cost becomes spent)', async () => {
+    it('refreshes the day budget when a plan item is ticked done (its cost becomes spent)', async () => {
       const user = userEvent.setup()
       const item = makePlanItem({ title: 'Visit museum', status: 'planned', cost: 12 })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
-      vi.mocked(api.setPlanItemStatus).mockResolvedValue(
-        makePlanItem({ title: 'Visit museum', status: 'done', cost: 12 }),
-      )
+      vi.mocked(api.setPlanItemStatus).mockResolvedValue({ ...item, status: 'done' })
 
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Status: planned')).toBeInTheDocument())
-      // The budget strip fetched the rollup once on mount.
+      const tick = await screen.findByRole('button', { name: 'Mark done: Visit museum' })
       await waitFor(() => expect(api.fetchBudgetRollup).toHaveBeenCalledTimes(1))
-
-      await user.selectOptions(screen.getByLabelText('Status: planned'), 'done')
-
-      // Marking the item done shifts its cost into spend, so the strip refetches
-      // the rollup rather than waiting for a full reload.
+      await user.click(tick)
       await waitFor(() => expect(api.fetchBudgetRollup).toHaveBeenCalledTimes(2))
     })
 
-    it('marks a plan item done offline: queues the status write, no server call, badge updates', async () => {
+    it('ticks done offline: queues the status write, no server call, persists to cache', async () => {
       const user = userEvent.setup()
       const item = makePlanItem({ title: 'Visit museum', status: 'planned' })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
       const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
 
       renderDayView()
-      await waitFor(() => expect(screen.getByLabelText('Status: planned')).toBeInTheDocument())
+      await user.click(await screen.findByRole('button', { name: 'Mark done: Visit museum' }))
 
-      await user.selectOptions(screen.getByLabelText('Status: planned'), 'done')
-
-      // Queued, not sent; the badge reflects the optimistic status immediately.
       await waitFor(() =>
         expect(enqueue).toHaveBeenCalledWith('setPlanItemStatus', {
           tripId: 'trip-1',
@@ -1476,96 +1394,64 @@ describe('DayView', () => {
         }),
       )
       expect(api.setPlanItemStatus).not.toHaveBeenCalled()
-      await waitFor(() =>
-        expect(document.querySelector('.plan-item-status-badge')).toHaveTextContent('Done'),
-      )
-
-      // Persisted to the day cache so an offline reload keeps the done status.
       await waitFor(async () => {
         const cached = await readCache<Day>(cacheKeys.day('trip-1', '2026-06-01'))
         expect(cached?.data.plan_items.find((i) => i.id === 'item-1')?.status).toBe('done')
       })
-
       onLine.mockRestore()
     })
 
-    it('deletes a plan item offline: queues the delete and removes it from view', async () => {
+    it('sets Skipped from the details sheet status control', async () => {
       const user = userEvent.setup()
       const item = makePlanItem({ title: 'Visit museum', status: 'planned' })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
-      const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+      vi.mocked(api.setPlanItemStatus).mockResolvedValue({ ...item, status: 'skipped' })
 
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
-
-      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
-      await user.click(screen.getByRole('button', { name: /Delete Visit museum/ }))
-      await user.click(screen.getByRole('button', { name: /Confirm delete Visit museum/ }))
+      const dialog = await openDetails(user, 'Visit museum')
+      const status = within(dialog).getByRole('group', { name: 'Status' })
+      await user.click(within(status).getByRole('button', { name: 'Skipped' }))
 
       await waitFor(() =>
-        expect(enqueue).toHaveBeenCalledWith('deletePlanItem', {
-          tripId: 'trip-1',
-          itemId: 'item-1',
-        }),
+        expect(api.setPlanItemStatus).toHaveBeenCalledWith('trip-1', 'item-1', 'skipped'),
       )
-      expect(api.deletePlanItem).not.toHaveBeenCalled()
+      await waitFor(() =>
+        expect(within(status).getByRole('button', { name: 'Skipped' })).toHaveAttribute(
+          'aria-pressed',
+          'true',
+        ),
+      )
+    })
+
+    it('moves an item to another day from the sheet', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
+      vi.mocked(api.fetchDay).mockImplementation(async (_t, date) =>
+        date === '2026-06-01'
+          ? makeDay({ plan_items: [item] })
+          : makeDay({ id: 'day-2', date: '2026-06-02', index: 1 }),
+      )
+      vi.mocked(api.movePlanItem).mockResolvedValue(undefined as never)
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+      const dialog = await openDetails(user, 'Visit museum')
+      await user.click(within(dialog).getByRole('button', { name: 'Move to another day' }))
+      expect(within(dialog).getByLabelText('Move to')).toBeInTheDocument()
+      await user.click(within(dialog).getByRole('button', { name: 'Move' }))
+
+      await waitFor(() =>
+        expect(api.movePlanItem).toHaveBeenCalledWith('trip-1', 'item-1', 'day-2'),
+      )
       await waitFor(() => expect(screen.queryByText('Visit museum')).not.toBeInTheDocument())
-
-      onLine.mockRestore()
-    })
-
-    it('renders a Move… button on each plan item (under the ⋯ menu)', async () => {
-      const user = userEvent.setup()
-      const item = makePlanItem({ title: 'Visit museum' })
-      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
-      renderDayView()
-      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
-      // Secondary actions are hidden until the ⋯ menu is opened.
-      expect(
-        screen.queryByRole('button', { name: /Move Visit museum to another day/ }),
-      ).not.toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
-      expect(
-        screen.getByRole('button', { name: /Move Visit museum to another day/ }),
-      ).toBeInTheDocument()
-    })
-
-    it('clicking Move… shows the day picker', async () => {
-      const user = userEvent.setup()
-      const item = makePlanItem({ title: 'Visit museum' })
-      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
-      renderDayView()
-      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
-
-      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
-      await user.click(screen.getByRole('button', { name: /Move Visit museum to another day/ }))
-      expect(screen.getByLabelText('Target day')).toBeInTheDocument()
-    })
-
-    it('confirming Move calls movePlanItem and removes the item', async () => {
-      const user = userEvent.setup()
-      const item = makePlanItem({ title: 'Visit museum' })
-      vi.mocked(api.fetchDay)
-        .mockResolvedValueOnce(makeDay({ plan_items: [item] })) // initial load
-        .mockResolvedValueOnce(makeDay({ id: 'day-2', date: '2026-06-02' })) // target day lookup
-      vi.mocked(api.movePlanItem).mockResolvedValue({ ...item, day_id: 'day-2' })
-
-      renderDayView()
-      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
-
-      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
-      await user.click(screen.getByRole('button', { name: /Move Visit museum to another day/ }))
-      await user.click(screen.getByRole('button', { name: 'Move' }))
-
-      await waitFor(() => expect(screen.queryByText('Visit museum')).not.toBeInTheDocument())
-      expect(api.movePlanItem).toHaveBeenCalledWith('trip-1', 'item-1', 'day-2')
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
 
     it('moves offline: queues movePlanItem, removes from this day, adds to target day cache', async () => {
       const user = userEvent.setup()
       const item = makePlanItem({ title: 'Visit museum' })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
-      // The target day must be cached for an offline move (fetchDay can't run).
       await writeCache(cacheKeys.day('trip-1', '2026-06-02'), {
         ...makeDay({ id: 'day-2', date: '2026-06-02', plan_items: [] }),
       })
@@ -1573,10 +1459,9 @@ describe('DayView', () => {
 
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
-
-      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
-      await user.click(screen.getByRole('button', { name: /Move Visit museum to another day/ }))
-      await user.click(screen.getByRole('button', { name: 'Move' }))
+      const dialog = await openDetails(user, 'Visit museum')
+      await user.click(within(dialog).getByRole('button', { name: 'Move to another day' }))
+      await user.click(within(dialog).getByRole('button', { name: 'Move' }))
 
       await waitFor(() =>
         expect(enqueue).toHaveBeenCalledWith('movePlanItem', {
@@ -1586,30 +1471,15 @@ describe('DayView', () => {
         }),
       )
       expect(api.movePlanItem).not.toHaveBeenCalled()
-      // Gone from the current day…
       await waitFor(() => expect(screen.queryByText('Visit museum')).not.toBeInTheDocument())
-      // …and added to the target day's cache so it's there on reload.
       await waitFor(async () => {
         const cached = await readCache<Day>(cacheKeys.day('trip-1', '2026-06-02'))
         expect(cached?.data.plan_items.some((i) => i.id === 'item-1')).toBe(true)
       })
-
       onLine.mockRestore()
     })
 
-    it('renders a → Backlog button on each plan item (under the ⋯ menu)', async () => {
-      const user = userEvent.setup()
-      const item = makePlanItem({ title: 'Visit museum' })
-      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
-      renderDayView()
-      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
-      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
-      expect(
-        screen.getByRole('button', { name: /Move Visit museum to backlog/ }),
-      ).toBeInTheDocument()
-    })
-
-    it('clicking → Backlog demotes the item and removes it from the view', async () => {
+    it('moves an item to the backlog from the sheet', async () => {
       const user = userEvent.setup()
       const item = makePlanItem({ title: 'Visit museum' })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
@@ -1617,64 +1487,98 @@ describe('DayView', () => {
 
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+      const dialog = await openDetails(user, 'Visit museum')
+      await user.click(within(dialog).getByRole('button', { name: 'Move to the backlog' }))
 
-      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
-      await user.click(screen.getByRole('button', { name: /Move Visit museum to backlog/ }))
-
+      await waitFor(() => expect(api.demotePlanItem).toHaveBeenCalledWith('trip-1', 'item-1'))
       await waitFor(() => expect(screen.queryByText('Visit museum')).not.toBeInTheDocument())
-      expect(api.demotePlanItem).toHaveBeenCalledWith('trip-1', 'item-1')
     })
 
-    it('clicking the bin then confirming deletes the item and removes it', async () => {
+    it('deletes after an in-page confirm (no window.confirm)', async () => {
       const user = userEvent.setup()
+      const confirmSpy = vi.spyOn(window, 'confirm')
       const item = makePlanItem({ title: 'Visit museum' })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
       vi.mocked(api.deletePlanItem).mockResolvedValue(undefined)
 
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+      const dialog = await openDetails(user, 'Visit museum')
+      await user.click(within(dialog).getByRole('button', { name: /^Delete$/ }))
+      await user.click(within(dialog).getByRole('button', { name: 'Confirm delete Visit museum' }))
 
-      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
-      // First click only reveals the confirm — it must not delete yet.
-      await user.click(screen.getByRole('button', { name: /Delete Visit museum/ }))
-      expect(api.deletePlanItem).not.toHaveBeenCalled()
-
-      await user.click(screen.getByRole('button', { name: /Confirm delete Visit museum/ }))
-
+      await waitFor(() => expect(api.deletePlanItem).toHaveBeenCalledWith('trip-1', 'item-1'))
       await waitFor(() => expect(screen.queryByText('Visit museum')).not.toBeInTheDocument())
-      expect(api.deletePlanItem).toHaveBeenCalledWith('trip-1', 'item-1')
+      expect(confirmSpy).not.toHaveBeenCalled()
     })
 
-    it('cancelling the delete confirm keeps the item', async () => {
+    it('“Keep it” cancels the delete', async () => {
       const user = userEvent.setup()
       const item = makePlanItem({ title: 'Visit museum' })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
 
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
-
-      await user.click(screen.getByRole('button', { name: /More actions for Visit museum/ }))
-      await user.click(screen.getByRole('button', { name: /Delete Visit museum/ }))
-      await user.click(screen.getByRole('button', { name: /Cancel delete/ }))
-
+      const dialog = await openDetails(user, 'Visit museum')
+      await user.click(within(dialog).getByRole('button', { name: /^Delete$/ }))
+      await user.click(within(dialog).getByRole('button', { name: 'Keep it' }))
       expect(api.deletePlanItem).not.toHaveBeenCalled()
-      expect(screen.getByText('Visit museum')).toBeInTheDocument()
+      expect(
+        within(dialog).getByRole('button', { name: 'Move to the backlog' }),
+      ).toBeInTheDocument()
     })
 
-    it('untimed items render drag handles', async () => {
-      const item = makePlanItem({ title: 'Buy souvenirs' })
+    it('deletes offline: queues the delete and removes it from view', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Visit museum' })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+
       renderDayView()
-      await waitFor(() => expect(screen.getByText('Buy souvenirs')).toBeInTheDocument())
-      expect(document.querySelector('.plan-item-drag-handle')).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
+      const dialog = await openDetails(user, 'Visit museum')
+      await user.click(within(dialog).getByRole('button', { name: /^Delete$/ }))
+      await user.click(within(dialog).getByRole('button', { name: 'Confirm delete Visit museum' }))
+
+      await waitFor(() =>
+        expect(enqueue).toHaveBeenCalledWith('deletePlanItem', {
+          tripId: 'trip-1',
+          itemId: 'item-1',
+        }),
+      )
+      expect(api.deletePlanItem).not.toHaveBeenCalled()
+      await waitFor(() => expect(screen.queryByText('Visit museum')).not.toBeInTheDocument())
+      onLine.mockRestore()
     })
 
-    it('timed items do not render drag handles', async () => {
-      const item = makePlanItem({ title: 'Morning run', start_time: '07:00:00' })
-      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+    it('renders transport legs as indented rows with a tag', async () => {
+      const leg = makePlanItem({
+        id: 't1',
+        title: 'Ferry to Gorée',
+        kind: 'transport',
+        origin: 'Dakar port',
+        destination: 'Gorée',
+      })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [leg] }))
       renderDayView()
-      await waitFor(() => expect(screen.getByText('Morning run')).toBeInTheDocument())
-      expect(document.querySelector('.plan-item-drag-handle')).not.toBeInTheDocument()
+      const row = await screen.findByLabelText('Ferry to Gorée')
+      expect(row).toHaveClass('plan-row--leg')
+      expect(within(row).getByText('Ferry')).toBeInTheDocument()
+      expect(within(row).getByText('Dakar port → Gorée')).toBeInTheDocument()
+    })
+
+    it('untimed items render drag handles; timed items do not', async () => {
+      const items = [
+        makePlanItem({ id: 'u', title: 'Untimed', sort_order: 0 }),
+        makePlanItem({ id: 't', title: 'Timed', start_time: '10:00:00', sort_order: 1 }),
+      ]
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Untimed')).toBeInTheDocument())
+      expect(screen.getByRole('button', { name: 'Drag to reorder Untimed' })).toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Drag to reorder Timed' }),
+      ).not.toBeInTheDocument()
     })
   })
 
@@ -1692,7 +1596,7 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
+      await user.click(screen.getAllByRole('button', { name: /Edit Visit museum/ })[0])
       vi.advanceTimersByTime(1000)
 
       expect(api.updatePlanItem).not.toHaveBeenCalled()
@@ -1708,8 +1612,8 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
-      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.click(screen.getAllByRole('button', { name: /Edit Visit museum/ })[0])
+      const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       const input = within(editingLi as HTMLElement).getByLabelText('Title')
       await user.type(input, ' updated')
 
@@ -1736,8 +1640,8 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: /Edit Visit/ }))
-      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.click(screen.getAllByRole('button', { name: /Edit Visit/ })[0])
+      const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       const input = within(editingLi as HTMLElement).getByLabelText('Title')
 
       // Type several characters quickly; each keystroke resets the timer.
@@ -1765,8 +1669,8 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
-      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.click(screen.getAllByRole('button', { name: /Edit Visit museum/ })[0])
+      const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       await user.type(within(editingLi as HTMLElement).getByLabelText('Title'), ' extra')
 
       // Fire the debounce and flush microtasks so the save starts.
@@ -1795,8 +1699,8 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
-      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.click(screen.getAllByRole('button', { name: /Edit Visit museum/ })[0])
+      const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       await user.type(within(editingLi as HTMLElement).getByLabelText('Title'), ' extra')
 
       await act(async () => {
@@ -1821,8 +1725,8 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: /Edit Visit museum/ }))
-      const editingLi = document.querySelector('.plan-item--editing')!
+      await user.click(screen.getAllByRole('button', { name: /Edit Visit museum/ })[0])
+      const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       await user.type(within(editingLi as HTMLElement).getByLabelText('Title'), ' extra')
 
       await act(async () => {
@@ -1870,7 +1774,7 @@ describe('DayView', () => {
       await user.click(screen.getByRole('button', { name: /Map pin 1 for Eiffel Tower/ }))
 
       const itemLi = screen.getByLabelText('Eiffel Tower').closest('li')
-      expect(itemLi).toHaveClass('plan-item--selected')
+      expect(itemLi).toHaveClass('plan-row--selected')
     })
 
     it('clicking an already-selected pin badge deselects the item', async () => {
@@ -1885,7 +1789,7 @@ describe('DayView', () => {
       await user.click(pinBtn)
 
       const itemLi = screen.getByLabelText('Eiffel Tower').closest('li')
-      expect(itemLi).not.toHaveClass('plan-item--selected')
+      expect(itemLi).not.toHaveClass('plan-row--selected')
     })
 
     it('selecting one item deselects the previous selection', async () => {
@@ -1903,8 +1807,8 @@ describe('DayView', () => {
 
       const eiffelLi = screen.getByLabelText('Eiffel Tower').closest('li')
       const louvreLi = screen.getByLabelText('Louvre').closest('li')
-      expect(eiffelLi).not.toHaveClass('plan-item--selected')
-      expect(louvreLi).toHaveClass('plan-item--selected')
+      expect(eiffelLi).not.toHaveClass('plan-row--selected')
+      expect(louvreLi).toHaveClass('plan-row--selected')
     })
 
     it('two located items get sequential pin numbers (robust to reordering)', async () => {
