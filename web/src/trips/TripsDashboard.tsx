@@ -14,17 +14,18 @@ import {
   type Trip,
   type TripsResponse,
 } from '../lib/api'
-import { CurrentTripCard } from './CurrentTripCard'
 import { HeroScene } from './heroScene'
 import { ConfirmModal } from '../components/ConfirmModal'
-import { BudgetGlance } from './RollupDisplay'
-import { formatDateRange, monthYear, tripDayCount } from '../lib/format'
+import { monthYear, tripDayCount, euroWhole } from '../lib/format'
+import { useAuth } from '../auth/AuthContext'
+import { Icon } from '../components/ui/Icon'
+import { buildDayMetas, routeSegments, useTripDays } from './tripDays'
 import { CONTINENTS, continentLabel } from '../lib/continents'
 import { readCache, writeCache } from '../lib/resourceCache'
 import { cacheKeys } from '../lib/cacheKeys'
 import { CacheStatus } from '../components/CacheStatus'
 
-type Tab = 'current' | 'past'
+type Tab = 'upcoming' | 'past'
 type PendingAction = { type: 'archive' | 'delete'; trip: Trip }
 
 // PastSort is how the Past tab orders trips. Newest-first is the default (past
@@ -91,159 +92,233 @@ function daysUntil(iso: string): number {
   return Math.round((target - today.getTime()) / 86_400_000)
 }
 
-// PlusIcon — inline SVG for the "New trip" button
-function PlusIcon() {
+// shortRange: "18 Nov – 9 Dec" (year dropped — the list is already grouped).
+function shortRange(start: string, end: string): string {
+  const f = (iso: string) =>
+    new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  return `${f(start)} – ${f(end)}`
+}
+
+// TripMenu is a trip's ⋯ menu: Edit / Archive / Delete. Destructive actions
+// live here rather than as always-visible buttons on every card.
+function TripMenu({
+  trip,
+  onArchive,
+  onDelete,
+}: {
+  trip: Trip
+  onArchive?: (trip: Trip) => void
+  onDelete: (trip: Trip) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const close = useCallback(() => setOpen(false), [])
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, close])
   return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+    <div
+      className="fg-menu trip-menu"
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) close()
+      }}
     >
-      <path d="M12 5v14M5 12h14" />
-    </svg>
+      <button
+        type="button"
+        className="fg-icon-btn trip-menu-btn"
+        aria-label={`Trip options for ${trip.name}: edit, archive, delete`}
+        aria-expanded={open}
+        aria-haspopup="true"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <Icon name="more" size={20} />
+      </button>
+      {open && (
+        <div className="fg-menu-list" role="group" aria-label={`${trip.name} options`}>
+          <Link
+            to={`/trips/${trip.id}/edit`}
+            state={{ trip }}
+            className="fg-menu-item"
+            aria-label={`Edit ${trip.name}`}
+          >
+            Edit
+          </Link>
+          {onArchive && (
+            <button
+              type="button"
+              className="fg-menu-item"
+              onClick={() => {
+                close()
+                onArchive(trip)
+              }}
+              aria-label={`Archive ${trip.name}`}
+            >
+              Archive
+            </button>
+          )}
+          <button
+            type="button"
+            className="fg-menu-item fg-menu-item--danger"
+            onClick={() => {
+              close()
+              onDelete(trip)
+            }}
+            aria-label={`Delete ${trip.name}`}
+          >
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
-// SearchIcon — inline SVG for the past-trips search field.
-function SearchIcon() {
+// FeaturedTrip is the "next up" card: cover, name, countries · dates, the
+// country route strip, and readiness stats (days planned, money booked). Open
+// to-dos are omitted until to-dos have a backend.
+function FeaturedTrip({
+  trip,
+  rollup,
+  onArchive,
+  onDelete,
+}: {
+  trip: Trip
+  rollup: BudgetRollup | null
+  onArchive: (trip: Trip) => void
+  onDelete: (trip: Trip) => void
+}) {
+  const { dates, days } = useTripDays(trip)
+  const metas = days ? buildDayMetas(dates, days) : null
+  const planned = metas ? metas.filter((m) => m.hasPlans).length : null
+  const segments = metas ? routeSegments(metas) : []
+  const total = tripDayCount(trip.start_date, trip.end_date)
+  const until = daysUntil(trip.start_date)
+  const booked = rollup ? rollup.trip_total + (rollup.estimated_trip_total ?? 0) : null
+  const cover = trip.cover_url || trip.cover
+  const eyebrow =
+    trip.is_current || until <= 0 ? 'Now' : `Next up · in ${until} ${until === 1 ? 'day' : 'days'}`
+
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="11" cy="11" r="7" />
-      <path d="M21 21l-4.3-4.3" />
-    </svg>
+    <section className="trips-featured" aria-label={trip.is_current ? 'Current trip' : 'Next trip'}>
+      <span className="fg-label">{eyebrow}</span>
+      <article className="featured-card">
+        <div className="featured-cover" aria-hidden="true">
+          <HeroScene
+            seed={trip.destinations[0] || trip.name}
+            image={cover}
+            className="featured-cover-scene"
+          />
+          <span className="featured-days">
+            {total} {total === 1 ? 'day' : 'days'}
+          </span>
+        </div>
+        <Link
+          to={`/trips/${trip.id}`}
+          state={{ trip }}
+          className="featured-body"
+          aria-label={`Open ${trip.name}`}
+        >
+          <h2 className="featured-name">{trip.name}</h2>
+          <p className="featured-meta">
+            {[trip.destinations.join(' · '), shortRange(trip.start_date, trip.end_date)]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+          {segments.length > 0 && (
+            <span className="route-strip" aria-hidden="true">
+              {segments.map((seg, i) => (
+                <span
+                  key={i}
+                  style={{ flex: seg.days, '--country': seg.color } as React.CSSProperties}
+                />
+              ))}
+            </span>
+          )}
+          <span
+            className="fg-stats featured-stats"
+            style={{ '--cols': booked != null ? 2 : 1 } as React.CSSProperties}
+          >
+            <span className="fg-stat">
+              <span className="fg-stat-value">
+                {planned ?? '–'}
+                <small>/{total}</small>
+              </span>
+              <span className="fg-stat-label">days planned</span>
+            </span>
+            {booked != null && (
+              <span className="fg-stat">
+                <span className="fg-stat-value">{euroWhole(booked)}</span>
+                <span className="fg-stat-label">booked</span>
+              </span>
+            )}
+          </span>
+        </Link>
+        <div className="featured-menu">
+          <TripMenu trip={trip} onArchive={onArchive} onDelete={onDelete} />
+        </div>
+      </article>
+    </section>
   )
 }
 
-// TripCard renders an upcoming/past trip echoing the current-trip hero: a small
-// colour panel (status + length) beside the trip's name, dates and quiet actions.
-// `featured` stretches it across the full row (used for the lead trip when there
-// is no current trip).
-function TripCard({
+// TripRow is a compact trip row: thumbnail, name, countries, mono dates and a
+// status chip; options live in its ⋯ menu.
+function TripRow({
   trip,
   isPast,
-  featured,
   onArchive,
   onDelete,
 }: {
   trip: Trip
   isPast?: boolean
-  featured?: boolean
   onArchive?: (trip: Trip) => void
   onDelete: (trip: Trip) => void
 }) {
-  const destinations = trip.destinations.join(' · ')
   const days = tripDayCount(trip.start_date, trip.end_date)
   const until = daysUntil(trip.start_date)
-  const dayLabel = `${days} ${days === 1 ? 'day' : 'days'}`
-
-  // Panel copy mirrors the hero's "Now / Day N" — a status eyebrow over a figure.
-  const panelTop = isPast ? 'Journal' : until <= 0 ? 'Now' : until <= 30 ? 'Soon' : 'Planning'
-  const panelBottom = isPast ? monthYear(trip.start_date) : dayLabel
   const contLabel = continentLabel(trip.continent)
-  // A displayable cover (signed https URL). Past trips normally keep the calm
-  // grey panel, but when they have a real cover we show it too — the photo reads
-  // far better than the placeholder rectangle.
-  const coverImage = trip.cover_url || trip.cover
+  const status = isPast
+    ? null
+    : trip.is_current || until <= 0
+      ? 'Now'
+      : until <= 30
+        ? 'Soon'
+        : 'Planning'
   const dateLine = isPast
-    ? `${monthYear(trip.start_date)} · ${dayLabel}${contLabel ? ` · ${contLabel}` : ''}`
-    : formatDateRange(trip.start_date, trip.end_date)
-
+    ? `${monthYear(trip.start_date)} · ${days} ${days === 1 ? 'day' : 'days'}${contLabel ? ` · ${contLabel}` : ''}`
+    : `${shortRange(trip.start_date, trip.end_date)} · ${days} ${days === 1 ? 'day' : 'days'}`
   return (
-    <article
-      className={[
-        'trip-card',
-        featured ? 'trip-card--featured' : '',
-        isPast ? 'trip-card--past' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-    >
-      {/* Stretched link — the whole card opens the trip; actions are raised above it. */}
+    <li className={isPast ? 'trip-row trip-row--past' : 'trip-row'}>
       <Link
         to={`/trips/${trip.id}`}
         state={{ trip }}
-        className="trip-card-stretch-link"
+        className="trip-row-link"
         aria-label={`Open ${trip.name}`}
-      />
-      <div className="trip-card-inner">
-        <div
-          className={['trip-card-panel', isPast ? 'trip-card-panel--past' : '']
-            .filter(Boolean)
-            .join(' ')}
-          aria-hidden="true"
-        >
-          {/* Upcoming/lead trips get a destination scene (Direction B); past
-              trips keep the calm grey panel unless they have a real cover photo,
-              in which case they show it too. */}
-          {isPast && !trip.cover_url ? (
-            <div className="trip-card-panel-glow" />
-          ) : (
-            <>
-              <HeroScene
-                seed={trip.destinations[0] || trip.name}
-                image={coverImage}
-                className="trip-card-panel-scene"
-              />
-              <div className="current-trip-panel-scrim" />
-            </>
+      >
+        <span className="trip-row-thumb" aria-hidden="true">
+          <HeroScene
+            seed={trip.destinations[0] || trip.name}
+            image={trip.cover_url || trip.cover}
+            className="trip-row-scene"
+          />
+        </span>
+        <span className="trip-row-body">
+          <h3 className="trip-row-name">{trip.name}</h3>
+          {trip.destinations.length > 0 && (
+            <span className="trip-row-dest">{trip.destinations.join(' · ')}</span>
           )}
-          <div className="trip-card-panel-label">
-            <div className="trip-card-panel-now">{panelTop}</div>
-            <div className="trip-card-panel-day">{panelBottom}</div>
-          </div>
-        </div>
-        <div className="trip-card-body">
-          <div className="trip-card-body-main">
-            <h3 className="trip-card-name">{trip.name}</h3>
-            {destinations && <p className="trip-card-destinations">{destinations}</p>}
-            <p className="trip-card-dates num">{dateLine}</p>
-          </div>
-          <div className="trip-card-actions">
-            <Link
-              to={`/trips/${trip.id}/edit`}
-              state={{ trip }}
-              className="trip-card-action"
-              aria-label={`Edit ${trip.name}`}
-            >
-              Edit
-            </Link>
-            {onArchive && (
-              <button
-                type="button"
-                className="trip-card-action"
-                onClick={() => onArchive(trip)}
-                aria-label={`Archive ${trip.name}`}
-              >
-                Archive
-              </button>
-            )}
-            <button
-              type="button"
-              className="trip-card-action trip-card-action--danger"
-              onClick={() => onDelete(trip)}
-              aria-label={`Delete ${trip.name}`}
-            >
-              Delete
-            </button>
-          </div>
-        </div>
-      </div>
-    </article>
+          <span className="trip-row-dates">{dateLine}</span>
+          {status && (
+            <span className={status === 'Now' ? 'tag tag--ok' : 'tag tag--accent'}>{status}</span>
+          )}
+        </span>
+      </Link>
+      <TripMenu trip={trip} onArchive={onArchive} onDelete={onDelete} />
+    </li>
   )
 }
 
@@ -263,7 +338,7 @@ export function TripsDashboard() {
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [currentRollup, setCurrentRollup] = useState<BudgetRollup | null>(null)
-  const [tab, setTab] = useState<Tab>('current')
+  const [tab, setTab] = useState<Tab>('upcoming')
   // Past-tab controls: how the list is ordered, an optional continent filter
   // ('' = all), and a free-text search over name + destinations.
   const [pastSort, setPastSort] = useState<PastSort>('newest')
@@ -288,9 +363,9 @@ export function TripsDashboard() {
 
     // Fetch the current trip's budget roll-up (best-effort, non-blocking).
     const loadRollup = (trips: TripsResponse) => {
-      const current = trips.current.find((t) => t.is_current)
-      if (!current) return
-      fetchBudgetRollup(current.id, controller.signal)
+      const lead = trips.current.find((t) => t.is_current) ?? trips.current[0] ?? trips.upcoming[0]
+      if (!lead) return
+      fetchBudgetRollup(lead.id, controller.signal)
         .then((r) => {
           if (!done) setCurrentRollup(r)
         })
@@ -421,15 +496,12 @@ export function TripsDashboard() {
   }
 
   const currentTrip = data?.current.find((t) => t.is_current) ?? null
-  // Current & Upcoming pool, in soonest-first order. The lead trip sits on its
-  // own full-width row (the current trip's hero, or — with no current trip — the
-  // next upcoming trip promoted to the top); the rest fill the 2-up grid below.
+  // Upcoming pool (current first, then soonest-first). The lead trip is
+  // featured; the rest are compact rows.
   const currentPool = data ? [...data.current, ...data.upcoming] : []
   const leadTrip = currentTrip ?? currentPool[0] ?? null
   const restTrips = leadTrip ? currentPool.filter((t) => t.id !== leadTrip.id) : currentPool
-  const totalCount = data
-    ? data.current.length + data.upcoming.length + data.past.length + archived.length
-    : 0
+  const upcomingCount = currentPool.length
 
   // Past tab: the full past pool (server's past bucket plus trips archived this
   // session), then the continent + search filters, then the chosen sort. Only
@@ -451,6 +523,11 @@ export function TripsDashboard() {
   // 'az' order across years, so they render as one flat grid instead.
   const pastGrouped = pastSort === 'newest' || pastSort === 'oldest'
   const pastYearGroups = pastGrouped ? groupByYear(pastSorted) : []
+
+  const { user } = useAuth()
+  const initial = (user?.name || user?.email || 'You')[0].toUpperCase()
+  const archive = (trip: Trip) => setPending({ type: 'archive', trip })
+  const remove = (trip: Trip) => setPending({ type: 'delete', trip })
 
   return (
     <>
@@ -474,300 +551,236 @@ export function TripsDashboard() {
         />
       )}
 
-      <div className="trips-page">
-        {/* Top nav bar */}
-        <div className="trips-dashboard-topnav">
-          <div className="trips-dashboard-crumbs">
-            My trips
+      <div className="trips-page fg-screen">
+        <div className="trips-top">
+          <span className="trips-brand">Khiimori</span>
+          <Link to="/profile" className="trips-avatar" aria-label="Profile and settings">
+            {user?.avatar ? <img src={user.avatar} alt="" /> : initial}
+          </Link>
+        </div>
+
+        <div className="trips-head">
+          <h1 className="trips-title">
+            Trips
             <CacheStatus fromCache={fromCache} isValidating={validating} />
-          </div>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <Link to="/trips/new" className="btn-primary trips-new-btn">
-              <PlusIcon /> New trip
-            </Link>
+          </h1>
+          <div className="seg" role="group" aria-label="Which trips">
+            <button
+              type="button"
+              className="seg-btn"
+              aria-pressed={tab === 'upcoming'}
+              onClick={() => setTab('upcoming')}
+            >
+              Upcoming{data ? ` ${upcomingCount}` : ''}
+            </button>
+            <button
+              type="button"
+              className="seg-btn"
+              aria-pressed={tab === 'past'}
+              onClick={() => setTab('past')}
+            >
+              Past{data ? ` ${pastPool.length}` : ''}
+            </button>
           </div>
         </div>
 
-        <div className="trips-dashboard">
-          {actionError && (
-            <p role="alert" className="trips-error">
-              {actionError}
-            </p>
-          )}
+        {actionError && (
+          <p role="alert" className="fg-error">
+            {actionError}
+          </p>
+        )}
 
-          {/* Invitations inbox — trips someone has shared with you, awaiting your
+        {/* Invitations inbox — trips someone has shared with you, awaiting your
             accept. Shown regardless of email delivery so sharing always works. */}
-          {invites.length > 0 && (
-            <section className="trip-invites" aria-label="Trip invitations">
-              <h2 className="trips-section-title">Invitations</h2>
-              {inviteError && (
-                <p role="alert" className="trips-error">
-                  {inviteError}
-                </p>
-              )}
-              <div className="trip-invites-list">
-                {invites.map((inv) => (
-                  <div
-                    key={inv.id}
-                    className="card pad trip-invite-row"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 12,
-                      marginBottom: 'var(--s3)',
-                    }}
-                  >
-                    <div>
-                      <strong>{inv.trip_name || 'A trip'}</strong>
-                      <span className="meta"> · you're invited as {inv.role}</span>
-                    </div>
-                    <div className="row gap2">
-                      <button
-                        type="button"
-                        className="btn-ghost"
-                        disabled={acceptingId === inv.id || decliningId === inv.id}
-                        onClick={() => handleDecline(inv)}
-                        aria-label={`Decline invitation to ${inv.trip_name || 'trip'}`}
-                      >
-                        {decliningId === inv.id ? 'Declining…' : 'Decline'}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-primary"
-                        disabled={acceptingId === inv.id || decliningId === inv.id}
-                        onClick={() => handleAccept(inv)}
-                        aria-label={`Accept invitation to ${inv.trip_name || 'trip'}`}
-                      >
-                        {acceptingId === inv.id ? 'Joining…' : 'Accept'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Tab bar */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: 'var(--s6)',
-            }}
-          >
-            <div className="trips-tabs" role="tablist">
-              {(['current', 'past'] as Tab[]).map((t) => (
-                <button
-                  key={t}
-                  role="tab"
-                  aria-selected={tab === t}
-                  className={['trips-tabs-btn', tab === t ? 'trips-tabs-btn--active' : '']
-                    .filter(Boolean)
-                    .join(' ')}
-                  onClick={() => setTab(t)}
-                >
-                  {t === 'current' ? 'Current & Upcoming' : 'Past'}
-                </button>
-              ))}
-            </div>
-            {data && (
-              <span className="trips-tab-meta">
-                {tab === 'past'
-                  ? pastFilterActive
-                    ? `${pastSorted.length} of ${pastPool.length} trips`
-                    : `${pastPool.length} ${pastPool.length === 1 ? 'trip' : 'trips'}`
-                  : `${totalCount} ${totalCount === 1 ? 'trip' : 'trips'}`}
-              </span>
+        {invites.length > 0 && (
+          <section className="trip-invites" aria-label="Trip invitations">
+            <h2 className="fg-label">Invitations</h2>
+            {inviteError && (
+              <p role="alert" className="fg-error">
+                {inviteError}
+              </p>
             )}
-          </div>
+            <ul className="trip-invites-list">
+              {invites.map((inv) => (
+                <li key={inv.id} className="trip-invite-row fg-card">
+                  <div>
+                    <strong>{inv.trip_name || 'A trip'}</strong>
+                    <span className="fg-muted"> · you’re invited as {inv.role}</span>
+                  </div>
+                  <div className="trip-invite-actions">
+                    <button
+                      type="button"
+                      className="fg-btn fg-btn--quiet"
+                      disabled={acceptingId === inv.id || decliningId === inv.id}
+                      onClick={() => handleDecline(inv)}
+                      aria-label={`Decline invitation to ${inv.trip_name || 'trip'}`}
+                    >
+                      {decliningId === inv.id ? 'Declining…' : 'Decline'}
+                    </button>
+                    <button
+                      type="button"
+                      className="fg-btn fg-btn--primary"
+                      disabled={acceptingId === inv.id || decliningId === inv.id}
+                      onClick={() => handleAccept(inv)}
+                      aria-label={`Accept invitation to ${inv.trip_name || 'trip'}`}
+                    >
+                      {acceptingId === inv.id ? 'Joining…' : 'Accept'}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-          {/* Loading / error states */}
-          {loading && (
-            <p className="trips-loading" aria-busy="true">
-              Loading trips…
-            </p>
-          )}
-          {error && (
-            <p role="alert" className="trips-error">
-              {error}
-            </p>
-          )}
+        {loading && (
+          <p className="fg-loading" aria-busy="true">
+            Loading trips…
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="fg-error">
+            {error}
+          </p>
+        )}
 
-          {/* Tab content */}
-          {!loading && !error && data && (
-            <>
-              {tab === 'current' && (
-                <>
-                  {/* Lead trip — the current-trip hero, or (with no current trip) the
-                    next upcoming trip promoted to its own full-width row. */}
-                  {currentTrip ? (
-                    <CurrentTripCard
-                      trip={currentTrip}
-                      budgetGlance={
-                        currentRollup ? <BudgetGlance rollup={currentRollup} /> : undefined
-                      }
-                      onArchive={() => setPending({ type: 'archive', trip: currentTrip })}
-                      onDelete={() => setPending({ type: 'delete', trip: currentTrip })}
-                    />
-                  ) : leadTrip ? (
-                    <TripCard
-                      trip={leadTrip}
-                      featured
-                      onArchive={(trip) => setPending({ type: 'archive', trip })}
-                      onDelete={(trip) => setPending({ type: 'delete', trip })}
-                    />
-                  ) : (
-                    <p className="trips-empty">
-                      No current trip.{' '}
-                      <Link to="/trips/new" style={{ color: 'var(--accent)' }}>
-                        Plan one →
-                      </Link>
-                    </p>
-                  )}
+        {!loading && !error && data && tab === 'upcoming' && (
+          <>
+            {leadTrip ? (
+              <FeaturedTrip
+                trip={leadTrip}
+                rollup={currentRollup}
+                onArchive={archive}
+                onDelete={remove}
+              />
+            ) : (
+              <p className="fg-empty">No upcoming trips yet.</p>
+            )}
 
-                  {/* Upcoming — the remaining trips, 2 to a row below the lead. */}
-                  <section className="trips-section" aria-label="Upcoming trips">
-                    <h2 className="trips-section-title">Upcoming</h2>
-                    {restTrips.length === 0 ? (
-                      <p className="trips-empty">
-                        No upcoming trips.{' '}
-                        <Link to="/trips/new" style={{ color: 'var(--accent)' }}>
-                          Plan one →
-                        </Link>
-                      </p>
-                    ) : (
-                      <div className="trips-grid">
-                        {restTrips.map((t) => (
-                          <TripCard
-                            key={t.id}
-                            trip={t}
-                            onArchive={(trip) => setPending({ type: 'archive', trip })}
-                            onDelete={(trip) => setPending({ type: 'delete', trip })}
-                          />
+            {restTrips.length > 0 && (
+              <section className="trips-later" aria-label="Upcoming trips">
+                <h2 className="fg-label fg-section-label">Later</h2>
+                <ul className="trip-rows">
+                  {restTrips.map((t) => (
+                    <TripRow key={t.id} trip={t} onArchive={archive} onDelete={remove} />
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <Link to="/trips/new" className="trips-new">
+              <Icon name="plus" size={22} />
+              <span>
+                <span className="trips-new-title">New trip</span>
+                <span className="trips-new-sub">
+                  Places and dates first. Days, route and budget follow.
+                </span>
+              </span>
+            </Link>
+          </>
+        )}
+
+        {!loading && !error && data && tab === 'past' && (
+          <>
+            {pastPool.length === 0 ? (
+              <p className="fg-empty">No past trips yet.</p>
+            ) : (
+              <>
+                {/* Sort · continent · search. Continent only appears once at
+                    least one past trip is tagged. */}
+                <div className="past-controls">
+                  <label className="past-control">
+                    <span className="past-control-label">Sort</span>
+                    <select
+                      className="past-select"
+                      value={pastSort}
+                      onChange={(e) => setPastSort(e.target.value as PastSort)}
+                    >
+                      {PAST_SORTS.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {pastContinentsPresent.size > 0 && (
+                    <label className="past-control">
+                      <span className="past-control-label">Continent</span>
+                      <select
+                        className="past-select"
+                        value={pastContinent}
+                        onChange={(e) => setPastContinent(e.target.value)}
+                      >
+                        <option value="">All continents</option>
+                        {CONTINENTS.filter((c) => pastContinentsPresent.has(c.slug)).map((c) => (
+                          <option key={c.slug} value={c.slug}>
+                            {c.label}
+                          </option>
                         ))}
-                      </div>
-                    )}
-                  </section>
-                </>
-              )}
-
-              {tab === 'past' && (
-                <>
-                  {pastPool.length === 0 ? (
-                    <p className="trips-empty">No past trips yet.</p>
-                  ) : (
-                    <>
-                      {/* Sort · continent · search. Continent only appears once at
-                          least one past trip is tagged. */}
-                      <div className="past-controls">
-                        <label className="past-control">
-                          <span className="past-control-label">Sort</span>
-                          <select
-                            className="past-select"
-                            value={pastSort}
-                            onChange={(e) => setPastSort(e.target.value as PastSort)}
-                          >
-                            {PAST_SORTS.map((s) => (
-                              <option key={s.value} value={s.value}>
-                                {s.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-
-                        {pastContinentsPresent.size > 0 && (
-                          <label className="past-control">
-                            <span className="past-control-label">Continent</span>
-                            <select
-                              className="past-select"
-                              value={pastContinent}
-                              onChange={(e) => setPastContinent(e.target.value)}
-                            >
-                              <option value="">All continents</option>
-                              {CONTINENTS.filter((c) => pastContinentsPresent.has(c.slug)).map(
-                                (c) => (
-                                  <option key={c.slug} value={c.slug}>
-                                    {c.label}
-                                  </option>
-                                ),
-                              )}
-                            </select>
-                          </label>
-                        )}
-
-                        <label className="past-search">
-                          <SearchIcon />
-                          <input
-                            type="search"
-                            value={pastSearch}
-                            onChange={(e) => setPastSearch(e.target.value)}
-                            placeholder="Search past trips"
-                            aria-label="Search past trips"
-                          />
-                        </label>
-                      </div>
-
-                      {pastSorted.length === 0 ? (
-                        <p className="trips-empty">
-                          No past trips match your filters.{' '}
-                          <button
-                            type="button"
-                            className="past-clear"
-                            onClick={() => {
-                              setPastContinent('')
-                              setPastSearch('')
-                            }}
-                          >
-                            Clear filters
-                          </button>
-                        </p>
-                      ) : pastGrouped ? (
-                        pastYearGroups.map((g) => (
-                          <section
-                            key={g.year}
-                            className="past-year"
-                            aria-label={`Trips from ${g.year}`}
-                          >
-                            <div className="past-year-head">
-                              <span className="past-year-num">{g.year}</span>
-                              <span className="past-year-count">
-                                {g.trips.length} {g.trips.length === 1 ? 'trip' : 'trips'}
-                              </span>
-                              <span className="past-year-rule" aria-hidden="true" />
-                            </div>
-                            <div className="trips-grid">
-                              {g.trips.map((t) => (
-                                <TripCard
-                                  key={t.id}
-                                  trip={t}
-                                  isPast
-                                  onDelete={(trip) => setPending({ type: 'delete', trip })}
-                                />
-                              ))}
-                            </div>
-                          </section>
-                        ))
-                      ) : (
-                        <div className="trips-grid">
-                          {pastSorted.map((t) => (
-                            <TripCard
-                              key={t.id}
-                              trip={t}
-                              isPast
-                              onDelete={(trip) => setPending({ type: 'delete', trip })}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </>
+                      </select>
+                    </label>
                   )}
-                </>
-              )}
-            </>
-          )}
-        </div>
+
+                  <label className="past-search">
+                    <Icon name="search" size={16} />
+                    <input
+                      type="search"
+                      value={pastSearch}
+                      onChange={(e) => setPastSearch(e.target.value)}
+                      placeholder="Search past trips"
+                      aria-label="Search past trips"
+                    />
+                  </label>
+                </div>
+
+                <p className="fg-muted trips-past-count">
+                  {pastFilterActive
+                    ? `${pastSorted.length} of ${pastPool.length} trips`
+                    : `${pastPool.length} ${pastPool.length === 1 ? 'trip' : 'trips'}`}
+                </p>
+
+                {pastSorted.length === 0 ? (
+                  <p className="fg-empty">
+                    No past trips match your filters.{' '}
+                    <button
+                      type="button"
+                      className="past-clear"
+                      onClick={() => {
+                        setPastContinent('')
+                        setPastSearch('')
+                      }}
+                    >
+                      Clear filters
+                    </button>
+                  </p>
+                ) : pastGrouped ? (
+                  pastYearGroups.map((g) => (
+                    <section key={g.year} className="past-year" aria-label={`Trips from ${g.year}`}>
+                      <div className="past-year-head">
+                        <span className="past-year-num">{g.year}</span>
+                        <span className="past-year-count">
+                          {g.trips.length} {g.trips.length === 1 ? 'trip' : 'trips'}
+                        </span>
+                      </div>
+                      <ul className="trip-rows">
+                        {g.trips.map((t) => (
+                          <TripRow key={t.id} trip={t} isPast onDelete={remove} />
+                        ))}
+                      </ul>
+                    </section>
+                  ))
+                ) : (
+                  <ul className="trip-rows">
+                    {pastSorted.map((t) => (
+                      <TripRow key={t.id} trip={t} isPast onDelete={remove} />
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </>
+        )}
       </div>
     </>
   )
