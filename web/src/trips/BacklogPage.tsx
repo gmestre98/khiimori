@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import {
   PlanItemValidationError,
   UnauthorizedError,
@@ -25,6 +25,7 @@ import {
   type PlanItemFormFields,
 } from './planItemForm.helpers'
 import { useTripShell } from './useTripShell'
+import { Icon } from '../components/ui/Icon'
 
 // PromotePicker is the inline day-picker shown when the user clicks "Promote…"
 // on a backlog item. It resolves the selected date to a day UUID and calls
@@ -81,9 +82,14 @@ function PromotePicker({
         disabled={busy}
         aria-label="Target day"
       >
-        {tripDates.map((d) => (
+        {tripDates.map((d, i) => (
           <option key={d} value={d}>
-            {d}
+            {new Date(d + 'T00:00:00').toLocaleDateString('en-GB', {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+            })}{' '}
+            · Day {i + 1}
           </option>
         ))}
       </select>
@@ -257,26 +263,31 @@ function BacklogItem({
     return <li className="plan-item backlog-item plan-item--editing">{editForm}</li>
   }
 
+  const cost = item.cost != null && item.cost > 0 ? `€${Math.round(item.cost)}` : ''
+  const where =
+    (item.kind ?? 'activity') === 'transport'
+      ? [item.origin, item.destination].filter(Boolean).join(' → ')
+      : (item.location ?? '')
   return (
-    <li className="plan-item backlog-item">
-      <div className="plan-item-main">
+    <li className="backlog-idea">
+      <div className="backlog-idea-head">
         <button
           type="button"
-          className="plan-item-edit-btn"
+          className="backlog-idea-name"
           aria-label={`Edit ${item.title}`}
           onClick={() => setEditing(true)}
         >
-          {item.start_time && (
-            <span className="plan-item-time" aria-label={`Start time: ${item.start_time}`}>
-              {item.start_time.slice(0, 5)}
-            </span>
-          )}
-          <span className="plan-item-title">{item.title}</span>
-          {item.location && <span className="plan-item-location">{item.location}</span>}
-          {item.note && <span className="plan-item-note">{item.note}</span>}
+          {item.title}
         </button>
+        {(cost || item.start_time) && (
+          <span className="backlog-idea-cost">
+            {[item.start_time?.slice(0, 5), cost].filter(Boolean).join(' · ')}
+          </span>
+        )}
       </div>
-      <div className="backlog-item-actions">
+      {where && <span className="backlog-idea-where">{where}</span>}
+      {item.note && <span className="backlog-idea-why">{item.note}</span>}
+      <div className="backlog-idea-actions">
         {showPicker ? (
           <PromotePicker
             tripId={tripId}
@@ -288,57 +299,46 @@ function BacklogItem({
             }}
             onCancel={() => setShowPicker(false)}
           />
+        ) : confirmDelete ? (
+          <span className="backlog-confirm">
+            <span>Delete this idea?</span>
+            <button
+              type="button"
+              className="fg-btn fg-btn--danger"
+              onClick={handleDelete}
+              disabled={deleteBusy}
+              aria-label={`Confirm delete ${item.title}`}
+            >
+              Delete
+            </button>
+            <button
+              type="button"
+              className="fg-btn fg-btn--quiet"
+              onClick={() => setConfirmDelete(false)}
+              disabled={deleteBusy}
+              aria-label="Cancel delete"
+            >
+              Keep
+            </button>
+          </span>
         ) : (
           <>
             <button
               type="button"
-              className="backlog-promote-btn"
-              onClick={() => setShowPicker(true)}
-              aria-label={`Promote ${item.title} to a day`}
+              className="fg-icon-btn backlog-delete"
+              onClick={() => setConfirmDelete(true)}
+              aria-label={`Delete ${item.title}`}
             >
-              Promote…
+              <Icon name="trash" size={16} />
             </button>
-            {confirmDelete ? (
-              <span className="plan-item-delete-confirm">
-                <button
-                  type="button"
-                  className="plan-item-delete-yes"
-                  onClick={handleDelete}
-                  disabled={deleteBusy}
-                  aria-label={`Confirm delete ${item.title}`}
-                >
-                  Delete?
-                </button>
-                <button
-                  type="button"
-                  className="plan-item-delete-cancel"
-                  onClick={() => setConfirmDelete(false)}
-                  disabled={deleteBusy}
-                  aria-label="Cancel delete"
-                >
-                  Cancel
-                </button>
-              </span>
-            ) : (
-              <button
-                type="button"
-                className="plan-item-delete-btn"
-                onClick={() => setConfirmDelete(true)}
-                aria-label={`Delete ${item.title}`}
-                title="Delete"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7m4 4v6m4-6v6"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-            )}
+            <button
+              type="button"
+              className="fg-btn fg-btn--quiet"
+              onClick={() => setShowPicker(true)}
+              aria-label={`Add ${item.title} to a day`}
+            >
+              Add to a day
+            </button>
           </>
         )}
       </div>
@@ -352,7 +352,6 @@ function BacklogItem({
 // Epic 03 S2 (M04.5 S3 AC3).
 export function BacklogPage() {
   const { tripId } = useParams<{ tripId: string }>()
-  const navigate = useNavigate()
   const { trip } = useTripShell()
   const tripDates = datesInRange(trip.start_date, trip.end_date)
 
@@ -393,32 +392,54 @@ export function BacklogPage() {
   }
 
   return (
-    <section className="backlog-page" aria-label="Ideas backlog">
-      <div className="screen-content backlog-body">
-        <header className="backlog-head">
-          <button className="backlog-back" aria-label="Back to plan" onClick={() => navigate(-1)}>
-            ← Back
-          </button>
-          <h1 className="h1">💡 Ideas backlog</h1>
-          <p className="meta">
-            Park ideas that aren’t tied to a day yet — promote one to a day when you’re ready.
-          </p>
-        </header>
+    <section className="fg-screen backlog-page" aria-label="Ideas backlog">
+      <header className="backlog-head">
+        <Link to={`/trips/${trip.id}/plan`} state={{ trip }} className="fg-back backlog-back">
+          <Icon name="back" size={18} />
+          All days
+        </Link>
+        <h1 className="fg-page-title">Backlog</h1>
+        <p className="backlog-intro">
+          Ideas that aren’t on a day yet. Move one onto a day when you’re ready.
+        </p>
+        {tripId && (
+          <div className="backlog-add">
+            {/* The same full-detail add form as a day, with no day assigned —
+                so an idea can carry a place, time, cost and notes from the
+                start and go straight onto a day later. (M04.5) */}
+            <QuickAddForm
+              tripId={tripId}
+              dayId={null}
+              onAdded={handleAdded}
+              variant="bar"
+              placeholder="Add an idea…"
+              titleLabel="New idea"
+            />
+          </div>
+        )}
+      </header>
 
-        {loading && (
-          <p className="backlog-loading" aria-busy="true">
-            Loading ideas…
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="backlog-error">
-            {error}
-          </p>
-        )}
-        {items !== null && items.length === 0 && (
-          <p className="backlog-empty">No ideas yet. Add your first one.</p>
-        )}
-        {items !== null && items.length > 0 && (
+      {loading && (
+        <p className="fg-loading backlog-loading" aria-busy="true">
+          Loading ideas…
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="fg-error backlog-error">
+          {error}
+        </p>
+      )}
+      {items !== null && items.length === 0 && (
+        <p className="fg-empty backlog-empty">No ideas yet. Add your first one.</p>
+      )}
+      {items !== null && items.length > 0 && (
+        <section className="backlog-group" aria-label="Ideas">
+          <div className="backlog-group-head">
+            <h2 className="backlog-group-title">Ideas</h2>
+            <span className="fg-meta">
+              {items.length} {items.length === 1 ? 'idea' : 'ideas'}
+            </span>
+          </div>
           <ul className="backlog-list">
             {items.map((item) => (
               <BacklogItem
@@ -433,17 +454,8 @@ export function BacklogPage() {
               />
             ))}
           </ul>
-        )}
-
-        {tripId && (
-          <div className="backlog-add">
-            {/* The same full-detail add form as a day, with no day assigned —
-                so an idea can carry a place, time, cost and notes from the
-                start and promote straight onto a day later. (M04.5) */}
-            <QuickAddForm tripId={tripId} dayId={null} onAdded={handleAdded} />
-          </div>
-        )}
-      </div>
+        </section>
+      )}
     </section>
   )
 }

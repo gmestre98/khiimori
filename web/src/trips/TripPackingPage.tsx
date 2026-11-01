@@ -39,7 +39,9 @@ function groupByCategory(items: PackingItem[]): { category: string; items: Packi
   return names.map((category) => ({ category, items: groups.get(category)! }))
 }
 
-export function TripPackingPage() {
+// embedded: rendered inside the Prep page, which owns the page title — the
+// packing list then shows its own heading as a quiet row with Templates.
+export function TripPackingPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { tripId } = useParams<{ tripId: string }>()
 
   // Local working copy so toggles/edits reflect instantly (optimistic). Seeded
@@ -209,10 +211,16 @@ export function TripPackingPage() {
   const loading = items === null
 
   return (
-    <article className="trip-packing-page">
-      <div className="screen-content narrow trip-packing-body">
+    <article
+      className={embedded ? 'trip-packing-page trip-packing-page--embedded' : 'trip-packing-page'}
+    >
+      <div className={embedded ? 'trip-packing-body' : 'screen-content narrow trip-packing-body'}>
         <div className="trip-packing-head">
-          <h1 className="h1">Packing</h1>
+          {embedded ? (
+            <h2 className="fg-label trip-packing-subtitle">Packing list</h2>
+          ) : (
+            <h1 className="h1">Packing</h1>
+          )}
           <Button variant="secondary" size="sm" onClick={() => setTemplatesOpen(true)}>
             Templates
           </Button>
