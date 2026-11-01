@@ -197,6 +197,9 @@
      light fill with dark text. */
   --fill-strong: var(--ink);
   --on-fill: var(--bg);
+  /* Summary cards (days progress): ink block in light, raised surface in dark. */
+  --panel-strong: var(--fill-strong);
+  --on-panel-strong: var(--on-fill);
   --text-h: var(--ink);
   --text: var(--ink-2);
   --text-secondary: var(--muted);
@@ -293,6 +296,8 @@
 
   --fill-strong: #e7ebee;
   --on-fill: #10161d;
+  --panel-strong: #222d39;
+  --on-panel-strong: #e7ebee;
   --surface-hover: #222d39;
   --overlay-scrim: rgba(0, 0, 0, 0.6);
   --color-error-border: #5a3324;
@@ -361,6 +366,8 @@
 
     --fill-strong: #e7ebee;
     --on-fill: #10161d;
+    --panel-strong: #222d39;
+    --on-panel-strong: #e7ebee;
     --surface-hover: #222d39;
     --overlay-scrim: rgba(0, 0, 0, 0.6);
     --color-error-border: #5a3324;

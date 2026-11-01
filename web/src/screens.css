@@ -246,8 +246,8 @@
   gap: 10px;
   padding: 16px;
   border-radius: 16px;
-  background: var(--fill-strong);
-  color: var(--on-fill);
+  background: var(--panel-strong);
+  color: var(--on-panel-strong);
 }
 .days-progress-head {
   display: flex;
@@ -273,10 +273,10 @@
 .days-progress-ticks > span {
   flex: 1;
   border-radius: 2px;
-  background: color-mix(in srgb, var(--on-fill) 25%, transparent);
+  background: color-mix(in srgb, var(--on-panel-strong) 25%, transparent);
 }
 .days-progress-ticks > span[data-on='true'] {
-  background: var(--on-fill);
+  background: var(--on-panel-strong);
 }
 
 .days-list {
