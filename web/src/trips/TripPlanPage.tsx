@@ -1,398 +1,122 @@
-import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  UnauthorizedError,
-  datesInRange,
-  fetchDay,
-  type Day,
-  type PlanItem,
-  type Stay,
-} from '../lib/api'
-import { fullDate, shortDate } from '../lib/format'
-import { PlanningSection } from './DayView'
-import { JournalEditor } from '../journal/JournalEditor'
-import { DayDiary } from '../journal/DayDiary'
-import { TripTravelogue } from './TripTravelogue'
-import { coversDay } from './stayCoverage'
-import { useTripShell } from './useTripShell'
-import { readCache, writeCache } from '../lib/resourceCache'
+import { fetchBacklog } from '../lib/api'
+import { useCachedResource } from '../lib/useCachedResource'
 import { cacheKeys } from '../lib/cacheKeys'
+import { DateBox } from '../components/ui/DateBox'
+import { Icon } from '../components/ui/Icon'
+import { buildDayMetas, planSummary, useTripDays, type DayMeta } from './tripDays'
+import { useTripShell } from './useTripShell'
 
-// hasPlan reports whether a day has anything planned yet — an activity/note or a
-// stay. Drives the filled rail dot so a glance shows which days still need work.
-function hasPlan(day: Day): boolean {
-  return day.plan_items.length > 0 || day.stays.length > 0
+// DayRow is one row of the trip's day list: the date box (country-coloured,
+// dashed when empty), the place/title, a one-line summary and badges.
+function DayRow({ meta, tripLink }: { meta: DayMeta; tripLink: (date: string) => string }) {
+  const { day } = meta
+  const planned = day ? day.plan_items.filter((i) => !i.unplanned) : []
+  const done = planned.filter((i) => i.status === 'done').length
+  const summary = day ? planSummary(day) : ''
+  const title = meta.place || (meta.hasPlans ? `${planned.length} plans` : `Day ${meta.index + 1}`)
+  const date = new Date(meta.date + 'T00:00:00')
+  return (
+    <li>
+      <Link
+        to={tripLink(meta.date)}
+        className={meta.hasPlans ? 'days-row' : 'days-row days-row--empty'}
+        aria-label={`Day ${meta.index + 1}, ${date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}${meta.place ? `, ${meta.place}` : ''}${meta.hasPlans ? '' : ' — nothing planned'}`}
+      >
+        <DateBox date={meta.date} color={meta.color} empty={!meta.hasPlans} />
+        <span className="days-row-body">
+          <span className="days-row-title">{title}</span>
+          {meta.hasPlans ? (
+            summary && <span className="days-row-sub">{summary}</span>
+          ) : (
+            <span className="days-row-sub days-row-sub--muted">{summary || 'Nothing planned'}</span>
+          )}
+        </span>
+        <span className="days-row-badges">
+          {done > 0 && (
+            <span className="tag tag--ok">
+              {done}/{planned.length}
+            </span>
+          )}
+          <Icon name="chevron-right" size={16} />
+        </span>
+      </Link>
+    </li>
+  )
 }
 
-// EXPANDED_KEY namespaces the per-trip set of expanded days in localStorage, so
-// which days you left open survives a reload (mirrors the plan-hidden toggle).
-const EXPANDED_KEY = (tripId: string) => `khiimori:daysExpanded:${tripId}`
-
-// defaultExpanded picks the days open on a cold start: today only, or day 1 when
-// the trip hasn't started yet or is already over. The whole-trip stack used to
-// render every day in full, which made it an endless scroll.
-function defaultExpanded(dates: string[]): string[] {
-  const today = new Date().toISOString().slice(0, 10)
-  return [dates.includes(today) ? today : (dates[0] ?? '')].filter(Boolean)
-}
-
-// readExpanded restores the saved set, falling back to the default. Storage may
-// be unavailable (private mode) or hold junk — either way we just use defaults.
-function readExpanded(tripId: string, dates: string[]): Set<string> {
-  try {
-    const raw = localStorage.getItem(EXPANDED_KEY(tripId))
-    if (raw !== null) {
-      const parsed: unknown = JSON.parse(raw)
-      if (Array.isArray(parsed)) {
-        return new Set(parsed.filter((d): d is string => typeof d === 'string'))
-      }
-    }
-  } catch {
-    // ignore storage/parse failures — fall through to the default
-  }
-  return new Set(defaultExpanded(dates))
-}
-
-// dayCaption is the muted status line under each rail row.
-function dayCaption(day: Day): string {
-  const n = day.plan_items.length
-  const s = day.stays.length
-  if (n === 0 && s === 0) return 'Nothing planned yet'
-  const parts: string[] = []
-  if (n > 0) parts.push(`${n} ${n === 1 ? 'item' : 'items'}`)
-  if (s > 0) parts.push(`${s} ${s === 1 ? 'stay' : 'stays'}`)
-  return parts.join(' · ')
-}
-
-// TripPlanPage is the trip-scoped Plan subtab (/trips/:tripId/plan). It is a
-// plan-only surface — no map, budget, or journal — mirroring the whole-trip Map
-// and Journal subtabs. A left rail lists every day (with its plan status) plus a
-// "Whole trip" row and a link to the ideas backlog. Selecting a day opens that
-// day's full planner (reusing PlanningSection from the day view); "Whole trip"
-// (the default) stacks every day's planner so you can add to and edit any day
-// from one scroll. It loads each day once on mount.
+// TripPlanPage is the trip's Days screen (/trips/:tripId/plan): a planning
+// progress strip, ONE list of every day (tap a day to plan it), and a link
+// card to the backlog. It replaces the old rail + whole-trip accordion, which
+// listed every day twice.
 export function TripPlanPage() {
-  const { trip } = useTripShell()
-  const dates = datesInRange(trip.start_date, trip.end_date)
+  const { trip, tripDays: shellDays } = useTripShell()
+  // The shell already loads every day; fall back to loading here when this
+  // page is rendered outside the shell (tests).
+  const ownDays = useTripDays(trip, undefined, !shellDays)
+  const tripDays = shellDays ?? ownDays
+  const { data: backlog } = useCachedResource(cacheKeys.backlog(trip.id), (signal) =>
+    fetchBacklog(trip.id, signal),
+  )
 
-  const [days, setDays] = useState<Day[] | null>(null)
-  const [error, setError] = useState(false)
-  // selectedDate is the day being planned on the right; null means the whole-trip
-  // stack (the landing view).
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  // expanded holds the dates whose card is open in the whole-trip stack.
-  const [expanded, setExpanded] = useState<Set<string>>(() => readExpanded(trip.id, dates))
-
-  // The open set is mirrored to storage as an effect rather than at each call
-  // site, so every update can be functional — two toggles in the same tick (a
-  // fast double-click, or collapse-all right after a toggle) must not clobber
-  // each other by both deriving from the same stale snapshot.
-  useEffect(() => {
-    try {
-      localStorage.setItem(EXPANDED_KEY(trip.id), JSON.stringify([...expanded]))
-    } catch {
-      // ignore storage failures — the toggle still works in-session
-    }
-  }, [trip.id, expanded])
-
-  function toggleExpanded(date: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (!next.delete(date)) next.add(date)
-      return next
-    })
-  }
-
-  // toggleAll opens every day, or closes every day when all are already open.
-  function toggleAll(allDates: string[]) {
-    setExpanded((prev) => (prev.size === allDates.length ? new Set() : new Set(allDates)))
-  }
-
-  useEffect(() => {
-    const controller = new AbortController()
-    let done = false
-
-    // Instant-render: if every day is already cached (shared per-day keys with
-    // the day view, so a browsed trip is warm), paint the whole planner first,
-    // then revalidate. A failed refresh with a full cache is non-destructive.
-    void Promise.all(dates.map((d) => readCache<Day>(cacheKeys.day(trip.id, d)))).then((cached) => {
-      if (done) return
-      const cachedDays = cached.map((c) => c?.data).filter((d): d is Day => d != null)
-      const hadFullCache = cachedDays.length === dates.length
-      if (hadFullCache) setDays(cachedDays)
-
-      return Promise.all(dates.map((d) => fetchDay(trip.id, d, controller.signal)))
-        .then((loaded) => {
-          if (done) return
-          setDays(loaded)
-          loaded.forEach((day) => void writeCache(cacheKeys.day(trip.id, day.date), day))
-        })
-        .catch((err: unknown) => {
-          if (err instanceof DOMException && err.name === 'AbortError') return
-          if (err instanceof UnauthorizedError) return
-          if (!hadFullCache) setError(true)
-        })
-    })
-
-    return () => {
-      done = true
-      controller.abort()
-    }
-    // trip.id is stable (TripShell remounts per trip); dates derive from it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trip.id])
-
-  // setItemsForDate returns a Dispatch that mutates one day's plan_items in the
-  // loaded list, so each PlanningSection can add/edit/reorder items in place and
-  // the rail status stays in sync — the whole-trip stack shares one source.
-  function setItemsForDate(date: string): Dispatch<SetStateAction<PlanItem[]>> {
-    return (action) => {
-      setDays((cur) =>
-        cur
-          ? cur.map((d) =>
-              d.date === date
-                ? {
-                    ...d,
-                    plan_items:
-                      typeof action === 'function'
-                        ? (action as (prev: PlanItem[]) => PlanItem[])(d.plan_items)
-                        : action,
-                  }
-                : d,
-            )
-          : cur,
-      )
-    }
-  }
-
-  // setStaysForDate mirrors setItemsForDate for a day's stays so the pinned stay
-  // slot in each PlanningSection updates the shared loaded list in place.
-  function setStaysForDate(date: string): Dispatch<SetStateAction<Stay[]>> {
-    return (action) => {
-      setDays((cur) =>
-        cur
-          ? cur.map((d) =>
-              d.date === date
-                ? {
-                    ...d,
-                    stays:
-                      typeof action === 'function'
-                        ? (action as (prev: Stay[]) => Stay[])(d.stays)
-                        : action,
-                  }
-                : d,
-            )
-          : cur,
-      )
-    }
-  }
-
-  // applyStay spreads a saved stay across every day it now covers and drops it
-  // from days it no longer covers. Because all days are held in memory here, a
-  // two-night stay added on day 1 shows on day 2 immediately — no reload. The
-  // backend already returns a stay on every covered day; this keeps the loaded
-  // list in step after a local add/edit.
-  function applyStay(saved: Stay) {
-    setDays((cur) =>
-      cur
-        ? cur.map((d) => {
-            const rest = d.stays.filter((s) => s.id !== saved.id)
-            return { ...d, stays: coversDay(saved, d.date) ? [saved] : rest }
-          })
-        : cur,
-    )
-  }
-
-  // insertMovedItem adds an item moved off another day to its new day in place,
-  // so the target day's planner and the rail count reflect the move immediately —
-  // no reload. The source day drops it via its own setItems (onRemoved). Guard
-  // against a double-insert if the same item somehow lands twice.
-  function insertMovedItem(targetDate: string, item: PlanItem) {
-    setDays((cur) =>
-      cur
-        ? cur.map((d) =>
-            d.date === targetDate && !d.plan_items.some((i) => i.id === item.id)
-              ? { ...d, plan_items: [...d.plan_items, item] }
-              : d,
-          )
-        : cur,
-    )
-  }
-
-  // removeStay drops a deleted stay from every day it occupied.
-  function removeStay(stayId: string) {
-    setDays((cur) =>
-      cur ? cur.map((d) => ({ ...d, stays: d.stays.filter((s) => s.id !== stayId) })) : cur,
-    )
-  }
-
-  const selected = days?.find((d) => d.date === selectedDate) ?? null
-  const totalItems = (days ?? []).reduce((sum, d) => sum + d.plan_items.length, 0)
+  const metas = tripDays.days ? buildDayMetas(tripDays.dates, tripDays.days) : null
+  const plannedCount = metas ? metas.filter((m) => m.hasPlans).length : 0
+  const total = tripDays.dates.length
+  const tripLink = (date: string) => `/trips/${trip.id}/days/${date}`
 
   return (
-    <article className="trip-plan-page" aria-label={`Days for ${trip.name}`}>
-      <div className="screen-content trip-plan-body">
-        <header className="trip-plan-head">
-          <h1 className="h1">Your trip, day by day</h1>
-          <p className="meta">
-            Plan a day, log what you actually did, and journal it — or scan the whole trip at once.
-          </p>
-        </header>
-
-        {error ? (
-          <p role="alert" className="trip-plan-error">
-            Could not load the trip plan.
-          </p>
-        ) : days === null ? (
-          <p className="trip-plan-loading" aria-busy="true">
-            Loading trip plan…
-          </p>
-        ) : (
-          <div className="trip-plan-layout">
-            <nav className="trip-plan-days" aria-label="Days">
-              <button
-                type="button"
-                className={['trip-plan-day', selectedDate === null ? 'trip-plan-day--active' : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                aria-pressed={selectedDate === null}
-                onClick={() => setSelectedDate(null)}
-              >
-                <span className="trip-plan-day-dot trip-plan-day-dot--all" aria-hidden="true" />
-                <span className="trip-plan-day-label">Whole trip</span>
-                <span className="trip-plan-day-meta">
-                  {totalItems > 0
-                    ? `${totalItems} ${totalItems === 1 ? 'item' : 'items'} planned`
-                    : 'Plan the whole trip'}
-                </span>
-              </button>
-              {days.map((d) => (
-                <button
-                  key={d.date}
-                  type="button"
-                  className={[
-                    'trip-plan-day',
-                    selectedDate === d.date ? 'trip-plan-day--active' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  aria-pressed={selectedDate === d.date}
-                  onClick={() => setSelectedDate(d.date)}
-                >
-                  <span
-                    className={['trip-plan-day-dot', hasPlan(d) ? 'trip-plan-day-dot--filled' : '']
-                      .filter(Boolean)
-                      .join(' ')}
-                    aria-hidden="true"
-                  />
-                  <span className="trip-plan-day-label">
-                    Day {d.index + 1} · {shortDate(d.date)}
-                  </span>
-                  <span className="trip-plan-day-meta">{dayCaption(d)}</span>
-                </button>
-              ))}
-              <Link
-                to={`/trips/${trip.id}/backlog`}
-                state={{ trip }}
-                className="trip-plan-backlog"
-                aria-label="View ideas backlog"
-              >
-                💡 Ideas backlog
-              </Link>
-            </nav>
-
-            <div className="trip-plan-panel">
-              {selected ? (
-                <div className="trip-day-panel">
-                  <PlanningSection
-                    key={selected.id}
-                    day={selected}
-                    items={selected.plan_items}
-                    setItems={setItemsForDate(selected.date)}
-                    setStays={setStaysForDate(selected.date)}
-                    onStaySaved={applyStay}
-                    onStayRemoved={removeStay}
-                    onItemMoved={insertMovedItem}
-                    tripId={trip.id}
-                    title={`Day ${selected.index + 1} · ${fullDate(selected.date)}`}
-                    showBacklogLink={false}
-                  />
-                  <section className="trip-day-journal" aria-label="Journal">
-                    <h2 className="day-slot-title">Journal</h2>
-                    <JournalEditor
-                      key={`journal-${selected.id}`}
-                      tripId={trip.id}
-                      dayId={selected.id}
-                      readOnly={false}
-                    />
-                  </section>
-                </div>
-              ) : (
-                <>
-                  <div className="trip-plan-feed-head">
-                    <button
-                      type="button"
-                      className="trip-plan-expand-all"
-                      onClick={() => toggleAll(days.map((d) => d.date))}
-                    >
-                      {expanded.size === days.length ? 'Collapse all' : 'Expand all'}
-                    </button>
-                  </div>
-                  <section className="trip-plan-feed" aria-label="Day cards">
-                    {days.map((d) => {
-                      const open = expanded.has(d.date)
-                      return (
-                        <div
-                          key={d.id}
-                          className={['day-card', open ? 'day-card--open' : '']
-                            .filter(Boolean)
-                            .join(' ')}
-                        >
-                          <button
-                            type="button"
-                            className="day-card-head"
-                            aria-expanded={open}
-                            onClick={() => toggleExpanded(d.date)}
-                          >
-                            <span className="day-card-chevron" aria-hidden="true">
-                              {open ? '▾' : '▸'}
-                            </span>
-                            <span className="day-card-title">
-                              Day {d.index + 1} · {shortDate(d.date)}
-                            </span>
-                            <span className="day-card-meta">{dayCaption(d)}</span>
-                          </button>
-                          {open && (
-                            <div className="day-card-body">
-                              <PlanningSection
-                                day={d}
-                                items={d.plan_items}
-                                setItems={setItemsForDate(d.date)}
-                                setStays={setStaysForDate(d.date)}
-                                onStaySaved={applyStay}
-                                onStayRemoved={removeStay}
-                                onItemMoved={insertMovedItem}
-                                tripId={trip.id}
-                                // The card head already names the day, so the
-                                // section heading would just repeat it.
-                                title={null}
-                                showBacklogLink={false}
-                              />
-                              <DayDiary tripId={trip.id} dayId={d.id} readOnly={false} />
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </section>
-                  {/* Read the whole trip as a diary, below the plan stack. */}
-                  <TripTravelogue />
-                </>
+    <section className="fg-screen days-page" aria-label={`Days for ${trip.name}`}>
+      <h2 className="visually-hidden">Days</h2>
+      {tripDays.error && !metas ? (
+        <p role="alert" className="fg-error">
+          Could not load the trip plan.
+        </p>
+      ) : metas === null ? (
+        <p className="fg-loading" aria-busy="true">
+          Loading trip plan…
+        </p>
+      ) : (
+        <>
+          <div className="days-progress" role="group" aria-label="Planning progress">
+            <div className="days-progress-head">
+              <span className="days-progress-title">
+                {plannedCount} of {total} {total === 1 ? 'day has' : 'days have'} plans
+              </span>
+              {total - plannedCount > 0 && (
+                <span className="days-progress-meta">{total - plannedCount} empty</span>
               )}
             </div>
+            <div className="days-progress-ticks" aria-hidden="true">
+              {metas.map((m) => (
+                <span key={m.date} data-on={m.hasPlans} />
+              ))}
+            </div>
+            {/* Drafting empty days from the route is a future backend feature;
+                the hook lives here so it can land without a layout change. */}
           </div>
-        )}
-      </div>
-    </article>
+
+          <ol className="days-list" aria-label="Days">
+            {metas.map((m) => (
+              <DayRow key={m.date} meta={m} tripLink={tripLink} />
+            ))}
+          </ol>
+
+          <Link to={`/trips/${trip.id}/backlog`} state={{ trip }} className="fg-link-card">
+            <span>
+              <span className="fg-link-card-title">Backlog</span>
+              <br />
+              <span className="fg-link-card-sub">
+                {backlog == null
+                  ? 'Ideas not on a day yet'
+                  : backlog.length === 0
+                    ? 'No ideas parked yet'
+                    : `${backlog.length} ${backlog.length === 1 ? 'idea' : 'ideas'} not on a day yet`}
+              </span>
+            </span>
+            <Icon name="chevron-right" size={16} />
+          </Link>
+        </>
+      )}
+    </section>
   )
 }

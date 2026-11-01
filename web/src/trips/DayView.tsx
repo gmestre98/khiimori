@@ -1,23 +1,15 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { collectLocatedItems, type ItemOrder } from './locatedItems'
 import { StaySlot } from './StaySlot'
-import { splitAmount } from './splitAmount'
 import {
   BUDGET_CATEGORIES,
-  PlanItemValidationError,
   UnauthorizedError,
-  createPlanItem,
-  deletePlanItem,
-  demotePlanItem,
   fetchBudgetRollup,
   fetchDay,
   listCostEntries,
-  movePlanItem,
   reorderPlanItems,
   reorderPlanItemsActual,
-  setPlanItemStatus,
-  updatePlanItem,
   datesInRange,
   type BudgetLine,
   type BudgetRollup,
@@ -26,33 +18,106 @@ import {
   type PlanItem,
   type Stay,
 } from '../lib/api'
-import { euro, fullDate } from '../lib/format'
+import { euro } from '../lib/format'
 import { enqueue } from '../lib/mutationQueue'
 import { useIsOnline } from '../lib/useIsOnline'
 import { readCache, writeCache } from '../lib/resourceCache'
 import { cacheKeys } from '../lib/cacheKeys'
 import { CacheStatus } from '../components/CacheStatus'
+import { Icon, type IconName } from '../components/ui/Icon'
+import { DateBox } from '../components/ui/DateBox'
 import { JournalEditor } from '../journal/JournalEditor'
 import { AddCostForm, CostEntryItem } from './FastAddCost'
 import { DayExtraEditor } from './BudgetEditor'
 import { DayRollup } from './RollupDisplay'
 import { dayBudgetTotal, patchRollupPlanned } from './budgetModel'
 import { useTripShell } from './useTripShell'
-import { HeroScene } from './heroScene'
-import { BottomSheet, PlanItemForm, QuickAddForm } from './PlanItemForm'
-import {
-  fieldsFromItem,
-  fieldsToInput,
-  mergeInput,
-  tempPlanItem,
-  useMobile,
-  type PlanItemFormFields,
-} from './planItemForm.helpers'
+import { QuickAddForm } from './PlanItemForm'
+import { PlanItemDetails } from './PlanItemDetails'
+import { usePlanItemActions } from './planItemActions'
+import { buildDayMetas, countryOf, firstLocation, placeName } from './tripDays'
+import { countryColor, NO_COUNTRY_COLOR } from '../design/countries'
+import { useMobile } from './planItemForm.helpers'
 
 const DayMap = lazy(() => import('./DayMap'))
 
-// statusLabel maps a plan item status to a human-readable label.
-function statusLabel(status: string): string {
+// ── Ordering helpers ─────────────────────────────────────────────────────────
+
+// orderTimeline arranges a day's items into the unified timeline (M12.1 S6):
+// timed items always read in clock order, while untimed items hold whatever
+// position they were dropped into (including between two timed items).
+function orderTimeline(items: PlanItem[]): PlanItem[] {
+  const timedSorted = items
+    .filter((i) => i.start_time != null)
+    .slice()
+    .sort((a, b) => (a.start_time as string).localeCompare(b.start_time as string))
+  let t = 0
+  return items.map((i) => (i.start_time != null ? timedSorted[t++] : i))
+}
+
+// mergeSubsetOrder repositions the members of `subset` within the full day list
+// to the subset's new relative order, leaving every non-member fixed in place.
+function mergeSubsetOrder(full: PlanItem[], subset: PlanItem[]): PlanItem[] {
+  const ids = new Set(subset.map((i) => i.id))
+  let k = 0
+  return full.map((item) => (ids.has(item.id) ? subset[k++] : item))
+}
+
+// buzz gives a short haptic tick on devices that support it (drag pickup).
+function buzz(ms: number) {
+  try {
+    navigator.vibrate?.(ms)
+  } catch {
+    // ignore — vibration is a nicety, never required
+  }
+}
+
+function localToday(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// kindTag maps an item to its small mono tag (transport legs get a FERRY /
+// FLIGHT / TRAIN … word when the title says so).
+function kindTag(item: PlanItem): { label: string; tone: string } | null {
+  const kind = item.kind ?? 'activity'
+  if (kind === 'transport') {
+    const t = item.title.toLowerCase()
+    const word = /ferry|boat/.test(t)
+      ? 'Ferry'
+      : /flight|fly|plane/.test(t)
+        ? 'Flight'
+        : /train/.test(t)
+          ? 'Train'
+          : /bus/.test(t)
+            ? 'Bus'
+            : 'Transport'
+    return { label: word, tone: 'accent' }
+  }
+  if (kind === 'food') return { label: 'Food', tone: 'tour' }
+  if (kind === 'note') return { label: 'Note', tone: 'night' }
+  return null
+}
+
+const KIND_ICON: Record<string, IconName> = {
+  activity: 'activity',
+  transport: 'transport',
+  food: 'food',
+  note: 'note',
+}
+
+// itemWhere is the muted second line under an item: "from → to" for a leg,
+// else its location; prefixed with the start time.
+function itemWhere(item: PlanItem): string {
+  const time = item.start_time ? item.start_time.slice(0, 5) : ''
+  const place =
+    (item.kind ?? 'activity') === 'transport'
+      ? [item.origin, item.destination].filter(Boolean).join(' → ')
+      : (item.location ?? '')
+  return [time, place].filter(Boolean).join(' · ')
+}
+
+function statusWord(status: string): string {
   switch (status) {
     case 'done':
       return 'Done'
@@ -65,438 +130,119 @@ function statusLabel(status: string): string {
   }
 }
 
-// PLAN_HIDDEN_KEY persists whether the Plan group is collapsed, so someone
-// reliving a past trip can keep the itinerary tucked away and read "what
-// happened" without re-hiding it on every day.
-const PLAN_HIDDEN_KEY = 'khiimori:planHidden'
+// ── Plan rows ────────────────────────────────────────────────────────────────
 
-// readPlanHidden returns the saved preference, or null when the user has never
-// set it — letting a past day default the plan collapsed without overriding an
-// explicit choice.
-function readPlanHidden(): boolean | null {
-  try {
-    const v = localStorage.getItem(PLAN_HIDDEN_KEY)
-    return v === null ? null : v === '1'
-  } catch {
-    return null
-  }
-}
-
-// MoveToDayPicker is the inline day-picker shown when the user clicks "Move…"
-// on a plan item. It fetches the target day to resolve date → UUID and calls
-// movePlanItem on confirm.
-function MoveToDayPicker({
-  tripId,
+// PlanRow is one plan item: a round tick that toggles Planned↔Done, the name
+// (tap for the details sheet), its time/place line and a kind tag. Transport
+// legs render smaller and indented. Untimed rows carry a drag grip.
+function PlanRow({
   item,
-  tripDates,
-  currentDate,
-  onMoved,
-  onCancel,
-}: {
-  tripId: string
-  item: PlanItem
-  tripDates: string[]
-  currentDate: string
-  // onMoved reports the move so the source day can drop the item (itemId) and a
-  // multi-day parent can add it to the target day in place (targetDate + moved) —
-  // no reload needed to see it land.
-  onMoved: (itemId: string, targetDate: string, moved: PlanItem) => void
-  onCancel: () => void
-}) {
-  const online = useIsOnline()
-  const otherDates = tripDates.filter((d) => d !== currentDate)
-  const [selectedDate, setSelectedDate] = useState(otherDates[0] ?? '')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleMove() {
-    if (!selectedDate) return
-    setBusy(true)
-    setError(null)
-    try {
-      if (!online) {
-        // Offline: resolve the target day's id from the cache (fetchDay would
-        // fail), queue the move, and add the item to the target day's cache so it
-        // shows there immediately and survives an offline reload. Removal from the
-        // current day is handled by onMoved (its cache write lives in DayView).
-        const cached = await readCache<Day>(cacheKeys.day(tripId, selectedDate))
-        if (!cached) {
-          setError("That day isn't cached for offline use yet.")
-          return
-        }
-        await enqueue('movePlanItem', { tripId, itemId: item.id, dayId: cached.data.id })
-        const moved: PlanItem = {
-          ...item,
-          day_id: cached.data.id,
-          sort_order: Number.MAX_SAFE_INTEGER,
-        }
-        void writeCache(cacheKeys.day(tripId, selectedDate), {
-          ...cached.data,
-          plan_items: [...cached.data.plan_items, moved],
-        })
-        onMoved(item.id, selectedDate, moved)
-        return
-      }
-      const targetDay = await fetchDay(tripId, selectedDate)
-      await movePlanItem(tripId, item.id, targetDay.id)
-      const moved: PlanItem = {
-        ...item,
-        day_id: targetDay.id,
-        sort_order: Number.MAX_SAFE_INTEGER,
-      }
-      onMoved(item.id, selectedDate, moved)
-    } catch {
-      setError('Could not move item.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  if (otherDates.length === 0) {
-    return (
-      <span className="plan-item-move-picker">
-        <span className="plan-item-move-picker-empty">No other days in trip.</span>
-        <button type="button" className="plan-item-move-cancel" onClick={onCancel}>
-          Cancel
-        </button>
-      </span>
-    )
-  }
-
-  return (
-    <span className="plan-item-move-picker">
-      <select
-        className="plan-item-move-select"
-        value={selectedDate}
-        onChange={(e) => setSelectedDate(e.target.value)}
-        disabled={busy}
-        aria-label="Target day"
-      >
-        {otherDates.map((d) => (
-          <option key={d} value={d}>
-            {d}
-          </option>
-        ))}
-      </select>
-      <button
-        type="button"
-        className="plan-item-move-confirm"
-        onClick={handleMove}
-        disabled={busy || !selectedDate}
-      >
-        Move
-      </button>
-      <button type="button" className="plan-item-move-cancel" onClick={onCancel} disabled={busy}>
-        Cancel
-      </button>
-      {error && (
-        <span role="alert" className="plan-item-move-error">
-          {error}
-        </span>
-      )}
-    </span>
-  )
-}
-
-// PlanItemRow renders a single plan item and enters inline-edit mode on click.
-// It also exposes status, move-to-day, and demote-to-backlog affordances.
-// On mobile the edit form opens in a BottomSheet; touch reorder is a finger drag
-// on the grip handle (pointer events), mirroring desktop's mouse drag.
-function PlanItemRow({
-  item,
-  tripId,
-  day,
-  tripDates,
   draggable: isDraggable,
   isTouchDragging,
   isSelected,
   pinNumber,
   onSelect,
-  onUpdated,
-  onAdded,
-  onRemoved,
+  onToggle,
+  toggling,
+  onOpen,
   onDragStart,
   onDragOver,
   onDrop,
   onTouchDragStart,
   onTouchDragMove,
   onTouchDragEnd,
-  onItemMoved,
 }: {
   item: PlanItem
-  tripId: string
-  day: Day
-  tripDates: string[]
-  draggable?: boolean
-  isTouchDragging?: boolean
-  isSelected?: boolean
+  draggable: boolean
+  isTouchDragging: boolean
+  isSelected: boolean
   pinNumber?: number
   onSelect?: () => void
-  onUpdated: (updated: PlanItem) => void
-  // onAdded appends a newly created sibling item (used when a split turns one
-  // item into several parts on save).
-  onAdded: (item: PlanItem) => void
-  onRemoved: (itemId: string) => void
-  // onItemMoved lets a multi-day parent add the item to its new day in place when
-  // it's moved off this one (the whole-trip Plan view); omit it in single-day
-  // contexts, where the target day isn't on screen.
-  onItemMoved?: (targetDate: string, item: PlanItem) => void
-  onDragStart?: (e: React.DragEvent, itemId: string) => void
-  onDragOver?: (e: React.DragEvent, itemId: string) => void
-  onDrop?: (e: React.DragEvent, itemId: string) => void
-  onTouchDragStart?: (e: React.PointerEvent, itemId: string) => void
-  onTouchDragMove?: (e: React.PointerEvent) => void
-  onTouchDragEnd?: (e: React.PointerEvent) => void
+  onToggle: () => void
+  toggling: boolean
+  onOpen: () => void
+  onDragStart: (e: React.DragEvent, id: string) => void
+  onDragOver: (e: React.DragEvent) => void
+  onDrop: (e: React.DragEvent, id: string) => void
+  onTouchDragStart: (e: React.PointerEvent, id: string) => void
+  onTouchDragMove: (e: React.PointerEvent) => void
+  onTouchDragEnd: () => void
 }) {
-  const mobile = useMobile()
-  const online = useIsOnline()
-  const [editing, setEditing] = useState(false)
-  const [editError, setEditError] = useState<string | null>(null)
-  const [showMovePicker, setShowMovePicker] = useState(false)
-  // showActions gates the secondary row controls (move / backlog / delete)
-  // behind a "⋯" toggle so a resting row shows only its status dropdown, not a
-  // crowd of buttons.
-  const [showActions, setShowActions] = useState(false)
-  const [statusBusy, setStatusBusy] = useState(false)
-  const [demoteBusy, setDemoteBusy] = useState(false)
-  // confirmDelete gates the destructive delete behind a second click — the bin
-  // button swaps to an inline "Delete? / Cancel" confirm rather than deleting on
-  // the first tap.
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [deleteBusy, setDeleteBusy] = useState(false)
   const rowRef = useRef<HTMLLIElement>(null)
-
-  // Scroll the row into view when it becomes selected via a pin tap.
   useEffect(() => {
-    if (isSelected) {
-      rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    }
+    if (isSelected) rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [isSelected])
 
-  const isDone = item.status === 'done'
-  const isSkipped = item.status === 'skipped'
-  const isCancelled = item.status === 'cancelled'
-  const inactive = isSkipped || isCancelled
-  const label = statusLabel(item.status)
-
-  async function handleSave(fields: PlanItemFormFields, splitParts: number) {
-    setEditError(null)
-    const base = fieldsToInput(fields, item.day_id)
-    try {
-      if (splitParts > 1 && base.cost != null && base.cost > 0) {
-        // Split an existing item: divide the cost to the cent and reshape it
-        // into N parts. Part 1 reuses this item (keeping its id, day, status and
-        // order); the remaining parts become new sibling items on the same day.
-        const shares = splitAmount(base.cost, splitParts)
-        const firstInput = {
-          ...base,
-          title: `${base.title} (part 1/${splitParts})`,
-          cost: shares[0],
-        }
-        const partInputs = Array.from({ length: splitParts - 1 }, (_, i) => ({
-          ...base,
-          title: `${base.title} (part ${i + 2}/${splitParts})`,
-          cost: shares[i + 1],
-        }))
-        if (!online) {
-          // Offline: queue the update + each new part, reflecting them optimistically.
-          await enqueue('updatePlanItem', { tripId, itemId: item.id, input: firstInput })
-          onUpdated(mergeInput(item, tripId, firstInput))
-          for (const input of partInputs) {
-            const withId = { ...input, id: crypto.randomUUID() }
-            await enqueue('createPlanItem', { tripId, input: withId })
-            onAdded(tempPlanItem(tripId, item.day_id ?? null, withId))
-          }
-          setEditing(false)
-          return
-        }
-        const first = await updatePlanItem(tripId, item.id, firstInput)
-        onUpdated(first)
-        for (const input of partInputs) {
-          const created = await createPlanItem(tripId, input)
-          onAdded(created)
-        }
-        setEditing(false)
-        return
-      }
-      if (!online) {
-        await enqueue('updatePlanItem', { tripId, itemId: item.id, input: base })
-        onUpdated(mergeInput(item, tripId, base))
-        setEditing(false)
-        return
-      }
-      const updated = await updatePlanItem(tripId, item.id, base)
-      onUpdated(updated)
-      setEditing(false)
-    } catch (err) {
-      if (err instanceof PlanItemValidationError) {
-        setEditError(err.message)
-      } else {
-        setEditError('Could not save changes.')
-      }
-    }
-  }
-
-  const handleAutoSave = useCallback(
-    async (fields: PlanItemFormFields) => {
-      const input = fieldsToInput(fields, item.day_id)
-      if (!online) {
-        await enqueue('updatePlanItem', { tripId, itemId: item.id, input })
-        onUpdated(mergeInput(item, tripId, input))
-        return
-      }
-      const updated = await updatePlanItem(tripId, item.id, input)
-      onUpdated(updated)
-    },
-    [tripId, item, online, onUpdated],
-  )
-
-  async function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const newStatus = e.target.value
-    setStatusBusy(true)
-    try {
-      if (!online) {
-        // Offline: queue the status change (replayed on reconnect) and reflect it
-        // optimistically so "mark as done" works without a connection. The day
-        // cache write (see DayView) persists it across an offline reload.
-        await enqueue('setPlanItemStatus', { tripId, itemId: item.id, status: newStatus })
-        onUpdated({ ...item, status: newStatus })
-        return
-      }
-      const updated = await setPlanItemStatus(tripId, item.id, newStatus)
-      onUpdated(updated)
-    } catch {
-      // leave status unchanged on failure
-    } finally {
-      setStatusBusy(false)
-    }
-  }
-
-  async function handleDemote() {
-    setDemoteBusy(true)
-    try {
-      if (!online) {
-        await enqueue('demotePlanItem', { tripId, itemId: item.id })
-        onRemoved(item.id)
-        return
-      }
-      await demotePlanItem(tripId, item.id)
-      onRemoved(item.id)
-    } catch {
-      setDemoteBusy(false)
-    }
-  }
-
-  async function handleDelete() {
-    setDeleteBusy(true)
-    try {
-      if (!online) {
-        await enqueue('deletePlanItem', { tripId, itemId: item.id })
-        onRemoved(item.id)
-        return
-      }
-      await deletePlanItem(tripId, item.id)
-      onRemoved(item.id)
-    } catch {
-      setDeleteBusy(false)
-      setConfirmDelete(false)
-    }
-  }
-
-  const editForm = (
-    <PlanItemForm
-      initialFields={fieldsFromItem(item)}
-      submitLabel="Save"
-      onSubmit={handleSave}
-      onCancel={() => {
-        setEditing(false)
-        setEditError(null)
-      }}
-      onAutoSave={handleAutoSave}
-      error={editError}
-      actionsPlacement={mobile ? 'footer' : 'inline'}
-    />
-  )
-
-  if (editing && mobile) {
-    return (
-      <>
-        {/* Keep the item row visible behind the sheet */}
-        <li className="plan-item" aria-label={item.title}>
-          <div className="plan-item-main">
-            <span className="plan-item-title">{item.title}</span>
-          </div>
-        </li>
-        <BottomSheet
-          open
-          onClose={() => {
-            setEditing(false)
-            setEditError(null)
-          }}
-          label={`Edit ${item.title}`}
-        >
-          {editForm}
-        </BottomSheet>
-      </>
-    )
-  }
-
-  if (editing) {
-    return <li className="plan-item plan-item--editing">{editForm}</li>
-  }
+  const kind = item.kind ?? 'activity'
+  const done = item.status === 'done'
+  const inactive = item.status === 'skipped' || item.status === 'cancelled'
+  const word = statusWord(item.status)
+  const tag = kindTag(item)
+  const where = itemWhere(item)
 
   return (
     <li
       ref={rowRef}
       className={[
-        'plan-item',
-        isDone ? 'plan-item--done' : '',
-        isSkipped ? 'plan-item--skipped' : '',
-        isCancelled ? 'plan-item--cancelled' : '',
-        isDraggable ? 'plan-item--draggable' : '',
-        isTouchDragging ? 'plan-item--touch-dragging' : '',
-        isSelected ? 'plan-item--selected' : '',
+        'plan-row',
+        kind === 'transport' ? 'plan-row--leg' : '',
+        done ? 'plan-row--done' : '',
+        inactive ? 'plan-row--inactive' : '',
+        isTouchDragging ? 'plan-row--dragging' : '',
+        isSelected ? 'plan-row--selected' : '',
       ]
         .filter(Boolean)
         .join(' ')}
       data-item-id={item.id}
-      data-kind={item.kind ?? 'activity'}
-      aria-label={item.title + (label ? ` — ${label}` : '')}
+      data-kind={kind}
+      aria-label={item.title + (word ? ` — ${word}` : '')}
       draggable={isDraggable}
-      onDragStart={isDraggable && onDragStart ? (e) => onDragStart(e, item.id) : undefined}
-      // Any row can be a drop target (so an untimed item can be dropped between
-      // two timed ones), but only draggable rows can be picked up. (M12.1 S6)
-      onDragOver={onDragOver ? (e) => onDragOver(e, item.id) : undefined}
-      onDrop={onDrop ? (e) => onDrop(e, item.id) : undefined}
+      onDragStart={isDraggable ? (e) => onDragStart(e, item.id) : undefined}
+      onDragOver={onDragOver}
+      onDrop={(e) => onDrop(e, item.id)}
     >
-      <div className="plan-item-main">
-        {isDraggable && !mobile && (
-          <span className="plan-item-drag-handle" aria-hidden="true">
-            ⠿
+      {inactive ? (
+        <span className="plan-row-inactive-mark" aria-hidden="true">
+          <Icon name="close" size={14} />
+        </span>
+      ) : (
+        <button
+          type="button"
+          className={kind === 'transport' ? 'tick tick--sm' : 'tick'}
+          aria-pressed={done}
+          aria-label={`${done ? 'Mark not done' : 'Mark done'}: ${item.title}`}
+          onClick={onToggle}
+          disabled={toggling}
+        >
+          {done && <Icon name="check" size={14} strokeWidth={3} />}
+        </button>
+      )}
+      <span className="plan-row-body">
+        <button
+          type="button"
+          className="plan-row-title"
+          aria-label={`Edit ${item.title}`}
+          onClick={onOpen}
+        >
+          {item.title}
+        </button>
+        {where && <span className="plan-row-where">{where}</span>}
+        {item.note && <span className="plan-row-note">{item.note}</span>}
+      </span>
+      <span className="plan-row-end">
+        {word && item.status !== 'done' && <span className="tag">{word}</span>}
+        {tag && (
+          <span className={`tag tag--${tag.tone}`}>
+            <Icon name={KIND_ICON[kind]} size={11} />
+            {tag.label}
           </span>
-        )}
-        {isDraggable && mobile && (
-          <button
-            type="button"
-            className="plan-item-touch-handle"
-            aria-label={`Drag to reorder ${item.title}`}
-            onPointerDown={onTouchDragStart ? (e) => onTouchDragStart(e, item.id) : undefined}
-            onPointerMove={onTouchDragMove}
-            onPointerUp={onTouchDragEnd}
-            onPointerCancel={onTouchDragEnd}
-          >
-            ⠿
-          </button>
         )}
         {pinNumber != null && onSelect && (
           <button
             type="button"
             className={[
               'plan-item-pin-badge',
-              // A transport leg shows its single number between a start and finish
-              // dot (a mini of the map's start→finish arrow) so the badge reads as
-              // a route, not a place.
-              item.kind === 'transport' ? 'plan-item-pin-badge--transport' : '',
+              kind === 'transport' ? 'plan-item-pin-badge--transport' : '',
               isSelected ? 'plan-item-pin-badge--selected' : '',
             ]
               .filter(Boolean)
@@ -505,251 +251,65 @@ function PlanItemRow({
             aria-pressed={isSelected}
             onClick={onSelect}
           >
-            {item.kind === 'transport' && <span className="plan-item-pin-dot" aria-hidden="true" />}
             {pinNumber}
-            {item.kind === 'transport' && (
-              <span className="plan-item-pin-dot plan-item-pin-dot--to" aria-hidden="true" />
-            )}
           </button>
         )}
-        <button
-          type="button"
-          className="plan-item-edit-btn"
-          aria-label={`Edit ${item.title}`}
-          onClick={() => setEditing(true)}
-        >
-          {item.start_time && (
-            <span className="plan-item-time" aria-label={`Start time: ${item.start_time}`}>
-              {item.start_time.slice(0, 5)}
-            </span>
-          )}
-          <span className="plan-item-title" style={inactive ? { opacity: 0.5 } : undefined}>
-            {item.title}
-          </span>
-          {item.location && <span className="plan-item-location">{item.location}</span>}
-          {label && <span className="plan-item-status-badge">{label}</span>}
-          {item.note && <span className="plan-item-note">{item.note}</span>}
-        </button>
-      </div>
-
-      <div className="plan-item-actions">
-        <select
-          className="plan-item-status-select"
-          value={item.status}
-          onChange={handleStatusChange}
-          disabled={statusBusy}
-          aria-label={`Status: ${item.status}`}
-        >
-          <option value="planned">Planned</option>
-          <option value="done">Done</option>
-          <option value="skipped">Skipped</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-
-        <button
-          type="button"
-          className={['plan-item-more-btn', showActions ? 'plan-item-more-btn--open' : '']
-            .filter(Boolean)
-            .join(' ')}
-          onClick={() => {
-            // Collapsing resets any half-open secondary UI so it never lingers
-            // hidden.
-            setShowActions((v) => !v)
-            setShowMovePicker(false)
-            setConfirmDelete(false)
-          }}
-          aria-expanded={showActions}
-          aria-label={`More actions for ${item.title}`}
-          title="More actions"
-        >
-          ⋯
-        </button>
-
-        {showActions && (
-          <>
-            {showMovePicker ? (
-              <MoveToDayPicker
-                tripId={tripId}
-                item={item}
-                tripDates={tripDates}
-                currentDate={day.date}
-                onMoved={(id, targetDate, moved) => {
-                  setShowMovePicker(false)
-                  onRemoved(id)
-                  onItemMoved?.(targetDate, moved)
-                }}
-                onCancel={() => setShowMovePicker(false)}
-              />
-            ) : (
-              <button
-                type="button"
-                className="plan-item-move-btn"
-                onClick={() => setShowMovePicker(true)}
-                aria-label={`Move ${item.title} to another day`}
-              >
-                Move…
-              </button>
-            )}
-
-            <button
-              type="button"
-              className="plan-item-demote-btn"
-              onClick={handleDemote}
-              disabled={demoteBusy}
-              aria-label={`Move ${item.title} to backlog`}
-            >
-              → Backlog
-            </button>
-
-            {confirmDelete ? (
-              <span className="plan-item-delete-confirm">
-                <button
-                  type="button"
-                  className="plan-item-delete-yes"
-                  onClick={handleDelete}
-                  disabled={deleteBusy}
-                  aria-label={`Confirm delete ${item.title}`}
-                >
-                  Delete?
-                </button>
-                <button
-                  type="button"
-                  className="plan-item-delete-cancel"
-                  onClick={() => setConfirmDelete(false)}
-                  disabled={deleteBusy}
-                  aria-label="Cancel delete"
-                >
-                  Cancel
-                </button>
-              </span>
-            ) : (
-              <button
-                type="button"
-                className="plan-item-delete-btn"
-                onClick={() => setConfirmDelete(true)}
-                aria-label={`Delete ${item.title}`}
-                title="Delete"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7m4 4v6m4-6v6"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-            )}
-          </>
+        {isDraggable && (
+          <button
+            type="button"
+            className="plan-row-grip"
+            aria-label={`Drag to reorder ${item.title}`}
+            onPointerDown={(e) => onTouchDragStart(e, item.id)}
+            onPointerMove={onTouchDragMove}
+            onPointerUp={onTouchDragEnd}
+            onPointerCancel={onTouchDragEnd}
+          >
+            <Icon name="grip" size={16} />
+          </button>
         )}
-      </div>
+      </span>
     </li>
   )
 }
 
-// TimedSection renders plan items that have a start_time in chronological order.
-// orderTimeline arranges a day's items into the unified timeline (M12.1 S6):
-// timed items always read in clock order, while untimed items hold whatever
-// position they were dropped into (including between two timed items). It walks
-// the current sequence and, at each timed slot, drops in the next
-// chronologically-sorted timed item; untimed items stay where they are. This
-// keeps "set a time → it slots into place" working purely from render, while a
-// drag decides an untimed item's spot.
-function orderTimeline(items: PlanItem[]): PlanItem[] {
-  const timedSorted = items
-    .filter((i) => i.start_time != null)
-    .slice()
-    .sort((a, b) => (a.start_time as string).localeCompare(b.start_time as string))
-  let t = 0
-  return items.map((i) => (i.start_time != null ? timedSorted[t++] : i))
-}
-
-// mergeSubsetOrder repositions the members of `subset` within the full day list
-// to the subset's new relative order, leaving every non-member fixed in place.
-// The Plan and What-happened sections each show a filtered slice of the day's
-// items but share one sort_order; reordering within either slice folds back
-// here so the other slice — and the map's pin numbers — stay consistent.
-function mergeSubsetOrder(full: PlanItem[], subset: PlanItem[]): PlanItem[] {
-  const ids = new Set(subset.map((i) => i.id))
-  let k = 0
-  return full.map((item) => (ids.has(item.id) ? subset[k++] : item))
-}
-
-// buzz gives a short haptic tick on devices that support it — used to confirm a
-// drag pickup and each reorder step so a finger drag feels physical. A no-op
-// where the Vibration API is absent (desktop, iOS Safari).
-function buzz(ms: number) {
-  try {
-    navigator.vibrate?.(ms)
-  } catch {
-    // ignore — vibration is a nicety, never required
-  }
-}
-
-// ReorderableItemList renders an <ol> of plan-item rows that can be reordered by
-// dragging: a mouse drag on desktop, or a finger drag on the grip handle on
-// mobile. Only untimed rows can be picked up (timed rows are pinned by clock
-// time), but any row is a drop target so an untimed item can land between two
-// timed ones. It manages only the live drag preview and reports the new order
-// via onReordered — persisting it (and merging back into the full day list) is
-// the caller's job, so the same list drives both the Plan and What-happened
-// sections over one shared sort order.
-function ReorderableItemList({
+// ReorderableList is an <ol> of PlanRows that can be reordered by dragging: a
+// mouse drag on desktop, or a finger drag on the grip on touch. With pinTimed
+// only untimed rows can be picked up (timed rows sort by clock); every row is a
+// drop target. It reports the new order; persisting is the caller's job.
+function ReorderableList({
   items,
-  tripId,
-  day,
-  tripDates,
+  label,
+  pinTimed = true,
   selectedId,
   pinNumberForId,
   onSelect,
-  onUpdated,
-  onAdded,
-  onRemoved,
+  onToggle,
+  togglingId,
+  onOpen,
   onReordered,
-  onItemMoved,
-  pinTimed = true,
 }: {
   items: PlanItem[]
-  tripId: string
-  day: Day
-  tripDates: string[]
+  label: string
+  pinTimed?: boolean
   selectedId?: string | null
   pinNumberForId?: (id: string) => number | undefined
   onSelect?: (id: string | null) => void
-  onUpdated: (updated: PlanItem) => void
-  onAdded: (item: PlanItem) => void
-  onRemoved: (itemId: string) => void
-  onReordered: (newOrder: PlanItem[]) => void
-  onItemMoved?: (targetDate: string, item: PlanItem) => void
-  // pinTimed (default true) pins timed rows to clock order and lets only untimed
-  // rows be dragged — the Plan timeline. The "What happened" list passes false:
-  // it's a free manual order (what you actually did, which can differ from the
-  // planned times), so every row is draggable and the given order is shown as-is.
-  pinTimed?: boolean
+  onToggle: (item: PlanItem) => void
+  togglingId: string | null
+  onOpen: (item: PlanItem) => void
+  onReordered: (order: PlanItem[]) => void
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
-  // Touch drag (mobile): a pointer-driven reorder replaces the old up/down
-  // buttons. touchOrder holds the live preview order while a finger is down;
-  // touchDragId is the item being dragged (also used to lift the source row).
   const listRef = useRef<HTMLOListElement>(null)
   const [touchOrder, setTouchOrder] = useState<PlanItem[] | null>(null)
   const [touchDragId, setTouchDragId] = useState<string | null>(null)
   const touchDragRef = useRef<string | null>(null)
   const touchOrderRef = useRef<PlanItem[] | null>(null)
-  // touchMovedRef stays false for a tap that never reorders, so lifting the
-  // finger without moving doesn't fire a no-op reorder request.
   const touchMovedRef = useRef(false)
-  // Edge auto-scroll: while a finger drag hovers near the top/bottom of the
-  // viewport we scroll the page so items can be dragged past what's on screen.
-  // autoScrollRef holds the rAF handle; lastClientYRef is the finger's latest Y.
   const autoScrollRef = useRef<number | null>(null)
   const lastClientYRef = useRef(0)
   const display = touchOrder ?? (pinTimed ? orderTimeline(items) : items)
 
-  // Stop the auto-scroll loop if we unmount mid-drag (pointerup would otherwise
-  // never fire on the captured, now-gone handle, leaving the rAF chain running).
   useEffect(
     () => () => {
       if (autoScrollRef.current != null) cancelAnimationFrame(autoScrollRef.current)
@@ -766,43 +326,29 @@ function ReorderableItemList({
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', itemId)
   }
-
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
   }
-
   function handleDrop(e: React.DragEvent, targetId: string) {
     e.preventDefault()
     const sourceId = e.dataTransfer.getData('text/plain') || draggingId
     setDraggingId(null)
     if (!sourceId || sourceId === targetId) return
-
-    const sourceIdx = display.findIndex((i) => i.id === sourceId)
-    const targetIdx = display.findIndex((i) => i.id === targetId)
-    if (sourceIdx === -1 || targetIdx === -1) return
-
-    const reordered = [...display]
-    const [moved] = reordered.splice(sourceIdx, 1)
-    reordered.splice(targetIdx, 0, moved)
-    report(reordered)
+    const from = display.findIndex((i) => i.id === sourceId)
+    const to = display.findIndex((i) => i.id === targetId)
+    if (from === -1 || to === -1) return
+    const next = [...display]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    report(next)
   }
 
-  // ── Touch drag (mobile) ────────────────────────────────────────────────────
-  // A finger presses the grip handle, drags over the list, and lifts. We track
-  // the row under the finger by its midpoint and splice a live-preview order so
-  // the list rearranges as you go; on lift we report the final order.
-
-  // reflowUnderFinger recomputes the preview order for the finger's current Y.
-  // Shared by the pointer-move handler and the auto-scroll loop (so the list
-  // keeps rearranging while the page scrolls even if the finger is held still).
   function reflowUnderFinger(clientY: number) {
     const id = touchDragRef.current
     const current = touchOrderRef.current
     const list = listRef.current
     if (!id || !current || !list) return
-    // The row we'd insert before: the first whose vertical midpoint is below the
-    // finger. null → the finger is past the last row, so append.
     let beforeId: string | null = null
     for (const row of list.querySelectorAll<HTMLElement>('[data-item-id]')) {
       const rect = row.getBoundingClientRect()
@@ -816,9 +362,9 @@ function ReorderableItemList({
     const from = order.findIndex((i) => i.id === id)
     if (from === -1) return
     const [moved] = order.splice(from, 1)
-    let insertAt = beforeId == null ? order.length : order.findIndex((i) => i.id === beforeId)
-    if (insertAt === -1) insertAt = order.length
-    order.splice(insertAt, 0, moved)
+    let at = beforeId == null ? order.length : order.findIndex((i) => i.id === beforeId)
+    if (at === -1) at = order.length
+    order.splice(at, 0, moved)
     if (order.every((it, i) => it.id === current[i]?.id)) return
     touchMovedRef.current = true
     touchOrderRef.current = order
@@ -826,9 +372,6 @@ function ReorderableItemList({
     buzz(8)
   }
 
-  // The auto-scroll loop nudges the page while the finger sits in a 72px band at
-  // the top or bottom of the viewport, then reflows the list at the new scroll
-  // position. It runs itself via rAF until the finger leaves the band or lifts.
   function tickAutoScroll() {
     autoScrollRef.current = null
     if (touchDragRef.current == null) return
@@ -843,9 +386,7 @@ function ReorderableItemList({
       window.scrollBy(0, dy)
       reflowUnderFinger(y)
     }
-    if (touchDragRef.current != null) {
-      autoScrollRef.current = requestAnimationFrame(tickAutoScroll)
-    }
+    if (touchDragRef.current != null) autoScrollRef.current = requestAnimationFrame(tickAutoScroll)
   }
 
   function handleTouchDragStart(e: React.PointerEvent, itemId: string) {
@@ -861,14 +402,12 @@ function ReorderableItemList({
     buzz(15)
     autoScrollRef.current = requestAnimationFrame(tickAutoScroll)
   }
-
   function handleTouchDragMove(e: React.PointerEvent) {
     if (touchDragRef.current == null) return
     e.preventDefault()
     lastClientYRef.current = e.clientY
     reflowUnderFinger(e.clientY)
   }
-
   function handleTouchDragEnd() {
     const order = touchOrderRef.current
     const moved = touchMovedRef.current
@@ -881,7 +420,6 @@ function ReorderableItemList({
     }
     setTouchDragId(null)
     setTouchOrder(null)
-    // Only report a real reorder; a tap that didn't move anything is a no-op.
     if (moved && order) {
       buzz(20)
       report(order)
@@ -889,200 +427,81 @@ function ReorderableItemList({
   }
 
   return (
-    <ol className="plan-item-list" ref={listRef}>
-      {display.map((item) => {
-        // With time-pinning (Plan) only untimed rows can be picked up — every
-        // row still accepts a drop so an untimed item can land between two timed
-        // ones. Without it (What happened) every row is a free drag.
-        const isDraggable = pinTimed ? item.start_time == null : true
-        return (
-          <PlanItemRow
-            key={item.id}
-            item={item}
-            tripId={tripId}
-            day={day}
-            tripDates={tripDates}
-            draggable={isDraggable}
-            isTouchDragging={touchDragId === item.id}
-            isSelected={selectedId === item.id}
-            pinNumber={pinNumberForId?.(item.id)}
-            onSelect={
-              onSelect ? () => onSelect(selectedId === item.id ? null : item.id) : undefined
-            }
-            onUpdated={onUpdated}
-            onAdded={onAdded}
-            onRemoved={onRemoved}
-            onItemMoved={onItemMoved}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onTouchDragStart={handleTouchDragStart}
-            onTouchDragMove={handleTouchDragMove}
-            onTouchDragEnd={handleTouchDragEnd}
-          />
-        )
-      })}
+    <ol className="plan-list" ref={listRef} aria-label={label}>
+      {display.map((item) => (
+        <PlanRow
+          key={item.id}
+          item={item}
+          draggable={pinTimed ? item.start_time == null : true}
+          isTouchDragging={touchDragId === item.id}
+          isSelected={selectedId === item.id}
+          pinNumber={pinNumberForId?.(item.id)}
+          onSelect={onSelect ? () => onSelect(selectedId === item.id ? null : item.id) : undefined}
+          onToggle={() => onToggle(item)}
+          toggling={togglingId === item.id}
+          onOpen={() => onOpen(item)}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          onTouchDragStart={handleTouchDragStart}
+          onTouchDragMove={handleTouchDragMove}
+          onTouchDragEnd={handleTouchDragEnd}
+        />
+      ))}
     </ol>
   )
 }
 
-// TimelineSection wraps ReorderableItemList in the Plan group's "Timeline"
-// section. Timed items are pinned by their clock time (reorder them by changing
-// the time); untimed items carry a drag handle and can be dropped anywhere.
-function TimelineSection({
-  items,
-  tripId,
-  day,
-  tripDates,
-  selectedId,
-  pinNumberForId,
-  onSelect,
-  onUpdated,
-  onAdded,
-  onRemoved,
-  onReordered,
-  onItemMoved,
-}: {
-  items: PlanItem[]
-  tripId: string
-  day: Day
-  tripDates: string[]
-  selectedId?: string | null
-  pinNumberForId?: (id: string) => number | undefined
-  onSelect?: (id: string | null) => void
-  onUpdated: (updated: PlanItem) => void
-  onAdded: (item: PlanItem) => void
-  onRemoved: (itemId: string) => void
-  onReordered: (newOrder: PlanItem[]) => void
-  onItemMoved?: (targetDate: string, item: PlanItem) => void
-}) {
-  if (orderTimeline(items).length === 0) return null
-  return (
-    <section className="day-plan-section day-plan-section--timeline" aria-label="Day timeline">
-      <h3 className="day-plan-section-title">Timeline</h3>
-      <ReorderableItemList
-        items={items}
-        tripId={tripId}
-        day={day}
-        tripDates={tripDates}
-        selectedId={selectedId}
-        pinNumberForId={pinNumberForId}
-        onSelect={onSelect}
-        onUpdated={onUpdated}
-        onAdded={onAdded}
-        onRemoved={onRemoved}
-        onReordered={onReordered}
-        onItemMoved={onItemMoved}
-      />
-    </section>
-  )
-}
+// ── Planning (the Plan view) ─────────────────────────────────────────────────
 
-// BacklogLink renders a link/button to access the ideas backlog for the trip.
-function BacklogLink({ tripId }: { tripId: string }) {
-  return (
-    <section className="day-backlog-section" aria-label="Ideas backlog">
-      <Link
-        to={`/trips/${tripId}/backlog`}
-        className="day-backlog-link"
-        aria-label="View ideas backlog"
-      >
-        💡 Ideas backlog
-      </Link>
-    </section>
-  )
-}
-
-// PlanningSection replaces the old PlanningSlot placeholder with real content:
-// stays, timed items, untimed items, quick-add form, and a link to the ideas
-// backlog. Re-planning affordances (reorder, move, demote, status) are wired
-// to the Epic 03–04 API operations.
-export function PlanningSection({
+// usePlanState owns the day's item mutations (add/update/remove, reorders) and
+// the tick toggle, so the Plan list, the "What happened" log and the details
+// sheet all share one source of truth.
+function usePlanState({
   day,
   items,
   setItems,
-  setStays,
-  onStaySaved,
-  onStayRemoved,
-  onItemMoved,
   tripId,
-  selectedId = null,
-  onSelect,
-  title = 'Plan',
-  showBacklogLink = true,
-  showWhatHappened = true,
 }: {
   day: Day
-  // items / setItems are owned by the parent so a sibling view (the day map, or
-  // the trip-scoped Plan subtab's rail) stays in sync with edits.
   items: PlanItem[]
   setItems: React.Dispatch<React.SetStateAction<PlanItem[]>>
-  // setStays updates this day's stays in the parent so the pinned stay slot and
-  // the day map stay in sync after an add/edit/remove.
-  setStays: React.Dispatch<React.SetStateAction<Stay[]>>
-  // onStaySaved / onStayRemoved let a multi-day parent (the whole-trip Plan view)
-  // reflect a stay across every night it covers. Forwarded straight to StaySlot;
-  // omit them and stays update only this day.
-  onStaySaved?: (saved: Stay) => void
-  onStayRemoved?: (stayId: string) => void
-  // onItemMoved lets a multi-day parent (the whole-trip Plan view) add a moved
-  // item to its new day in place, so the target day and rail counts update without
-  // a reload. Omit it in single-day contexts (the day view).
-  onItemMoved?: (targetDate: string, item: PlanItem) => void
   tripId: string
-  // selectedId / onSelect drive the map-pin badges (day view). Omit them in
-  // map-less contexts (the Plan subtab) and no pin badges render.
-  selectedId?: string | null
-  onSelect?: (id: string | null) => void
-  // title overrides the section heading (default "Plan"); the Plan subtab uses
-  // the day's name so each stacked day is labelled. Pass null to drop the
-  // heading entirely — the whole-trip stack's collapsible card head already
-  // names the day, so repeating it inside is noise.
-  title?: string | null
-  // showBacklogLink renders the in-section backlog link (day view). The Plan
-  // subtab surfaces the backlog once in its rail instead, so it opts out.
-  showBacklogLink?: boolean
-  // showWhatHappened gates the "What happened" log — hidden on future days, where
-  // there's nothing to record yet (phase-aware day layout, Direction B).
-  showWhatHappened?: boolean
 }) {
-  const { trip } = useTripShell()
   const online = useIsOnline()
-  const tripDates = datesInRange(trip.start_date, trip.end_date)
-  const [planHidden, setPlanHidden] = useState<boolean>(() => readPlanHidden() ?? false)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [toggleError, setToggleError] = useState<string | null>(null)
 
-  // Build a lookup from item/stay id → pin number (1-based) using the same
-  // numbering as collectLocatedItems so badges match the map legend. A transport
-  // leg is one numbered feature spanning two located points, so we read the
-  // shared `feature` rather than the point's array index. Only needed when a map
-  // is present (onSelect wired) — otherwise no badges are shown. Match DayMap's
-  // ordering (a past day numbers by what happened) so badges and map pins agree.
-  const mapOrder: ItemOrder = day.date < localToday() ? 'actual' : 'plan'
-  const locatedItems = collectLocatedItems({ ...day, plan_items: items }, mapOrder)
-  const pinNumberForId = onSelect
-    ? (id: string): number | undefined => {
-        const li = locatedItems.find((it) => it.id === id)
-        return li ? li.feature + 1 : undefined
-      }
-    : undefined
+  const handleAdded = useCallback((item: PlanItem) => setItems((p) => [...p, item]), [setItems])
+  const handleUpdated = useCallback(
+    (u: PlanItem) => setItems((p) => p.map((i) => (i.id === u.id ? u : i))),
+    [setItems],
+  )
+  const handleRemoved = useCallback(
+    (id: string) => setItems((p) => p.filter((i) => i.id !== id)),
+    [setItems],
+  )
+  const actions = usePlanItemActions({
+    tripId,
+    onUpdated: handleUpdated,
+    onRemoved: handleRemoved,
+    onAdded: handleAdded,
+  })
 
-  function handleAdded(item: PlanItem) {
-    setItems((prev) => [...prev, item])
+  async function toggleDone(item: PlanItem) {
+    setTogglingId(item.id)
+    setToggleError(null)
+    try {
+      await actions.setStatus(item, item.status === 'done' ? 'planned' : 'done')
+    } catch {
+      setToggleError(`Could not update “${item.title}”.`)
+    } finally {
+      setTogglingId(null)
+    }
   }
 
-  function handleUpdated(updated: PlanItem) {
-    setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)))
-  }
-
-  function handleRemoved(itemId: string) {
-    setItems((prev) => prev.filter((i) => i.id !== itemId))
-  }
-
-  // persistReorder is the single writer for every reorder (Plan or What
-  // happened). It takes the whole day's items in their new order, stamps
-  // sort_order 0,1,2,… to match — so pin numbers (derived from sort_order via
-  // collectLocatedItems) update immediately instead of only after a refresh —
-  // updates state optimistically, and sends the full id sequence to the server.
+  // persistReorder stamps sort_order 0,1,2,… onto the full day order (so pin
+  // numbers update at once), updates optimistically and saves the sequence.
   function persistReorder(fullOrder: PlanItem[]) {
     const renumbered = fullOrder.map((item, idx) =>
       item.sort_order === idx ? item : { ...item, sort_order: idx },
@@ -1091,34 +510,28 @@ export function PlanningSection({
     setItems(renumbered)
     const itemIds = renumbered.map((i) => i.id)
     if (!online) {
-      // Offline: queue the reorder (replayed on reconnect) and keep the optimistic
-      // order — the day-cache write in DayView persists it across an offline reload.
       void enqueue('reorderPlanItems', { tripId, dayId: day.id, itemIds })
       return
     }
     reorderPlanItems(tripId, day.id, itemIds).catch(() => setItems(snapshot))
   }
 
-  // Reordering the Plan writes sort_order (the planned timeline). The dragged
-  // slice is folded back into the full day sequence so the untouched items keep
-  // their positions, then persisted as one full order.
   function handlePlanReordered(newPlanOrder: PlanItem[]) {
     const ordered = [...items].sort((a, b) => a.sort_order - b.sort_order)
     persistReorder(mergeSubsetOrder(ordered, newPlanOrder))
   }
 
-  // persistActualReorder is the writer for the "What happened" order: it stamps
-  // actual_order 0,1,2,… onto the reordered done/logged items and persists only
-  // those ids to the actual-order endpoint, leaving sort_order (the plan)
-  // untouched — so the two lists reorder independently.
-  function persistActualReorder(newDoneOrder: PlanItem[]) {
+  // The "What happened" order is its own sequence (actual_order) — reordering
+  // it never touches the plan's sort_order.
+  function handleDoneReordered(newDoneOrder: PlanItem[]) {
     const orderById = new Map(newDoneOrder.map((it, idx) => [it.id, idx]))
     const snapshot = items
-    const next = items.map((it) => {
-      const idx = orderById.get(it.id)
-      return idx == null || it.actual_order === idx ? it : { ...it, actual_order: idx }
-    })
-    setItems(next)
+    setItems(
+      items.map((it) => {
+        const idx = orderById.get(it.id)
+        return idx == null || it.actual_order === idx ? it : { ...it, actual_order: idx }
+      }),
+    )
     const itemIds = newDoneOrder.map((i) => i.id)
     if (!online) {
       void enqueue('reorderPlanItemsActual', { tripId, dayId: day.id, itemIds })
@@ -1127,124 +540,162 @@ export function PlanningSection({
     reorderPlanItemsActual(tripId, day.id, itemIds).catch(() => setItems(snapshot))
   }
 
-  function handleDoneReordered(newDoneOrder: PlanItem[]) {
-    persistActualReorder(newDoneOrder)
-  }
-
-  // "Plan" is the itinerary you intended: every item except ones logged after
-  // the fact (unplanned). "What happened" is what actually occurred — done items
-  // plus anything logged spontaneously. A planned item you did shows in BOTH, so
-  // you can compare the plan against what happened; a spontaneous log shows only
-  // under what happened (a no-plan day keeps an empty Plan). Skipped/cancelled
-  // planned items stay under Plan so their status control is still reachable.
-  // Plan reads in sort_order (items arrive that way); "What happened" reads in
-  // its own actual_order so it can differ from the plan. actual_order falls back
-  // to sort_order for items cached before the column shipped.
+  // Plan = everything except things logged after the fact. What happened =
+  // done items + logged ones, in their own actual order.
   const planItems = items.filter((i) => !i.unplanned)
   const doneItems = items
     .filter((i) => i.status === 'done' || i.unplanned)
     .sort((a, b) => (a.actual_order ?? a.sort_order) - (b.actual_order ?? b.sort_order))
 
-  function togglePlanHidden() {
-    setPlanHidden((h) => {
-      const next = !h
-      try {
-        localStorage.setItem(PLAN_HIDDEN_KEY, next ? '1' : '0')
-      } catch {
-        // ignore storage failures — the toggle still works in-session
-      }
-      return next
-    })
+  return {
+    planItems,
+    doneItems,
+    togglingId,
+    toggleError,
+    toggleDone,
+    handleAdded,
+    handleUpdated,
+    handleRemoved,
+    handlePlanReordered,
+    handleDoneReordered,
   }
+}
 
+type PlanState = ReturnType<typeof usePlanState>
+
+// PlanPanel is the Plan view: progress line, the tick list and the add bar.
+function PlanPanel({
+  day,
+  tripId,
+  plan,
+  weekday,
+  selectedId,
+  pinNumberForId,
+  onSelect,
+  onOpen,
+  heading,
+  showAddBar = true,
+}: {
+  day: Day
+  tripId: string
+  plan: PlanState
+  weekday: string
+  selectedId: string | null
+  pinNumberForId?: (id: string) => number | undefined
+  onSelect?: (id: string | null) => void
+  onOpen: (item: PlanItem) => void
+  heading?: React.ReactNode
+  // showAddBar: the desktop card hosts the add bar inline; on phones DayView
+  // pins it to the bottom of the whole day column instead.
+  showAddBar?: boolean
+}) {
+  const { planItems } = plan
+  const doneCount = planItems.filter((i) => i.status === 'done').length
   return (
-    <section className="day-slot day-slot-planning" aria-label="Planning" data-slot="planning">
-      {title !== null && <h2 className="day-slot-title">{title}</h2>}
-      <StaySlot
-        day={day}
-        tripId={tripId}
-        setStays={setStays}
-        onStaySaved={onStaySaved}
-        onStayRemoved={onStayRemoved}
-        selectedId={selectedId}
-        pinNumberForId={pinNumberForId}
-        onSelect={onSelect}
-      />
-
-      <div className="day-plan-group">
-        <div className="day-plan-group-head">
-          <h3 className="day-plan-group-title">Plan</h3>
-          <button
-            type="button"
-            className="day-plan-group-toggle"
-            onClick={togglePlanHidden}
-            aria-expanded={!planHidden}
-          >
-            {planHidden ? 'Show plan' : 'Hide plan'}
-          </button>
-        </div>
-        {planHidden ? (
-          <button type="button" className="day-plan-collapsed" onClick={togglePlanHidden}>
-            {planItems.length === 0
-              ? 'Plan hidden'
-              : `Plan hidden · ${planItems.length} ${planItems.length === 1 ? 'item' : 'items'}`}
-            {' · Show'}
-          </button>
-        ) : (
-          <>
-            <TimelineSection
-              items={planItems}
-              tripId={tripId}
-              day={day}
-              tripDates={tripDates}
-              selectedId={selectedId}
-              pinNumberForId={pinNumberForId}
-              onSelect={onSelect}
-              onUpdated={handleUpdated}
-              onAdded={handleAdded}
-              onRemoved={handleRemoved}
-              onReordered={handlePlanReordered}
-              onItemMoved={onItemMoved}
-            />
-            {planItems.length === 0 && day.stays.length === 0 && (
-              <p className="day-plan-empty">Nothing planned yet.</p>
-            )}
-            <QuickAddForm tripId={tripId} dayId={day.id} onAdded={handleAdded} />
-          </>
-        )}
-      </div>
-
-      {showWhatHappened && (
-        <div className="day-plan-group">
-          <div className="day-plan-group-head">
-            <h3 className="day-plan-group-title">What happened</h3>
-          </div>
-          {doneItems.length === 0 ? (
-            <p className="day-plan-empty">Nothing logged yet — add what you actually did.</p>
-          ) : (
-            <ReorderableItemList
-              items={doneItems}
-              tripId={tripId}
-              day={day}
-              tripDates={tripDates}
-              selectedId={selectedId}
-              pinNumberForId={pinNumberForId}
-              onSelect={onSelect}
-              onUpdated={handleUpdated}
-              onAdded={handleAdded}
-              onRemoved={handleRemoved}
-              onReordered={handleDoneReordered}
-              onItemMoved={onItemMoved}
-              // Free manual order (the sequence you actually did things), not the
-              // planned clock order — every row drags.
-              pinTimed={false}
-            />
-          )}
-          <QuickAddForm tripId={tripId} dayId={day.id} onAdded={handleAdded} logDone />
-        </div>
+    <section className="day-plan" aria-label="Planning" data-slot="planning">
+      {heading}
+      {planItems.length > 0 ? (
+        <>
+          <p className="day-plan-progress">
+            <span>
+              {doneCount} of {planItems.length} done
+            </span>
+            <span className="day-plan-hint">Tap ○ to tick off · tap a name for details</span>
+          </p>
+          <ReorderableList
+            items={planItems}
+            label="Day timeline"
+            selectedId={selectedId}
+            pinNumberForId={pinNumberForId}
+            onSelect={onSelect}
+            onToggle={(i) => void plan.toggleDone(i)}
+            togglingId={plan.togglingId}
+            onOpen={onOpen}
+            onReordered={plan.handlePlanReordered}
+          />
+        </>
+      ) : (
+        <p className="day-plan-empty">Nothing planned yet.</p>
       )}
+      {plan.toggleError && (
+        <p role="alert" className="fg-error">
+          {plan.toggleError}
+        </p>
+      )}
+      {showAddBar && <DayAddBar day={day} tripId={tripId} plan={plan} weekday={weekday} />}
+    </section>
+  )
+}
 
-      {showBacklogLink && <BacklogLink tripId={tripId} />}
+// DayAddBar is the single "Add a place, ferry, meal or note…" bar. Its kind
+// chips, place and details appear once it's focused (PlanItemForm bar variant).
+function DayAddBar({
+  day,
+  tripId,
+  plan,
+  weekday,
+}: {
+  day: Day
+  tripId: string
+  plan: PlanState
+  weekday: string
+}) {
+  return (
+    <QuickAddForm
+      tripId={tripId}
+      dayId={day.id}
+      onAdded={plan.handleAdded}
+      variant="bar"
+      placeholder="Add a place, ferry, meal or note…"
+      titleLabel={`Add to ${weekday}`}
+    />
+  )
+}
+
+// JournalPanel is the Journal view: photos + diary (JournalEditor) and "What
+// happened" — the ticked-off plans plus anything logged after the fact, in the
+// order it actually happened.
+function JournalPanel({
+  day,
+  tripId,
+  plan,
+  onOpen,
+  compact = false,
+}: {
+  day: Day
+  tripId: string
+  plan: PlanState
+  onOpen: (item: PlanItem) => void
+  compact?: boolean
+}) {
+  return (
+    <section
+      className={compact ? 'day-journal day-journal--rail' : 'day-journal'}
+      aria-label="Journal"
+      data-slot="journal"
+    >
+      {compact && <h2 className="fg-label">Journal</h2>}
+      <JournalEditor tripId={tripId} dayId={day.id} readOnly={false} photosFirst />
+      <div className="day-happened">
+        <h3 className="fg-label">What happened</h3>
+        {plan.doneItems.length === 0 ? (
+          <p className="day-plan-empty">
+            Nothing ticked off yet. Whatever you tick off in the plan shows up here, so the day
+            writes its own log.
+          </p>
+        ) : (
+          <ReorderableList
+            items={plan.doneItems}
+            label="What happened"
+            pinTimed={false}
+            onToggle={(i) => void plan.toggleDone(i)}
+            togglingId={plan.togglingId}
+            onOpen={onOpen}
+            onReordered={plan.handleDoneReordered}
+          />
+        )}
+        <QuickAddForm tripId={tripId} dayId={day.id} onAdded={plan.handleAdded} logDone />
+      </div>
     </section>
   )
 }
@@ -1506,28 +957,8 @@ function DayBudgetStrip({
   )
 }
 
-// JournalSlot renders the per-day journal editor (M06.4 S1).
-// readOnly is true for past trips so the entry is shown as a permanent record.
-function JournalSlot({
-  tripId,
-  dayId,
-  readOnly,
-}: {
-  tripId: string
-  dayId: string
-  readOnly: boolean
-}) {
-  return (
-    <section className="day-slot day-slot-journal" aria-label="Journal" data-slot="journal">
-      <h2 className="day-slot-title">Journal</h2>
-      <JournalEditor tripId={tripId} dayId={dayId} readOnly={readOnly} />
-    </section>
-  )
-}
-
-// MapSlot lazily renders the per-day map. When `day` is not yet loaded the
-// placeholder shell is shown; once day data is available DayMap is loaded on
-// demand (lazy + Suspense) so the map bundle is not fetched on initial load.
+// MapSlot lazily renders the per-day map (lazy + Suspense) so the map bundle
+// is only fetched when a day is open on a wide screen.
 function MapSlot({
   day,
   selectedId,
@@ -1538,8 +969,8 @@ function MapSlot({
   onSelect: (id: string | null) => void
 }) {
   return (
-    <section className="day-slot day-slot-map" aria-label="Map" data-slot="map">
-      <h2 className="day-slot-title">Map</h2>
+    <section className="day-rail-card day-slot-map" aria-label="Map" data-slot="map">
+      <h2 className="fg-label">Map</h2>
       {day ? (
         <Suspense
           fallback={
@@ -1550,177 +981,51 @@ function MapSlot({
         >
           <DayMap key={day.id} day={day} selectedId={selectedId} onSelect={onSelect} />
         </Suspense>
-      ) : (
-        <p className="day-slot-placeholder">Map</p>
-      )}
+      ) : null}
     </section>
   )
 }
 
-// ── Phase-aware day header (Direction B) ────────────────────────────────────
-// The day screen adapts to where the trip is in time: a future day leads with
-// planning, today shows everything, a past day leads with the memory. dayRelation
-// classifies the viewed day against today so the layout and the hero chip follow.
-type DayRel = 'future' | 'today' | 'past'
+type DayMode = 'plan' | 'journal'
 
-function localToday(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function dayRelation(date: string): DayRel {
-  const today = localToday()
-  if (date < today) return 'past'
-  if (date > today) return 'future'
-  return 'today'
-}
-
-// daysUntil returns whole days from today to an ISO date (negative if past).
-function daysUntil(iso: string): number {
-  const target = new Date(iso + 'T00:00:00').getTime()
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return Math.round((target - today.getTime()) / 86_400_000)
-}
-
-// DayHeader is the Direction B day hero: a destination scene with the day number,
-// date, and a phase-aware status line (Today / In N days / Past · stops · stay).
-function DayHeader({
-  date,
-  dayNumber,
-  totalDays,
-  destination,
-  rel,
-  stops,
-  stayName,
-  coverImage,
-  cacheStatus,
-}: {
-  date: string
-  dayNumber: number | null
-  totalDays: number
-  destination: string
-  rel: DayRel
-  stops: number
-  stayName: string | null
-  coverImage?: string
-  cacheStatus: React.ReactNode
-}) {
-  const relChip =
-    rel === 'today'
-      ? 'Today'
-      : rel === 'future'
-        ? daysUntil(date) === 1
-          ? 'Tomorrow'
-          : `In ${daysUntil(date)} days`
-        : 'Past day'
-  return (
-    <header
-      className="day-hero"
-      data-rel={rel}
-      aria-label={`Day ${dayNumber ?? ''} — ${destination}`}
-    >
-      <HeroScene
-        seed={destination || 'trip'}
-        image={coverImage}
-        fit="contain"
-        className="day-hero-scene"
-      />
-      <div className="day-hero-grad" aria-hidden="true" />
-      <div className="day-hero-body">
-        <div className="day-hero-eyebrow">
-          {dayNumber !== null ? `Day ${dayNumber} of ${totalDays}` : 'Day'}
-          {destination && ` · ${destination}`}
-        </div>
-        <h2 className="day-hero-title">
-          {fullDate(date)}
-          {cacheStatus}
-        </h2>
-        <div className="day-hero-sub">
-          <span className="chip glass">{relChip}</span>
-          {stops > 0 && (
-            <span className="day-hero-meta num">
-              {stops} {stops === 1 ? 'stop' : 'stops'}
-            </span>
-          )}
-          {stayName && <span className="day-hero-meta">{stayName}</span>}
-        </div>
-      </div>
-    </header>
+// useIsWide is true at the desktop layout (≥1024px), where the day shows its
+// plan with a right rail (stay, journal, money, map) instead of the phone's
+// Plan / Journal switch.
+function useIsWide(): boolean {
+  const [wide, setWide] = useState(() =>
+    typeof window === 'undefined' ? true : window.innerWidth >= 1024,
   )
+  useEffect(() => {
+    const onResize = () => setWide(window.innerWidth >= 1024)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  return wide
 }
 
-// FACETS are the four day sections. On phones they are shown one at a time and
-// switched with a segmented control (a trip's facets aren't top-level nav
-// destinations, so they live here rather than in the bottom bar). On laptop/
-// tablet all four render together in the two-column grid.
-// The day screen's facets. Plan, "what happened", and Journal fuse into one
-// scrollable "Day" facet (streamlined so it doesn't duplicate the whole-trip
-// Days tab); Map stays its own facet. Deep budget lives on the Budget tab, with
-// a compact strip inside Day.
-const FACETS = [
-  { key: 'day', label: 'Day' },
-  { key: 'map', label: 'Map' },
-] as const
-type Facet = (typeof FACETS)[number]['key']
-
-// FacetTabs is the mobile segmented control that switches the visible day facet.
-function FacetTabs({ value, onChange }: { value: Facet; onChange: (f: Facet) => void }) {
-  return (
-    <div className="day-facet-tabs" role="tablist" aria-label="Trip sections">
-      {FACETS.map((f) => (
-        <button
-          key={f.key}
-          type="button"
-          role="tab"
-          aria-selected={value === f.key}
-          className={['day-facet-tab', value === f.key ? 'day-facet-tab--active' : '']
-            .filter(Boolean)
-            .join(' ')}
-          onClick={() => onChange(f.key)}
-        >
-          {f.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-// DayView renders a single trip day identified by /trips/:tripId/days/:date.
-// It fetches the day from the API, shows its metadata, and renders the planning
-// section (stays, timed/untimed items, quick-add, backlog link) plus the Budget,
-// Journal, and Map slots. On phones the four are shown one at a time via
-// FacetTabs; on wider screens they render together in the two-column grid.
+// DayView renders a single trip day (/trips/:tripId/days/:date): date box +
+// country + place, a compact stay line, then on phones a Plan / Journal switch
+// (tick-to-done plan with a pinned add bar · photos, diary and what happened),
+// and on desktop the plan beside a rail with the stay, journal, money and map.
+// Tapping an item's name opens the Plan details sheet.
 export function DayView() {
   const { tripId, date } = useParams<{ tripId: string; date: string }>()
-  const { trip } = useTripShell()
-
+  const { trip, tripDays } = useTripShell()
+  const location = useLocation()
+  const wide = useIsWide()
   const mobile = useMobile()
-  // On phones only one facet shows at a time; `view` tracks which. It lives in
-  // component state (not the URL) so it persists as the user flips between days
-  // — DayView stays mounted across date changes.
-  const [view, setView] = useState<Facet>('day')
+  const initialMode =
+    (location.state as { view?: DayMode } | null)?.view === 'journal' ? 'journal' : 'plan'
+  const [mode, setMode] = useState<DayMode>(initialMode)
 
   const [day, setDay] = useState<Day | null>(null)
-  // planItems is the live source of truth for the day's plan items, lifted out of
-  // PlanningSection so the map (MapSlot) reflects adds/edits/removes immediately
-  // — without a page reload. Seeded from the fetched day and mutated in place.
   const [planItems, setPlanItems] = useState<PlanItem[]>([])
-  // fetchError is scoped to a date so stale errors from a previous date are
-  // not shown when the user navigates to a new day (avoids synchronous resets).
   const [fetchError, setFetchError] = useState<{ date: string; msg: string } | null>(null)
-  // selectedId holds the currently highlighted entity id, shared between the
-  // map pin legend and the planning list (Epic 04 S1).
   const [selectedId, setSelectedId] = useState<string | null>(null)
-
-  // Instant-render cache state (M11.1 S2): seededFromCache is true while the day
-  // shown came from the on-device cache; revalidating is true while the
-  // background fetch runs. Together they drive the subtle "Updating…" hint.
+  const [openItemId, setOpenItemId] = useState<string | null>(null)
   const [seededFromCache, setSeededFromCache] = useState(false)
   const [revalidating, setRevalidating] = useState(false)
 
-  // Derive loading: we are loading when neither a day result nor an error for
-  // the current date param is available yet — no synchronous setState needed.
   const loading = day?.date !== date && fetchError?.date !== date
   const error = fetchError !== null && fetchError.date === date ? fetchError.msg : null
 
@@ -1729,11 +1034,6 @@ export function DayView() {
     const controller = new AbortController()
     let done = false
     const key = cacheKeys.day(tripId, date)
-
-    // Instant-render: paint the last-known day from cache first (so a backend
-    // cold start / weak connection doesn't show a spinner), then revalidate and
-    // swap in fresh data. A failed refresh is non-destructive — the cached day
-    // stays on screen and no error is shown.
     void readCache<Day>(key).then((cached) => {
       if (done) return
       const hasCache = cached !== null && cached.data.date === date
@@ -1761,33 +1061,25 @@ export function DayView() {
         },
       )
     })
-
     return () => {
       done = true
       controller.abort()
     }
   }, [tripId, date])
 
-  // liveDay overlays the live plan items onto the fetched day so the map and the
-  // planning list share one source of truth — adding a stop updates both at once.
   const liveDay = day ? { ...day, plan_items: planItems } : null
 
-  // Persist every optimistic day mutation (adds, edits, status changes, stays)
-  // to the on-device cache so an offline reload keeps showing them. Without this,
-  // a pull-to-refresh while offline would re-render only the last server-synced
-  // day and appear to drop everything entered offline — the queued writes are
-  // safe in the mutation queue, but the read view wouldn't reflect them until
-  // they replayed on reconnect. Syncing here mirrors the fetch-success writeCache
-  // above and JournalEditor's offline cache write, and covers all mutation sites
-  // at once (they all funnel through `day`/`planItems`). Guard on the date so a
-  // stale day mid-navigation never overwrites the cache for the wrong date.
+  // Persist every optimistic mutation to the on-device cache so an offline
+  // reload keeps showing it (and the trip's Days list re-syncs from it).
   useEffect(() => {
     if (!tripId || !day || day.date !== date) return
-    void writeCache(cacheKeys.day(tripId, date), { ...day, plan_items: planItems })
+    const live = { ...day, plan_items: planItems }
+    void writeCache(cacheKeys.day(tripId, date), live)
+    tripDays?.replaceDay(live)
+    // tripDays.replaceDay is a fresh closure each render; the data deps suffice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripId, date, day, planItems])
 
-  // setStays updates the fetched day's stays in place so the pinned stay slot
-  // and the day map reflect an add/edit/remove without a reload.
   const setStays: React.Dispatch<React.SetStateAction<Stay[]>> = (action) => {
     setDay((cur) =>
       cur
@@ -1802,148 +1094,242 @@ export function DayView() {
     )
   }
 
-  // day.index is 0-based (server-provided); +1 gives the 1-based display number.
-  const dayNumber = day ? day.index + 1 : null
+  const dates = datesInRange(trip.start_date, trip.end_date)
+  const dayIndex = date ? dates.indexOf(date) : -1
+  const prevDate = dayIndex > 0 ? dates[dayIndex - 1] : null
+  const nextDate = dayIndex >= 0 && dayIndex < dates.length - 1 ? dates[dayIndex + 1] : null
 
-  // Phase-aware layout (Direction B): a future day leads with planning, today
-  // shows everything, a past day leads with the memory. rel drives both the hero
-  // chip and which sections show / lead.
-  const rel: DayRel = date ? dayRelation(date) : 'today'
-  const totalDays = datesInRange(trip.start_date, trip.end_date).length
-  const stayName = day?.stays?.[0]?.name ?? null
-  // The day's locale: prefer where you're staying (the most day-specific signal we
-  // have without a per-day place from the backend), else the trip's destinations.
-  const destination = day?.stays?.[0]?.location || trip.destinations.join(' · ')
-  // "Stops" = places you go, so plain notes don't inflate the count.
-  const stopCount = planItems.filter((i) => (i.kind ?? 'activity') !== 'note').length
+  // Place + country: this day's own stay / first location, else the run the
+  // trip's day list worked out (a day with no places keeps the previous one's).
+  const metas = tripDays?.days ? buildDayMetas(tripDays.dates, tripDays.days) : null
+  const meta = metas && dayIndex >= 0 ? metas[dayIndex] : null
+  const loc = liveDay ? firstLocation(liveDay) : ''
+  const country = (loc ? countryOf(loc) : '') || (meta?.country ?? '')
+  const color = country ? countryColor(country) : (meta?.color ?? NO_COUNTRY_COLOR)
+  const place = placeName(loc) || meta?.place || `Day ${dayIndex + 1}`
+  const weekday = date
+    ? new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' })
+    : 'this day'
+  const dayLong = date
+    ? new Date(date + 'T00:00:00').toLocaleDateString('en-GB', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+      })
+    : ''
+  const hasPlans = planItems.some((i) => !i.unplanned)
 
-  return (
-    <article className="day-view" aria-label={date ? `Day ${dayNumber ?? ''} — ${date}` : 'Day'}>
-      {date ? (
-        <DayHeader
-          date={date}
-          dayNumber={dayNumber}
-          totalDays={totalDays}
-          destination={destination}
-          rel={rel}
-          stops={stopCount}
-          stayName={stayName}
-          coverImage={trip.cover_url || trip.cover}
-          cacheStatus={<CacheStatus fromCache={seededFromCache} isValidating={revalidating} />}
-        />
-      ) : (
-        <header className="day-view-header">
-          <h2 className="day-view-title">Day</h2>
+  // Map pin numbers — only when the map is on screen (desktop rail).
+  const mapOrder: ItemOrder = date && date < localToday() ? 'actual' : 'plan'
+  const located = liveDay ? collectLocatedItems(liveDay, mapOrder) : []
+  const pinNumberForId = wide
+    ? (id: string): number | undefined => {
+        const li = located.find((it) => it.id === id)
+        return li ? li.feature + 1 : undefined
+      }
+    : undefined
+
+  const state = usePlanState({
+    day: liveDay ?? ({ id: '', plan_items: [] } as unknown as Day),
+    items: planItems,
+    setItems: setPlanItems,
+    tripId: tripId ?? '',
+  })
+  const openItem = openItemId ? (planItems.find((i) => i.id === openItemId) ?? null) : null
+
+  const navLink = (target: string | null, dir: 'prev' | 'next') => {
+    const label = dir === 'prev' ? 'Previous day' : 'Next day'
+    if (!target) {
+      return (
+        <span className="fg-icon-btn" aria-disabled="true" aria-label={label}>
+          <Icon name={dir === 'prev' ? 'chevron-left' : 'chevron-right'} size={20} />
+        </span>
+      )
+    }
+    const d = new Date(target + 'T00:00:00').toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+    })
+    return (
+      <Link
+        to={`/trips/${trip.id}/days/${target}`}
+        state={{ trip, view: mode }}
+        className="fg-icon-btn"
+        aria-label={`${label}, ${d}`}
+      >
+        <Icon name={dir === 'prev' ? 'chevron-left' : 'chevron-right'} size={20} />
+      </Link>
+    )
+  }
+
+  const header = (
+    <>
+      <div className="day-topbar">
+        <Link to={`/trips/${trip.id}/plan`} state={{ trip }} className="fg-back day-topbar-back">
+          <Icon name="back" size={18} />
+          All days
+        </Link>
+        <nav className="day-topbar-nav" aria-label="Day navigation">
+          {navLink(prevDate, 'prev')}
+          <span className="fg-meta">
+            Day {dayIndex + 1} / {dates.length}
+          </span>
+          {navLink(nextDate, 'next')}
+        </nav>
+      </div>
+      {date && (
+        <header className="day-title">
+          <DateBox date={date} color={color} size="lg" empty={!hasPlans} showMonth />
+          <span
+            className="day-title-country fg-label"
+            style={{ color: country ? `color-mix(in srgb, ${color} 72%, var(--ink))` : undefined }}
+          >
+            {wide ? `Day ${dayIndex + 1}${country ? ` · ${country}` : ''}` : country || dayLong}
+          </span>
+          <h1 className="day-title-place">
+            {place}
+            <CacheStatus fromCache={seededFromCache} isValidating={revalidating} />
+          </h1>
         </header>
       )}
+    </>
+  )
 
+  const staySlot =
+    liveDay && tripId ? (
+      <StaySlot
+        day={liveDay}
+        tripId={tripId}
+        setStays={setStays}
+        selectedId={selectedId}
+        pinNumberForId={pinNumberForId}
+        onSelect={wide ? setSelectedId : undefined}
+      />
+    ) : null
+
+  const planPanel =
+    liveDay && tripId ? (
+      <PlanPanel
+        day={liveDay}
+        tripId={tripId}
+        plan={state}
+        weekday={weekday}
+        selectedId={selectedId}
+        pinNumberForId={pinNumberForId}
+        onSelect={wide ? setSelectedId : undefined}
+        onOpen={(i) => setOpenItemId(i.id)}
+        showAddBar={wide}
+      />
+    ) : null
+
+  const journalPanel =
+    liveDay && tripId ? (
+      <JournalPanel
+        day={liveDay}
+        tripId={tripId}
+        plan={state}
+        onOpen={(i) => setOpenItemId(i.id)}
+        compact={wide}
+      />
+    ) : null
+
+  const budget =
+    day && tripId ? <DayBudgetStrip tripId={tripId} day={day} planItems={planItems} /> : null
+
+  return (
+    <article
+      className={wide ? 'day-view day-view--wide' : 'day-view'}
+      aria-label={date ? `Day ${dayIndex + 1} — ${date}` : 'Day'}
+    >
       {loading && (
-        <p className="day-view-loading" aria-busy="true">
+        <p className="fg-loading day-view-loading" aria-busy="true">
           Loading day…
         </p>
       )}
       {error && (
-        <p role="alert" className="day-view-error">
+        <p role="alert" className="fg-error day-view-error">
           {error}
         </p>
       )}
-      {day?.notes && <p className="day-view-notes">{day.notes}</p>}
 
-      {(() => {
-        // The four day facets, built once and placed either together (grid) or
-        // one at a time (mobile FacetTabs).
-        const planningSlot =
-          liveDay && tripId ? (
-            <PlanningSection
-              key={liveDay.id}
-              day={liveDay}
-              items={planItems}
-              setItems={setPlanItems}
-              setStays={setStays}
-              tripId={tripId}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              // Future days have nothing that "happened" yet. (Past days lead with
-              // the memory via section order, but keep the plan expanded so the
-              // itinerary stays readable when reliving a trip.)
-              showWhatHappened={rel !== 'future'}
-            />
-          ) : (
-            <section
-              className="day-slot day-slot-planning"
-              aria-label="Planning"
-              data-slot="planning"
-            >
-              <h2 className="day-slot-title">Plan</h2>
-            </section>
-          )
-        const budgetStrip =
-          day && tripId ? (
-            <DayBudgetStrip tripId={tripId} day={day} planItems={planItems} />
-          ) : (
-            <section className="day-slot day-slot-budget" aria-label="Budget" data-slot="budget">
-              <h2 className="day-slot-title">Budget</h2>
-            </section>
-          )
-        const mapSlot = <MapSlot day={liveDay} selectedId={selectedId} onSelect={setSelectedId} />
-        const journalSlot =
-          day && tripId ? (
-            <JournalSlot tripId={tripId} dayId={day.id} readOnly={false} />
-          ) : (
-            <section className="day-slot day-slot-journal" aria-label="Journal" data-slot="journal">
-              <h2 className="day-slot-title">Journal</h2>
-            </section>
-          )
-
-        // dayColumn orders the plan + journal by phase: a past day leads with the
-        // journal (the memory), a future day drops it (nothing to write yet), and
-        // today shows plan first then journal.
-        const dayColumn =
-          rel === 'past' ? (
-            <>
-              {journalSlot}
-              {planningSlot}
-            </>
-          ) : rel === 'future' ? (
-            planningSlot
-          ) : (
-            <>
-              {planningSlot}
-              {journalSlot}
-            </>
-          )
-
-        // Phones: a segmented control switches between the Day scroll (plan +
-        // journal + a compact budget strip, ordered by phase) and the Map.
-        if (mobile) {
-          return (
-            <div className="day-facets">
-              <FacetTabs value={view} onChange={setView} />
-              <div className="day-facet-panel">
-                {view === 'day' && (
-                  <>
-                    {dayColumn}
-                    {budgetStrip}
-                  </>
-                )}
-                {view === 'map' && mapSlot}
-              </div>
-            </div>
-          )
-        }
-
-        // Laptop/tablet: two columns — the merged Day (plan + journal, phase-
-        // ordered) on the left, the map with the compact budget strip on the right.
-        return (
-          <div className="day-grid">
-            <div className="day-grid-col day-grid-left">{dayColumn}</div>
-            <div className="day-grid-col day-grid-right">
-              {mapSlot}
-              {budgetStrip}
-            </div>
+      {wide ? (
+        <div className="day-desk">
+          <div className="day-desk-main fg-card">
+            {header}
+            {day?.notes && <p className="day-view-notes">{day.notes}</p>}
+            {planPanel}
           </div>
-        )
-      })()}
+          <aside className="day-desk-rail" aria-label="About this day">
+            {staySlot}
+            {journalPanel}
+            {budget}
+            <MapSlot day={liveDay} selectedId={selectedId} onSelect={setSelectedId} />
+          </aside>
+        </div>
+      ) : (
+        <div className="day-phone">
+          {header}
+          {staySlot}
+          {day?.notes && <p className="day-view-notes">{day.notes}</p>}
+          <div className="seg seg--block" role="group" aria-label="Day view">
+            <button
+              type="button"
+              className="seg-btn"
+              aria-pressed={mode === 'plan'}
+              onClick={() => setMode('plan')}
+            >
+              Plan{state.planItems.length > 0 ? ` · ${state.planItems.length}` : ''}
+            </button>
+            <button
+              type="button"
+              className="seg-btn"
+              aria-pressed={mode === 'journal'}
+              onClick={() => setMode('journal')}
+            >
+              Journal
+            </button>
+          </div>
+          {mode === 'plan' ? (
+            <>
+              {planPanel}
+              {budget}
+              {!mobile && (
+                <MapSlot day={liveDay} selectedId={selectedId} onSelect={setSelectedId} />
+              )}
+              <Link
+                to={`/trips/${trip.id}/map?day=${date}`}
+                state={{ trip }}
+                className="fg-link-card day-map-link"
+              >
+                <span className="fg-link-card-title">See this day on the map</span>
+                <Icon name="chevron-right" size={16} />
+              </Link>
+              {liveDay && tripId && (
+                <DayAddBar day={liveDay} tripId={tripId} plan={state} weekday={weekday} />
+              )}
+            </>
+          ) : (
+            journalPanel
+          )}
+        </div>
+      )}
+
+      {openItem && tripId && date && (
+        <PlanItemDetails
+          item={openItem}
+          tripId={tripId}
+          dayLabel={`${dayLong}${place ? ` · ${place}` : ''}`}
+          tripDates={dates}
+          currentDate={date}
+          onClose={() => setOpenItemId(null)}
+          onUpdated={state.handleUpdated}
+          onRemoved={(id) => {
+            state.handleRemoved(id)
+            setOpenItemId(null)
+          }}
+          onAdded={state.handleAdded}
+        />
+      )}
     </article>
   )
 }

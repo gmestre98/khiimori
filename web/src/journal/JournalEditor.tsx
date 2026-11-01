@@ -22,6 +22,9 @@ interface JournalEditorProps {
   tripId: string
   dayId: string
   readOnly?: boolean
+  // photosFirst puts the photo grid above the diary (the day screen's Journal
+  // view); the default keeps diary → usage → photos.
+  photosFirst?: boolean
   // onEntryChange fires after a change is persisted to the server (a successful
   // save, or a photo add/remove) so a host like the trip Journal subtab can
   // refresh its day-rail status and travelogue. It is not called for offline
@@ -34,6 +37,7 @@ export function JournalEditor({
   dayId,
   readOnly = false,
   onEntryChange,
+  photosFirst = false,
 }: JournalEditorProps) {
   const online = useIsOnline()
   const [entry, setEntry] = useState<JournalEntry | null>(null)
@@ -194,60 +198,86 @@ export function JournalEditor({
     return <p className="journal-editor-error">{error}</p>
   }
 
+  const textarea = (
+    <textarea
+      className="journal-body"
+      placeholder={
+        readOnly
+          ? 'No journal entry for this day.'
+          : 'How was the day? Who did you meet, what did you eat?'
+      }
+      value={body}
+      onChange={(e) => setBody(e.target.value)}
+      disabled={readOnly}
+      rows={photosFirst ? 5 : 6}
+      aria-label="Journal entry"
+    />
+  )
+
+  const status = !readOnly && saveStatus !== 'idle' && (
+    <p className={`journal-save-status journal-save-status--${saveStatus}`} aria-live="polite">
+      {saveStatus === 'saving' && 'Saving…'}
+      {saveStatus === 'saved' && (savedAsQueued ? 'Queued — will sync when online' : 'Saved')}
+      {saveStatus === 'error' && (
+        <>
+          Could not save.{' '}
+          <button type="button" className="journal-save-retry" onClick={() => void save({ body })}>
+            Retry
+          </button>
+        </>
+      )}
+    </p>
+  )
+
+  const photos = (
+    <PhotoGrid
+      tripId={tripId}
+      dayId={dayId}
+      readOnly={readOnly}
+      onBeforeUpload={
+        readOnly
+          ? undefined
+          : async () => {
+              // Ensure an entry row exists before the server accepts a photo.
+              if (!entry) {
+                await save({ body })
+              }
+            }
+      }
+      onPhotoChange={() => {
+        setUsageRefreshKey((k) => k + 1)
+        onEntryChangeRef.current?.()
+      }}
+    />
+  )
+
+  if (photosFirst) {
+    return (
+      <div className="journal-editor journal-editor--photos-first">
+        <div className="journal-editor-photos">
+          <span className="fg-label">Photos</span>
+          {photos}
+        </div>
+        <div className="journal-editor-diary">
+          <span className="fg-label" aria-hidden="true">
+            Diary
+          </span>
+          {textarea}
+          {status}
+        </div>
+        {readOnly && !entry && <p className="journal-empty">No journal entry for this day.</p>}
+        <UsageBar tripId={tripId} refreshKey={usageRefreshKey} />
+      </div>
+    )
+  }
+
   return (
     <div className="journal-editor">
-      <textarea
-        className="journal-body"
-        placeholder={readOnly ? 'No journal entry for this day.' : 'Write about your day…'}
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        disabled={readOnly}
-        rows={6}
-        aria-label="Journal entry"
-      />
-
-      {!readOnly && saveStatus !== 'idle' && (
-        <p className={`journal-save-status journal-save-status--${saveStatus}`} aria-live="polite">
-          {saveStatus === 'saving' && 'Saving…'}
-          {saveStatus === 'saved' && (savedAsQueued ? 'Queued — will sync when online' : 'Saved')}
-          {saveStatus === 'error' && (
-            <>
-              Could not save.{' '}
-              <button
-                type="button"
-                className="journal-save-retry"
-                onClick={() => void save({ body })}
-              >
-                Retry
-              </button>
-            </>
-          )}
-        </p>
-      )}
-
+      {textarea}
+      {status}
       {readOnly && !entry && <p className="journal-empty">No journal entry for this day.</p>}
-
       <UsageBar tripId={tripId} refreshKey={usageRefreshKey} />
-
-      <PhotoGrid
-        tripId={tripId}
-        dayId={dayId}
-        readOnly={readOnly}
-        onBeforeUpload={
-          readOnly
-            ? undefined
-            : async () => {
-                // Ensure an entry row exists before the server accepts a photo.
-                if (!entry) {
-                  await save({ body })
-                }
-              }
-        }
-        onPhotoChange={() => {
-          setUsageRefreshKey((k) => k + 1)
-          onEntryChangeRef.current?.()
-        }}
-      />
+      {photos}
     </div>
   )
 }

@@ -13,6 +13,7 @@ import { enqueue } from '../lib/mutationQueue'
 import { useIsOnline } from '../lib/useIsOnline'
 import { Button, FormField, Input } from '../components/ui'
 import { LocationField } from './LocationField'
+import { Icon } from '../components/ui/Icon'
 import { coversDay } from './stayCoverage'
 
 // StaySlot is the pinned "where you're staying" panel at the top of a day's
@@ -222,28 +223,6 @@ export function StaySlot({
     }
   }
 
-  // setPaid writes the stay's paid flag in place (a full-replacement edit
-  // reusing the stay's current fields) so the traveller can change a booking's
-  // state straight from the card's dropdown without opening the form.
-  async function setPaid(paid: boolean) {
-    if (!stay || paid === (stay.paid ?? false)) return
-    setSubmitting(true)
-    setError(null)
-    const input: StayInput = { ...fieldsToStayInput(fieldsFromStay(stay)), paid }
-    try {
-      if (online) {
-        reflect(await updateStay(tripId, stay.id, input))
-      } else {
-        await enqueue('updateStay', { tripId, stayId: stay.id, input })
-        reflect(tempStay(tripId, { ...input, id: stay.id }))
-      }
-    } catch {
-      setError('Could not update the stay.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   async function handleRemove() {
     if (!stay) return
     setSubmitting(true)
@@ -357,6 +336,17 @@ export function StaySlot({
             >
               Cancel
             </Button>
+            {mode === 'edit' && stay && (
+              <Button
+                type="button"
+                variant="ghost-danger"
+                onClick={handleRemove}
+                disabled={submitting}
+                className="stay-form-remove"
+              >
+                Remove stay
+              </Button>
+            )}
           </div>
         </form>
       </section>
@@ -365,25 +355,23 @@ export function StaySlot({
 
   return (
     <section className="day-stays-section" aria-label="Accommodation">
-      <h3 className="day-stays-section-title">Staying</h3>
+      <h3 className="visually-hidden">Staying</h3>
       {stay ? (
-        <StayCard
+        <StayLine
           stay={stay}
           date={day.date}
           selected={selectedId === stay.id}
           pinNumber={pinNumberForId?.(stay.id)}
           onSelect={onSelect}
           onEdit={openEdit}
-          onRemove={handleRemove}
-          onSetPaid={setPaid}
-          removing={submitting}
         />
       ) : (
         <button type="button" className="stay-add-btn" onClick={openAdd}>
-          + Add where you're staying
+          <Icon name="bed" size={18} />
+          Add where you’re staying tonight
         </button>
       )}
-      {error && !stay && (
+      {error && (
         <p role="alert" className="stay-form-error">
           {error}
         </p>
@@ -394,16 +382,25 @@ export function StaySlot({
 
 // StayCard shows the current stay with its per-night context and edit/remove
 // affordances. Keeps the map-pin badge behaviour from the old read-only section.
-function StayCard({
+// stayHint is the short "when" note on the stay line: checking in today, or
+// checking out tomorrow on the last night.
+function stayHint(ctx: NightContext | null): string {
+  if (!ctx) return ''
+  if (ctx.isCheckIn && ctx.total > 1) return 'check in today'
+  if (ctx.night === ctx.total) return 'check out tomorrow'
+  return ''
+}
+
+// StayLine is the compact stay summary on the day screen: name · night x of y ·
+// check-out hint · a payment chip. Tapping it opens the edit form (where the
+// dates, cost, paid flag and Remove live) — no raw ISO dates or dropdowns here.
+function StayLine({
   stay,
   date,
   selected,
   pinNumber,
   onSelect,
   onEdit,
-  onRemove,
-  onSetPaid,
-  removing,
 }: {
   stay: Stay
   date: string
@@ -411,87 +408,47 @@ function StayCard({
   pinNumber?: number
   onSelect?: (id: string | null) => void
   onEdit: () => void
-  onRemove: () => void
-  onSetPaid: (paid: boolean) => void
-  removing: boolean
 }) {
   const ctx = nightContext(stay, date)
-  // A paid badge only makes sense when there's a cost to count.
   const hasCost = stay.cost != null && stay.cost > 0
+  const sub = [ctx ? `Night ${ctx.night} of ${ctx.total}` : '', stayHint(ctx)]
+    .filter(Boolean)
+    .join(' · ')
   return (
-    <div className={['stay-item', selected ? 'stay-item--selected' : ''].filter(Boolean).join(' ')}>
-      <div className="stay-item-main">
-        {pinNumber != null && onSelect && (
-          <button
-            type="button"
-            className={['plan-item-pin-badge', selected ? 'plan-item-pin-badge--selected' : '']
-              .filter(Boolean)
-              .join(' ')}
-            aria-label={`Map pin ${pinNumber} for ${stay.name}`}
-            aria-pressed={selected}
-            onClick={() => onSelect(selected ? null : stay.id)}
-          >
-            {pinNumber}
-          </button>
-        )}
-        {/* The card body is the edit trigger — tap anywhere on it to open the
-            form, mirroring how a plan-item row opens its editor (no separate
-            "Edit" button to hunt for on a phone). */}
+    <div className={['stay-line', selected ? 'stay-line--selected' : ''].filter(Boolean).join(' ')}>
+      <span className="stay-line-icon" aria-hidden="true">
+        <Icon name="bed" size={22} />
+      </span>
+      <button
+        type="button"
+        className="stay-line-main"
+        aria-label={`Edit ${stay.name}`}
+        onClick={onEdit}
+      >
+        <span className="stay-line-name">{stay.name}</span>
+        {(sub || stay.location) && <span className="stay-line-sub">{sub || stay.location}</span>}
+      </button>
+      {hasCost && (
+        <span
+          className={stay.paid ? 'tag tag--ok' : 'tag tag--warn'}
+          aria-label={stay.paid ? 'Paid — counts toward spent' : 'Not paid yet — upcoming estimate'}
+        >
+          {stay.paid ? 'Paid' : 'To pay'}
+        </span>
+      )}
+      {pinNumber != null && onSelect && (
         <button
           type="button"
-          className="stay-edit-btn"
-          aria-label={`Edit ${stay.name}`}
-          onClick={onEdit}
+          className={['plan-item-pin-badge', selected ? 'plan-item-pin-badge--selected' : '']
+            .filter(Boolean)
+            .join(' ')}
+          aria-label={`Map pin ${pinNumber} for ${stay.name}`}
+          aria-pressed={selected}
+          onClick={() => onSelect(selected ? null : stay.id)}
         >
-          <span className="stay-edit-head">
-            <span className="stay-name">{stay.name}</span>
-            {ctx && (
-              <span className="stay-night-badge">
-                {ctx.isCheckIn ? 'checking in' : `night ${ctx.night} of ${ctx.total}`}
-              </span>
-            )}
-          </span>
-          {stay.location && <span className="stay-location">{stay.location}</span>}
-          {stay.check_in && stay.check_out && (
-            <span
-              className="stay-dates"
-              aria-label={`Check in ${stay.check_in}, check out ${stay.check_out}`}
-            >
-              {stay.check_in} – {stay.check_out}
-            </span>
-          )}
-          {hasCost && (
-            <span
-              className={`stay-paid-badge${stay.paid ? ' stay-paid-badge--paid' : ''}`}
-              aria-label={stay.paid ? 'Paid — counts toward spent' : 'Not paid — upcoming estimate'}
-            >
-              {stay.paid ? 'Paid' : 'Upcoming'}
-            </span>
-          )}
+          {pinNumber}
         </button>
-      </div>
-      <div className="stay-item-actions">
-        {hasCost && (
-          <select
-            className="stay-status-select"
-            value={stay.paid ? 'paid' : 'upcoming'}
-            onChange={(e) => onSetPaid(e.target.value === 'paid')}
-            disabled={removing}
-            aria-label={`Payment: ${stay.paid ? 'Paid' : 'Upcoming'}`}
-          >
-            <option value="upcoming">Upcoming</option>
-            <option value="paid">Paid</option>
-          </select>
-        )}
-        <button
-          type="button"
-          className="stay-action stay-action--danger"
-          onClick={onRemove}
-          disabled={removing}
-        >
-          Remove
-        </button>
-      </div>
+      )}
     </div>
   )
 }

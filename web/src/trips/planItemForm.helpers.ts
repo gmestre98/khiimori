@@ -89,12 +89,16 @@ export function hasDetailValues(f: PlanItemFormFields): boolean {
 }
 
 // PLAN_ITEM_KINDS drives the kind picker — a behaviour, not a budget category.
-// Each carries a short glyph so the picker reads at a glance. (M12.1 S5)
-export const PLAN_ITEM_KINDS: { value: PlanItemKind; label: string; glyph: string }[] = [
-  { value: 'activity', label: 'Activity', glyph: '🎟' },
-  { value: 'transport', label: 'Transport', glyph: '🚆' },
-  { value: 'food', label: 'Food', glyph: '🍴' },
-  { value: 'note', label: 'Note', glyph: '📝' },
+// Each carries a stroke icon so the picker reads at a glance. (M12.1 S5)
+export const PLAN_ITEM_KINDS: {
+  value: PlanItemKind
+  label: string
+  icon: 'activity' | 'transport' | 'food' | 'note'
+}[] = [
+  { value: 'activity', label: 'Activity', icon: 'activity' },
+  { value: 'transport', label: 'Transport', icon: 'transport' },
+  { value: 'food', label: 'Food', icon: 'food' },
+  { value: 'note', label: 'Note', icon: 'note' },
 ]
 
 // suggestedCategory maps a kind to its default budget category (the `type`
