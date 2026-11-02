@@ -1,4 +1,4 @@
-import { test, expect, request as playwrightRequest } from '@playwright/test'
+import { test, expect, request as playwrightRequest, type Page } from '@playwright/test'
 import { apiBaseURL, storageStatePath } from '../env'
 
 // Offline → online sync E2E (M10.2 S2): prove that plan and journal edits made
@@ -48,6 +48,15 @@ test.afterAll(async () => {
   }
 })
 
+// spaNavigate moves the single-page app to `path` without a document load (a
+// router-visible history push), so it works while the browser is offline.
+async function spaNavigate(page: Page, path: string): Promise<void> {
+  await page.evaluate((p) => {
+    window.history.pushState({}, '', p)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }, path)
+}
+
 test('offline plan + journal edits sync on reconnect with no loss or duplication', async ({
   page,
   request,
@@ -76,29 +85,25 @@ test('offline plan + journal edits sync on reconnect with no loss or duplication
   const planning = page.getByRole('region', { name: 'Planning' })
   const journal = page.getByRole('region', { name: 'Journal' })
 
-  await test.step('open the day and go offline', async () => {
-    // Arm the wait before navigating so we catch the journal fetch the editor
-    // fires on mount. The journal editor only becomes save-capable once that load
-    // resolves (its auto-save is gated on loadedDayId === dayId). If we go offline
-    // while it is still in flight, the fetch resolves as a synthetic offline 503,
-    // the editor stays un-loaded, and the offline edit never queues. Real users
-    // open a day online, let it load, then go offline — wait for that here so the
-    // test exercises the same path (and isn't sensitive to API round-trip latency).
-    const journalLoaded = page.waitForResponse((r) => /\/days\/[^/]+\/journal(\?|$)/.test(r.url()))
+  await test.step('open the day and its journal, then go offline', async () => {
+    // Open the day's plan online first so the day is in the on-device cache.
     await page.goto(`/trips/${createdTripId}/days/${startDate}`)
     await expect(planning.getByLabel(/^Add to /)).toBeVisible()
+
+    // Then the day's journal (Journal tab). Arm the wait before navigating so we
+    // catch the journal fetch the editor fires on mount: the editor only becomes
+    // save-capable once that load resolves (auto-save is gated on loadedDayId ===
+    // dayId). If we went offline while it was in flight, the editor would stay
+    // un-loaded and the offline edit would never queue. Real users open a day
+    // online, let it load, then go offline — wait for that here.
+    const journalLoaded = page.waitForResponse((r) => /\/days\/[^/]+\/journal(\?|$)/.test(r.url()))
+    await spaNavigate(page, `/trips/${createdTripId}/journal/${startDate}`)
+    await expect(journal.getByLabel('Journal entry')).toBeVisible()
     await journalLoaded
 
     await page.context().setOffline(true)
     // The app registers the offline state before we start editing.
     await expect(page.getByRole('status').filter({ hasText: /You’re offline/ })).toBeVisible()
-  })
-
-  await test.step('make a plan edit while offline (queued locally)', async () => {
-    await planning.getByLabel(/^Add to /).fill(planTitle)
-    await planning.getByRole('button', { name: 'Add', exact: true }).click()
-    // The queued write is reflected optimistically in the plan.
-    await expect(planning.getByText(planTitle)).toBeVisible()
   })
 
   await test.step('make a journal edit while offline (queued locally)', async () => {
@@ -107,6 +112,15 @@ test('offline plan + journal edits sync on reconnect with no loss or duplication
     await expect(journal.getByText('Queued — will sync when online')).toBeVisible({
       timeout: 20_000,
     })
+  })
+
+  await test.step('make a plan edit while offline (queued locally)', async () => {
+    // Client-side navigation back to the day's plan: it renders from the cache.
+    await spaNavigate(page, `/trips/${createdTripId}/days/${startDate}`)
+    await planning.getByLabel(/^Add to /).fill(planTitle)
+    await planning.getByRole('button', { name: 'Add', exact: true }).click()
+    // The queued write is reflected optimistically in the plan.
+    await expect(planning.getByText(planTitle)).toBeVisible()
   })
 
   await test.step('reconnect — the app replays the queue', async () => {

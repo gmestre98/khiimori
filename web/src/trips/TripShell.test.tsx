@@ -161,14 +161,14 @@ describe('DayView', () => {
     expect(screen.getByText('Day 3 / 5')).toBeInTheDocument()
   })
 
-  it('renders plan, journal, budget and map together on desktop', async () => {
+  it('renders the plan and map on desktop; journal and money live in their own tabs', async () => {
     renderShellAtDay('2026-06-01')
     await waitFor(() => {
       expect(screen.getByRole('region', { name: 'Planning' })).toBeInTheDocument()
-      expect(screen.getByRole('region', { name: 'Budget' })).toBeInTheDocument()
-      expect(screen.getByRole('region', { name: 'Journal' })).toBeInTheDocument()
       expect(screen.getByRole('region', { name: 'Map' })).toBeInTheDocument()
     })
+    expect(screen.queryByRole('region', { name: 'Budget' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Journal' })).not.toBeInTheDocument()
   })
 
   it('shows loading state while fetching', async () => {

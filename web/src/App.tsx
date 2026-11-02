@@ -176,6 +176,15 @@ function App() {
                     </Suspense>
                   }
                 />
+                {/* A single day's journal: photos, diary and what happened. */}
+                <Route
+                  path="journal/:date"
+                  element={
+                    <Suspense fallback={<RouteLoading />}>
+                      <DayView variant="journal" />
+                    </Suspense>
+                  }
+                />
                 {/* The trip travelogue (Days / Photos). */}
                 <Route
                   path="journal"

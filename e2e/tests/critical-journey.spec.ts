@@ -124,18 +124,22 @@ test('critical journey: create trip → plan → budget → journal → share', 
   })
 
   await test.step('add a budget — log a cost', async () => {
-    const budget = page.getByRole('region', { name: 'Budget' })
-    await budget.getByRole('button', { name: /log cost/i }).click()
-    const costForm = budget.getByRole('form', { name: 'Log a cost' })
+    // Money lives in its own tab (not on the day screen).
+    await page.goto(`/trips/${createdTripId}/budget`)
+    const expenses = page.getByRole('region', { name: 'Logged expenses' })
+    await expenses.getByRole('button', { name: /log expense/i }).click()
+    const costForm = expenses.getByRole('form', { name: 'Log an expense' })
     await costForm.getByLabel('Amount in EUR').fill('42.50')
     await costForm.getByLabel('Note').fill(costNote)
     await costForm.getByRole('button', { name: 'Log', exact: true }).click()
 
-    // Real outcome: the cost entry appears in the day's unified cost breakdown.
-    await expect(budget.getByRole('list', { name: 'Day costs' }).getByText(costNote)).toBeVisible()
+    // Real outcome: the expense appears in the trip's expense list.
+    await expect(expenses.getByRole('list', { name: 'Expenses' }).getByText(costNote)).toBeVisible()
   })
 
   await test.step('write a journal entry', async () => {
+    // A day's journal lives under the Journal tab.
+    await page.goto(`/trips/${createdTripId}/journal/${startDate}`)
     const journal = page.getByRole('region', { name: 'Journal' })
     await journal.getByLabel('Journal entry').fill(journalText)
 

@@ -47,7 +47,7 @@ function TravelogueDay({
         <DateBox date={summary.date} color={meta.color} size="md" showMonth />
         <span className="journal-entry-titles">
           <h2 className="journal-entry-place">
-            <Link to={`/trips/${trip.id}/days/${summary.date}`} state={{ trip }}>
+            <Link to={`/trips/${trip.id}/journal/${summary.date}`} state={{ trip }}>
               {meta.place || `Day ${summary.index + 1}`}
             </Link>
           </h2>

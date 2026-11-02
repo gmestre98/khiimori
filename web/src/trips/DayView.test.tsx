@@ -115,6 +115,18 @@ function renderDayView(date = '2026-06-01', tripId = 'trip-1') {
   )
 }
 
+// renderDayJournal renders a day's journal as the Journal tab shows it
+// (/trips/:tripId/journal/:date): photos, diary and what happened.
+function renderDayJournal(date = '2026-06-01', tripId = 'trip-1') {
+  return render(
+    <MemoryRouter initialEntries={[`/trips/${tripId}/journal/${date}`]}>
+      <Routes>
+        <Route path="/trips/:tripId/journal/:date" element={<DayView variant="journal" />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
 // addBar focuses the day's pinned add bar (its kind chips, place and details
 // appear on focus) and returns its form.
 async function addBar(): Promise<HTMLElement> {
@@ -240,13 +252,19 @@ describe('DayView', () => {
     expect(within(section).getByText('Night 1 of 2 · check in today')).toBeInTheDocument()
   })
 
-  it('shows a done item ticked, in both the plan and what happened', async () => {
+  it('shows a done item ticked in the plan, and under what happened in the journal', async () => {
     const item = makePlanItem({ id: 'i4', title: 'Done task', status: 'done' })
     vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
-    renderDayView()
-    await waitFor(() => expect(screen.getAllByLabelText(/Done task — Done/)).toHaveLength(2))
+    const { unmount } = renderDayView()
+    await waitFor(() => expect(screen.getAllByLabelText(/Done task — Done/)).toHaveLength(1))
     const ticks = screen.getAllByRole('button', { name: 'Mark not done: Done task' })
     expect(ticks[0]).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByText('What happened')).not.toBeInTheDocument()
+    unmount()
+
+    renderDayJournal()
+    await waitFor(() => expect(screen.getByText('What happened')).toBeInTheDocument())
+    expect(screen.getAllByLabelText(/Done task — Done/)).toHaveLength(1)
   })
 
   it('tags skipped and cancelled items instead of offering a tick', async () => {
@@ -282,15 +300,19 @@ describe('DayView', () => {
         unplanned: true,
       })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [planDone, logged] }))
-      renderDayView()
-      await waitFor(() => expect(screen.getByText('Sunset kayak')).toBeInTheDocument())
+      const { unmount } = renderDayView()
+      await waitFor(() => expect(screen.getByText('Belém Tower')).toBeInTheDocument())
 
       const planTimeline = screen.getByRole('list', { name: 'Day timeline' })
       // The planned item is in the plan; the logged one is not.
       expect(within(planTimeline).getByText('Belém Tower')).toBeInTheDocument()
-      expect(within(planTimeline).queryByText('Sunset kayak')).not.toBeInTheDocument()
-      // Both show under what happened, so each done title appears there.
-      expect(screen.getAllByText('Belém Tower')).toHaveLength(2)
+      expect(screen.queryByText('Sunset kayak')).not.toBeInTheDocument()
+      unmount()
+
+      // Both show under what happened in the day's journal.
+      renderDayJournal()
+      await waitFor(() => expect(screen.getByText('Sunset kayak')).toBeInTheDocument())
+      expect(screen.getByText('Belém Tower')).toBeInTheDocument()
       expect(screen.getByText('What happened')).toBeInTheDocument()
     })
 
@@ -303,7 +325,7 @@ describe('DayView', () => {
         makePlanItem({ id: 'log1', title: 'Gelato run', status: 'done' }),
       )
       const user = userEvent.setup()
-      renderDayView()
+      renderDayJournal()
       await user.click(await screen.findByRole('button', { name: /Something you didn’t plan/ }))
       // Two forms are visible now (plan quick-add + log); scope to the one with
       // the "Log it" submit.
@@ -899,194 +921,7 @@ describe('DayView', () => {
       rectSpy.mockRestore()
     }
 
-    it('shows the day budget (spent + upcoming) with a link to the Budget tab', async () => {
-      setMobile(false)
-      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
-      vi.mocked(api.fetchBudgetRollup).mockResolvedValue({
-        trip_total: 0,
-        planned_trip_total: 0,
-        estimated_trip_total: 0,
-        by_category: {},
-        planned_by_category: {},
-        estimated_by_category: {},
-        by_day: { 'day-1': 48 },
-        planned_by_day: {},
-        estimated_by_day: { 'day-1': 20 },
-        by_day_category: {},
-      } as unknown as api.BudgetRollup)
-      renderDayView()
-
-      // The "Open Budget" link only exists once the loaded strip mounts (the
-      // placeholder has just a title), so wait on it before asserting figures.
-      const link = await screen.findByRole('link', { name: /Open Budget/ })
-      expect(link).toHaveAttribute('href', '/trips/trip-1/budget')
-      // DayRollup shows the day's spend and its upcoming (not-yet-done) estimate.
-      expect(await screen.findByText(/48/)).toBeInTheDocument()
-      expect(screen.getByText(/20.*upcoming/i)).toBeInTheDocument()
-    })
-
-    it('lists this day’s previously-logged cost entries on load (filtered by day)', async () => {
-      setMobile(false)
-      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
-      vi.mocked(api.listCostEntries).mockResolvedValue([
-        {
-          id: 'c1',
-          trip_id: 'trip-1',
-          day_id: 'day-1',
-          plan_item_id: '',
-          category: 'Food',
-          amount: 12.5,
-          note: 'Lunch',
-          created_at: '2026-06-01T12:00:00Z',
-        },
-        {
-          id: 'c2',
-          trip_id: 'trip-1',
-          day_id: 'day-2',
-          plan_item_id: '',
-          category: 'Food',
-          amount: 99,
-          note: 'Other day',
-          created_at: '2026-06-02T12:00:00Z',
-        },
-      ])
-      renderDayView()
-
-      // This day's entry shows (line item + day total both read €12.50);
-      // another day's is filtered out.
-      expect(await screen.findByText('Lunch')).toBeInTheDocument()
-      expect(screen.getAllByText('€12.50').length).toBeGreaterThan(0)
-      expect(screen.queryByText('Other day')).not.toBeInTheDocument()
-    })
-
-    it('lists activities that carry a cost in the budget area (excluding skipped)', async () => {
-      setMobile(false)
-      vi.mocked(api.fetchDay).mockResolvedValue(
-        makeDay({
-          plan_items: [
-            makePlanItem({
-              id: 'a1',
-              title: 'Museum ticket',
-              type: 'Activities',
-              cost: 18,
-              status: 'done',
-            }),
-            makePlanItem({
-              id: 'a2',
-              title: 'Boat tour',
-              type: 'Activities',
-              cost: 40,
-              status: 'planned',
-            }),
-            makePlanItem({
-              id: 'a3',
-              title: 'Free walk',
-              type: 'Activities',
-              cost: 0,
-              status: 'done',
-            }),
-            makePlanItem({
-              id: 'a4',
-              title: 'Cancelled gig',
-              type: 'Activities',
-              cost: 25,
-              status: 'skipped',
-            }),
-          ],
-        }),
-      )
-      renderDayView()
-
-      // Scope to the budget area's cost breakdown — the same items also render in
-      // the plan/what-happened lists, so assert only within this section.
-      const list = await screen.findByLabelText('Day costs')
-      const q = within(list)
-      // Costed activities show; the planned one is tagged upcoming.
-      expect(q.getByText('Museum ticket')).toBeInTheDocument()
-      expect(q.getByText('€18.00')).toBeInTheDocument()
-      expect(q.getByText('Boat tour')).toBeInTheDocument()
-      expect(q.getByText('€40.00')).toBeInTheDocument()
-      expect(q.getByText('upcoming')).toBeInTheDocument()
-      // A zero-cost activity and a skipped one are excluded.
-      expect(q.queryByText('Free walk')).not.toBeInTheDocument()
-      expect(q.queryByText('Cancelled gig')).not.toBeInTheDocument()
-    })
-
-    it('merges activity costs and logged entries into one "Day costs" list', async () => {
-      setMobile(false)
-      vi.mocked(api.fetchDay).mockResolvedValue(
-        makeDay({
-          plan_items: [
-            makePlanItem({
-              id: 'a1',
-              title: 'Flight',
-              type: 'Transport',
-              cost: 120,
-              status: 'done',
-            }),
-          ],
-        }),
-      )
-      vi.mocked(api.listCostEntries).mockResolvedValue([
-        {
-          id: 'c1',
-          trip_id: 'trip-1',
-          day_id: 'day-1',
-          plan_item_id: '',
-          category: 'Food',
-          amount: 12.75,
-          note: 'Dinner',
-          created_at: '2026-06-01T20:00:00Z',
-        },
-      ])
-      renderDayView()
-
-      // One unified list holds both the activity cost and the logged entry — no
-      // separate "From activities" / "Logged costs" split.
-      const list = await screen.findByLabelText('Day costs')
-      const q = within(list)
-      // The logged entry loads asynchronously — wait for it, then assert both.
-      expect(await q.findByText('Dinner')).toBeInTheDocument()
-      expect(q.getByText('Flight')).toBeInTheDocument()
-      expect(q.getByText('€120.00')).toBeInTheDocument()
-      expect(q.getByText('€12.75')).toBeInTheDocument()
-      // The logged entry stays editable; the activity row is read-only.
-      expect(q.getByRole('button', { name: /Edit Food cost/ })).toBeInTheDocument()
-      // The confusing trailing subtotal is gone.
-      expect(screen.queryByText(/Logged costs:/)).not.toBeInTheDocument()
-    })
-
-    it('sets a day extra on a category from the day budget', async () => {
-      setMobile(false)
-      const user = userEvent.setup()
-      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
-      vi.mocked(api.setDayBudgetLine).mockResolvedValue({
-        id: 'bl1',
-        trip_id: 'trip-1',
-        day_id: 'day-1',
-        category: 'Activities',
-        scope: 'day',
-        planned_amount: 30,
-        actual_amount: 0,
-      })
-      renderDayView()
-
-      await user.click(await screen.findByRole('button', { name: /Add extra to a category/ }))
-      // The amount is a button until clicked; then it becomes a labelled input.
-      await user.click(await screen.findByRole('button', { name: /Extra budget for Activities/ }))
-      const input = await screen.findByLabelText('Extra budget for Activities')
-      await user.type(input, '30')
-      await user.tab() // blur commits
-
-      await waitFor(() =>
-        expect(api.setDayBudgetLine).toHaveBeenCalledWith('trip-1', 'day-1', {
-          category: 'Activities',
-          planned_amount: 30,
-        }),
-      )
-    })
-
-    it('desktop: plan beside a rail with stay, journal, money and map (no Plan/Journal switch)', async () => {
+    it('desktop: plan beside a rail with stay and map; no journal or budget on the day', async () => {
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
       renderDayView()
       await waitFor(() =>
@@ -1094,28 +929,29 @@ describe('DayView', () => {
       )
       expect(screen.queryByRole('group', { name: 'Day view' })).not.toBeInTheDocument()
       expect(screen.getByRole('region', { name: 'Map' })).toBeInTheDocument()
-      expect(screen.getByRole('region', { name: 'Journal' })).toBeInTheDocument()
-      expect(screen.getByRole('region', { name: 'Budget' })).toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Journal' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Budget' })).not.toBeInTheDocument()
     })
 
-    it('phone: a Plan / Journal switch shows one view at a time', async () => {
+    it('phone: the day shows only its plan; the journal is its own page', async () => {
       setPhone(true)
-      const user = userEvent.setup()
       vi.mocked(api.fetchDay).mockResolvedValue(
         makeDay({ plan_items: [makePlanItem({ title: 'Visit museum' })] }),
       )
-      renderDayView()
-      const group = await screen.findByRole('group', { name: 'Day view' })
-      const plan = within(group).getByRole('button', { name: 'Plan · 1' })
-      const journal = within(group).getByRole('button', { name: 'Journal' })
-      expect(plan).toHaveAttribute('aria-pressed', 'true')
-      expect(screen.getByRole('region', { name: 'Planning' })).toBeInTheDocument()
+      const { unmount } = renderDayView()
+      expect(await screen.findByRole('region', { name: 'Planning' })).toBeInTheDocument()
+      expect(screen.queryByRole('group', { name: 'Day view' })).not.toBeInTheDocument()
       expect(screen.queryByRole('region', { name: 'Journal' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Budget' })).not.toBeInTheDocument()
+      unmount()
 
-      await user.click(journal)
-      expect(journal).toHaveAttribute('aria-pressed', 'true')
-      expect(screen.getByRole('region', { name: 'Journal' })).toBeInTheDocument()
+      renderDayJournal()
+      expect(await screen.findByRole('region', { name: 'Journal' })).toBeInTheDocument()
       expect(screen.queryByRole('region', { name: 'Planning' })).not.toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /Journal/ })).toHaveAttribute(
+        'href',
+        '/trips/trip-1/journal',
+      )
       // Journal: diary + what happened + log something unplanned.
       expect(screen.getByText('What happened')).toBeInTheDocument()
     })
@@ -1244,7 +1080,7 @@ describe('DayView', () => {
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
       vi.mocked(api.reorderPlanItems).mockResolvedValue()
       renderDayView()
-      await waitFor(() => expect(screen.getByText('Kayak logged')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('Second')).toBeInTheDocument())
 
       dragRowByHandle('Second', 5)
 
@@ -1253,7 +1089,6 @@ describe('DayView', () => {
       await waitFor(() =>
         expect(api.reorderPlanItems).toHaveBeenCalledWith('trip-1', 'day-1', ['i2', 'i1', 'd1']),
       )
-      expect(screen.getByText('Kayak logged')).toBeInTheDocument()
     })
 
     it('reorders "What happened" via the actual-order endpoint, leaving the plan untouched', async () => {
@@ -1280,7 +1115,7 @@ describe('DayView', () => {
       ]
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
       vi.mocked(api.reorderPlanItemsActual).mockResolvedValue()
-      renderDayView()
+      renderDayJournal()
       await waitFor(() => expect(screen.getByText('Gelato')).toBeInTheDocument())
 
       // Drag "Gelato" above "Kayak".
@@ -1355,26 +1190,12 @@ describe('DayView', () => {
       )
       const ticked = await screen.findAllByRole('button', { name: 'Mark not done: Visit museum' })
       expect(ticked[0]).toHaveAttribute('aria-pressed', 'true')
-      // It now also shows under What happened.
-      expect(screen.getAllByLabelText('Visit museum — Done')).toHaveLength(2)
+      expect(screen.getAllByLabelText('Visit museum — Done')).toHaveLength(1)
 
       await user.click(ticked[0])
       await waitFor(() =>
         expect(api.setPlanItemStatus).toHaveBeenLastCalledWith('trip-1', 'item-1', 'planned'),
       )
-    })
-
-    it('refreshes the day budget when a plan item is ticked done (its cost becomes spent)', async () => {
-      const user = userEvent.setup()
-      const item = makePlanItem({ title: 'Visit museum', status: 'planned', cost: 12 })
-      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
-      vi.mocked(api.setPlanItemStatus).mockResolvedValue({ ...item, status: 'done' })
-
-      renderDayView()
-      const tick = await screen.findByRole('button', { name: 'Mark done: Visit museum' })
-      await waitFor(() => expect(api.fetchBudgetRollup).toHaveBeenCalledTimes(1))
-      await user.click(tick)
-      await waitFor(() => expect(api.fetchBudgetRollup).toHaveBeenCalledTimes(2))
     })
 
     it('ticks done offline: queues the status write, no server call, persists to cache', async () => {
