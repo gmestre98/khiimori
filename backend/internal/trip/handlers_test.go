@@ -47,6 +47,11 @@ type fakeTripStore struct {
 	getDayResult    Day
 	getDayErr       error
 
+	gotSetTitleTripID string
+	gotSetTitleDate   string
+	gotSetTitle       *string
+	setTitleErr       error
+
 	gotListUserID string
 	listResult    []Trip
 	listErr       error
@@ -160,6 +165,17 @@ func (f *fakeTripStore) GetDay(_ context.Context, tripID, date string) (Day, err
 	f.gotGetDayTripID = tripID
 	f.gotGetDayDate = date
 	return f.getDayResult, f.getDayErr
+}
+
+func (f *fakeTripStore) SetDayTitle(_ context.Context, tripID, date, title string) (Day, error) {
+	f.gotSetTitleTripID = tripID
+	f.gotSetTitleDate = date
+	f.gotSetTitle = &title
+	if f.setTitleErr != nil {
+		return Day{}, f.setTitleErr
+	}
+	d, _ := time.Parse(dateLayout, date)
+	return Day{ID: "day-uuid", TripID: tripID, Date: d, Index: 1, Title: title}, nil
 }
 
 func (f *fakeTripStore) List(_ context.Context, userID string) ([]Trip, error) {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gmestre98/khiimori/backend/internal/platform/authn"
@@ -36,6 +37,9 @@ type tripStore interface {
 	// is called, so it is trip-scoped, not owner-scoped — any member may read a
 	// shared trip's day (M08).
 	GetDay(ctx context.Context, tripID, date string) (Day, error)
+	// SetDayTitle sets or clears ("") a day's title. Trip-scoped like GetDay;
+	// the handler checks write access first.
+	SetDayTitle(ctx context.Context, tripID, date, title string) (Day, error)
 	// List returns all non-archived trips visible to userID (owner or member),
 	// ordered by start_date ascending. It is the authz-scoping seam: the
 	// owner-only shim used until Milestone 08 is expressed by the JOIN on
@@ -354,6 +358,7 @@ type dayResponse struct {
 	Date      string             `json:"date"`
 	Index     int                `json:"index"`
 	Notes     string             `json:"notes"`
+	Title     string             `json:"title"`
 	Stays     []stayResponse     `json:"stays"`
 	PlanItems []planItemResponse `json:"plan_items"`
 }
@@ -428,6 +433,7 @@ func (m *Module) handleGetDay(w http.ResponseWriter, r *http.Request) {
 		Date:      day.Date.Format(dateLayout),
 		Index:     day.Index,
 		Notes:     day.Notes,
+		Title:     day.Title,
 		Stays:     stayResps,
 		PlanItems: itemResps,
 	})
@@ -525,4 +531,81 @@ func (m *Module) handleDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// dayTitleRequest is the body of PATCH /trips/{id}/days/{date}.
+type dayTitleRequest struct {
+	Title *string `json:"title"`
+}
+
+// dayTitleResponse is the day returned after a title change (without its stays
+// and plan items, which the change doesn't touch).
+type dayTitleResponse struct {
+	ID     string `json:"id"`
+	TripID string `json:"trip_id"`
+	Date   string `json:"date"`
+	Index  int    `json:"index"`
+	Title  string `json:"title"`
+}
+
+// handleUpdateDay handles PATCH /trips/{id}/days/{date}: set or clear the day's
+// title. Owners and editors may change it (ActionWrite); viewers and
+// non-members get the module's usual 404.
+func (m *Module) handleUpdateDay(w http.ResponseWriter, r *http.Request) {
+	p, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusUnauthorized, "auth_required", "authentication required"))
+		return
+	}
+	tripID := r.PathValue("id")
+	date := r.PathValue("date")
+	if _, err := parseDate("date", date); err != nil {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusNotFound, "day_not_found", "day not found"))
+		return
+	}
+	if err := m.checkAccess(r.Context(), p.UserID, ActionWrite, tripID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	var req dayTitleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusBadRequest, "invalid_json", "request body must be valid JSON"))
+		return
+	}
+	if req.Title == nil {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusBadRequest, "invalid_day", "title is required (use \"\" to clear it)"))
+		return
+	}
+	title := strings.TrimSpace(*req.Title)
+	if err := validateDayTitle(title); err != nil {
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusBadRequest, "invalid_day", err.Error()))
+		return
+	}
+
+	day, err := m.store.SetDayTitle(r.Context(), tripID, date, title)
+	if err != nil {
+		if errors.Is(err, errDayNotFound) {
+			httpx.WriteError(w, r, httpx.NewAPIError(
+				http.StatusNotFound, "day_not_found", "day not found"))
+			return
+		}
+		platformlog.FromContext(r.Context()).Error("setting day title", "err", err.Error())
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(dayTitleResponse{
+		ID:     day.ID,
+		TripID: day.TripID,
+		Date:   day.Date.Format(dateLayout),
+		Index:  day.Index,
+		Title:  day.Title,
+	})
 }

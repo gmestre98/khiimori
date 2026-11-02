@@ -49,6 +49,24 @@ describe('buildDayMetas', () => {
     expect(routeSegments(metas).map((s) => s.days)).toEqual([2, 1])
   })
 
+  it('uses a custom day title for display but keeps the place', () => {
+    const days = [
+      day('2026-11-19', {
+        title: '  Gorée and the corniche ',
+        plan_items: [item('Gorée', { location: 'Gorée, Dakar, Senegal' })],
+      }),
+      day('2026-11-20', { plan_items: [item('Banjul', { location: 'Banjul, The Gambia' })] }),
+    ]
+    const metas = buildDayMetas(
+      days.map((d) => d.date),
+      days,
+    )
+    expect(metas.map((m) => [m.title, m.place])).toEqual([
+      ['Gorée and the corniche', 'Gorée'],
+      ['Banjul', 'Banjul'],
+    ])
+  })
+
   it('summarises the first plans with "+ N more"', () => {
     const d = day('2026-11-19', {
       plan_items: ['A', 'B', 'C', 'D'].map((t, i) => item(t, { sort_order: i })),

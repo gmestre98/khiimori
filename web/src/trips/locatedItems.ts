@@ -31,33 +31,42 @@ export interface LocatedItem {
 // in the order things were really done rather than the order they were planned.
 export type ItemOrder = 'plan' | 'actual'
 
-// collectLocatedItems returns stays then plan items that have a location, in the
-// same order passed to fetchDayRoute. `order` picks the plan-items sequence:
+// collectLocatedItems returns the day's located stops in itinerary order, the
+// same order passed to fetchDayRoute. A stay is where the day ends, so it comes
+// last; it also comes first when the traveller already slept there the night
+// before (checked in before this date), as the place the day starts from. A stay
+// that starts tonight (e.g. after an arrival flight) is therefore only at the
+// end. `order` picks the plan-items sequence:
 // 'plan' (sort_order, the default) or 'actual' (actual_order ?? sort_order). A
 // transport plan item is expanded into its origin then destination (each a
 // located point) so both ends route and pin; every other kind contributes a
 // single point from its `location`. Used by the maps and the planning list (pin
 // badges).
 export function collectLocatedItems(
-  day: Pick<Day, 'stays' | 'plan_items'>,
+  day: Pick<Day, 'stays' | 'plan_items'> & { date?: string },
   order: ItemOrder = 'plan',
 ): LocatedItem[] {
   const out: LocatedItem[] = []
   let feature = 0
+  const stays = (day.stays ?? []).filter((s) => s.location)
 
-  for (const s of day.stays ?? []) {
-    if (!s.location) continue
+  const pushStay = (s: (typeof stays)[number], key: string) => {
     out.push({
       id: s.id,
-      key: s.id,
+      key,
       label: s.name,
-      location: s.location,
+      location: s.location!,
       done: true,
       skipped: false,
       feature,
       role: 'point',
     })
     feature++
+  }
+
+  // Morning: a stay the traveller already slept in last night.
+  for (const s of stays) {
+    if (day.date && s.check_in && s.check_in < day.date) pushStay(s, `${s.id}:morning`)
   }
 
   const items = [...(day.plan_items ?? [])].sort((a, b) =>
@@ -124,6 +133,11 @@ export function collectLocatedItems(
     feature++
   }
 
+  // Evening: where the day ends — every stay that covers tonight.
+  for (const s of stays) {
+    if (!day.date || !s.check_out || s.check_out > day.date) pushStay(s, s.id)
+  }
+
   return out
 }
 
@@ -133,7 +147,7 @@ export function collectLocatedItems(
 // any it can't resolve). `order` must match the collectLocatedItems call it's
 // paired with, or waypoints and items fall out of alignment.
 export function collectLocations(
-  day: Pick<Day, 'stays' | 'plan_items'>,
+  day: Pick<Day, 'stays' | 'plan_items'> & { date?: string },
   order: ItemOrder = 'plan',
 ): string[] {
   return collectLocatedItems(day, order).map((i) => i.location)

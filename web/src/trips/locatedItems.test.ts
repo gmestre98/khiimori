@@ -132,9 +132,10 @@ describe('collectLocatedItems', () => {
     expect(collectLocations(day)).toEqual(['Lisboa', 'Porto'])
   })
 
-  it('numbers each item once — a leg after a stay is feature 1, not 2', () => {
+  it('numbers each item once — a leg is one feature, and the stay ends the day', () => {
     const day = {
-      stays: [stay({ id: 'hotel', location: 'Lisbon' })],
+      date: '2026-06-01',
+      stays: [stay({ id: 'hotel', location: 'Porto' })],
       plan_items: [
         planItem({
           id: 't1',
@@ -145,14 +146,51 @@ describe('collectLocatedItems', () => {
         }),
         planItem({ id: 'a1', location: 'Porto', sort_order: 1 }),
       ],
-    } as Pick<Day, 'stays' | 'plan_items'>
+    }
 
     const features = featureList(collectLocatedItems(day))
     expect(features.map((f) => [f.id, f.number, f.transport])).toEqual([
-      ['hotel', 1, false],
-      ['t1', 2, true],
-      ['a1', 3, false],
+      ['t1', 1, true],
+      ['a1', 2, false],
+      ['hotel', 3, false],
     ])
+  })
+
+  it('puts a stay checked in today only at the end (arrival day)', () => {
+    const day = {
+      date: '2026-11-18',
+      stays: [
+        stay({ id: 'auberge', location: 'Dakar', check_in: '2026-11-18', check_out: '2026-11-20' }),
+      ],
+      plan_items: [
+        planItem({
+          id: 'flight',
+          kind: 'transport',
+          origin: 'Lisbon',
+          destination: 'Dakar airport',
+          sort_order: 0,
+        }),
+      ],
+    }
+    expect(collectLocatedItems(day).map((i) => i.key)).toEqual([
+      'flight:from',
+      'flight:to',
+      'auberge',
+    ])
+  })
+
+  it('also starts the day at a stay slept in the night before', () => {
+    const day = {
+      date: '2026-11-19',
+      stays: [
+        stay({ id: 'auberge', location: 'Dakar', check_in: '2026-11-18', check_out: '2026-11-20' }),
+      ],
+      plan_items: [planItem({ id: 'goree', location: 'Gorée', sort_order: 0 })],
+    }
+    const items = collectLocatedItems(day)
+    expect(items.map((i) => i.key)).toEqual(['auberge:morning', 'goree', 'auberge'])
+    expect(items.map((i) => i.feature)).toEqual([0, 1, 2])
+    expect(collectLocations(day)).toEqual(['Dakar', 'Gorée', 'Dakar'])
   })
 
   it('falls back to a single point when a leg has only one end', () => {

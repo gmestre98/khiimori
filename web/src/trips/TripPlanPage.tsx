@@ -14,14 +14,14 @@ function DayRow({ meta, tripLink }: { meta: DayMeta; tripLink: (date: string) =>
   const planned = day ? day.plan_items.filter((i) => !i.unplanned) : []
   const done = planned.filter((i) => i.status === 'done').length
   const summary = day ? planSummary(day) : ''
-  const title = meta.place || (meta.hasPlans ? `${planned.length} plans` : `Day ${meta.index + 1}`)
+  const title = meta.title || (meta.hasPlans ? `${planned.length} plans` : `Day ${meta.index + 1}`)
   const date = new Date(meta.date + 'T00:00:00')
   return (
     <li>
       <Link
         to={tripLink(meta.date)}
         className={meta.hasPlans ? 'days-row' : 'days-row days-row--empty'}
-        aria-label={`Day ${meta.index + 1}, ${date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}${meta.place ? `, ${meta.place}` : ''}${meta.hasPlans ? '' : ' — nothing planned'}`}
+        aria-label={`Day ${meta.index + 1}, ${date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}${meta.title ? `, ${meta.title}` : ''}${meta.hasPlans ? '' : ' — nothing planned'}`}
       >
         <DateBox date={meta.date} color={meta.color} empty={!meta.hasPlans} />
         <span className="days-row-body">

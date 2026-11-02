@@ -631,8 +631,28 @@ export interface Day {
   date: string
   index: number
   notes: string
+  // title is the traveller's own name for the day; "" (or absent in cached
+  // payloads written before it existed) means "use the place name".
+  title?: string
   stays: Stay[]
   plan_items: PlanItem[]
+}
+
+// setDayTitle sets a day's title (PATCH /trips/:id/days/:date); "" clears it so
+// the day goes back to being named after its place. Returns the saved title.
+export async function setDayTitle(tripId: string, date: string, title: string): Promise<string> {
+  const res = await apiFetch(`/trips/${tripId}/days/${date}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title }),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 400) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new Error(body?.error?.message ?? 'Invalid title')
+  }
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return ((await res.json()) as { title: string }).title
 }
 
 // fetchDay loads a single day by trip ID and YYYY-MM-DD date. Throws

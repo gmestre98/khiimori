@@ -143,7 +143,7 @@ describe('DayMap', () => {
     expect(screen.getByTestId('day-map')).toBeTruthy()
   })
 
-  it('passes locations in itinerary order (stay first, then plan items by sort_order)', async () => {
+  it('passes locations in itinerary order (plan items by sort_order, then the stay)', async () => {
     vi.mocked(api.fetchDayRoute).mockResolvedValue({ waypoints: [] })
     renderDayMap(
       makeDay({
@@ -172,7 +172,7 @@ describe('DayMap', () => {
     )
     await waitFor(() => {
       expect(api.fetchDayRoute).toHaveBeenCalledWith(
-        ['Stay loc', 'Loc A', 'Loc B'],
+        ['Loc A', 'Loc B', 'Stay loc'],
         expect.any(AbortSignal),
       )
     })
@@ -284,8 +284,8 @@ describe('DayMap — pin legend (M07.4 S2)', () => {
       }),
     )
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Pin 1: Hotel' })).toBeTruthy()
-      expect(screen.getByRole('button', { name: 'Pin 2: Eiffel Tower' })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Pin 1: Eiffel Tower' })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Pin 2: Hotel' })).toBeTruthy()
     })
   })
 
