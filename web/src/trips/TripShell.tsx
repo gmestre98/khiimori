@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, Outlet, useLocation, useParams } from 'react-router-dom'
 import { UnauthorizedError, fetchSharingData, fetchTrips, type Trip } from '../lib/api'
 import { useCachedResource } from '../lib/useCachedResource'
@@ -130,53 +130,117 @@ function TripMenu({ trip, onExport }: { trip: Trip; onExport: () => void }) {
   )
 }
 
-// DayStrip is the desktop "days at a glance" row: one cell per day, a country
-// colour bar on top, the day number, weekday and how many plans it holds.
-// Empty days draw dashed. Hidden on phones (the Days list does this job).
-function DayStrip({ trip, metas, current }: { trip: Trip; metas: DayMeta[]; current?: string }) {
+// DayStrip is the "days at a glance" row: one fixed-width cell per day (a
+// country colour bar on top, the day number, weekday and how many plans it
+// holds; empty days draw dashed) in a row that scrolls sideways, so it never
+// stretches or squashes with the window. The open day is scrolled into the
+// middle. Desktop adds arrow buttons; phones show it on a single day (the Days
+// list already lists every day). On a day's journal the cells open that day's
+// journal instead of its plan.
+function DayStrip({
+  trip,
+  metas,
+  current,
+  section,
+}: {
+  trip: Trip
+  metas: DayMeta[]
+  current?: string
+  section: 'days' | 'journal'
+}) {
+  const scrollRef = useRef<HTMLDivElement | null>(null)
   const activeRef = useRef<HTMLAnchorElement | null>(null)
+  const firstScroll = useRef(true)
+  const [edges, setEdges] = useState({ start: true, end: true })
+
+  const updateEdges = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const start = el.scrollLeft <= 1
+    const end = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
+    setEdges((prev) => (prev.start === start && prev.end === end ? prev : { start, end }))
+  }, [])
+
+  // Centre the open day inside the strip (only the strip scrolls, never the page).
   useEffect(() => {
-    activeRef.current?.scrollIntoView?.({ inline: 'center', block: 'nearest' })
-  }, [current])
+    const box = scrollRef.current
+    const cell = activeRef.current
+    if (box && cell && typeof box.scrollTo === 'function') {
+      const left = cell.offsetLeft - (box.clientWidth - cell.offsetWidth) / 2
+      box.scrollTo({ left: Math.max(0, left), behavior: firstScroll.current ? 'auto' : 'smooth' })
+      firstScroll.current = false
+    }
+    updateEdges()
+  }, [current, metas.length, updateEdges])
+
+  useEffect(() => {
+    window.addEventListener('resize', updateEdges)
+    return () => window.removeEventListener('resize', updateEdges)
+  }, [updateEdges])
+
+  const page = (dir: -1 | 1) => {
+    const el = scrollRef.current
+    if (el && typeof el.scrollBy === 'function') {
+      el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: 'smooth' })
+    }
+  }
+
   const countries = [...new Set(metas.map((m) => m.country).filter(Boolean))]
   return (
     <section className="day-glance" aria-label="Days at a glance">
-      <div className="day-glance-scroll">
-        <ol
-          className="day-glance-row"
-          style={{ gridTemplateColumns: `repeat(${metas.length}, minmax(40px, 1fr))` }}
+      <div className="day-glance-bar">
+        <button
+          type="button"
+          className="day-glance-arrow"
+          onClick={() => page(-1)}
+          disabled={edges.start}
+          aria-label="Earlier days"
         >
-          {metas.map((m) => {
-            const d = new Date(m.date + 'T00:00:00')
-            const n = m.day ? m.day.plan_items.filter((i) => !i.unplanned).length : 0
-            const isCurrent = m.date === current
-            return (
-              <li key={m.date}>
-                <Link
-                  ref={isCurrent ? activeRef : undefined}
-                  to={`/trips/${trip.id}/days/${m.date}`}
-                  state={{ trip }}
-                  className={[
-                    'day-glance-cell',
-                    m.hasPlans ? '' : 'day-glance-cell--empty',
-                    isCurrent ? 'day-glance-cell--current' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  style={{ '--country': m.color } as React.CSSProperties}
-                  aria-current={isCurrent ? 'page' : undefined}
-                  aria-label={`Day ${m.index + 1}, ${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}${m.title ? `, ${m.title}` : ''} — ${n === 0 ? 'nothing planned' : `${n} ${n === 1 ? 'plan' : 'plans'}`}`}
-                >
-                  <span className="day-glance-num">{d.getDate()}</span>
-                  <span className="day-glance-wd">
-                    {d.toLocaleDateString('en-US', { weekday: 'short' })}
-                  </span>
-                  <span className="day-glance-count">{n > 0 ? n : '–'}</span>
-                </Link>
-              </li>
-            )
-          })}
-        </ol>
+          <Icon name="chevron-left" size={18} />
+        </button>
+        <div className="day-glance-scroll" ref={scrollRef} onScroll={updateEdges}>
+          <ol className="day-glance-row">
+            {metas.map((m) => {
+              const d = new Date(m.date + 'T00:00:00')
+              const n = m.day ? m.day.plan_items.filter((i) => !i.unplanned).length : 0
+              const isCurrent = m.date === current
+              return (
+                <li key={m.date}>
+                  <Link
+                    ref={isCurrent ? activeRef : undefined}
+                    to={`/trips/${trip.id}/${section}/${m.date}`}
+                    state={{ trip }}
+                    className={[
+                      'day-glance-cell',
+                      m.hasPlans ? '' : 'day-glance-cell--empty',
+                      isCurrent ? 'day-glance-cell--current' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    style={{ '--country': m.color } as React.CSSProperties}
+                    aria-current={isCurrent ? 'page' : undefined}
+                    aria-label={`Day ${m.index + 1}, ${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}${m.title ? `, ${m.title}` : ''} — ${n === 0 ? 'nothing planned' : `${n} ${n === 1 ? 'plan' : 'plans'}`}`}
+                  >
+                    <span className="day-glance-num">{d.getDate()}</span>
+                    <span className="day-glance-wd">
+                      {d.toLocaleDateString('en-US', { weekday: 'short' })}
+                    </span>
+                    <span className="day-glance-count">{n > 0 ? n : '–'}</span>
+                  </Link>
+                </li>
+              )
+            })}
+          </ol>
+        </div>
+        <button
+          type="button"
+          className="day-glance-arrow"
+          onClick={() => page(1)}
+          disabled={edges.end}
+          aria-label="Later days"
+        >
+          <Icon name="chevron-right" size={18} />
+        </button>
       </div>
       <div className="day-glance-legend">
         {countries.map((c) => (
@@ -314,7 +378,12 @@ function TripShellBody({
         <ExportDialog tripId={trip.id} tripName={trip.name} open onClose={onExportClose} />
       )}
       {metas && (onDay || location.pathname.endsWith('/plan')) && (
-        <DayStrip trip={trip} metas={metas} current={dateParam} />
+        <DayStrip
+          trip={trip}
+          metas={metas}
+          current={dateParam}
+          section={location.pathname.includes('/journal/') ? 'journal' : 'days'}
+        />
       )}
       <Outlet context={{ trip, tripDays }} />
     </div>

@@ -115,12 +115,37 @@ describe('Trip header', () => {
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
   })
 
-  it('shows the desktop day strip with every day', async () => {
-    renderShellAtDay('2026-06-01')
+  it('shows the day strip with every day, the open one current, linking to each day', async () => {
+    renderShellAtDay('2026-06-02')
     const strip = await screen.findByRole('region', { name: 'Days at a glance' })
     const cells = within(strip).getAllByRole('link')
     expect(cells).toHaveLength(5)
-    expect(cells[0]).toHaveAttribute('aria-current', 'page')
+    expect(cells[1]).toHaveAttribute('aria-current', 'page')
+    expect(cells[3]).toHaveAttribute('href', '/trips/trip-1/days/2026-06-04')
+    // Fixed-width cells in a scrolling row: no width-fitting grid template.
+    expect(within(strip).getByRole('list')).not.toHaveAttribute('style')
+    expect(within(strip).getByRole('button', { name: 'Earlier days' })).toBeInTheDocument()
+    expect(within(strip).getByRole('button', { name: 'Later days' })).toBeInTheDocument()
+  })
+
+  it("links the strip to each day's journal when a journal is open", async () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: '/trips/trip-1/journal/2026-06-03', state: { trip: mockTrip } },
+        ]}
+      >
+        <Routes>
+          <Route path="/trips/:tripId" element={<TripShellRoute />}>
+            <Route path="journal/:date" element={<DayView variant="journal" />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    )
+    const strip = await screen.findByRole('region', { name: 'Days at a glance' })
+    const cells = within(strip).getAllByRole('link')
+    expect(cells[2]).toHaveAttribute('aria-current', 'page')
+    expect(cells[0]).toHaveAttribute('href', '/trips/trip-1/journal/2026-06-01')
   })
 })
 
