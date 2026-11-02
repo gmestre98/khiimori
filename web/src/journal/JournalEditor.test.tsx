@@ -107,3 +107,52 @@ describe('JournalEditor instant-render cache (M11.1)', () => {
     expect(api.upsertJournalEntry).not.toHaveBeenCalled()
   })
 })
+
+describe('JournalEditor typing before the entry loads', () => {
+  // A controllable fetch: resolves (or 404s) only when the test says so.
+  function deferredFetch() {
+    let resolve!: (e: JournalEntry) => void
+    let reject!: (err: unknown) => void
+    vi.mocked(api.fetchJournalEntry).mockReturnValue(
+      new Promise<JournalEntry>((res, rej) => {
+        resolve = res
+        reject = rej
+      }),
+    )
+    return { resolve: (e: JournalEntry) => resolve(e), reject: (err: unknown) => reject(err) }
+  }
+
+  it('keeps and saves text typed before a first entry (404) loads', async () => {
+    const user = userEvent.setup()
+    const fetch = deferredFetch()
+    render(<JournalEditor tripId="trip-1" dayId="day-new" />)
+
+    const textarea = await screen.findByRole('textbox', { name: 'Journal entry' })
+    await user.type(textarea, 'Typed early')
+    fetch.reject(new api.JournalEntryNotFoundError())
+
+    await waitFor(() =>
+      expect(api.upsertJournalEntry).toHaveBeenCalledWith('trip-1', 'day-new', {
+        body: 'Typed early',
+      }),
+    )
+    expect(textarea).toHaveValue('Typed early')
+  })
+
+  it('keeps the saved entry and adds what was typed early after it', async () => {
+    const user = userEvent.setup()
+    const fetch = deferredFetch()
+    render(<JournalEditor tripId="trip-1" dayId="day-old" />)
+
+    const textarea = await screen.findByRole('textbox', { name: 'Journal entry' })
+    await user.type(textarea, 'More')
+    fetch.resolve(makeEntry('Saved before'))
+
+    await waitFor(() => expect(textarea).toHaveValue('Saved before\n\nMore'))
+    await waitFor(() =>
+      expect(api.upsertJournalEntry).toHaveBeenCalledWith('trip-1', 'day-old', {
+        body: 'Saved before\n\nMore',
+      }),
+    )
+  })
+})

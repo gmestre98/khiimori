@@ -70,6 +70,14 @@ export function JournalEditor({
   // during a day-change (avoids synchronous setState in the fetch effect).
   const [loadedDayId, setLoadedDayId] = useState<string | null>(null)
   const loaded = loadedDayId === dayId
+  // Mirror of loadedDayId for the load effect, which must not re-run on it.
+  const loadedDayRef = useRef<string | null>(null)
+  useEffect(() => {
+    loadedDayRef.current = loadedDayId
+  }, [loadedDayId])
+  // The day the user last typed on, so text typed before a day's first load is
+  // told apart from the previous day's text still in the box.
+  const typedDayRef = useRef<string | null>(null)
 
   // The field values last written by a *load* (cache seed or fetch), so the
   // auto-save effect can tell a programmatic hydrate from a real user edit and
@@ -110,14 +118,40 @@ export function JournalEditor({
       return ll !== null && cur.body !== ll.body
     }
 
+    // typedBeforeLoad: the user started writing before this day's first load
+    // landed (a slow connection, or typing straight after opening the page).
+    // Their text must survive the load and still be saved.
+    const typedBeforeLoad = () =>
+      loadedDayRef.current !== dayId &&
+      typedDayRef.current === dayId &&
+      fieldsRef.current.body.trim() !== ''
+
+    // settle finishes the first load of a day. Normally it applies the loaded
+    // entry; if the user already typed, it keeps their text (after any text the
+    // server already had, so nothing is lost) and records the server's version
+    // as the baseline, so the auto-save then writes the combined text.
+    const settle = (e: JournalEntry | null) => {
+      if (!typedBeforeLoad()) {
+        apply(e)
+        return
+      }
+      const typed = fieldsRef.current.body
+      const saved = e?.body ?? ''
+      setEntry(e)
+      if (saved.trim() !== '' && !typed.startsWith(saved)) setBody(`${saved}\n\n${typed}`)
+      lastLoadedRef.current = { body: saved }
+      setLoadedDayId(dayId)
+    }
+
     void readCache<JournalEntry>(key).then((cached) => {
       if (done) return
-      if (cached) apply(cached.data) // instant paint from the on-device cache
+      if (cached) settle(cached.data) // instant paint from the on-device cache
       return fetchJournalEntry(tripId, dayId, controller.signal).then(
         (e) => {
           if (done) return
           void writeCache(key, e)
-          if (!hasEdited()) apply(e) // don't clobber the user's in-progress edits
+          if (loadedDayRef.current !== dayId) settle(e)
+          else if (!hasEdited()) apply(e) // don't clobber the user's in-progress edits
         },
         (err: unknown) => {
           if (done) return
@@ -127,7 +161,8 @@ export function JournalEditor({
             // No entry on the server — drop any stale cached copy and, unless the
             // user is already writing, show the fresh/empty form.
             void deleteCache(key)
-            if (!hasEdited()) apply(null)
+            if (loadedDayRef.current !== dayId) settle(null)
+            else if (!hasEdited()) apply(null)
             return
           }
           // Other failure is non-destructive: keep the cached entry on screen;
@@ -207,7 +242,10 @@ export function JournalEditor({
           : 'How was the day? Who did you meet, what did you eat?'
       }
       value={body}
-      onChange={(e) => setBody(e.target.value)}
+      onChange={(e) => {
+        typedDayRef.current = dayId
+        setBody(e.target.value)
+      }}
       disabled={readOnly}
       rows={photosFirst ? 5 : 6}
       aria-label="Journal entry"
