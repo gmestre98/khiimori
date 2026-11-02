@@ -30,8 +30,10 @@ export type IconName =
   | 'search'
   | 'user'
   | 'fit'
+  | 'edit'
 
 const PATHS: Record<IconName, string[]> = {
+  edit: ['M12 20h9', 'M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z'],
   days: [
     'M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
     'M3 10h18M8 3v4M16 3v4',

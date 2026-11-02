@@ -295,6 +295,28 @@ func (s *pgxTripStore) List(ctx context.Context, userID string) ([]Trip, error) 
 	return trips, nil
 }
 
+// SetDayTitle sets (or, with "", clears) a day's title and returns the updated
+// day. Like GetDay it is trip-scoped; the handler checks write access first.
+// Returns errDayNotFound when the trip has no such date.
+func (s *pgxTripStore) SetDayTitle(ctx context.Context, tripID, date, title string) (Day, error) {
+	const q = `
+		UPDATE trip.days
+		SET title = $3
+		WHERE trip_id = $1::uuid AND date = $2::date
+		RETURNING id::text, trip_id::text, date, index, notes, title`
+	var day Day
+	err := s.pool.QueryRow(ctx, q, tripID, date, title).Scan(
+		&day.ID, &day.TripID, &day.Date, &day.Index, &day.Notes, &day.Title,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Day{}, errDayNotFound
+		}
+		return Day{}, fmt.Errorf("trip: set day title: %w", err)
+	}
+	return day, nil
+}
+
 // GetDay fetches a single day from trip.days by trip + date. Access is NOT
 // owner-scoped here: the handler gates the read with the membership Authorizer
 // (checkAccess ActionRead) first, so any trip member — Owner, Editor, or Viewer —
@@ -303,13 +325,13 @@ func (s *pgxTripStore) List(ctx context.Context, userID string) ([]Trip, error) 
 // exist still returns errDayNotFound.
 func (s *pgxTripStore) GetDay(ctx context.Context, tripID, date string) (Day, error) {
 	const q = `
-		SELECT d.id::text, d.trip_id::text, d.date, d.index, d.notes
+		SELECT d.id::text, d.trip_id::text, d.date, d.index, d.notes, d.title
 		FROM trip.days d
 		WHERE d.trip_id = $1::uuid
 		  AND d.date = $2::date`
 	var day Day
 	err := s.pool.QueryRow(ctx, q, tripID, date).Scan(
-		&day.ID, &day.TripID, &day.Date, &day.Index, &day.Notes,
+		&day.ID, &day.TripID, &day.Date, &day.Index, &day.Notes, &day.Title,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

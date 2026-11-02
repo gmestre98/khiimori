@@ -48,7 +48,7 @@ function TravelogueDay({
         <span className="journal-entry-titles">
           <h2 className="journal-entry-place">
             <Link to={`/trips/${trip.id}/journal/${summary.date}`} state={{ trip }}>
-              {meta.place || `Day ${summary.index + 1}`}
+              {meta.title || `Day ${summary.index + 1}`}
             </Link>
           </h2>
           {planned.length + unplanned > 0 && (
@@ -163,7 +163,7 @@ export function TripTravelogue({
                     day: 'numeric',
                     month: 'short',
                   })}
-                  {metas[s.index].place ? ` · ${metas[s.index].place}` : ''}
+                  {metas[s.index].title ? ` · ${metas[s.index].title}` : ''}
                 </h2>
                 <div className="journal-photo-grid">
                   {s.photos.map((p) => (

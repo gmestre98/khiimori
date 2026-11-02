@@ -19,6 +19,7 @@ import { cacheKeys } from '../lib/cacheKeys'
 import { CacheStatus } from '../components/CacheStatus'
 import { Icon, type IconName } from '../components/ui/Icon'
 import { DateBox } from '../components/ui/DateBox'
+import { DayTitle } from './DayTitle'
 import { JournalEditor } from '../journal/JournalEditor'
 import { useTripShell } from './useTripShell'
 import { QuickAddForm } from './PlanItemForm'
@@ -919,10 +920,15 @@ export function DayView({ variant = 'plan' }: { variant?: DayVariant } = {}) {
           >
             {wide ? `Day ${dayIndex + 1}${country ? ` · ${country}` : ''}` : country || dayLong}
           </span>
-          <h1 className="day-title-place">
-            {place}
+          <DayTitle
+            tripId={trip.id}
+            date={date}
+            title={day?.date === date ? (day.title ?? '').trim() : ''}
+            place={place}
+            onSaved={(t) => setDay((cur) => (cur ? { ...cur, title: t } : cur))}
+          >
             <CacheStatus fromCache={seededFromCache} isValidating={revalidating} />
-          </h1>
+          </DayTitle>
         </header>
       )}
     </>

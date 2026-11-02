@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // dateLayout is the wire format for a trip's dates: a calendar date with no time
@@ -129,13 +130,27 @@ func validateTripFields(name string, destinations []string, start, end time.Time
 
 // Day is a single calendar day within a trip (trip.days, PRD §9, §5.1).
 // index gives a stable within-trip ordinal (0-based). notes holds day-level
-// text; later milestones layer plan items and journal entries on top.
+// text; later milestones layer plan items and journal entries on top. Title is
+// the traveller's own name for the day ("" when unset, so the app falls back to
+// the day's place).
 type Day struct {
 	ID     string
 	TripID string
 	Date   time.Time
 	Index  int
 	Notes  string
+	Title  string
+}
+
+// maxDayTitleLen bounds a day title: a short heading, not a paragraph.
+const maxDayTitleLen = 80
+
+// validateDayTitle checks a (trimmed) day title. Empty is allowed and clears it.
+func validateDayTitle(title string) error {
+	if utf8.RuneCountInString(title) > maxDayTitleLen {
+		return fmt.Errorf("title must be at most %d characters", maxDayTitleLen)
+	}
+	return nil
 }
 
 // parseDate parses a wire date (YYYY-MM-DD), returning a client-safe error

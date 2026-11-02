@@ -584,6 +584,9 @@ function json(body: unknown, status = 200): Response {
   })
 }
 
+// Custom day titles set in local dev (PATCH /trips/:id/days/:date).
+const dayTitles = new Map<string, string>()
+
 // route handlers, in priority order. Each entry: [RegExp, handler].
 function resolve(path: string, method: string, search: string, body: unknown): Response | null {
   // /me — auth probe
@@ -656,8 +659,14 @@ function resolve(path: string, method: string, search: string, body: unknown): R
   const dayMatch = path.match(/^\/trips\/[^/]+\/days\/([0-9]{4}-[0-9]{2}-[0-9]{2})$/)
   if (dayMatch) {
     const date = dayMatch[1]
+    if (method === 'PATCH') {
+      const title = String((body as { title?: string })?.title ?? '').trim()
+      dayTitles.set(date, title)
+      return json({ id: `day-${date}`, trip_id: MOCK_CURRENT_TRIP_ID, date, index: 0, title })
+    }
     const offset = dayOffset(date)
-    return json(offset === 3 ? richKyotoDay(date) : calmDay(date, offset))
+    const day = offset === 3 ? richKyotoDay(date) : calmDay(date, offset)
+    return json({ ...day, title: dayTitles.get(date) ?? '' })
   }
   // backlog
   if (/\/plan-items\/backlog$/.test(path)) return json({ items: [] })

@@ -165,7 +165,7 @@ function DayStrip({ trip, metas, current }: { trip: Trip; metas: DayMeta[]; curr
                     .join(' ')}
                   style={{ '--country': m.color } as React.CSSProperties}
                   aria-current={isCurrent ? 'page' : undefined}
-                  aria-label={`Day ${m.index + 1}, ${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}${m.place ? `, ${m.place}` : ''} — ${n === 0 ? 'nothing planned' : `${n} ${n === 1 ? 'plan' : 'plans'}`}`}
+                  aria-label={`Day ${m.index + 1}, ${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}${m.title ? `, ${m.title}` : ''} — ${n === 0 ? 'nothing planned' : `${n} ${n === 1 ? 'plan' : 'plans'}`}`}
                 >
                   <span className="day-glance-num">{d.getDate()}</span>
                   <span className="day-glance-wd">

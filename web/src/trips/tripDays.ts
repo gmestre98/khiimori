@@ -49,7 +49,10 @@ export interface DayMeta {
   index: number
   day: Day | null
   hasPlans: boolean
+  // place is the day's automatic name (its first location); title is what to
+  // show: the traveller's own title when set, otherwise the place.
   place: string
+  title: string
   country: string
   color: string
 }
@@ -74,6 +77,7 @@ export function buildDayMetas(dates: string[], days: (Day | null)[]): DayMeta[] 
       day,
       hasPlans: day ? dayHasPlans(day) : false,
       place: placeName(loc),
+      title: day?.title?.trim() || placeName(loc),
       country,
       color: country ? countryColor(country) : NO_COUNTRY_COLOR,
     }
