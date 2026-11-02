@@ -1693,6 +1693,92 @@ export async function deletePackingItem(tripId: string, itemId: string): Promise
   }
 }
 
+// --- Trip to-dos (Prep tab) ------------------------------------------------
+
+// TripTodo is the wire shape of a trip to-do. due_date is YYYY-MM-DD, or null
+// for a to-do with no deadline. The server returns them soonest deadline first,
+// undated last.
+export interface TripTodo {
+  id: string
+  trip_id: string
+  title: string
+  note: string
+  due_date: string | null
+  done: boolean
+  position: number
+  created_at: string
+  updated_at: string
+}
+
+// TodoInput is the payload for creating a to-do (POST). Only title is required.
+export interface TodoInput {
+  title: string
+  note?: string
+  due_date?: string | null
+}
+
+// TodoPatch is a partial update (PATCH): omitted fields are left unchanged;
+// due_date: null removes the deadline.
+export interface TodoPatch {
+  title?: string
+  note?: string
+  due_date?: string | null
+  done?: boolean
+}
+
+async function todoValidationError(res: Response): Promise<PackingValidationError> {
+  const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+  return new PackingValidationError(body?.error?.message ?? 'Invalid to-do')
+}
+
+// fetchTodos loads a trip's to-dos (GET /trips/:id/todos).
+export async function fetchTodos(tripId: string, signal?: AbortSignal): Promise<TripTodo[]> {
+  const res = await apiFetch(`/trips/${tripId}/todos`, { signal })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as TripTodo[]
+}
+
+// createTodo adds a to-do (POST /trips/:id/todos).
+export async function createTodo(tripId: string, input: TodoInput): Promise<TripTodo> {
+  const res = await apiFetch(`/trips/${tripId}/todos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 400) throw await todoValidationError(res)
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as TripTodo
+}
+
+// updateTodo applies a partial update (PATCH /trips/:id/todos/:todoId).
+export async function updateTodo(
+  tripId: string,
+  todoId: string,
+  patch: TodoPatch,
+): Promise<TripTodo> {
+  const res = await apiFetch(`/trips/${tripId}/todos/${todoId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (res.status === 400) throw await todoValidationError(res)
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as TripTodo
+}
+
+// deleteTodo removes a to-do (DELETE /trips/:id/todos/:todoId). A 404 (already
+// gone) counts as success.
+export async function deleteTodo(tripId: string, todoId: string): Promise<void> {
+  const res = await apiFetch(`/trips/${tripId}/todos/${todoId}`, { method: 'DELETE' })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok && res.status !== 204 && res.status !== 404) {
+    throw new Error(`API returned HTTP ${res.status}`)
+  }
+}
+
 // PackingTemplate is a saved, reusable list (metadata only). item_count is how
 // many items it holds.
 export interface PackingTemplate {

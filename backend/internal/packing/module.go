@@ -40,6 +40,16 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("DELETE /trips/{tripID}/packing/{itemID}",
 		m.requireAuth(http.HandlerFunc(m.handleDeleteItem)))
 
+	// Trip-scoped to-dos (the Prep tab's other half).
+	mux.Handle("GET /trips/{tripID}/todos",
+		m.requireAuth(http.HandlerFunc(m.handleListTodos)))
+	mux.Handle("POST /trips/{tripID}/todos",
+		m.requireAuth(http.HandlerFunc(m.handleCreateTodo)))
+	mux.Handle("PATCH /trips/{tripID}/todos/{todoID}",
+		m.requireAuth(http.HandlerFunc(m.handleUpdateTodo)))
+	mux.Handle("DELETE /trips/{tripID}/todos/{todoID}",
+		m.requireAuth(http.HandlerFunc(m.handleDeleteTodo)))
+
 	// Copy a saved template into the trip's list.
 	mux.Handle("POST /trips/{tripID}/packing/apply-template",
 		m.requireAuth(http.HandlerFunc(m.handleApplyTemplate)))

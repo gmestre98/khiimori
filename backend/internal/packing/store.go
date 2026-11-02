@@ -18,6 +18,12 @@ type packingStore interface {
 	UpdateItem(ctx context.Context, tripID, itemID string, in UpdateItem) (Item, error)
 	DeleteItem(ctx context.Context, tripID, itemID string) error
 
+	// To-dos — trip-scoped.
+	ListTodos(ctx context.Context, tripID string) ([]Todo, error)
+	CreateTodo(ctx context.Context, in CreateTodo) (Todo, error)
+	UpdateTodo(ctx context.Context, tripID, todoID string, in UpdateTodo) (Todo, error)
+	DeleteTodo(ctx context.Context, tripID, todoID string) error
+
 	// Templates — user-scoped.
 	ListTemplates(ctx context.Context, ownerID string) ([]Template, error)
 	CreateTemplate(ctx context.Context, in CreateTemplate) (Template, error)

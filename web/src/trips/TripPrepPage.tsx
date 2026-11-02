@@ -1,13 +1,16 @@
 import { useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { TripPackingPage } from './TripPackingPage'
+import { TripTodos } from './TripTodos'
 
 type PrepTab = 'todos' | 'packing'
 
 // TripPrepPage is the trip's Prep tab (/trips/:id/packing): a To-dos | Packing
-// switch over the existing packing list. To-dos have no backend yet, so that
-// tab is an honest "coming soon" state — nothing is faked or stored locally.
+// switch. To-dos are the things to sort out for the trip, with optional
+// deadlines; Packing is the packing list with its templates.
 export function TripPrepPage() {
-  const [tab, setTab] = useState<PrepTab>('packing')
+  const { tripId } = useParams<{ tripId: string }>()
+  const [tab, setTab] = useState<PrepTab>('todos')
   return (
     <section className="fg-screen prep-page" aria-labelledby="prep-title">
       <h1 id="prep-title" className="fg-page-title">
@@ -32,10 +35,9 @@ export function TripPrepPage() {
         </button>
       </div>
       {tab === 'todos' ? (
-        <div className="fg-empty prep-todos-empty" role="status">
-          <strong>To-dos are coming soon.</strong> Visa checks, bookings to confirm and copies to
-          print will live here, with deadlines. For now, keep them as notes on the day they matter.
-        </div>
+        tripId ? (
+          <TripTodos tripId={tripId} />
+        ) : null
       ) : (
         <TripPackingPage embedded />
       )}
