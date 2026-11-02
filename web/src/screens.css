@@ -113,28 +113,85 @@
   border: 1.5px dashed var(--muted);
 }
 
-/* ── Desktop day strip ("days at a glance") ───────────────────────────────── */
+/* ── Day strip ("days at a glance") ───────────────────────────────────────────
+   Fixed-width cells in a sideways-scrolling row. Desktop: on a day and the Days
+   list, with arrow buttons. Phones: on a single day (plan or journal) only. */
 .day-glance {
   display: none;
 }
+.trip-shell[data-screen='day'] > .day-glance {
+  display: block;
+  padding: 10px 0 4px;
+}
 @media (min-width: 1024px) {
-  .day-glance {
+  .day-glance,
+  .trip-shell[data-screen='day'] > .day-glance {
     display: block;
     padding: 0 32px 8px;
   }
 }
+.day-glance-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.day-glance-arrow {
+  display: none;
+  flex-shrink: 0;
+  width: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.day-glance-arrow:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+.day-glance-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+@media (min-width: 1024px) and (hover: hover) {
+  .day-glance-arrow {
+    display: inline-flex;
+  }
+}
 .day-glance-scroll {
+  flex: 1;
+  min-width: 0;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  /* phones: bleed to the screen edges but keep the first/last day off them */
+  padding: 0 20px 6px;
+  scroll-padding: 0 20px;
+}
+@media (min-width: 1024px) {
+  .day-glance-scroll {
+    padding: 0 0 6px;
+    scroll-padding: 0;
+  }
 }
 .day-glance-row {
-  display: grid;
-  gap: 3px;
+  display: flex;
+  gap: 4px;
+  width: max-content;
   list-style: none;
   margin: 0;
   padding: 0;
 }
+.day-glance-row > li {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
 .day-glance-cell {
   --country: var(--country-none);
+  width: 48px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -179,7 +236,17 @@
   opacity: 0.85;
 }
 .day-glance-legend {
-  display: flex;
+  display: none;
+}
+@media (min-width: 1024px) {
+  .day-glance-cell {
+    width: 56px;
+  }
+  .day-glance-legend {
+    display: flex;
+  }
+}
+.day-glance-legend {
   flex-wrap: wrap;
   gap: 8px 20px;
   padding-top: 10px;
