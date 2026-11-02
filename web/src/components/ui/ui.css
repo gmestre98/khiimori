@@ -287,19 +287,19 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: 64px;
+  height: calc(64px + env(safe-area-inset-bottom, 0px));
   display: flex;
-  align-items: center;
+  align-items: stretch;
   border-top: 1px solid var(--line);
-  background: var(--surface-translucent);
-  backdrop-filter: blur(8px);
-  padding-bottom: env(safe-area-inset-bottom, 6px);
+  background: var(--surface);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   z-index: 100;
 }
 
 .bottom-nav-list {
-  display: flex;
-  justify-content: space-around;
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -307,31 +307,32 @@
 }
 
 .bottom-nav-item {
-  flex: 1;
+  display: flex;
 }
 
 .bottom-nav-link {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding-top: 8px;
-  text-decoration: none;
-  color: var(--faint);
-  font-size: 10px;
-  font-weight: var(--fw-med);
-  min-height: 44px;
   justify-content: center;
+  gap: 3px;
   flex: 1;
+  min-height: var(--tap);
+  text-decoration: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: var(--fw-reg);
 }
 
 .bottom-nav-link--active {
   color: var(--accent);
+  font-weight: var(--fw-semi);
 }
 
 .bottom-nav-link:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  outline-offset: -4px;
+  border-radius: var(--r-sm);
 }
 
 .bottom-nav-icon {

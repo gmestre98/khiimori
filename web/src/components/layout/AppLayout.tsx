@@ -42,7 +42,11 @@ export function AppLayout({
   className = '',
 }: AppLayoutProps) {
   return (
-    <div className={['app-layout', className].filter(Boolean).join(' ')}>
+    <div
+      className={['app-layout', bottomNav ? 'app-layout--with-bottom-nav' : '', className]
+        .filter(Boolean)
+        .join(' ')}
+    >
       {/* Skip-nav: visible only on :focus-visible, lets keyboard users jump
           past the repeated navigation chrome to the main content. */}
       <a className="skip-nav" href="#main-content">

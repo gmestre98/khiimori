@@ -11,13 +11,121 @@ import {
   type CostEntry,
 } from '../lib/api'
 import { TripBudgetEditor, TripDayExtra } from './BudgetEditor'
-import { TripRollup, BudgetSummaryTiles } from './RollupDisplay'
+import { BUDGET_CATEGORIES } from '../lib/api'
+import { euroWhole } from '../lib/format'
+import { tripBudgetForCategory, tripBudgetTotal } from './budgetModel'
 import { TripExpenses, type DayOption } from './TripExpenses'
 import { readCache, writeCache } from '../lib/resourceCache'
 import { cacheKeys } from '../lib/cacheKeys'
 import { shortDate } from '../lib/format'
 import { useIsOnline } from '../lib/useIsOnline'
 import { patchRollupPlanned } from './budgetModel'
+
+// MoneySummary leads the Money tab: Booked (everything committed — spent plus
+// planned costs not yet done/paid), Spent, and Budget. When the plan already
+// costs more than the budget, a warning says so.
+function MoneySummary({ rollup, dayCount }: { rollup: BudgetRollup; dayCount: number }) {
+  const spent = rollup.trip_total
+  const booked = spent + (rollup.estimated_trip_total ?? 0)
+  const budget = tripBudgetTotal(rollup, dayCount)
+  const over = budget > 0 && booked > budget
+  const unbudgeted = BUDGET_CATEGORIES.filter(
+    (c) =>
+      tripBudgetForCategory(rollup, dayCount, c) === 0 &&
+      (rollup.by_category[c] ?? 0) + (rollup.estimated_by_category?.[c] ?? 0) > 0,
+  )
+  return (
+    <>
+      <div className="fg-stats money-stats" aria-label="Money summary">
+        <div className="fg-stat">
+          <span className="fg-stat-label">Booked</span>
+          <span className="fg-stat-value money-figure">{euroWhole(booked)}</span>
+        </div>
+        <div className="fg-stat">
+          <span className="fg-stat-label">Spent</span>
+          <span className="fg-stat-value money-figure">{euroWhole(spent)}</span>
+        </div>
+        <div className={over ? 'fg-stat fg-stat--warn' : 'fg-stat'}>
+          <span className="fg-stat-label">Budget</span>
+          <span className="fg-stat-value money-figure">{budget > 0 ? euroWhole(budget) : '—'}</span>
+        </div>
+      </div>
+      {over && (
+        <div className="fg-callout" role="status">
+          <span>
+            <strong>Your budget is below what’s already booked.</strong> {euroWhole(booked)} is
+            booked against a {euroWhole(budget)} budget
+            {unbudgeted.length > 0
+              ? `, and ${unbudgeted.map((c) => c.toLowerCase()).join(', ')} ${unbudgeted.length === 1 ? 'has' : 'have'} no budget at all`
+              : ''}
+            .
+          </span>
+          <a href="#budget-setup" className="fg-btn fg-btn--danger money-callout-btn">
+            Adjust the budget
+          </a>
+        </div>
+      )}
+      {budget === 0 && booked > 0 && (
+        <div className="fg-callout fg-callout--info" role="status">
+          <span>
+            No budget yet. Set a daily allowance per category so these totals mean something.
+          </span>
+          <a href="#budget-setup" className="fg-btn fg-btn--quiet money-callout-btn">
+            Set a daily budget
+          </a>
+        </div>
+      )}
+    </>
+  )
+}
+
+// MoneyCategories shows each category as a row with a bar: booked vs budget,
+// the bar and figure turning to the warning colour when over.
+function MoneyCategories({ rollup, dayCount }: { rollup: BudgetRollup; dayCount: number }) {
+  const rows = BUDGET_CATEGORIES.map((cat) => {
+    const booked = (rollup.by_category[cat] ?? 0) + (rollup.estimated_by_category?.[cat] ?? 0)
+    const spent = rollup.by_category[cat] ?? 0
+    const budget = tripBudgetForCategory(rollup, dayCount, cat)
+    return { cat, booked, spent, budget }
+  })
+  if (rows.every((r) => r.booked === 0 && r.budget === 0)) {
+    return <p className="fg-empty">No costs recorded yet.</p>
+  }
+  return (
+    <section className="money-cats" aria-label="By category">
+      <h2 className="fg-label fg-section-label">By category · booked vs budget</h2>
+      <ul className="money-cat-list">
+        {rows.map(({ cat, booked, spent, budget }) => {
+          const over = booked > budget && booked > 0
+          const pct = budget > 0 ? Math.min(100, (booked / budget) * 100) : booked > 0 ? 100 : 0
+          return (
+            <li key={cat} className="money-cat">
+              <div className="money-cat-head">
+                <span className="money-cat-name">{cat}</span>
+                <span className={over ? 'money-cat-fig money-cat-fig--over' : 'money-cat-fig'}>
+                  {euroWhole(booked)} / {budget > 0 ? euroWhole(budget) : 'no budget'}
+                </span>
+              </div>
+              <div
+                className={over ? 'fg-bar fg-bar--over' : 'fg-bar'}
+                role="progressbar"
+                aria-label={`${cat}: ${euroWhole(booked)} booked of ${budget > 0 ? euroWhole(budget) : 'no budget'}`}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(pct)}
+              >
+                <span style={{ width: `${pct}%` }} />
+              </div>
+              {spent > 0 && spent !== booked && (
+                <span className="money-cat-spent">{euroWhole(spent)} spent so far</span>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
 import { useTripShell } from './useTripShell'
 
 // TripBudgetPage renders the trip-level budget editor, rollup display, and the
@@ -194,26 +302,35 @@ export function TripBudgetPage() {
   if (!tripId) return null
 
   return (
-    <article className="trip-budget-page">
-      <div className="screen-content narrow trip-budget-body">
-        <h1 className="h1 trip-budget-title">Budget</h1>
-        {error && (
-          <p role="alert" className="trip-budget-error">
-            {error}
-          </p>
-        )}
+    <article className="fg-screen money-page trip-budget-page" aria-labelledby="money-title">
+      <h1 id="money-title" className="fg-page-title trip-budget-title">
+        Money
+      </h1>
+      {error && (
+        <p role="alert" className="fg-error trip-budget-error">
+          {error}
+        </p>
+      )}
 
-        {rollup && <BudgetSummaryTiles rollup={rollup} dayCount={tripDates.length} />}
+      {rollup && <MoneySummary rollup={rollup} dayCount={tripDates.length} />}
+      {rollup && <MoneyCategories rollup={rollup} dayCount={tripDates.length} />}
 
-        {rollup && <TripRollup rollup={rollup} dayCount={tripDates.length} />}
+      <TripExpenses
+        tripId={tripId}
+        entries={entries}
+        dayOptions={dayOptions}
+        onAdded={handleEntryAdded}
+        onUpdated={handleEntryUpdated}
+        onDeleted={handleEntryDeleted}
+      />
 
-        <TripExpenses
+      <div id="budget-setup" className="money-setup">
+        <TripBudgetEditor
           tripId={tripId}
-          entries={entries}
-          dayOptions={dayOptions}
-          onAdded={handleEntryAdded}
-          onUpdated={handleEntryUpdated}
-          onDeleted={handleEntryDeleted}
+          lines={lines}
+          rollup={rollup}
+          dayCount={tripDates.length}
+          onUpdated={handleLineUpdated}
         />
 
         <TripDayExtra
@@ -221,14 +338,6 @@ export function TripBudgetPage() {
           rollup={rollup}
           dayOptions={dayOptions}
           onChanged={(line) => (line ? applyOfflineLine(line) : loadRollup())}
-        />
-
-        <TripBudgetEditor
-          tripId={tripId}
-          lines={lines}
-          rollup={rollup}
-          dayCount={tripDates.length}
-          onUpdated={handleLineUpdated}
         />
       </div>
     </article>

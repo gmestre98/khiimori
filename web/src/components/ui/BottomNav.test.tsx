@@ -22,7 +22,7 @@ function renderBottomNav(currentPath = '/') {
 describe('BottomNav', () => {
   it('renders a nav landmark', () => {
     renderBottomNav()
-    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Trip' })).toBeInTheDocument()
   })
 
   it('renders all items as links', () => {

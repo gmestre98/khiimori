@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { TripPlanPage } from './TripPlanPage'
 import { TripShellRoute } from './TripShell'
@@ -129,212 +128,36 @@ beforeEach(() => {
   localStorage.clear()
 })
 
-async function daysNav() {
-  return within(await screen.findByRole('navigation', { name: 'Days' }))
-}
-
-// expandAllDays opens every collapsed day card in the whole-trip stack. Days are
-// collapsed by default (only today's is open), so a test that asserts across
-// days has to expand first.
-async function expandAllDays(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: 'Expand all' }))
-}
-
 describe('TripPlanPage', () => {
-  it('shows the day-by-day heading', async () => {
+  it('lists every day exactly once, as links into the day', async () => {
     renderPage()
-    await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'Your trip, day by day' })).toBeInTheDocument(),
-    )
+    const list = await screen.findByRole('list', { name: 'Days' })
+    const links = within(list).getAllByRole('link')
+    expect(links).toHaveLength(3)
+    expect(links[0]).toHaveAttribute('href', '/trips/trip-1/days/2026-06-01')
+    // No second "whole trip" accordion repeating the days.
+    expect(screen.queryByRole('button', { name: /whole trip/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /expand all/i })).not.toBeInTheDocument()
   })
 
-  it('reveals the journal below the plan when a day is selected', async () => {
-    const user = userEvent.setup()
+  it('summarises planned days and marks empty ones “Nothing planned”', async () => {
     renderPage()
-    const nav = await daysNav()
-    // The whole-trip view shows the travelogue, not the per-day Journal editor;
-    // selecting a day adds the editor.
-    expect(screen.queryByRole('region', { name: 'Journal' })).not.toBeInTheDocument()
-    await user.click(nav.getByRole('button', { name: /day 1/i }))
-    expect(await screen.findByRole('region', { name: 'Journal' })).toBeInTheDocument()
+    const list = await screen.findByRole('list', { name: 'Days' })
+    const [day1, day2] = within(list).getAllByRole('link')
+    expect(within(day1).getByText('Visit the castle')).toBeInTheDocument()
+    expect(within(day2).getByText('Nothing planned')).toBeInTheDocument()
+    expect(day2).toHaveAccessibleName(/nothing planned/)
   })
 
-  it('shows the travelogue with journal entries in the whole-trip view', async () => {
-    vi.mocked(api.fetchJournalEntry).mockImplementation(async (_tripId, dayId) => {
-      if (dayId !== 'day-0') throw new api.JournalEntryNotFoundError()
-      return {
-        id: 'e1',
-        day_id: 'day-0',
-        author_id: 'user-owner',
-        body: 'Best day of the trip — sunset kayak.',
-        created_at: '2026-06-01T00:00:00Z',
-        updated_at: '2026-06-01T00:00:00Z',
-      }
-    })
+  it('shows planning progress (days with plans / total)', async () => {
     renderPage()
-    // Whole-trip is the default view; the travelogue stitches in written days.
-    const travelogue = await screen.findByRole('region', { name: 'Travelogue' })
-    expect(
-      await within(travelogue).findByText('Best day of the trip — sunset kayak.'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('1 of 3 days have plans')).toBeInTheDocument()
+    expect(screen.getByText('2 empty')).toBeInTheDocument()
   })
 
-  it('lists every day plus a Whole trip option and the ideas backlog', async () => {
+  it('links to the backlog', async () => {
     renderPage()
-    const nav = await daysNav()
-    expect(nav.getByRole('button', { name: /whole trip/i })).toBeInTheDocument()
-    expect(nav.getByRole('button', { name: /day 1/i })).toBeInTheDocument()
-    expect(nav.getByRole('button', { name: /day 2/i })).toBeInTheDocument()
-    expect(nav.getByRole('button', { name: /day 3/i })).toBeInTheDocument()
-    expect(nav.getByRole('link', { name: /ideas backlog/i })).toBeInTheDocument()
-  })
-
-  it('captions days by plan status', async () => {
-    renderPage()
-    const nav = await daysNav()
-    expect(within(nav.getByRole('button', { name: /day 1/i })).getByText('1 item')).toBeVisible()
-    expect(
-      within(nav.getByRole('button', { name: /day 2/i })).getByText('Nothing planned yet'),
-    ).toBeVisible()
-  })
-
-  it('defaults to the whole-trip stack with only one day card expanded', async () => {
-    renderPage()
-    // The trip is outside today's range, so day 1 is the one open card and its
-    // planner renders; the other days are collapsed to their summary head.
-    expect(await screen.findByText('Visit the castle')).toBeInTheDocument()
-    const heads = within(screen.getByRole('region', { name: 'Day cards' })).getAllByRole('button', {
-      name: /^Day \d/,
-    })
-    expect(heads).toHaveLength(3)
-    expect(heads.filter((h) => h.getAttribute('aria-expanded') === 'true')).toHaveLength(1)
-    const wholeTrip = (await daysNav()).getByRole('button', { name: /whole trip/i })
-    expect(wholeTrip).toHaveAttribute('aria-pressed', 'true')
-  })
-
-  it('expands and collapses a day card, and remembers it across a remount', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    const feed = within(await screen.findByRole('region', { name: 'Day cards' }))
-    const day2 = feed.getByRole('button', { name: /^Day 2/ })
-    expect(day2).toHaveAttribute('aria-expanded', 'false')
-    await user.click(day2)
-    expect(feed.getByRole('button', { name: /^Day 2/ })).toHaveAttribute('aria-expanded', 'true')
-
-    // Remount: the open set is restored from storage, not reset to the default.
-    cleanup()
-    renderPage()
-    await waitFor(() =>
-      expect(
-        within(screen.getByRole('region', { name: 'Day cards' })).getByRole('button', {
-          name: /^Day 2/,
-        }),
-      ).toHaveAttribute('aria-expanded', 'true'),
-    )
-  })
-
-  it('offers a collapsed diary on each day in the stack, opening the editor on click', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    // The expanded day card carries a diary row; the editor is not mounted yet,
-    // so no journal fetch has happened for it.
-    const diary = await screen.findByRole('button', { name: /diary/i })
-    expect(diary).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByLabelText('Journal entry')).not.toBeInTheDocument()
-
-    await user.click(diary)
-    // Opening the diary mounts the journal editor — the entry field (and photos)
-    // are reachable here. Journals stay editable even for past trips.
-    expect(await screen.findByLabelText('Journal entry')).toBeInTheDocument()
-  })
-
-  it('adds a two-night stay to every night it covers, not just the first day', async () => {
-    const user = userEvent.setup()
-    vi.mocked(api.createStay).mockResolvedValue({
-      id: 'stay-1',
-      trip_id: 'trip-1',
-      name: 'Grand Hotel',
-      check_in: '2026-06-01',
-      check_out: '2026-06-03',
-      paid: false,
-    })
-
-    renderPage()
-    await expandAllDays(user)
-    // Whole-trip stack: every day shows an add-stay affordance. Open day 1's.
-    const addButtons = await screen.findAllByRole('button', {
-      name: /add where you're staying/i,
-    })
-    await user.click(addButtons[0])
-
-    await user.type(screen.getByLabelText('Name'), 'Grand Hotel')
-    // Push check-out out to the 3rd so the stay spans nights of the 1st and 2nd.
-    const checkOut = screen.getByLabelText('Check out') as HTMLInputElement
-    await user.clear(checkOut)
-    await user.type(checkOut, '2026-06-03')
-    await user.click(screen.getByRole('button', { name: 'Add stay' }))
-
-    await waitFor(() => expect(api.createStay).toHaveBeenCalledTimes(1))
-    // The stay now appears on both covered days (day 1 and day 2), not only day 1.
-    await waitFor(() => expect(screen.getAllByText('Grand Hotel')).toHaveLength(2))
-  })
-
-  it('moves an item to another day in place — target day and rail update without a reload', async () => {
-    const user = userEvent.setup()
-    // Moving online resolves the target day, then persists the move.
-    vi.mocked(api.movePlanItem).mockResolvedValue({
-      ...makeItem('day-0', 'Visit the castle'),
-      day_id: 'day-1',
-    })
-    renderPage()
-    await expandAllDays(user)
-
-    const nav = await daysNav()
-    // Before: day 1 has the item, day 2 is empty.
-    expect(within(nav.getByRole('button', { name: /day 1/i })).getByText('1 item')).toBeVisible()
-    expect(
-      within(nav.getByRole('button', { name: /day 2/i })).getByText('Nothing planned yet'),
-    ).toBeVisible()
-
-    // Move the item off day 1 onto day 2 (2026-06-02). Secondary actions live
-    // under the row's ⋯ menu.
-    await user.click(
-      await screen.findByRole('button', { name: /More actions for Visit the castle/ }),
-    )
-    await user.click(
-      await screen.findByRole('button', { name: /Move Visit the castle to another day/ }),
-    )
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Target day' }), '2026-06-02')
-    await user.click(screen.getByRole('button', { name: 'Move' }))
-
-    await waitFor(() =>
-      expect(api.movePlanItem).toHaveBeenCalledWith('trip-1', 'item-day-0', 'day-1'),
-    )
-
-    // After: the rail counts flip — day 1 empties, day 2 gains the item — with no
-    // reload and no extra fetchDay for the target day.
-    const navAfter = await daysNav()
-    await waitFor(() =>
-      expect(
-        within(navAfter.getByRole('button', { name: /day 1/i })).getByText('Nothing planned yet'),
-      ).toBeVisible(),
-    )
-    expect(
-      within(navAfter.getByRole('button', { name: /day 2/i })).getByText('1 item'),
-    ).toBeVisible()
-    // The item still shows in the whole-trip stack (now under day 2).
-    expect(screen.getByText('Visit the castle')).toBeInTheDocument()
-  })
-
-  it('opens a single day planner when a day is selected', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    const nav = await daysNav()
-    await user.click(nav.getByRole('button', { name: /day 1/i }))
-    // The day's planner exposes the quick-add composer.
-    expect(await screen.findByRole('textbox', { name: 'Title' })).toBeInTheDocument()
-    expect(screen.getByText('Visit the castle')).toBeInTheDocument()
+    const link = await screen.findByRole('link', { name: /backlog/i })
+    expect(link).toHaveAttribute('href', '/trips/trip-1/backlog')
   })
 })

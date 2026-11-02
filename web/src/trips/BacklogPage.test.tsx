@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { BacklogPage } from './BacklogPage'
@@ -99,7 +99,10 @@ describe('BacklogPage', () => {
     renderBacklogPage()
     // The backlog reuses the day's full-detail add form (title + kind picker),
     // rather than a title-only quick-add.
-    await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByLabelText('New idea')).toBeInTheDocument())
+    // Kind chips appear once the add bar is focused.
+    expect(screen.queryByRole('group', { name: 'Kind' })).not.toBeInTheDocument()
+    fireEvent.focus(screen.getByLabelText('New idea'))
     expect(screen.getByRole('group', { name: 'Kind' })).toBeInTheDocument()
   })
 
@@ -110,9 +113,9 @@ describe('BacklogPage', () => {
     vi.mocked(api.createPlanItem).mockResolvedValue(newItem)
 
     renderBacklogPage()
-    await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByLabelText('New idea')).toBeInTheDocument())
 
-    await user.type(screen.getByLabelText('Title'), 'Visit the Louvre')
+    await user.type(screen.getByLabelText('New idea'), 'Visit the Louvre')
     await user.click(screen.getByRole('button', { name: 'Add' }))
 
     await waitFor(() => expect(screen.getByText('Visit the Louvre')).toBeInTheDocument())
@@ -130,9 +133,9 @@ describe('BacklogPage', () => {
     vi.mocked(api.createPlanItem).mockResolvedValue(makePlanItem({ id: 'new-1', title: 'Picnic' }))
 
     renderBacklogPage()
-    await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByLabelText('New idea')).toBeInTheDocument())
 
-    const input = screen.getByLabelText('Title') as HTMLInputElement
+    const input = screen.getByLabelText('New idea') as HTMLInputElement
     await user.type(input, 'Picnic')
     await user.click(screen.getByRole('button', { name: 'Add' }))
 
@@ -147,9 +150,9 @@ describe('BacklogPage', () => {
     )
 
     renderBacklogPage()
-    await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByLabelText('New idea')).toBeInTheDocument())
 
-    await user.type(screen.getByLabelText('Title'), 'Ferry to the island')
+    await user.type(screen.getByLabelText('New idea'), 'Ferry to the island')
     // Switch the kind — a detail that only the full form can capture.
     await user.click(screen.getByRole('button', { name: /Food/ }))
     await user.click(screen.getByRole('button', { name: 'Add' }))
@@ -168,9 +171,9 @@ describe('BacklogPage', () => {
     vi.mocked(api.createPlanItem).mockRejectedValue(new Error('network'))
 
     renderBacklogPage()
-    await waitFor(() => expect(screen.getByLabelText('Title')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByLabelText('New idea')).toBeInTheDocument())
 
-    await user.type(screen.getByLabelText('Title'), 'Bad idea')
+    await user.type(screen.getByLabelText('New idea'), 'Bad idea')
     await user.click(screen.getByRole('button', { name: 'Add' }))
 
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
@@ -178,28 +181,28 @@ describe('BacklogPage', () => {
   })
 
   describe('promote to day', () => {
-    it('renders a Promote… button on each backlog item', async () => {
+    it('renders an Add to a day button on each idea', async () => {
       const item = makePlanItem()
       vi.mocked(api.fetchBacklog).mockResolvedValue([item])
       renderBacklogPage()
       await waitFor(() => expect(screen.getByText('See the Eiffel Tower')).toBeInTheDocument())
       expect(
-        screen.getByRole('button', { name: /Promote See the Eiffel Tower/ }),
+        screen.getByRole('button', { name: /Add See the Eiffel Tower to a day/ }),
       ).toBeInTheDocument()
     })
 
-    it('clicking Promote… shows the day picker', async () => {
+    it('clicking Add to a day shows the day picker', async () => {
       const user = userEvent.setup()
       const item = makePlanItem()
       vi.mocked(api.fetchBacklog).mockResolvedValue([item])
       renderBacklogPage()
       await waitFor(() => expect(screen.getByText('See the Eiffel Tower')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: /Promote See the Eiffel Tower/ }))
+      await user.click(screen.getByRole('button', { name: /Add See the Eiffel Tower to a day/ }))
       expect(screen.getByLabelText('Target day')).toBeInTheDocument()
     })
 
-    it('confirming Promote calls promotePlanItem and removes the item', async () => {
+    it('confirming calls promotePlanItem and removes the idea', async () => {
       const user = userEvent.setup()
       const item = makePlanItem()
       vi.mocked(api.fetchBacklog).mockResolvedValue([item])
@@ -217,7 +220,7 @@ describe('BacklogPage', () => {
       renderBacklogPage()
       await waitFor(() => expect(screen.getByText('See the Eiffel Tower')).toBeInTheDocument())
 
-      await user.click(screen.getByRole('button', { name: /Promote See the Eiffel Tower/ }))
+      await user.click(screen.getByRole('button', { name: /Add See the Eiffel Tower to a day/ }))
       await user.click(screen.getByRole('button', { name: 'Add to day' }))
 
       await waitFor(() =>

@@ -2,19 +2,17 @@ import { afterEach, describe, it, expect, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { SidebarNav } from './SidebarNav'
-import { SIDEBAR_NAV_ITEMS, SIDEBAR_SECONDARY_ITEMS, buildSidebarNavItems } from './navItems'
 import type { Trip, TripsResponse } from '../../lib/api'
 import type { TripSwitcher } from '../../lib/useSelectedTrip'
 
 afterEach(cleanup)
 
-// Minimal Trip factory — only the fields the switcher reads matter.
-function trip(id: string, name: string, destinations: string[] = []): Trip {
+function trip(id: string, name: string): Trip {
   return {
     id,
     owner_id: 'u',
     name,
-    destinations,
+    destinations: [],
     start_date: '2026-07-01',
     end_date: '2026-07-05',
     base_currency: 'EUR',
@@ -26,24 +24,23 @@ function trip(id: string, name: string, destinations: string[] = []): Trip {
   }
 }
 
-const japan = trip('japan', 'Japan — Spring 2026', ['Tokyo'])
-const portugal = trip('portugal', 'Portugal Roadtrip', ['Lisbon'])
-const morocco = trip('morocco', 'Morocco', ['Fez'])
+const japan = trip('japan', 'Japan — Spring 2026')
+const portugal = trip('portugal', 'Portugal Roadtrip')
+const morocco = trip('morocco', 'Morocco')
+const trips: TripsResponse = { current: [japan], upcoming: [portugal], past: [morocco] }
 
-const tripsResponse: TripsResponse = {
-  current: [japan],
-  upcoming: [portugal],
-  past: [morocco],
+function switcher(): TripSwitcher {
+  return { trips, selectedTrip: japan, selectTrip: vi.fn() }
 }
 
-function renderNav(path = '/', items = SIDEBAR_NAV_ITEMS) {
+function renderNav(path: string, activeTripId: string | null, backlogCount: number | null = 3) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <SidebarNav
-        items={items}
-        secondaryItems={SIDEBAR_SECONDARY_ITEMS}
+        tripSwitcher={switcher()}
+        activeTripId={activeTripId}
+        backlogCount={backlogCount}
         userName="Test User"
-        userMeta="EUR · Lisbon"
         onSignOut={() => {}}
       />
     </MemoryRouter>,
@@ -51,129 +48,78 @@ function renderNav(path = '/', items = SIDEBAR_NAV_ITEMS) {
 }
 
 describe('SidebarNav', () => {
-  it('renders a Primary navigation landmark with all destinations', () => {
-    renderNav()
-    expect(screen.getByRole('navigation', { name: 'Primary' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /trips/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /profile/i })).toBeInTheDocument()
+  it('lists upcoming trips and a collapsed Past trips (n) group', () => {
+    renderNav('/', null)
+    const nav = screen.getByRole('navigation', { name: 'Primary' })
+    expect(within(nav).getByRole('link', { name: /Japan — Spring 2026/ })).toBeInTheDocument()
+    expect(within(nav).getByRole('link', { name: /Portugal Roadtrip/ })).toBeInTheDocument()
+    expect(within(nav).queryByRole('link', { name: /Morocco/ })).not.toBeInTheDocument()
+    const past = within(nav).getByRole('button', { name: /Past trips \(1\)/ })
+    expect(past).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(past)
+    expect(within(nav).getByRole('link', { name: /Morocco/ })).toBeInTheDocument()
   })
 
-  it('marks the active destination', () => {
-    renderNav('/profile')
-    expect(screen.getByRole('link', { name: /profile/i })).toHaveClass('sidebar-nav-link--active')
-    // Home link must not be active on a sub-route (end-matching for "/").
-    expect(screen.getByRole('link', { name: /trips/i })).not.toHaveClass('sidebar-nav-link--active')
-  })
-
-  it('highlights only the most-specific destination on a nested trip route', () => {
-    // On /trips/abc/budget, the parent Days/Map links (/trips/abc) must not
-    // stay highlighted alongside Budget — only Budget should be active.
-    renderNav('/trips/abc/budget', buildSidebarNavItems('abc'))
-    expect(screen.getByRole('link', { name: /budget/i })).toHaveClass('sidebar-nav-link--active')
-    expect(screen.getByRole('link', { name: /^map$/i })).not.toHaveClass('sidebar-nav-link--active')
-    expect(screen.getByRole('link', { name: /^days$/i })).not.toHaveClass(
-      'sidebar-nav-link--active',
+  it('nests the open trip’s sections under it, with the backlog count', () => {
+    renderNav('/trips/japan/plan', 'japan', 7)
+    const sections = screen.getByRole('list', { name: 'Japan — Spring 2026 sections' })
+    const names = within(sections)
+      .getAllByRole('link')
+      .map((l) => l.textContent)
+    expect(names).toEqual(['Days', 'Map & stays', 'Journal', 'Money', 'Prep', 'Backlog7'])
+    expect(within(sections).getByRole('link', { name: /Map & stays/ })).toHaveAttribute(
+      'href',
+      '/trips/japan/map',
     )
-    expect(screen.getByRole('link', { name: /sharing/i })).not.toHaveClass(
-      'sidebar-nav-link--active',
+    expect(within(sections).getByRole('link', { name: 'Money' })).toHaveAttribute(
+      'href',
+      '/trips/japan/budget',
     )
-  })
-
-  it('highlights no trip facet on the bare day route', () => {
-    // Days, Map, and Budget each have their own subtab route, so none of them is
-    // active on the day view itself.
-    renderNav('/trips/abc/days/2026-07-02', buildSidebarNavItems('abc'))
-    expect(screen.getByRole('link', { name: /^days$/i })).not.toHaveClass(
-      'sidebar-nav-link--active',
-    )
-    expect(screen.getByRole('link', { name: /^map$/i })).not.toHaveClass('sidebar-nav-link--active')
-    expect(screen.getByRole('link', { name: /budget/i })).not.toHaveClass(
-      'sidebar-nav-link--active',
+    expect(within(sections).getByRole('link', { name: 'Prep' })).toHaveAttribute(
+      'href',
+      '/trips/japan/packing',
     )
   })
 
-  it('highlights Days on the merged plan + journal subtab route', () => {
-    renderNav('/trips/abc/plan', buildSidebarNavItems('abc'))
-    expect(screen.getByRole('link', { name: /^days$/i })).toHaveClass('sidebar-nav-link--active')
-    expect(screen.getByRole('link', { name: /^map$/i })).not.toHaveClass('sidebar-nav-link--active')
-  })
-
-  it('highlights Map on its own trip subtab route', () => {
-    renderNav('/trips/abc/map', buildSidebarNavItems('abc'))
-    expect(screen.getByRole('link', { name: /^map$/i })).toHaveClass('sidebar-nav-link--active')
-    expect(screen.getByRole('link', { name: /^days$/i })).not.toHaveClass(
-      'sidebar-nav-link--active',
+  it('marks the current section with aria-current (Days stays lit on a single day)', () => {
+    renderNav('/trips/japan/days/2026-07-02', 'japan')
+    const sections = screen.getByRole('list', { name: 'Japan — Spring 2026 sections' })
+    expect(within(sections).getByRole('link', { name: 'Days' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(within(sections).getByRole('link', { name: 'Journal' })).not.toHaveAttribute(
+      'aria-current',
     )
   })
 
-  it('renders the sign-out button in the user footer', () => {
-    renderNav()
-    expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument()
+  it('marks Money active on the budget route and only that section', () => {
+    renderNav('/trips/japan/budget', 'japan')
+    const current = screen
+      .getByRole('list', { name: 'Japan — Spring 2026 sections' })
+      .querySelectorAll('[aria-current="page"]')
+    expect(current).toHaveLength(1)
+    expect(current[0]).toHaveTextContent('Money')
   })
-})
 
-describe('SidebarNav trip switcher', () => {
-  function renderWithSwitcher(
-    path = '/',
-    overrides: Partial<TripSwitcher> = {},
-  ): { selectTrip: ReturnType<typeof vi.fn> } {
-    const selectTrip = vi.fn()
-    const switcher: TripSwitcher = {
-      trips: tripsResponse,
-      selectedTrip: japan,
-      selectTrip,
-      ...overrides,
-    }
-    render(
-      <MemoryRouter initialEntries={[path]}>
-        <SidebarNav
-          items={buildSidebarNavItems(switcher.selectedTrip?.id ?? null)}
-          secondaryItems={SIDEBAR_SECONDARY_ITEMS}
-          tripSwitcher={switcher}
-          userName="Test User"
-          onSignOut={() => {}}
-        />
-      </MemoryRouter>,
+  it('opens the Past group automatically when the open trip is a past one', () => {
+    renderNav('/trips/morocco/plan', 'morocco')
+    expect(screen.getByRole('list', { name: 'Morocco sections' })).toBeInTheDocument()
+  })
+
+  it('has no top-level duplicate destinations — only trips, new trip and profile', () => {
+    renderNav('/trips/japan/map', 'japan')
+    expect(screen.getByRole('link', { name: /New trip/ })).toHaveAttribute('href', '/trips/new')
+    expect(screen.getByRole('link', { name: /profile and settings/i })).toHaveAttribute(
+      'href',
+      '/profile',
     )
-    return { selectTrip }
-  }
-
-  it('renders a Trip tab that opens the selected trip', () => {
-    renderWithSwitcher()
-    const link = screen.getByRole('link', { name: /Japan — Spring 2026/i })
-    expect(link).toHaveAttribute('href', '/trips/japan')
+    // Each section appears exactly once.
+    expect(screen.getAllByRole('link', { name: 'Journal' })).toHaveLength(1)
   })
 
-  it('hides the tab when there is no selected trip', () => {
-    renderWithSwitcher('/', { selectedTrip: null })
-    expect(screen.queryByRole('button', { name: /switch trip/i })).not.toBeInTheDocument()
-  })
-
-  it('opens a dropdown that groups current & upcoming apart from past', () => {
-    renderWithSwitcher()
-    fireEvent.click(screen.getByRole('button', { name: /switch trip/i }))
-    const listbox = screen.getByRole('listbox', { name: /select a trip/i })
-    // Current + upcoming buckets are merged into one group, past kept separate.
-    expect(within(listbox).getByText('Current & upcoming')).toBeInTheDocument()
-    expect(within(listbox).getByText('Past')).toBeInTheDocument()
-    expect(within(listbox).getByRole('option', { name: /Portugal Roadtrip/ })).toBeInTheDocument()
-    expect(within(listbox).getByRole('option', { name: /Morocco/ })).toBeInTheDocument()
-    // The selected trip is marked.
-    const selected = within(listbox).getByRole('option', { name: /Japan — Spring 2026/ })
-    expect(selected).toHaveAttribute('aria-selected', 'true')
-  })
-
-  it('remembers the pick via selectTrip when an option is chosen', () => {
-    const { selectTrip } = renderWithSwitcher()
-    fireEvent.click(screen.getByRole('button', { name: /switch trip/i }))
-    fireEvent.click(screen.getByRole('option', { name: /Morocco/ }))
-    expect(selectTrip).toHaveBeenCalledWith('morocco')
-  })
-
-  it('highlights the Trip tab on the selected trip day view', () => {
-    renderWithSwitcher('/trips/japan/days/2026-07-02')
-    // The row wrapper carries the active class (the link shares its background).
-    const link = screen.getByRole('link', { name: /Japan — Spring 2026/i })
-    expect(link.closest('.trip-switcher-row')).toHaveClass('trip-switcher-row--active')
+  it('renders the sign-out button in the footer', () => {
+    renderNav('/', null)
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
   })
 })

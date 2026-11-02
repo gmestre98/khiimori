@@ -115,9 +115,10 @@
 .btn-primary,
 .btn-secondary {
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: var(--fw-semi);
-  padding: 8px 15px;
+  min-height: 40px;
+  padding: 0 16px;
   border-radius: var(--r-pill);
   cursor: pointer;
   display: inline-flex;
@@ -129,13 +130,13 @@
 }
 
 .btn-primary {
-  color: #fff;
+  color: var(--on-fill);
   background: var(--fill-strong);
   border: 1px solid transparent;
 }
 
 .btn-primary:hover {
-  background: #000;
+  background: var(--ink-2);
 }
 
 .btn-secondary {
@@ -153,7 +154,7 @@
   align-items: center;
   gap: 7px;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-on);
   border: 1px solid transparent;
   border-radius: var(--r-pill);
   font-family: var(--font);
@@ -486,7 +487,7 @@
 
 .chip--solid {
   background: var(--fill-strong);
-  color: #fff;
+  color: var(--on-fill);
 }
 
 .chip--accent {
@@ -1156,37 +1157,10 @@
 /* Warm "paper" surface so the create/edit screen belongs to the same Direction B
    system as the dashboard and trip shell (it lives outside .trip-shell). */
 .trip-form-page {
-  --bg: #fbf8f4;
-  --surface: #ffffff;
-  --surface-2: #f6f1ea;
-  --surface-3: #ece2d4;
-  --surface-muted: #f6f1ea;
-  --line: #ece5db;
-  --line-2: #e0d7ca;
   background: var(--bg);
   min-height: 100%;
   padding: var(--s5) var(--s4) 56px;
   text-align: left;
-}
-[data-theme='dark'] .trip-form-page {
-  --bg: #17130f;
-  --surface: #201911;
-  --surface-2: #1c1610;
-  --surface-3: #2a2015;
-  --surface-muted: #1c1610;
-  --line: #2c2319;
-  --line-2: #3a2f22;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']):not([data-theme='dark']) .trip-form-page {
-    --bg: #17130f;
-    --surface: #201911;
-    --surface-2: #1c1610;
-    --surface-3: #2a2015;
-    --surface-muted: #1c1610;
-    --line: #2c2319;
-    --line-2: #3a2f22;
-  }
 }
 
 .trip-form-wrap {
@@ -1568,7 +1542,7 @@
   padding: 10px 18px;
   border-radius: var(--radius-lg);
   cursor: pointer;
-  color: var(--color-white);
+  color: var(--on-fill);
   background: var(--error);
   border: 1px solid var(--color-error-border);
 }
@@ -5339,7 +5313,7 @@
   height: 30px;
   border-radius: 9px;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-on);
   display: grid;
   place-items: center;
   font-weight: var(--fw-bold);
@@ -6105,34 +6079,7 @@
 .trip-shell {
   /* Warm "paper" palette (light) — scoped to the whole trip so the chrome, day
      strip and content share one surface (no seam above the day hero). */
-  --bg: #fbf8f4;
-  --surface: #ffffff;
-  --surface-2: #f6f1ea;
-  --surface-3: #ece2d4;
-  --surface-muted: #f6f1ea;
-  --line: #ece5db;
-  --line-2: #e0d7ca;
   background: var(--bg);
-}
-[data-theme='dark'] .trip-shell {
-  --bg: #17130f;
-  --surface: #201911;
-  --surface-2: #1c1610;
-  --surface-3: #2a2015;
-  --surface-muted: #1c1610;
-  --line: #2c2319;
-  --line-2: #3a2f22;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']):not([data-theme='dark']) .trip-shell {
-    --bg: #17130f;
-    --surface: #201911;
-    --surface-2: #1c1610;
-    --surface-3: #2a2015;
-    --surface-muted: #1c1610;
-    --line: #2c2319;
-    --line-2: #3a2f22;
-  }
 }
 .day-view {
   padding: 0 0 26px;
@@ -6414,35 +6361,8 @@
 
 /* Warm "paper" palette for the dashboard page (it lives outside .trip-shell). */
 .trips-page {
-  --bg: #fbf8f4;
-  --surface: #ffffff;
-  --surface-2: #f6f1ea;
-  --surface-3: #ece2d4;
-  --surface-muted: #f6f1ea;
-  --line: #ece5db;
-  --line-2: #e0d7ca;
   background: var(--bg);
   min-height: 100%;
-}
-[data-theme='dark'] .trips-page {
-  --bg: #17130f;
-  --surface: #201911;
-  --surface-2: #1c1610;
-  --surface-3: #2a2015;
-  --surface-muted: #1c1610;
-  --line: #2c2319;
-  --line-2: #3a2f22;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']):not([data-theme='dark']) .trips-page {
-    --bg: #17130f;
-    --surface: #201911;
-    --surface-2: #1c1610;
-    --surface-3: #2a2015;
-    --surface-muted: #1c1610;
-    --line: #2c2319;
-    --line-2: #3a2f22;
-  }
 }
 
 /* Scene panels on the current-trip hero and the upcoming trip cards. The scene
@@ -6459,41 +6379,10 @@
   z-index: 2;
 }
 
-/* ── Direction B — warm palette for Profile & Admin (rollout completion) ──────
-   Same "paper" surface as the trip shell and dashboard, scoped to each page so
-   the whole authenticated app reads as one warm system in light + dark. */
+/* Profile & Admin sit on the same sea-salt page as the rest of the app. */
 .profile,
 .admin-app {
-  --bg: #fbf8f4;
-  --surface: #ffffff;
-  --surface-2: #f6f1ea;
-  --surface-3: #ece2d4;
-  --surface-muted: #f6f1ea;
-  --line: #ece5db;
-  --line-2: #e0d7ca;
   background: var(--bg);
-}
-[data-theme='dark'] .profile,
-[data-theme='dark'] .admin-app {
-  --bg: #17130f;
-  --surface: #201911;
-  --surface-2: #1c1610;
-  --surface-3: #2a2015;
-  --surface-muted: #1c1610;
-  --line: #2c2319;
-  --line-2: #3a2f22;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']):not([data-theme='dark']) .profile,
-  :root:not([data-theme='light']):not([data-theme='dark']) .admin-app {
-    --bg: #17130f;
-    --surface: #201911;
-    --surface-2: #1c1610;
-    --surface-3: #2a2015;
-    --surface-muted: #1c1610;
-    --line: #2c2319;
-    --line-2: #3a2f22;
-  }
 }
 
 /* ── Packing list (M-packing) ───────────────────────────────────────────────── */

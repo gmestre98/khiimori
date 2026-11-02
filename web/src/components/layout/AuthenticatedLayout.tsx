@@ -2,51 +2,53 @@ import { Outlet, useMatch } from 'react-router-dom'
 import { BottomNav } from '../ui'
 import { useAuth } from '../../auth/AuthContext'
 import { useSelectedTrip } from '../../lib/useSelectedTrip'
+import { useCachedResource } from '../../lib/useCachedResource'
+import { cacheKeys } from '../../lib/cacheKeys'
+import { fetchBacklog } from '../../lib/api'
 import { AppLayout } from './AppLayout'
 import { SidebarNav } from './SidebarNav'
 import { OfflineBanner } from './OfflineBanner'
 import { SyncStatus } from './SyncStatus'
-import {
-  buildPrimaryNavItems,
-  buildSidebarNavItems,
-  buildSidebarSecondaryItems,
-  buildTripBottomNavItems,
-} from './navItems'
+import { buildTripBottomNavItems } from './navItems'
 
+// AuthenticatedLayout wraps every signed-in screen. Desktop gets the single
+// trips sidebar; phones get the 5-tab trip bar only while a trip is open (the
+// Trips screen has its own header with the profile avatar, so no bar there).
 export function AuthenticatedLayout() {
   const { signOut, user } = useAuth()
-  // The selected trip drives both the dynamic "Trip · …" switcher tab and the
-  // trip-scoped nav (Map / Journal / Budget / Sharing), so they all follow the
-  // trip the user is currently viewing rather than always the default. When the
-  // user is on a trip page, feed that trip's id in so the selection follows the
-  // URL (opening a trip from the dashboard is a plain link, not selectTrip).
   const tripMatch = useMatch('/trips/:tripId/*')
   const routeTripId = tripMatch?.params.tripId ?? null
-  const tripSwitcher = useSelectedTrip(routeTripId === 'new' ? null : routeTripId)
-  const activeTripId = tripSwitcher.selectedTrip?.id ?? null
-
-  // Inside a trip (an actual /trips/:id route, not "new"), the mobile bottom nav
-  // becomes the trip's facets so Budget/Sharing are thumb-reachable; elsewhere it
-  // stays the global Trips/Me bar. (UI-refactor D)
   const onTripRoute = routeTripId !== null && routeTripId !== 'new'
-  const bottomNavItems =
-    onTripRoute && activeTripId ? buildTripBottomNavItems(activeTripId) : buildPrimaryNavItems()
+  const activeTripId = onTripRoute ? routeTripId : null
+  // Keeps the sidebar's trips list loaded and the remembered pick in sync with
+  // the URL.
+  const tripSwitcher = useSelectedTrip(activeTripId)
 
-  const userName = user?.name ?? user?.email?.split('@')[0] ?? 'You'
+  // Backlog count for the sidebar's nested "Backlog" row. Cache-first, quiet on
+  // failure (the row just shows no count).
+  const { data: backlog } = useCachedResource(
+    activeTripId ? cacheKeys.backlog(activeTripId) : null,
+    (signal) => fetchBacklog(activeTripId as string, signal),
+  )
+
+  const userName = user?.name || user?.email?.split('@')[0] || 'You'
 
   const sidebar = (
     <SidebarNav
-      items={buildSidebarNavItems(activeTripId)}
-      secondaryItems={buildSidebarSecondaryItems(user?.is_admin ?? false)}
       tripSwitcher={tripSwitcher}
+      activeTripId={activeTripId}
+      backlogCount={backlog?.length ?? null}
       userName={userName}
-      userMeta="EUR · Lisbon"
       onSignOut={() => void signOut()}
     />
   )
 
+  const bottomNav = activeTripId ? (
+    <BottomNav items={buildTripBottomNavItems(activeTripId)} />
+  ) : undefined
+
   return (
-    <AppLayout sidebar={sidebar} bottomNav={<BottomNav items={bottomNavItems} />}>
+    <AppLayout sidebar={sidebar} bottomNav={bottomNav}>
       <OfflineBanner />
       <SyncStatus />
       <Outlet />

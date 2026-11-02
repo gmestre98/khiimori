@@ -29,3 +29,8 @@ export type { BottomNavProps, BottomNavItem } from './BottomNav'
 
 export { DayNavBar } from './DayNavBar'
 export type { DayNavBarProps } from './DayNavBar'
+
+export { Icon } from './Icon'
+export type { IconName } from './Icon'
+
+export { DateBox } from './DateBox'

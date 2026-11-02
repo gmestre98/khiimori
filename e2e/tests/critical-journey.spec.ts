@@ -92,8 +92,9 @@ test('critical journey: create trip → plan → budget → journal → share', 
     await page.getByLabel('End date').fill(endDate)
     await page.getByRole('button', { name: 'Create trip' }).click()
 
-    // Real outcome: the created trip is now listed on the dashboard.
-    await expect(page.getByText(tripName)).toBeVisible()
+    // Real outcome: the created trip is now listed on the dashboard. Scope to
+    // the main content — on desktop the trips sidebar lists the name too.
+    await expect(page.getByRole('main').getByRole('heading', { name: tripName })).toBeVisible()
 
     // Resolve the trip id from the API (authenticated by the shared session) so
     // the following steps can deep-link to it deterministically.
@@ -112,10 +113,10 @@ test('critical journey: create trip → plan → budget → journal → share', 
 
   await test.step('plan a day — add a plan item', async () => {
     await page.goto(`/trips/${createdTripId}/days/${startDate}`)
-    // Scope to the Planning facet so the shared "Title"/"Add" labels are
-    // unambiguous across the day's four sections.
+    // Scope to the Planning section; its single add bar is labelled
+    // "Add to <weekday>" ("Add a place, ferry, meal or note…").
     const planning = page.getByRole('region', { name: 'Planning' })
-    await planning.getByLabel('Title', { exact: true }).fill(planTitle)
+    await planning.getByLabel(/^Add to /).fill(planTitle)
     await planning.getByRole('button', { name: 'Add', exact: true }).click()
 
     // Real outcome: the item is persisted and shown in the day's plan.

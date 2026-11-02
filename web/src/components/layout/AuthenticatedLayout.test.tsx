@@ -1,12 +1,14 @@
 import { afterEach, describe, it, expect, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthenticatedLayout } from './AuthenticatedLayout'
 
-// useAuth is mocked — AuthenticatedLayout only needs signOut from it.
 const signOut = vi.fn()
 vi.mock('../../auth/AuthContext', () => ({
-  useAuth: () => ({ signOut }),
+  useAuth: () => ({ signOut, user: null }),
+}))
+vi.mock('../../lib/useSelectedTrip', () => ({
+  useSelectedTrip: () => ({ trips: null, selectedTrip: null, selectTrip: () => {} }),
 }))
 
 afterEach(cleanup)
@@ -18,6 +20,7 @@ function renderLayout(path = '/') {
         <Route element={<AuthenticatedLayout />}>
           <Route path="/" element={<p>Home screen</p>} />
           <Route path="/profile" element={<p>Profile screen</p>} />
+          <Route path="/trips/:tripId/*" element={<p>Trip screen</p>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -30,17 +33,34 @@ describe('AuthenticatedLayout', () => {
     expect(screen.getByText('Home screen')).toBeInTheDocument()
   })
 
-  it('provides both the sidebar (laptop) and bottom nav (mobile) navigation', () => {
-    renderLayout()
-    // Sidebar primary nav + bottom nav both render the primary destinations.
+  it('outside a trip: sidebar only, no phone tab bar', () => {
+    renderLayout('/')
     expect(screen.getByRole('navigation', { name: 'Primary' })).toBeInTheDocument()
-    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument()
-    // "Trips" appears in both navs.
-    expect(screen.getAllByRole('link', { name: /trips/i }).length).toBeGreaterThanOrEqual(2)
+    expect(screen.queryByRole('navigation', { name: 'Trip' })).not.toBeInTheDocument()
   })
 
-  it('does not render a redundant "New trip" thumb action (the dashboard top bar owns it)', () => {
-    renderLayout()
-    expect(screen.queryByRole('link', { name: 'New trip' })).not.toBeInTheDocument()
+  it('inside a trip: a 5-tab bar — Days, Map, Journal, Money, Prep', () => {
+    renderLayout('/trips/t1/map')
+    const bar = screen.getByRole('navigation', { name: 'Trip' })
+    const labels = within(bar)
+      .getAllByRole('link')
+      .map((l) => l.textContent)
+    expect(labels).toEqual(['Days', 'Map', 'Journal', 'Money', 'Prep'])
+    expect(within(bar).getByRole('link', { name: 'Map' })).toHaveAttribute('aria-current', 'page')
+    expect(within(bar).getByRole('link', { name: 'Money' })).toHaveAttribute(
+      'href',
+      '/trips/t1/budget',
+    )
+  })
+
+  it('keeps Days lit on the backlog', () => {
+    renderLayout('/trips/t1/backlog')
+    const bar = screen.getByRole('navigation', { name: 'Trip' })
+    expect(within(bar).getByRole('link', { name: 'Days' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('does not treat /trips/new as a trip', () => {
+    renderLayout('/trips/new')
+    expect(screen.queryByRole('navigation', { name: 'Trip' })).not.toBeInTheDocument()
   })
 })

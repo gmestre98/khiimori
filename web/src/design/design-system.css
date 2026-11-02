@@ -84,7 +84,7 @@
 /* ---------- Chip compound forms (base .chip lives in App.css) ---------- */
 .chip.solid {
   background: var(--ink);
-  color: #fff;
+  color: var(--on-fill);
 }
 .chip.accent {
   background: var(--accent-tint);

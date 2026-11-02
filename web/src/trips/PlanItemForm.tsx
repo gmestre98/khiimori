@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useFocusTrap } from '../components/ui/useFocusTrap'
 import { Button, FormField, Input, Select } from '../components/ui'
+import { Icon } from '../components/ui/Icon'
 import { LocationField } from './LocationField'
 import { MAX_SPLIT_PARTS, splitAmount } from './splitAmount'
 import {
@@ -91,7 +92,7 @@ export function BottomSheet({
       >
         <div className="bottom-sheet-handle" aria-hidden="true" />
         <button type="button" className="bottom-sheet-close" aria-label="Close" onClick={onClose}>
-          ✕
+          <Icon name="close" size={18} />
         </button>
         {children}
       </div>
@@ -119,6 +120,14 @@ interface PlanItemFormProps {
   // inline edit). 'footer': title gets its own row and the actions sit in a
   // bottom bar — used inside the mobile bottom sheet.
   actionsPlacement?: 'inline' | 'footer'
+  // 'bar' is the pinned add bar on the day screen: a single title field + Add;
+  // the kind chips, place and "More details" appear only once it's focused (or
+  // right after an add, so a quick second item keeps its context). 'full'
+  // (default) always shows everything.
+  variant?: 'full' | 'bar'
+  // Title field placeholder / accessible label overrides.
+  placeholder?: string
+  titleLabel?: string
 }
 
 export function PlanItemForm({
@@ -129,7 +138,13 @@ export function PlanItemForm({
   onAutoSave,
   error,
   actionsPlacement = 'inline',
+  variant = 'full',
+  placeholder = 'Add an activity, place or note…',
+  titleLabel = 'Title',
 }: PlanItemFormProps) {
+  // engaged: the bar variant reveals its extra fields once the user interacts.
+  const [engaged, setEngaged] = useState(false)
+  const showExtras = variant === 'full' || engaged || !!error
   const [fields, setFields] = useState<PlanItemFormFields>(initialFields ?? emptyFields())
   // Details start open when editing an item that already has extra fields set,
   // otherwise follow the user's remembered preference.
@@ -219,7 +234,13 @@ export function PlanItemForm({
       await onSubmit(fields, splitParts)
       // Reset after a successful quick-add (edit forms unmount on save instead).
       if (!initialFields) {
-        setFields(emptyFields())
+        // Keep the chosen kind after an add, so logging three meals in a row
+        // doesn't mean re-picking "Food" each time.
+        setFields((prev) => ({
+          ...emptyFields(),
+          kind: prev.kind,
+          type: suggestedCategory(prev.kind),
+        }))
         setSplitParts(1)
         setSplitPartsDraft('')
       }
@@ -253,283 +274,293 @@ export function PlanItemForm({
   )
 
   return (
-    <form className="plan-item-form" onSubmit={handleSubmit} aria-label="Plan item form">
+    <form
+      className={['plan-item-form', variant === 'bar' ? 'plan-item-form--bar' : '']
+        .filter(Boolean)
+        .join(' ')}
+      onSubmit={handleSubmit}
+      aria-label="Plan item form"
+      onFocus={() => setEngaged(true)}
+    >
       <div className="plan-item-form-row">
         <Input
           className="plan-item-form-title"
           type="text"
-          placeholder="Add an activity, place or note…"
+          placeholder={placeholder}
           value={fields.title}
           onChange={(e) => set('title', e.target.value)}
           required
-          aria-label="Title"
+          aria-label={titleLabel}
           disabled={submitting}
           autoFocus={!!initialFields}
         />
         {actionsPlacement === 'inline' && actions}
       </div>
-
-      {/* Kind picker: what the item *is* (activity / transport / food / note),
+      {showExtras && (
+        <>
+          {/* Kind picker: what the item *is* (activity / transport / food / note),
           which drives its fields and icon — separate from its budget category. */}
-      <div className="plan-item-kind-picker" role="group" aria-label="Kind">
-        {PLAN_ITEM_KINDS.map((k) => (
-          <button
-            key={k.value}
-            type="button"
-            className={[
-              'plan-item-kind-btn',
-              fields.kind === k.value ? 'plan-item-kind-btn--active' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            aria-pressed={fields.kind === k.value}
-            onClick={() => changeKind(k.value)}
-            disabled={submitting}
-          >
-            <span aria-hidden="true">{k.glyph}</span> {k.label}
-          </button>
-        ))}
-      </div>
-
-      {/* The always-visible "where" composer depends on the kind: transport is a
-          leg (from → to), a note has no place, everything else has a location. */}
-      {fields.kind === 'transport' ? (
-        <div className="plan-item-form-grid">
-          <LocationField
-            label="From"
-            value={fields.origin}
-            onChange={(v) => set('origin', v)}
-            disabled={submitting}
-            placeholder="Lisbon"
-          />
-          <LocationField
-            label="To"
-            value={fields.destination}
-            onChange={(v) => set('destination', v)}
-            disabled={submitting}
-            placeholder="Porto"
-          />
-        </div>
-      ) : fields.kind === 'note' ? null : (
-        <LocationField
-          value={fields.location}
-          onChange={(v) => set('location', v)}
-          disabled={submitting}
-        />
-      )}
-
-      <button
-        type="button"
-        className="plan-item-form-toggle"
-        onClick={() =>
-          setExpanded((x) => {
-            const next = !x
-            try {
-              localStorage.setItem(DETAILS_OPEN_KEY, next ? '1' : '0')
-            } catch {
-              // ignore storage failures — the toggle still works in-session
-            }
-            return next
-          })
-        }
-        aria-expanded={expanded}
-        aria-controls={optionalId}
-      >
-        <svg
-          className={`plan-item-form-toggle-icon${expanded ? ' plan-item-form-toggle-icon--open' : ''}`}
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path
-            d="M6 9l6 6 6-6"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-        {expanded ? 'Fewer details' : 'More details'}
-      </button>
-
-      {expanded && (
-        <div className="plan-item-form-details" id={optionalId}>
-          {/* A note has no time; transport has a departure + arrival; everything
-              else has a start time + duration. */}
-          {fields.kind !== 'note' && (
-            <div className="plan-item-form-grid">
-              <FormField
-                label={fields.kind === 'transport' ? 'Departure' : 'Start time'}
-                htmlFor={`${fid}-time`}
+          <div className="plan-item-kind-picker" role="group" aria-label="Kind">
+            {PLAN_ITEM_KINDS.map((k) => (
+              <button
+                key={k.value}
+                type="button"
+                className={[
+                  'plan-item-kind-btn',
+                  fields.kind === k.value ? 'plan-item-kind-btn--active' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-pressed={fields.kind === k.value}
+                onClick={() => changeKind(k.value)}
+                disabled={submitting}
               >
-                <Input
-                  id={`${fid}-time`}
-                  type="time"
-                  value={fields.start_time}
-                  onChange={(e) => set('start_time', e.target.value)}
-                  disabled={submitting}
-                />
-              </FormField>
-              {fields.kind === 'transport' ? (
-                <FormField label="Arrival" htmlFor={`${fid}-arrive`}>
-                  <Input
-                    id={`${fid}-arrive`}
-                    type="time"
-                    value={fields.arrive_time}
-                    onChange={(e) => set('arrive_time', e.target.value)}
-                    disabled={submitting}
-                  />
-                </FormField>
-              ) : (
-                <FormField label="Duration" htmlFor={`${fid}-dur`}>
-                  <Input
-                    id={`${fid}-dur`}
-                    type="text"
-                    value={fields.duration}
-                    onChange={(e) => set('duration', e.target.value)}
-                    placeholder="e.g. 01:30"
-                    disabled={submitting}
-                  />
-                </FormField>
-              )}
+                <Icon name={k.icon} size={16} /> {k.label}
+              </button>
+            ))}
+          </div>
+
+          {/* The always-visible "where" composer depends on the kind: transport is a
+          leg (from → to), a note has no place, everything else has a location. */}
+          {fields.kind === 'transport' ? (
+            <div className="plan-item-form-grid">
+              <LocationField
+                label="From"
+                value={fields.origin}
+                onChange={(v) => set('origin', v)}
+                disabled={submitting}
+                placeholder="Lisbon"
+              />
+              <LocationField
+                label="To"
+                value={fields.destination}
+                onChange={(v) => set('destination', v)}
+                disabled={submitting}
+                placeholder="Porto"
+              />
             </div>
+          ) : fields.kind === 'note' ? null : (
+            <LocationField
+              value={fields.location}
+              onChange={(v) => set('location', v)}
+              disabled={submitting}
+            />
           )}
 
-          {fields.kind !== 'note' && (
-            <div className="plan-item-form-grid">
-              <FormField label="Cost" htmlFor={`${fid}-cost`}>
-                <Input
-                  id={`${fid}-cost`}
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={fields.cost}
-                  onChange={(e) => set('cost', e.target.value)}
-                  placeholder="0.00"
-                  disabled={submitting}
-                />
-                {/* Split is a special case of the cost just entered: divide it into
+          <button
+            type="button"
+            className="plan-item-form-toggle"
+            onClick={() =>
+              setExpanded((x) => {
+                const next = !x
+                try {
+                  localStorage.setItem(DETAILS_OPEN_KEY, next ? '1' : '0')
+                } catch {
+                  // ignore storage failures — the toggle still works in-session
+                }
+                return next
+              })
+            }
+            aria-expanded={expanded}
+            aria-controls={optionalId}
+          >
+            <svg
+              className={`plan-item-form-toggle-icon${expanded ? ' plan-item-form-toggle-icon--open' : ''}`}
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                d="M6 9l6 6 6-6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {expanded ? 'Fewer details' : 'More details'}
+          </button>
+
+          {expanded && (
+            <div className="plan-item-form-details" id={optionalId}>
+              {/* A note has no time; transport has a departure + arrival; everything
+              else has a start time + duration. */}
+              {fields.kind !== 'note' && (
+                <div className="plan-item-form-grid">
+                  <FormField
+                    label={fields.kind === 'transport' ? 'Departure' : 'Start time'}
+                    htmlFor={`${fid}-time`}
+                  >
+                    <Input
+                      id={`${fid}-time`}
+                      type="time"
+                      value={fields.start_time}
+                      onChange={(e) => set('start_time', e.target.value)}
+                      disabled={submitting}
+                    />
+                  </FormField>
+                  {fields.kind === 'transport' ? (
+                    <FormField label="Arrival" htmlFor={`${fid}-arrive`}>
+                      <Input
+                        id={`${fid}-arrive`}
+                        type="time"
+                        value={fields.arrive_time}
+                        onChange={(e) => set('arrive_time', e.target.value)}
+                        disabled={submitting}
+                      />
+                    </FormField>
+                  ) : (
+                    <FormField label="Duration" htmlFor={`${fid}-dur`}>
+                      <Input
+                        id={`${fid}-dur`}
+                        type="text"
+                        value={fields.duration}
+                        onChange={(e) => set('duration', e.target.value)}
+                        placeholder="e.g. 01:30"
+                        disabled={submitting}
+                      />
+                    </FormField>
+                  )}
+                </div>
+              )}
+
+              {fields.kind !== 'note' && (
+                <div className="plan-item-form-grid">
+                  <FormField label="Cost" htmlFor={`${fid}-cost`}>
+                    <Input
+                      id={`${fid}-cost`}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={fields.cost}
+                      onChange={(e) => set('cost', e.target.value)}
+                      placeholder="0.00"
+                      disabled={submitting}
+                    />
+                    {/* Split is a special case of the cost just entered: divide it into
                   N linked items (e.g. a flight's separate bookings) that each
                   carry a share of the total. On add all N are created; on edit
                   the current item becomes part 1 and the rest are new siblings.
                   The Budget total is unchanged. Shown inline under the amount so
                   it's discoverable. */}
-                {parseFloat(fields.cost) > 0 && (
-                  <div className="cost-split">
-                    <label className="cost-split-toggle">
-                      <input
-                        type="checkbox"
-                        checked={splitParts > 1}
-                        onChange={(e) => {
-                          setSplitParts(e.target.checked ? 2 : 1)
-                          setSplitPartsDraft(e.target.checked ? '2' : '')
-                        }}
-                        disabled={submitting}
-                      />
-                      Split this cost into several
-                    </label>
-                    {splitParts > 1 && (
-                      <div className="cost-split-controls">
-                        <Input
-                          className="cost-split-count"
-                          type="number"
-                          min="2"
-                          max={MAX_SPLIT_PARTS}
-                          step="1"
-                          value={splitPartsDraft}
-                          onChange={(e) => {
-                            // Let the user type freely (incl. clearing the field);
-                            // only mirror valid, in-range numbers into splitParts so
-                            // the "≈€ each" hint keeps up without clamping keystrokes.
-                            const raw = e.target.value
-                            setSplitPartsDraft(raw)
-                            const n = Math.round(Number(raw))
-                            if (raw.trim() !== '' && Number.isFinite(n) && n >= 2) {
-                              setSplitParts(Math.min(MAX_SPLIT_PARTS, n))
-                            }
-                          }}
-                          onBlur={() => {
-                            // Commit: snap the draft back to the clamped source of
-                            // truth so an empty/partial/out-of-range value resolves.
-                            const n = Math.round(Number(splitPartsDraft))
-                            const clamped =
-                              splitPartsDraft.trim() !== '' && Number.isFinite(n)
-                                ? Math.min(MAX_SPLIT_PARTS, Math.max(2, n))
-                                : 2
-                            setSplitParts(clamped)
-                            setSplitPartsDraft(String(clamped))
-                          }}
-                          disabled={submitting}
-                          aria-label="Number of parts to split the cost into"
-                        />
-                        <span className="cost-split-hint" aria-live="polite">
-                          parts · ≈€{(parseFloat(fields.cost) / splitParts).toFixed(2)} each
-                        </span>
+                    {parseFloat(fields.cost) > 0 && (
+                      <div className="cost-split">
+                        <label className="cost-split-toggle">
+                          <input
+                            type="checkbox"
+                            checked={splitParts > 1}
+                            onChange={(e) => {
+                              setSplitParts(e.target.checked ? 2 : 1)
+                              setSplitPartsDraft(e.target.checked ? '2' : '')
+                            }}
+                            disabled={submitting}
+                          />
+                          Split this cost into several
+                        </label>
+                        {splitParts > 1 && (
+                          <div className="cost-split-controls">
+                            <Input
+                              className="cost-split-count"
+                              type="number"
+                              min="2"
+                              max={MAX_SPLIT_PARTS}
+                              step="1"
+                              value={splitPartsDraft}
+                              onChange={(e) => {
+                                // Let the user type freely (incl. clearing the field);
+                                // only mirror valid, in-range numbers into splitParts so
+                                // the "≈€ each" hint keeps up without clamping keystrokes.
+                                const raw = e.target.value
+                                setSplitPartsDraft(raw)
+                                const n = Math.round(Number(raw))
+                                if (raw.trim() !== '' && Number.isFinite(n) && n >= 2) {
+                                  setSplitParts(Math.min(MAX_SPLIT_PARTS, n))
+                                }
+                              }}
+                              onBlur={() => {
+                                // Commit: snap the draft back to the clamped source of
+                                // truth so an empty/partial/out-of-range value resolves.
+                                const n = Math.round(Number(splitPartsDraft))
+                                const clamped =
+                                  splitPartsDraft.trim() !== '' && Number.isFinite(n)
+                                    ? Math.min(MAX_SPLIT_PARTS, Math.max(2, n))
+                                    : 2
+                                setSplitParts(clamped)
+                                setSplitPartsDraft(String(clamped))
+                              }}
+                              disabled={submitting}
+                              aria-label="Number of parts to split the cost into"
+                            />
+                            <span className="cost-split-hint" aria-live="polite">
+                              parts · ≈€{(parseFloat(fields.cost) / splitParts).toFixed(2)} each
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
+                  </FormField>
+                  <FormField label="Booking" htmlFor={`${fid}-book`}>
+                    <Input
+                      id={`${fid}-book`}
+                      type="text"
+                      value={fields.booking_status}
+                      onChange={(e) => set('booking_status', e.target.value)}
+                      placeholder="e.g. confirmed"
+                      disabled={submitting}
+                    />
+                  </FormField>
+                </div>
+              )}
+
+              <div className="plan-item-form-grid">
+                {/* Cost category is decoupled from kind — auto-suggested above, but
+                freely overridable here. A note carries no budget category. */}
+                {fields.kind !== 'note' && (
+                  <FormField label="Category" htmlFor={`${fid}-type`}>
+                    <Select
+                      id={`${fid}-type`}
+                      value={fields.type}
+                      onChange={(e) => set('type', e.target.value)}
+                      disabled={submitting}
+                      aria-label="Category"
+                    >
+                      <option value="">—</option>
+                      {BUDGET_CATEGORIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
                 )}
-              </FormField>
-              <FormField label="Booking" htmlFor={`${fid}-book`}>
-                <Input
-                  id={`${fid}-book`}
-                  type="text"
-                  value={fields.booking_status}
-                  onChange={(e) => set('booking_status', e.target.value)}
-                  placeholder="e.g. confirmed"
+                <FormField label="Link" htmlFor={`${fid}-link`}>
+                  <Input
+                    id={`${fid}-link`}
+                    type="url"
+                    value={fields.link}
+                    onChange={(e) => set('link', e.target.value)}
+                    placeholder="https://…"
+                    disabled={submitting}
+                  />
+                </FormField>
+              </div>
+
+              <FormField label="Note" htmlFor={`${fid}-note`}>
+                <textarea
+                  id={`${fid}-note`}
+                  className="plan-item-form-note"
+                  value={fields.note}
+                  onChange={(e) => set('note', e.target.value)}
+                  placeholder="How it went, who you were with…"
+                  rows={2}
                   disabled={submitting}
                 />
               </FormField>
             </div>
           )}
-
-          <div className="plan-item-form-grid">
-            {/* Cost category is decoupled from kind — auto-suggested above, but
-                freely overridable here. A note carries no budget category. */}
-            {fields.kind !== 'note' && (
-              <FormField label="Category" htmlFor={`${fid}-type`}>
-                <Select
-                  id={`${fid}-type`}
-                  value={fields.type}
-                  onChange={(e) => set('type', e.target.value)}
-                  disabled={submitting}
-                  aria-label="Category"
-                >
-                  <option value="">—</option>
-                  {BUDGET_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </Select>
-              </FormField>
-            )}
-            <FormField label="Link" htmlFor={`${fid}-link`}>
-              <Input
-                id={`${fid}-link`}
-                type="url"
-                value={fields.link}
-                onChange={(e) => set('link', e.target.value)}
-                placeholder="https://…"
-                disabled={submitting}
-              />
-            </FormField>
-          </div>
-
-          <FormField label="Note" htmlFor={`${fid}-note`}>
-            <textarea
-              id={`${fid}-note`}
-              className="plan-item-form-note"
-              value={fields.note}
-              onChange={(e) => set('note', e.target.value)}
-              placeholder="How it went, who you were with…"
-              rows={2}
-              disabled={submitting}
-            />
-          </FormField>
-        </div>
+        </>
       )}
 
       {onAutoSave && saveStatus !== 'idle' && (
@@ -579,12 +610,21 @@ export function QuickAddForm({
   dayId,
   onAdded,
   logDone = false,
+  variant = 'full',
+  placeholder,
+  titleLabel,
 }: {
   tripId: string
   dayId: string | null
   onAdded: (item: PlanItem) => void
   // logDone captures a done item (a thing you did) instead of a plan item.
   logDone?: boolean
+  // 'bar': the pinned add bar (day screen / backlog) — rendered inline on every
+  // breakpoint; its extra fields reveal on focus. 'full' keeps the legacy
+  // inline form on desktop and the "+" sheet on phones.
+  variant?: 'full' | 'bar'
+  placeholder?: string
+  titleLabel?: string
 }) {
   const mobile = useMobile()
   const online = useIsOnline()
@@ -674,21 +714,36 @@ export function QuickAddForm({
   const submit = logDone ? (fields: PlanItemFormFields) => handleLogDone(fields) : handleAdd
   const submitLabel = logDone ? 'Log it' : 'Add to plan'
 
+  if (variant === 'bar' && !logDone) {
+    return (
+      <div className="plan-add-bar">
+        <PlanItemForm
+          variant="bar"
+          submitLabel="Add"
+          onSubmit={handleAdd}
+          error={addError}
+          placeholder={placeholder}
+          titleLabel={titleLabel}
+        />
+      </div>
+    )
+  }
+
   if (mobile) {
     return (
       <>
         <button
           type="button"
           className={logDone ? 'plan-log-btn' : 'plan-item-fab'}
-          aria-label={logDone ? 'Log something you did' : 'Add activity'}
+          aria-label={logDone ? undefined : 'Add activity'}
           onClick={() => setSheetOpen(true)}
         >
-          {logDone ? '+ Log something you did' : '+'}
+          {logDone ? '+ Something you didn’t plan' : <Icon name="plus" size={26} />}
         </button>
         <BottomSheet
           open={sheetOpen}
           onClose={close}
-          label={logDone ? 'Log something you did' : 'Add to plan'}
+          label={logDone ? 'Something you didn’t plan' : 'Add to plan'}
         >
           <PlanItemForm
             submitLabel={submitLabel}
@@ -705,13 +760,8 @@ export function QuickAddForm({
   // Desktop: the plan form is always visible; the log form hides behind a button.
   if (logDone && !open) {
     return (
-      <button
-        type="button"
-        className="plan-log-btn"
-        aria-label="Log something you did"
-        onClick={() => setOpen(true)}
-      >
-        + Log something you did
+      <button type="button" className="plan-log-btn" onClick={() => setOpen(true)}>
+        + Something you didn’t plan
       </button>
     )
   }

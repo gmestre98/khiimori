@@ -1,0 +1,508 @@
+/*
+ * Field-guide primitives — the shared visual vocabulary of the redesign.
+ * Screens compose these; all values come from tokens.css.
+ *
+ *   .fg-display    Gloock display type (page titles, big dates, place names)
+ *   .fg-label      JetBrains Mono small caps label (times, counts, eyebrows)
+ *   .date-box      the signature: serif day number over a mono weekday with a
+ *                  3px right border in the day's country colour
+ *   .seg           segmented control (role="group", buttons with aria-pressed)
+ *   .tag           mono pill tag (TRANSPORT, BOOKED, PLANNING …)
+ *   .tick          round planned/done toggle
+ *   .fg-card       paper card
+ *   .fg-btn        pill buttons (primary ink / quiet outline)
+ *   .fg-menu       ⋯ overflow menu (details/summary)
+ */
+
+.fg-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+.fg-page-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 34px;
+  line-height: 1.05;
+  margin: 0;
+  color: var(--ink);
+}
+@media (min-width: 1024px) {
+  .fg-page-title {
+    font-size: 40px;
+  }
+}
+
+.fg-label {
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fg-meta {
+  font-family: var(--font-label);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fg-muted {
+  color: var(--muted);
+}
+
+/* ── Date box ─────────────────────────────────────────────────────────────── */
+.date-box {
+  --country: var(--country-none);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-right: 10px;
+  border-right: 3px solid var(--country);
+  min-width: 46px;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+.date-box--empty {
+  border-right-style: dashed;
+  opacity: 0.75;
+}
+.date-box-num {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1;
+}
+.date-box-wd {
+  font-family: var(--font-label);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.date-box--lg {
+  padding-right: 14px;
+}
+.date-box--lg .date-box-num {
+  font-size: 50px;
+  line-height: 0.95;
+}
+.date-box--lg .date-box-wd {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+.date-box--md .date-box-num {
+  font-size: 30px;
+}
+
+/* ── Segmented control ────────────────────────────────────────────────────── */
+.seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--r-md);
+  background: var(--surface-3);
+}
+.seg--block {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+}
+.seg-btn {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.seg--block .seg-btn {
+  min-height: 40px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+.seg-btn[aria-pressed='true'] {
+  background: var(--fill-strong);
+  color: var(--on-fill);
+  font-weight: var(--fw-semi);
+}
+.seg-btn:not([aria-pressed='true']):hover {
+  background: var(--surface-2);
+}
+.seg-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ── Tags ─────────────────────────────────────────────────────────────────── */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-label);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 10px;
+  background: var(--surface-3);
+  color: var(--ink-2);
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.tag--accent {
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+.tag--ok {
+  background: var(--ok-tint);
+  color: var(--ok-ink);
+}
+.tag--warn {
+  background: var(--warn-tint);
+  color: var(--warn-ink);
+}
+.tag--tour {
+  background: var(--tour-tint);
+  color: var(--tour-ink);
+}
+.tag--night {
+  background: var(--night-tint);
+  color: var(--night-ink);
+}
+
+/* ── Tick ─────────────────────────────────────────────────────────────────── */
+.tick {
+  /* 30px visual circle inside a 44px hit area. */
+  position: relative;
+  width: 44px;
+  height: 44px;
+  margin: -7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--surface);
+  flex-shrink: 0;
+}
+.tick::before {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  border: 2px solid var(--faint);
+  background: transparent;
+  transition:
+    background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+.tick[aria-pressed='true']::before {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+.tick svg {
+  position: relative;
+}
+.tick:hover::before {
+  border-color: var(--ok);
+}
+.tick:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+.tick--sm::before {
+  inset: 10px;
+}
+
+/* ── Cards & rows ─────────────────────────────────────────────────────────── */
+.fg-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+.fg-link-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  min-height: var(--tap);
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+}
+.fg-link-card:hover {
+  border-color: var(--ink-2);
+}
+.fg-link-card-title {
+  font-weight: var(--fw-semi);
+  font-size: 15px;
+}
+.fg-link-card-sub {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+.fg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--tap);
+  padding: 0 18px;
+  border-radius: 22px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 15px;
+  font-weight: var(--fw-semi);
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.fg-btn--primary {
+  background: var(--fill-strong);
+  color: var(--on-fill);
+}
+.fg-btn--primary:hover {
+  background: var(--ink-2);
+}
+.fg-btn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.fg-btn--quiet {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line);
+  font-weight: var(--fw-reg);
+  font-size: 14px;
+  min-height: 40px;
+  padding: 0 14px;
+}
+.fg-btn--quiet:hover {
+  border-color: var(--ink-2);
+}
+.fg-btn--danger {
+  background: transparent;
+  color: var(--warn-ink);
+  border-color: var(--warn);
+  font-size: 14px;
+}
+.fg-icon-btn {
+  width: var(--tap);
+  height: var(--tap);
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.fg-icon-btn:hover {
+  background: var(--surface-3);
+}
+.fg-icon-btn[aria-disabled='true'] {
+  color: var(--faint);
+  pointer-events: none;
+}
+.fg-icon-btn--outline {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.fg-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--tap);
+  font-size: 15px;
+  color: var(--accent);
+  text-decoration: none;
+}
+.fg-back:hover {
+  color: var(--accent-press);
+}
+
+/* ── Overflow menu ────────────────────────────────────────────────────────── */
+.fg-menu {
+  position: relative;
+}
+.fg-menu > summary {
+  list-style: none;
+}
+.fg-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.fg-menu-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 60;
+  min-width: 190px;
+  padding: 6px;
+  margin: 0;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-3);
+  display: flex;
+  flex-direction: column;
+}
+.fg-menu-item {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  width: 100%;
+}
+.fg-menu-item:hover {
+  background: var(--surface-2);
+}
+.fg-menu-item--danger {
+  color: var(--warn-ink);
+}
+
+/* ── Progress strips ──────────────────────────────────────────────────────── */
+.fg-ticks {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+}
+.fg-ticks > span {
+  flex: 1;
+  border-radius: 2px;
+  background: var(--surface-3);
+}
+.fg-ticks > span[data-on='true'] {
+  background: var(--accent);
+}
+
+.fg-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.fg-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+}
+.fg-bar--over > span {
+  background: var(--warn);
+}
+
+/* Country route strip: one segment per run of days in a country. */
+.route-strip {
+  display: flex;
+  gap: 3px;
+  height: 8px;
+}
+.route-strip > span {
+  background: var(--country);
+}
+.route-strip > span:first-child {
+  border-radius: 4px 0 0 4px;
+}
+.route-strip > span:last-child {
+  border-radius: 0 4px 4px 0;
+}
+.route-strip > span:only-child {
+  border-radius: 4px;
+}
+
+/* ── Stat row (big serif figures) ─────────────────────────────────────────── */
+.fg-stats {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+  gap: 8px;
+}
+.fg-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.fg-stat-value {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.fg-stat-value small {
+  font-size: 15px;
+  color: var(--muted);
+}
+.fg-stat-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.fg-stat--warn .fg-stat-value {
+  color: var(--warn-ink);
+}
+.fg-stat--ok .fg-stat-value {
+  color: var(--ok-ink);
+}
+
+/* ── Callouts ─────────────────────────────────────────────────────────────── */
+.fg-callout {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 0 12px 12px 0;
+  border-left: 3px solid var(--warn);
+  background: var(--warn-tint);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.fg-callout strong {
+  color: var(--warn-ink);
+}
+
+.fg-empty {
+  padding: 16px;
+  border: 1.5px dashed var(--line-dashed);
+  border-radius: 14px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}

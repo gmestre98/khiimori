@@ -78,14 +78,21 @@ function MapController({
   days,
   selectedDates,
   selected,
+  fitKey,
 }: {
   days: TripDayMarkers[]
   selectedDates: Set<string>
   selected: LatLng | null
+  fitKey: number
 }) {
   const map = useMap()
 
+  // Re-fit whenever the drawn days, the day selection or an explicit "Fit to
+  // day" (fitKey) changes. invalidateSize first: the container may have just
+  // changed size (view switch / layout), and Leaflet fits to a stale size
+  // otherwise — which is why selecting a day used to leave the zoom unchanged.
   useEffect(() => {
+    map.invalidateSize?.()
     const points =
       selectedDates.size > 0
         ? allPoints(days.filter((d) => selectedDates.has(d.date)))
@@ -99,8 +106,8 @@ function MapController({
       return
     }
     const bounds = L.latLngBounds(points.map((w) => [w.lat, w.lng] as [number, number]))
-    map.fitBounds(bounds, { padding: [32, 32] })
-  }, [map, days, selectedDates])
+    map.fitBounds(bounds, { padding: [32, 32], maxZoom: 14 })
+  }, [map, days, selectedDates, fitKey])
 
   useEffect(() => {
     if (!selected) return
@@ -123,16 +130,31 @@ export default function TripMap({
   selectedDates,
   selectedId,
   onSelect,
+  fitKey = 0,
+  numbering = 'day',
 }: {
   days: TripDayMarkers[]
   selectedDates: Set<string>
   selectedId: string | null
   onSelect: (id: string | null) => void
+  // Bump to force a re-fit to the current selection ("Fit to day").
+  fitKey?: number
+  // 'trip' numbers pins in visit order across all shown days (1…n); 'day'
+  // restarts per day (the old behaviour).
+  numbering?: 'day' | 'trip'
 }) {
-  const dayFeatures = useMemo<DayFeatures[]>(
-    () => days.map((d) => ({ ...d, features: buildFeatures(d.items, d.waypoints) })),
-    [days],
-  )
+  const dayFeatures = useMemo<DayFeatures[]>(() => {
+    const built = days.map((d) => ({ ...d, features: buildFeatures(d.items, d.waypoints) }))
+    if (numbering !== 'trip') return built
+    const starts = built.reduce<number[]>(
+      (acc, _d, i) => [...acc, i === 0 ? 0 : acc[i - 1] + built[i - 1].features.length],
+      [],
+    )
+    return built.map((d, i) => ({
+      ...d,
+      features: d.features.map((f, k) => ({ ...f, number: starts[i] + k + 1 })),
+    }))
+  }, [days, numbering])
 
   // Coordinates of the currently selected feature (across all days), used to pan.
   const selected = useMemo<LatLng | null>(() => {
@@ -206,7 +228,12 @@ export default function TripMap({
             </Fragment>
           )
         })}
-        <MapController days={days} selectedDates={selectedDates} selected={selected} />
+        <MapController
+          days={days}
+          selectedDates={selectedDates}
+          selected={selected}
+          fitKey={fitKey}
+        />
       </MapContainer>
     </div>
   )

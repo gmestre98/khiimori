@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { UnauthorizedError, datesInRange, fetchTrips, type Trip } from '../lib/api'
-import { shortDate } from '../lib/format'
+import { Link, Navigate, Outlet, useLocation, useParams } from 'react-router-dom'
+import { UnauthorizedError, fetchSharingData, fetchTrips, type Trip } from '../lib/api'
 import { useCachedResource } from '../lib/useCachedResource'
 import { cacheKeys } from '../lib/cacheKeys'
 import { CacheStatus } from '../components/CacheStatus'
+import { Icon } from '../components/ui/Icon'
 import { ExportDialog } from './ExportDialog'
+import { buildDayMetas, useTripDays, type DayMeta } from './tripDays'
+import { tripDayCount } from '../lib/format'
+import { countryColor } from '../design/countries'
 
 // todayStr returns today's date as YYYY-MM-DD in local time.
 function todayStr(): string {
@@ -21,79 +24,187 @@ function clampDate(date: string, start: string, end: string): string {
   return date
 }
 
+// The trip's named child routes. Anything else under /trips/:id (the bare trip
+// URL) redirects to today's day.
+const NAMED_CHILDREN = ['backlog', 'plan', 'map', 'journal', 'budget', 'packing', 'sharing']
+
 // TripShellRoute wraps TripShell with a key derived from the tripId param so
 // React remounts TripShell whenever the user navigates to a different trip.
-// This keeps TripShell's useState initializers correct without needing
-// synchronous setState calls inside effects when the param changes.
 export function TripShellRoute() {
   const { tripId } = useParams<{ tripId: string }>()
   return <TripShell key={tripId} />
 }
 
-// TRIP_TABS are the trip's sections, shown as a segmented control in the trip
-// chrome (replacing the old row of look-alike ghost buttons). "Days" points at
-// the whole-trip overview but stays active across a single day and the backlog,
-// which are all part of planning the days. On mobile this bar is hidden — the
-// bottom nav carries the same destinations into the thumb zone. (UI-refactor B)
-const TRIP_TABS = [
-  { key: 'days', label: 'Days', suffix: '/plan' },
-  { key: 'map', label: 'Map', suffix: '/map' },
-  { key: 'budget', label: 'Budget', suffix: '/budget' },
-  { key: 'packing', label: 'Packing', suffix: '/packing' },
-  { key: 'sharing', label: 'Sharing', suffix: '/sharing' },
-] as const
-
-// activeTripTab resolves which section the current path belongs to. Anything that
-// isn't Map/Budget/Packing/Sharing (a day, the plan overview, the backlog) reads
-// as Days.
-function activeTripTab(pathname: string): (typeof TRIP_TABS)[number]['key'] {
-  if (pathname.endsWith('/map')) return 'map'
-  if (pathname.endsWith('/budget')) return 'budget'
-  if (pathname.endsWith('/packing')) return 'packing'
-  if (pathname.endsWith('/sharing')) return 'sharing'
-  return 'days'
+// headerMeta is the mono line under the trip name: dates · days · countries.
+function headerMeta(trip: Trip): string {
+  const start = new Date(trip.start_date + 'T00:00:00')
+  const end = new Date(trip.end_date + 'T00:00:00')
+  const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  const days = tripDayCount(trip.start_date, trip.end_date)
+  const parts = [`${fmt(start)} – ${fmt(end)}`, `${days} ${days === 1 ? 'day' : 'days'}`]
+  if (trip.destinations.length > 0) parts.push(trip.destinations.join(' · '))
+  return parts.join(' · ')
 }
 
-function TripTabs({ trip, pathname }: { trip: Trip; pathname: string }) {
-  const active = activeTripTab(pathname)
+// ShareButton opens the sharing page, showing who's on the trip as a small
+// avatar stack (the owner plus a dashed "invite" slot when it's just you).
+function ShareButton({ trip }: { trip: Trip }) {
+  const { data } = useCachedResource(`GET /trips/${trip.id}/sharing`, (signal) =>
+    fetchSharingData(trip.id, signal),
+  )
+  const members = data?.members ?? []
+  const shown = members.slice(0, 3)
   return (
-    <nav className="trip-tabs" role="tablist" aria-label="Trip sections">
-      {TRIP_TABS.map((tab) => (
+    <Link
+      to={`/trips/${trip.id}/sharing`}
+      state={{ trip }}
+      className="trip-share-btn"
+      aria-label={`Share ${trip.name}${members.length > 1 ? ` — ${members.length} people` : ''}`}
+    >
+      <span className="avatar-stack" aria-hidden="true">
+        {shown.map((m) => (
+          <span key={m.id} className="trip-share-avatar">
+            {(m.name || m.email || m.user_id || '?')[0].toUpperCase()}
+          </span>
+        ))}
+        {members.length <= 1 && <span className="trip-share-avatar trip-share-avatar--empty" />}
+      </span>
+      Share
+    </Link>
+  )
+}
+
+// TripMenu is the trip's ⋯ overflow menu: edit and export.
+function TripMenu({ trip, onExport }: { trip: Trip; onExport: () => void }) {
+  const ref = useRef<HTMLDetailsElement>(null)
+  // Close on outside click / Escape.
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const onDoc = (e: Event) => {
+      if (el.open && !el.contains(e.target as Node)) el.open = false
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && el.open) {
+        el.open = false
+        el.querySelector('summary')?.focus()
+      }
+    }
+    document.addEventListener('pointerdown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [])
+  return (
+    <details className="fg-menu" ref={ref}>
+      <summary
+        className="fg-icon-btn fg-icon-btn--outline"
+        aria-label={`More actions for ${trip.name}`}
+      >
+        <Icon name="more" size={18} />
+      </summary>
+      <div className="fg-menu-list">
         <Link
-          key={tab.key}
-          to={`/trips/${trip.id}${tab.suffix}`}
+          to={`/trips/${trip.id}/edit`}
           state={{ trip }}
-          role="tab"
-          aria-selected={active === tab.key}
-          aria-current={active === tab.key ? 'page' : undefined}
-          className={['trip-tab', active === tab.key ? 'trip-tab--active' : '']
-            .filter(Boolean)
-            .join(' ')}
+          className="fg-menu-item"
+          aria-label={`Edit ${trip.name}`}
         >
-          {tab.label}
+          Edit trip
         </Link>
-      ))}
-    </nav>
+        <button
+          type="button"
+          className="fg-menu-item"
+          onClick={() => {
+            if (ref.current) ref.current.open = false
+            onExport()
+          }}
+          aria-label={`Export ${trip.name} to Google Docs`}
+        >
+          Export…
+        </button>
+      </div>
+    </details>
+  )
+}
+
+// DayStrip is the desktop "days at a glance" row: one cell per day, a country
+// colour bar on top, the day number, weekday and how many plans it holds.
+// Empty days draw dashed. Hidden on phones (the Days list does this job).
+function DayStrip({ trip, metas, current }: { trip: Trip; metas: DayMeta[]; current?: string }) {
+  const activeRef = useRef<HTMLAnchorElement | null>(null)
+  useEffect(() => {
+    activeRef.current?.scrollIntoView?.({ inline: 'center', block: 'nearest' })
+  }, [current])
+  const countries = [...new Set(metas.map((m) => m.country).filter(Boolean))]
+  return (
+    <section className="day-glance" aria-label="Days at a glance">
+      <div className="day-glance-scroll">
+        <ol
+          className="day-glance-row"
+          style={{ gridTemplateColumns: `repeat(${metas.length}, minmax(40px, 1fr))` }}
+        >
+          {metas.map((m) => {
+            const d = new Date(m.date + 'T00:00:00')
+            const n = m.day ? m.day.plan_items.filter((i) => !i.unplanned).length : 0
+            const isCurrent = m.date === current
+            return (
+              <li key={m.date}>
+                <Link
+                  ref={isCurrent ? activeRef : undefined}
+                  to={`/trips/${trip.id}/days/${m.date}`}
+                  state={{ trip }}
+                  className={[
+                    'day-glance-cell',
+                    m.hasPlans ? '' : 'day-glance-cell--empty',
+                    isCurrent ? 'day-glance-cell--current' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  style={{ '--country': m.color } as React.CSSProperties}
+                  aria-current={isCurrent ? 'page' : undefined}
+                  aria-label={`Day ${m.index + 1}, ${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}${m.place ? `, ${m.place}` : ''} — ${n === 0 ? 'nothing planned' : `${n} ${n === 1 ? 'plan' : 'plans'}`}`}
+                >
+                  <span className="day-glance-num">{d.getDate()}</span>
+                  <span className="day-glance-wd">
+                    {d.toLocaleDateString('en-US', { weekday: 'short' })}
+                  </span>
+                  <span className="day-glance-count">{n > 0 ? n : '–'}</span>
+                </Link>
+              </li>
+            )
+          })}
+        </ol>
+      </div>
+      <div className="day-glance-legend">
+        {countries.map((c) => (
+          <span key={c}>
+            <i style={{ background: countryColor(c) }} aria-hidden="true" />
+            {c}
+          </span>
+        ))}
+        <span>
+          <i className="day-glance-legend-empty" aria-hidden="true" />
+          Nothing planned yet
+        </span>
+        <span>Numbers show how many plans each day has</span>
+      </div>
+    </section>
   )
 }
 
 // TripShell is the authenticated wrapper for a single trip. It resolves the trip
-// (from router state if available, falling back to the trips listing), then
-// redirects to today's day (or the nearest valid day). Child routes render via
-// <Outlet> and receive the trip through the outlet context.
-// TripShell is always mounted with a stable tripId (TripShellRoute provides the
-// key), so useState initializers run once per trip.
+// (from router state if available, falling back to the trips listing), renders
+// the trip header, and redirects the bare trip URL to today's day. Child routes
+// render via <Outlet> and receive the trip through the outlet context.
 function TripShell() {
   const { tripId, date: dateParam } = useParams<{ tripId: string; date?: string }>()
   const location = useLocation()
   const [exportOpen, setExportOpen] = useState(false)
-  // Trip may be passed via Link state (from the dashboard) to avoid a refetch.
   const stateTrip = (location.state as { trip?: Trip } | null)?.trip ?? null
 
-  // Resolve the trip from the user's trips list via the instant-render cache: a
-  // previously-loaded trips list renders the name/dates immediately (no wait for
-  // the backend cold start), then revalidates. Skip the fetch entirely when the
-  // trip was handed over via Link state (navigated from the dashboard).
   const {
     data: trips,
     error: loadError,
@@ -107,9 +218,6 @@ function TripShell() {
       ? ([...trips.current, ...trips.upcoming, ...trips.past].find((t) => t.id === tripId) ?? null)
       : null)
 
-  // Loading while the list hasn't resolved yet (and no Link-state trip); "not
-  // found" only once the list has resolved without the trip. UnauthorizedError
-  // is handled app-wide (central 401 handler → re-auth), so treat it as loading.
   const loading = !stateTrip && trips === null && loadError === null
   const notFound = trips !== null && !stateTrip && trip === null
   const error =
@@ -134,180 +242,81 @@ function TripShell() {
     )
   }
 
-  // If no day segment is matched and we're not on a named child route (e.g.
-  // backlog), redirect to today's day (or nearest boundary).
-  const isAtRoot =
-    !dateParam &&
-    !location.pathname.endsWith('/backlog') &&
-    !location.pathname.endsWith('/plan') &&
-    !location.pathname.endsWith('/map') &&
-    !location.pathname.endsWith('/journal') &&
-    !location.pathname.endsWith('/budget') &&
-    !location.pathname.endsWith('/packing') &&
-    !location.pathname.endsWith('/sharing')
+  const lastSegment = location.pathname.replace(/\/+$/, '').split('/').pop() ?? ''
+  const isAtRoot = !dateParam && !NAMED_CHILDREN.includes(lastSegment)
   if (isAtRoot) {
-    const today = todayStr()
-    const target = clampDate(today, trip.start_date, trip.end_date)
+    const target = clampDate(todayStr(), trip.start_date, trip.end_date)
     return <Navigate to={`/trips/${trip.id}/days/${target}`} replace state={{ trip }} />
   }
 
-  const dates = datesInRange(trip.start_date, trip.end_date)
-
   return (
-    <div className="trip-shell">
-      <header className="topnav">
-        <div className="trip-shell-crumbs">
-          <Link to="/" className="trip-shell-back" aria-label="Back to trips">
-            ← Trips
-          </Link>
-          <span className="trip-shell-sep">›</span>
-          <h1 className="trip-shell-name">{trip.name}</h1>
-          <CacheStatus fromCache={fromCache} isValidating={isValidating} />
-          {trip.destinations.length > 0 && (
-            <>
-              <span className="trip-shell-sep trip-shell-sep--dest">·</span>
-              <p className="trip-shell-destinations">{trip.destinations.join(', ')}</p>
-            </>
-          )}
-        </div>
-        <div className="trip-shell-actions">
-          <TripTabs trip={trip} pathname={location.pathname} />
-          <details className="trip-overflow">
-            <summary className="trip-overflow-btn" aria-label={`More actions for ${trip.name}`}>
-              <span aria-hidden="true">⋯</span>
-            </summary>
-            <div className="trip-overflow-menu" role="menu">
-              <Link
-                to={`/trips/${trip.id}/edit`}
-                state={{ trip }}
-                className="trip-overflow-item"
-                role="menuitem"
-                aria-label={`Edit ${trip.name}`}
-              >
-                Edit trip
-              </Link>
-              <button
-                type="button"
-                className="trip-overflow-item"
-                role="menuitem"
-                onClick={(e) => {
-                  e.currentTarget.closest('details')?.removeAttribute('open')
-                  setExportOpen(true)
-                }}
-                aria-label={`Export ${trip.name} to Google Docs`}
-              >
-                Export…
-              </button>
-            </div>
-          </details>
-        </div>
-      </header>
-      {exportOpen && (
-        <ExportDialog
-          tripId={trip.id}
-          tripName={trip.name}
-          open
-          onClose={() => setExportOpen(false)}
-        />
-      )}
-      {/* Day selector strip — only on the day view, not budget/sharing/backlog */}
-      {dateParam && <DayNav tripId={trip.id} dates={dates} trip={trip} />}
-      {/* Outlet renders DayView; trip is passed via context */}
-      <Outlet context={{ trip }} />
-    </div>
+    <TripShellBody
+      trip={trip}
+      dateParam={dateParam}
+      fromCache={fromCache}
+      isValidating={isValidating}
+      onExport={() => setExportOpen(true)}
+      exportOpen={exportOpen}
+      onExportClose={() => setExportOpen(false)}
+    />
   )
 }
 
-// weekdayAbbrev returns the 3-letter weekday for a YYYY-MM-DD date in local time.
-function weekdayAbbrev(date: string): string {
-  const d = new Date(date + 'T00:00:00')
-  return d.toLocaleDateString('en-US', { weekday: 'short' })
-}
-
-// DayNav renders a horizontal strip with prev/next buttons and a day selector
-// that lets the user jump to any day in the trip.
-function DayNav({ tripId, dates, trip }: { tripId: string; dates: string[]; trip: Trip }) {
-  const { date } = useParams<{ date: string }>()
-  const navigate = useNavigate()
-  const currentIndex = date ? dates.indexOf(date) : -1
-  const prevDate = currentIndex > 0 ? dates[currentIndex - 1] : null
-  const nextDate = currentIndex < dates.length - 1 ? dates[currentIndex + 1] : null
-
-  const dayLabel = (d: string) => {
-    const idx = dates.indexOf(d)
-    return idx >= 0 ? `Day ${idx + 1} · ${shortDate(d)}` : d
-  }
-
-  // Keep the active day pill in view when the day changes (matters on mobile,
-  // where the pill strip scrolls horizontally).
-  const activePillRef = useRef<HTMLAnchorElement | null>(null)
-  useEffect(() => {
-    activePillRef.current?.scrollIntoView({ inline: 'center', block: 'nearest' })
-  }, [date])
+function TripShellBody({
+  trip,
+  dateParam,
+  fromCache,
+  isValidating,
+  onExport,
+  exportOpen,
+  onExportClose,
+}: {
+  trip: Trip
+  dateParam?: string
+  fromCache: boolean
+  isValidating: boolean
+  onExport: () => void
+  exportOpen: boolean
+  onExportClose: () => void
+}) {
+  const location = useLocation()
+  // The days are shared across the shell (desktop strip) and the Days list. The
+  // open day's route is the refresh key so edits made there re-sync from cache.
+  const tripDays = useTripDays(trip, location.pathname)
+  const metas = tripDays.days ? buildDayMetas(tripDays.dates, tripDays.days) : null
+  // The full trip header shows on the trip's overview screens; a single day and
+  // the backlog have their own compact headers on phones.
+  const onDay = !!dateParam
+  const onBacklog = location.pathname.endsWith('/backlog')
 
   return (
-    <nav className="day-strip" aria-label="Day navigation">
-      {prevDate ? (
-        <Link
-          to={`/trips/${tripId}/days/${prevDate}`}
-          state={{ trip }}
-          className="day-strip-arrow"
-          aria-label={`Previous day: ${dayLabel(prevDate)}`}
-        >
-          ‹ Prev
-        </Link>
-      ) : (
-        <span className="day-strip-arrow day-strip-arrow--disabled" aria-disabled="true">
-          ‹ Prev
-        </span>
-      )}
-
-      <div className="day-strip-pills">
-        {dates.map((d, i) => (
-          <Link
-            key={d}
-            ref={d === date ? activePillRef : undefined}
-            to={`/trips/${tripId}/days/${d}`}
-            state={{ trip }}
-            className={['day-pill', d === date ? 'day-pill--active' : ''].filter(Boolean).join(' ')}
-            aria-label={`Day ${i + 1}, ${d}`}
-            aria-current={d === date ? 'page' : undefined}
-          >
-            <span className="day-pill-dow">{weekdayAbbrev(d)}</span>
-            <span className="day-pill-num num">D{i + 1}</span>
+    <div className="trip-shell" data-screen={onDay ? 'day' : onBacklog ? 'backlog' : 'section'}>
+      <header className="trip-header">
+        <div className="trip-header-top">
+          <Link to="/" className="fg-back trip-header-back" aria-label="Back to trips">
+            <Icon name="back" size={18} />
+            Trips
           </Link>
-        ))}
-      </div>
-
-      {nextDate ? (
-        <Link
-          to={`/trips/${tripId}/days/${nextDate}`}
-          state={{ trip }}
-          className="day-strip-arrow"
-          aria-label={`Next day: ${dayLabel(nextDate)}`}
-        >
-          Next ›
-        </Link>
-      ) : (
-        <span className="day-strip-arrow day-strip-arrow--disabled" aria-disabled="true">
-          Next ›
-        </span>
+          <div className="trip-header-actions">
+            <ShareButton trip={trip} />
+            <TripMenu trip={trip} onExport={onExport} />
+          </div>
+        </div>
+        <div className="trip-header-titles">
+          <p className="fg-meta trip-header-meta">{headerMeta(trip)}</p>
+          <h1 className="trip-header-name">
+            {trip.name}
+            <CacheStatus fromCache={fromCache} isValidating={isValidating} />
+          </h1>
+        </div>
+      </header>
+      {exportOpen && (
+        <ExportDialog tripId={trip.id} tripName={trip.name} open onClose={onExportClose} />
       )}
-
-      <select
-        className="day-strip-jump"
-        value={date ?? ''}
-        aria-label="Jump to day"
-        onChange={(e) => {
-          navigate(`/trips/${tripId}/days/${e.target.value}`, { state: { trip } })
-        }}
-      >
-        {dates.map((d, i) => (
-          <option key={d} value={d}>
-            Day {i + 1} · {shortDate(d)}
-          </option>
-        ))}
-      </select>
-    </nav>
+      {metas && (onDay || location.pathname.endsWith('/plan')) && (
+        <DayStrip trip={trip} metas={metas} current={dateParam} />
+      )}
+      <Outlet context={{ trip, tripDays }} />
+    </div>
   )
 }

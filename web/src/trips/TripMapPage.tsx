@@ -1,41 +1,36 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import { datesInRange, fetchDay, UnauthorizedError, type LatLng } from '../lib/api'
+import { Link, useSearchParams } from 'react-router-dom'
+import { datesInRange, fetchDay, UnauthorizedError, type Day, type LatLng } from '../lib/api'
 import { loadDayRoute } from '../lib/dayRouteCache'
-import { localToday, shortDate } from '../lib/format'
+import { euroWhole, localToday } from '../lib/format'
+import { countryColor, NO_COUNTRY_COLOR } from '../design/countries'
+import { Icon } from '../components/ui/Icon'
 import {
   collectLocatedItems,
   collectLocations,
   type ItemOrder,
   type LocatedItem,
 } from './locatedItems'
+import { buildDayMetas, stayRuns, type DayMeta } from './tripDays'
 import { useTripShell } from './useTripShell'
 import type { TripDayMarkers } from './TripMap'
 
 const TripMap = lazy(() => import('./TripMap'))
 
-// DAY_COLORS cycles per day index so each day's pins and route read as one group.
-// Values come from the design palette (teal, blue, coral, amber, purple, pink).
-const DAY_COLORS = ['#1d9e75', '#378add', '#d85a30', '#ba7517', '#7f77dd', '#d4537e']
-
-function dayColor(index: number): string {
-  return DAY_COLORS[index % DAY_COLORS.length]
-}
-
-// DayEntry is the per-day state the page tracks: the located items, the geocoded
-// waypoints (positional, aligned with items — null where a stop didn't resolve),
-// and a status used for the row's caption.
+// DayEntry is the per-day state the page tracks: the located items, the
+// geocoded waypoints (positional, aligned with items — null where a stop didn't
+// resolve), and a status.
 interface DayEntry {
   date: string
   index: number
-  color: string
+  day: Day
   items: LocatedItem[]
   waypoints: (LatLng | null)[]
   status: 'no-places' | 'ok' | 'unplaceable' | 'error'
 }
 
 // loadDay fetches one day and, when it has any location, geocodes its stops.
-// Failures are folded into the entry's status rather than thrown so one bad day
-// doesn't blank the whole trip map.
+// Failures fold into the entry's status so one bad day doesn't blank the map.
 async function loadDay(
   tripId: string,
   date: string,
@@ -43,79 +38,89 @@ async function loadDay(
   order: ItemOrder,
   signal: AbortSignal,
 ): Promise<DayEntry> {
-  const base: DayEntry = {
-    date,
-    index,
-    color: dayColor(index),
-    items: [],
-    waypoints: [],
-    status: 'no-places',
-  }
   const day = await fetchDay(tripId, date, signal)
-  // items and locations must share the same order so waypoints stay aligned.
   const items = collectLocatedItems(day, order)
   const locations = collectLocations(day, order)
-  if (locations.length === 0) return { ...base, items, status: 'no-places' }
+  const base: DayEntry = { date, index, day, items, waypoints: [], status: 'no-places' }
+  if (locations.length === 0) return base
   try {
-    // Network-first with an offline fallback to cached waypoints (dayRouteCache).
     const waypoints = await loadDayRoute(tripId, date, locations, signal)
-    return {
-      ...base,
-      items,
-      waypoints,
-      // waypoints is positional (holds nulls for stops that didn't resolve), so
-      // "unplaceable" means none resolved — not an empty array.
-      status: waypoints.some(Boolean) ? 'ok' : 'unplaceable',
-    }
+    return { ...base, waypoints, status: waypoints.some(Boolean) ? 'ok' : 'unplaceable' }
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') throw err
     if (err instanceof UnauthorizedError) throw err
-    return { ...base, items, status: 'error' }
+    return { ...base, status: 'error' }
   }
 }
 
-// dayCaption returns the muted helper line shown under a day row.
-function dayCaption(entry: DayEntry): string {
-  switch (entry.status) {
-    case 'no-places':
-      return 'No places yet'
-    case 'unplaceable':
-      return 'Couldn’t place this day’s locations'
-    case 'error':
-      return 'Couldn’t load positions'
-    default: {
-      // Count only the stops that actually resolved (positional nulls don't pin).
-      const n = entry.waypoints.filter(Boolean).length
-      return `${n} ${n === 1 ? 'place' : 'places'}`
+// DayGroup is a run of consecutive days in the same country/place — the map's
+// chips ("18–19 Nov · Dakar"). Toggling a group selects all its days.
+interface DayGroup {
+  key: string
+  label: string
+  color: string
+  dates: string[]
+}
+
+function fmtDay(iso: string, withMonth = true): string {
+  return new Date(iso + 'T00:00:00').toLocaleDateString(
+    'en-GB',
+    withMonth ? { day: 'numeric', month: 'short' } : { day: 'numeric' },
+  )
+}
+
+function rangeLabel(a: string, b: string): string {
+  if (a === b) return fmtDay(a)
+  const sameMonth = a.slice(0, 7) === b.slice(0, 7)
+  return `${fmtDay(a, !sameMonth)}–${fmtDay(b)}`
+}
+
+// buildGroups splits the trip into runs of days that share a colour (country)
+// and labels each with its dates and first named place.
+function buildGroups(metas: DayMeta[]): DayGroup[] {
+  const groups: DayGroup[] = []
+  for (const m of metas) {
+    const last = groups[groups.length - 1]
+    if (last && last.color === m.color) {
+      last.dates.push(m.date)
+      if (!last.label && m.place) last.label = m.place
+    } else {
+      groups.push({ key: m.date, label: m.place || m.country, color: m.color, dates: [m.date] })
     }
   }
+  return groups.map((g) => ({
+    ...g,
+    label: `${rangeLabel(g.dates[0], g.dates[g.dates.length - 1])}${g.label ? ` · ${g.label}` : ''}`,
+  }))
 }
 
-// TripMapPage is the trip-scoped Map subtab (/trips/:tripId/map). Unlike the day
-// view's per-day map facet, this is a whole-trip, read-only orientation: one
-// overview map with every day's stops colour-coded, plus a day list that lets you
-// toggle any subset of days to focus the map on them. It loads each day + its
-// route once on mount.
+type Show = 'planned' | 'happened'
+
+// TripMapPage is the trip's Map tab (/trips/:tripId/map): a full-width map with
+// pins numbered in visit order and coloured by country, an "Everything planned /
+// What happened" switch, day-group chips (tap several to compare) plus per-day
+// toggles, and a Stays view listing the bases in order with nights, booking
+// status and the nights that still have no bed.
 export function TripMapPage() {
   const { trip } = useTripShell()
+  const [params] = useSearchParams()
   const dates = datesInRange(trip.start_date, trip.end_date)
-  // A finished trip's route reads in the order things actually happened
-  // (actual_order); an ongoing/upcoming trip still reads in planned order.
   const order: ItemOrder = trip.end_date < localToday() ? 'actual' : 'plan'
 
+  const [view, setView] = useState<'map' | 'stays'>(
+    params.get('view') === 'stays' ? 'stays' : 'map',
+  )
   const [entries, setEntries] = useState<DayEntry[] | null>(null)
   const [error, setError] = useState(false)
-  // selectedDates narrows the map to a subset of days; an empty set means "all
-  // days" (the whole trip). selectedId is the highlighted pin, shared between the
-  // map and the day list.
-  const [selectedDates, setSelectedDates] = useState<Set<string>>(() => new Set())
+  const initialDay = params.get('day')
+  const [selectedDates, setSelectedDates] = useState<Set<string>>(
+    () => new Set(initialDay && dates.includes(initialDay) ? [initialDay] : []),
+  )
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  // hideNotHappened drops pins for things that didn't happen (not done), leaving
-  // only what actually took place — a cleaner read of a past trip.
-  const [hideNotHappened, setHideNotHappened] = useState(false)
-  // Skipped stops clutter the map with places the traveller decided against, so
-  // they're hidden by default; showSkipped brings them back on when toggled.
+  const [show, setShow] = useState<Show>('planned')
   const [showSkipped, setShowSkipped] = useState(false)
+  const [showDays, setShowDays] = useState(false)
+  const [fitKey, setFitKey] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -134,10 +139,21 @@ export function TripMapPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip.id])
 
-  // Days with resolved waypoints are the only ones the map draws. Memoized so
-  // the array reference is stable across re-renders that don't change the loaded
-  // days (e.g. selecting a pin) — otherwise TripMap's fit-bounds effect would
-  // refire and yank the map view back on every selection.
+  const metas = useMemo(
+    () =>
+      entries
+        ? buildDayMetas(
+            dates,
+            entries.map((e) => e.day),
+          )
+        : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [entries],
+  )
+  const groups = useMemo(() => (metas ? buildGroups(metas) : []), [metas])
+
+  // Days with resolved waypoints, coloured by country. Memoized so the array is
+  // stable across pin selection (TripMap re-fits when it changes).
   const mapDays: TripDayMarkers[] = useMemo(
     () =>
       (entries ?? [])
@@ -145,36 +161,28 @@ export function TripMapPage() {
         .map((e) => ({
           date: e.date,
           index: e.index,
-          color: e.color,
+          color: metas?.[e.index]?.color ?? NO_COUNTRY_COLOR,
           items: e.items,
           waypoints: e.waypoints,
         })),
-    [entries],
+    [entries, metas],
   )
   const hasAnyPlace = mapDays.length > 0
-
-  // Whether any loaded day carries a skipped stop — the "Show skipped" toggle is
-  // only worth showing when there's something for it to reveal.
   const hasSkipped = useMemo(() => mapDays.some((d) => d.items.some((it) => it.skipped)), [mapDays])
 
-  // Apply the visibility filters per day, keeping items and waypoints
-  // positionally aligned, and drop days left with nothing to draw. By default
-  // skipped stops are hidden; "Hide what didn't happen" additionally keeps only
-  // done pins.
+  // Visibility filters per day, keeping items and waypoints aligned. "What
+  // happened" keeps only done pins; skipped stops hide unless asked for.
   const shownDays: TripDayMarkers[] = useMemo(() => {
-    if (!hideNotHappened && showSkipped) return mapDays
+    const happened = show === 'happened'
+    if (!happened && showSkipped) return mapDays
     return mapDays
       .map((d) => {
-        // Iterate the waypoints (the drawn set) so we never index past them when
-        // a day has more located items than placeable waypoints; items[j] is the
-        // label for waypoint j. Keep a slot only when it resolved (non-null),
-        // isn't a hidden skipped stop, and — when hiding — actually happened.
         const keep = d.waypoints
           .map((w, j) => {
             const it = d.items[j]
             if (!w || !it) return -1
             if (!showSkipped && it.skipped) return -1
-            if (hideNotHappened && !it.done) return -1
+            if (happened && !it.done) return -1
             return j
           })
           .filter((j) => j >= 0)
@@ -185,16 +193,17 @@ export function TripMapPage() {
         }
       })
       .filter((d) => d.waypoints.length > 0)
-  }, [mapDays, hideNotHappened, showSkipped])
-  // A pin exists but everything shown got hidden — tell the user why the map is empty.
+  }, [mapDays, show, showSkipped])
   const allHidden = hasAnyPlace && shownDays.length === 0
 
-  // Toggle a day in/out of the selection. An empty selection means "all days".
-  const toggleDay = (date: string) => {
+  const toggleDates = (ds: string[]) => {
     setSelectedDates((cur) => {
       const next = new Set(cur)
-      if (next.has(date)) next.delete(date)
-      else next.add(date)
+      const allOn = ds.every((d) => next.has(d))
+      for (const d of ds) {
+        if (allOn) next.delete(d)
+        else next.add(d)
+      }
       return next
     })
     setSelectedId(null)
@@ -205,114 +214,273 @@ export function TripMapPage() {
   }
 
   return (
-    <article className="trip-map-page" aria-label={`Map for ${trip.name}`}>
-      <div className="screen-content trip-map-body">
-        <header className="trip-map-head">
-          <h1 className="h1">Trip map</h1>
-          <p className="meta">Every day’s places on one map. Toggle days to compare a few.</p>
-          <div className="trip-map-toggles">
-            <button
-              type="button"
-              className="trip-map-toggle"
-              aria-pressed={hideNotHappened}
-              onClick={() => setHideNotHappened((h) => !h)}
+    <section className="fg-screen map-page" aria-label={`Map for ${trip.name}`}>
+      <div className="fg-screen-head">
+        <h1 className="fg-page-title">{view === 'map' ? 'Map' : 'Stays'}</h1>
+        <div className="seg" role="group" aria-label="Map or stays">
+          <button
+            type="button"
+            className="seg-btn"
+            aria-pressed={view === 'map'}
+            onClick={() => setView('map')}
+          >
+            Map
+          </button>
+          <button
+            type="button"
+            className="seg-btn"
+            aria-pressed={view === 'stays'}
+            onClick={() => setView('stays')}
+          >
+            Stays
+          </button>
+        </div>
+      </div>
+
+      {error ? (
+        <p role="alert" className="fg-error">
+          Could not load the trip map.
+        </p>
+      ) : entries === null || metas === null ? (
+        <p className="fg-loading" aria-busy="true">
+          Loading trip map…
+        </p>
+      ) : view === 'stays' ? (
+        <StaysView entries={entries} metas={metas} />
+      ) : (
+        <div className="map-layout">
+          <div className="map-frame">
+            <Suspense
+              fallback={
+                <p className="fg-loading" aria-busy="true">
+                  Loading map…
+                </p>
+              }
             >
-              {hideNotHappened ? 'Show what didn’t happen' : 'Hide what didn’t happen'}
+              <TripMap
+                days={shownDays}
+                selectedDates={selectedDates}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                fitKey={fitKey}
+                numbering="trip"
+              />
+            </Suspense>
+            <button type="button" className="map-fit-btn" onClick={() => setFitKey((k) => k + 1)}>
+              <Icon name="fit" size={16} />
+              {selectedDates.size > 0 ? 'Fit to day' : 'Fit to trip'}
             </button>
-            {hasSkipped && (
-              <button
-                type="button"
-                className="trip-map-toggle"
-                aria-pressed={showSkipped}
-                onClick={() => setShowSkipped((s) => !s)}
-              >
-                {showSkipped ? 'Hide skipped' : 'Show skipped'}
-              </button>
+            {(!hasAnyPlace || allHidden) && (
+              <p className="map-overlay-note">
+                {!hasAnyPlace
+                  ? 'No places yet. Add a location to a stay or plan and its pin appears here.'
+                  : show === 'happened'
+                    ? 'Nothing ticked off yet. Places you tick off on the trip appear here, so the map becomes a record of where you actually went.'
+                    : 'Every place here was skipped. Turn on “Show skipped” to see them.'}
+              </p>
             )}
           </div>
-        </header>
 
-        {error ? (
-          <p role="alert" className="trip-map-error">
-            Could not load the trip map.
-          </p>
-        ) : entries === null ? (
-          <p className="trip-map-loading" aria-busy="true">
-            Loading trip map…
-          </p>
-        ) : (
-          <div className="trip-map-layout">
-            <nav className="trip-map-days" aria-label="Days">
+          <div className="map-controls">
+            <div className="seg seg--block" role="group" aria-label="Which places">
               <button
                 type="button"
-                className={['trip-map-day', selectedDates.size === 0 ? 'trip-map-day--active' : '']
-                  .filter(Boolean)
-                  .join(' ')}
+                className="seg-btn"
+                aria-pressed={show === 'planned'}
+                onClick={() => setShow('planned')}
+              >
+                Everything planned
+              </button>
+              <button
+                type="button"
+                className="seg-btn"
+                aria-pressed={show === 'happened'}
+                onClick={() => setShow('happened')}
+              >
+                What happened
+              </button>
+            </div>
+
+            <div className="map-chips" role="group" aria-label="Days on the map">
+              <button
+                type="button"
+                className="map-chip"
                 aria-pressed={selectedDates.size === 0}
                 onClick={showAllDays}
               >
-                <span className="trip-map-day-dot trip-map-day-dot--all" aria-hidden="true" />
-                <span className="trip-map-day-label">All days</span>
-                <span className="trip-map-day-meta">Whole trip</span>
+                <span className="map-chip-dot" style={{ background: 'var(--ink)' }} />
+                All days
               </button>
-              {entries.map((e) => (
+              {groups.map((g) => (
                 <button
-                  key={e.date}
+                  key={g.key}
                   type="button"
-                  className={[
-                    'trip-map-day',
-                    selectedDates.has(e.date) ? 'trip-map-day--active' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  aria-pressed={selectedDates.has(e.date)}
-                  disabled={!e.waypoints.some(Boolean)}
-                  onClick={() => toggleDay(e.date)}
+                  className="map-chip"
+                  aria-pressed={g.dates.every((d) => selectedDates.has(d))}
+                  onClick={() => toggleDates(g.dates)}
                 >
-                  <span
-                    className="trip-map-day-dot"
-                    style={{ background: e.color }}
-                    aria-hidden="true"
-                  />
-                  <span className="trip-map-day-label">
-                    Day {e.index + 1} · {shortDate(e.date)}
-                  </span>
-                  <span className="trip-map-day-meta">{dayCaption(e)}</span>
+                  <span className="map-chip-dot" style={{ background: g.color }} />
+                  {g.label}
                 </button>
               ))}
-            </nav>
+            </div>
 
-            <div className="trip-map-panel">
-              <Suspense
-                fallback={
-                  <p className="trip-map-loading" aria-busy="true">
-                    Loading map…
-                  </p>
-                }
+            <p className="map-hint">
+              Pins are numbered in the order you reach each place. Tap several days to compare them.
+            </p>
+
+            <div className="map-extra-toggles">
+              <button
+                type="button"
+                className="fg-btn fg-btn--quiet"
+                aria-expanded={showDays}
+                onClick={() => setShowDays((s) => !s)}
               >
-                <TripMap
-                  days={shownDays}
-                  selectedDates={selectedDates}
-                  selectedId={selectedId}
-                  onSelect={setSelectedId}
-                />
-              </Suspense>
-              {!hasAnyPlace && (
-                <p className="trip-map-caption">
-                  No places yet. Add a location to a stay or activity and its pin appears here.
-                </p>
-              )}
-              {allHidden && (
-                <p className="trip-map-caption">
-                  {hideNotHappened
-                    ? 'Nothing here happened yet. Turn off “Hide what didn’t happen” to see the plan.'
-                    : 'Every place here was skipped. Turn on “Show skipped” to see them.'}
-                </p>
+                {showDays ? 'Hide single days' : 'Pick single days'}
+              </button>
+              {hasSkipped && (
+                <button
+                  type="button"
+                  className="fg-btn fg-btn--quiet"
+                  aria-pressed={showSkipped}
+                  onClick={() => setShowSkipped((s) => !s)}
+                >
+                  {showSkipped ? 'Hide skipped' : 'Show skipped'}
+                </button>
               )}
             </div>
+
+            {showDays && (
+              <nav className="map-days" aria-label="Days">
+                {entries.map((e) => {
+                  const n = e.waypoints.filter(Boolean).length
+                  return (
+                    <button
+                      key={e.date}
+                      type="button"
+                      className="map-day"
+                      aria-pressed={selectedDates.has(e.date)}
+                      disabled={n === 0}
+                      onClick={() => toggleDates([e.date])}
+                    >
+                      <span className="map-chip-dot" style={{ background: metas[e.index].color }} />
+                      <span className="map-day-label">
+                        Day {e.index + 1} · {fmtDay(e.date)}
+                      </span>
+                      <span className="map-day-meta">
+                        {e.status === 'no-places'
+                          ? 'No places yet'
+                          : e.status === 'unplaceable'
+                            ? 'Couldn’t place this day’s locations'
+                            : e.status === 'error'
+                              ? 'Couldn’t load positions'
+                              : `${n} ${n === 1 ? 'place' : 'places'}`}
+                      </span>
+                    </button>
+                  )
+                })}
+              </nav>
+            )}
           </div>
-        )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+// StaysView lists the trip's bases in order: where you sleep, for how many
+// nights, whether it's paid, and the runs of nights with no bed yet. Built
+// from the stays already on each day (stayCoverage) — nothing new is stored.
+function StaysView({ entries, metas }: { entries: DayEntry[]; metas: DayMeta[] }) {
+  const { trip } = useTripShell()
+  const dates = entries.map((e) => e.date)
+  const runs = stayRuns(
+    dates,
+    entries.map((e) => e.day),
+  )
+  const booked = runs
+    .filter((r) => r.kind === 'stay' && r.stay?.paid)
+    .reduce((n, r) => n + r.nights, 0)
+  const noBed = runs.filter((r) => r.kind === 'gap').reduce((n, r) => n + r.nights, 0)
+  const bases = runs.filter((r) => r.kind === 'stay').length
+  const transfers = entries.reduce(
+    (n, e) => n + e.day.plan_items.filter((i) => (i.kind ?? 'activity') === 'transport').length,
+    0,
+  )
+  const metaFor = (date: string) => metas[dates.indexOf(date)]
+
+  if (runs.length === 0) {
+    return <p className="fg-empty">A one-day trip has no nights to sleep anywhere.</p>
+  }
+
+  return (
+    <div className="stays-view">
+      <div className="fg-stats stays-stats" style={{ '--cols': 3 } as React.CSSProperties}>
+        <div className="fg-stat fg-stat--ok">
+          <span className="fg-stat-value">{booked}</span>
+          <span className="fg-stat-label">nights paid</span>
+        </div>
+        <div className={noBed > 0 ? 'fg-stat fg-stat--warn' : 'fg-stat'}>
+          <span className="fg-stat-value">{noBed}</span>
+          <span className="fg-stat-label">nights with no bed yet</span>
+        </div>
+        <div className="fg-stat">
+          <span className="fg-stat-value">{transfers > 0 ? transfers : bases}</span>
+          <span className="fg-stat-label">{transfers > 0 ? 'journeys' : 'bases'}</span>
+        </div>
       </div>
-    </article>
+
+      <ol className="stays-list" aria-label="Stays in order">
+        {runs.map((r) => {
+          const meta = metaFor(r.start)
+          const color = r.stay?.location
+            ? countryColor(meta?.country)
+            : (meta?.color ?? NO_COUNTRY_COLOR)
+          const range = `${rangeLabel(r.start, r.end)} · ${r.nights} ${r.nights === 1 ? 'night' : 'nights'}`
+          if (r.kind === 'gap') {
+            return (
+              <li key={`gap-${r.start}`} className="stays-item stays-item--gap">
+                <span className="stays-dot stays-dot--open" style={{ borderColor: color }} />
+                <span className="stays-body">
+                  <Link
+                    className="stays-name"
+                    to={`/trips/${trip.id}/days/${r.start}`}
+                    state={{ trip }}
+                  >
+                    {meta?.place || 'No stay yet'}
+                  </Link>
+                  <span className="stays-sub">{range}</span>
+                </span>
+                <span className="tag tag--warn">Find a bed</span>
+              </li>
+            )
+          }
+          const stay = r.stay!
+          const status = stay.paid ? 'Paid' : stay.cost ? 'To pay' : ''
+          return (
+            <li key={`${stay.id}-${r.start}`} className="stays-item">
+              <span className="stays-dot" style={{ background: color, borderColor: color }} />
+              <span className="stays-body">
+                <Link
+                  className="stays-name"
+                  to={`/trips/${trip.id}/days/${r.start}`}
+                  state={{ trip }}
+                >
+                  {stay.location ? stay.location.split(',')[0] : stay.name}
+                </Link>
+                <span className="stays-sub">
+                  {range}
+                  {stay.location ? ` · ${stay.name}` : ''}
+                  {stay.cost ? ` · ${euroWhole(stay.cost)}` : ''}
+                </span>
+              </span>
+              {status && (
+                <span className={stay.paid ? 'tag tag--ok' : 'tag tag--warn'}>{status}</span>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+    </div>
   )
 }

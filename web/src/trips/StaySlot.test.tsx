@@ -63,7 +63,9 @@ afterEach(() => cleanup())
 describe('StaySlot', () => {
   it('shows an add affordance when the night has no stay', () => {
     render(<StaySlot day={makeDay()} tripId="trip-1" setStays={vi.fn()} />)
-    expect(screen.getByRole('button', { name: /Add where you're staying/ })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Add where you’re staying tonight/ }),
+    ).toBeInTheDocument()
   })
 
   it('adds a stay and reflects it into the parent', async () => {
@@ -73,7 +75,7 @@ describe('StaySlot', () => {
     const setStays = vi.fn()
 
     render(<StaySlot day={makeDay()} tripId="trip-1" setStays={setStays} />)
-    await user.click(screen.getByRole('button', { name: /Add where you're staying/ }))
+    await user.click(screen.getByRole('button', { name: /Add where you’re staying tonight/ }))
     await user.type(screen.getByLabelText('Name'), 'Grand Hotel')
     await user.click(screen.getByRole('button', { name: 'Add stay' }))
 
@@ -82,7 +84,7 @@ describe('StaySlot', () => {
     expect(setStays).toHaveBeenCalledWith([created])
   })
 
-  it('labels the check-in night and the middle nights', () => {
+  it('shows a compact stay line: night x of y with check-in / check-out hints', () => {
     const stay = makeStay()
     const { rerender } = render(
       <StaySlot
@@ -91,7 +93,7 @@ describe('StaySlot', () => {
         setStays={vi.fn()}
       />,
     )
-    expect(screen.getByText('checking in')).toBeInTheDocument()
+    expect(screen.getByText('Night 1 of 3 · check in today')).toBeInTheDocument()
 
     rerender(
       <StaySlot
@@ -100,7 +102,9 @@ describe('StaySlot', () => {
         setStays={vi.fn()}
       />,
     )
-    expect(screen.getByText('night 2 of 3')).toBeInTheDocument()
+    expect(screen.getByText('Night 2 of 3')).toBeInTheDocument()
+    // No raw ISO dates on the line.
+    expect(screen.queryByText(/2026-06-01/)).not.toBeInTheDocument()
   })
 
   it('edits the existing stay', async () => {
@@ -121,13 +125,14 @@ describe('StaySlot', () => {
     expect(vi.mocked(api.updateStay).mock.calls[0][2]).toMatchObject({ name: 'Hotel Lisboa' })
   })
 
-  it('removes the stay', async () => {
+  it('removes the stay from its edit form', async () => {
     const user = userEvent.setup()
     vi.mocked(api.deleteStay).mockResolvedValue(undefined)
     const setStays = vi.fn()
 
     render(<StaySlot day={makeDay({ stays: [makeStay()] })} tripId="trip-1" setStays={setStays} />)
-    await user.click(screen.getByRole('button', { name: 'Remove' }))
+    await user.click(screen.getByRole('button', { name: 'Edit Hotel Paris' }))
+    await user.click(screen.getByRole('button', { name: 'Remove stay' }))
 
     await waitFor(() => expect(api.deleteStay).toHaveBeenCalledWith('trip-1', 'stay-1'))
     expect(setStays).toHaveBeenCalledWith([])
@@ -138,7 +143,7 @@ describe('StaySlot', () => {
     vi.mocked(api.createStay).mockRejectedValue(new api.StayOverlapError('overlap'))
 
     render(<StaySlot day={makeDay()} tripId="trip-1" setStays={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: /Add where you're staying/ }))
+    await user.click(screen.getByRole('button', { name: /Add where you’re staying tonight/ }))
     await user.type(screen.getByLabelText('Name'), 'Second Hotel')
     await user.click(screen.getByRole('button', { name: 'Add stay' }))
 
@@ -147,25 +152,26 @@ describe('StaySlot', () => {
     )
   })
 
-  it('marks a stay with a cost paid straight from the card', async () => {
+  it('shows a payment chip and marks the stay paid from its edit form', async () => {
     const user = userEvent.setup()
     const stay = makeStay({ cost: 120, paid: false })
     vi.mocked(api.updateStay).mockResolvedValue({ ...stay, paid: true })
     const setStays = vi.fn()
 
     render(<StaySlot day={makeDay({ stays: [stay] })} tripId="trip-1" setStays={setStays} />)
-    // Unpaid cost shows an "Upcoming" badge and a payment-state dropdown.
-    expect(screen.getByText('Upcoming', { selector: 'span' })).toBeInTheDocument()
-    await user.selectOptions(screen.getByRole('combobox', { name: /Payment/ }), 'paid')
+    expect(screen.getByText('To pay')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Edit Hotel Paris' }))
+    await user.click(screen.getByRole('checkbox', { name: /Paid/ }))
+    await user.click(screen.getByRole('button', { name: 'Save stay' }))
 
     await waitFor(() => expect(api.updateStay).toHaveBeenCalledTimes(1))
     expect(vi.mocked(api.updateStay).mock.calls[0][2]).toMatchObject({ paid: true, cost: 120 })
   })
 
-  it('hides the payment dropdown when the stay has no cost', () => {
+  it('shows no payment chip when the stay has no cost', () => {
     render(<StaySlot day={makeDay({ stays: [makeStay()] })} tripId="trip-1" setStays={vi.fn()} />)
-    expect(screen.queryByRole('combobox', { name: /Payment/ })).not.toBeInTheDocument()
-    expect(screen.queryByText('Upcoming')).not.toBeInTheDocument()
+    expect(screen.queryByText('To pay')).not.toBeInTheDocument()
+    expect(screen.queryByText('Paid')).not.toBeInTheDocument()
   })
 
   it('queues the add offline instead of calling the API', async () => {
@@ -174,7 +180,7 @@ describe('StaySlot', () => {
     const setStays = vi.fn()
 
     render(<StaySlot day={makeDay()} tripId="trip-1" setStays={setStays} />)
-    await user.click(screen.getByRole('button', { name: /Add where you're staying/ }))
+    await user.click(screen.getByRole('button', { name: /Add where you’re staying tonight/ }))
     await user.type(screen.getByLabelText('Name'), 'Offline Inn')
     await user.click(screen.getByRole('button', { name: 'Add stay' }))
 

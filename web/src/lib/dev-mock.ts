@@ -37,7 +37,7 @@ function richKyotoDay(date: string) {
         id: 'stay-1',
         trip_id: MOCK_CURRENT_TRIP_ID,
         name: 'Hotel Mume',
-        location: 'Gion district',
+        location: 'Gion, Kyoto, Japan',
         check_in: addDays(date, -2),
         check_out: addDays(date, 2),
         cost: 300,
@@ -137,7 +137,7 @@ function calmDay(date: string, offset: number) {
         id: `stay-${offset}`,
         trip_id: MOCK_CURRENT_TRIP_ID,
         name: 'Hotel Mume',
-        location: 'Gion district',
+        location: 'Gion, Kyoto, Japan',
         check_in: addDays(date, -offset),
         check_out: addDays(date, 5 - offset),
         cost: 0,
@@ -560,7 +560,7 @@ function resolve(path: string, method: string, search: string, body: unknown): R
 
   // /trips/:id/days/:date/journal/photos
   if (/\/trips\/[^/]+\/days\/[^/]+\/journal\/photos/.test(path)) {
-    if (method === 'GET') return json({ photos: [] })
+    if (method === 'GET') return json([])
     return json({}, 200)
   }
   // /trips/:id/days/:date/journal

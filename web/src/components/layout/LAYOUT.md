@@ -53,21 +53,26 @@ last row.
 
 Slots are optional: `AppLayout` with only `children` is a valid plain content shell.
 
-## Navigation chrome (S2)
+## Navigation chrome (field-guide redesign)
 
 `AuthenticatedLayout` is the route element wrapping every gated screen (see `App.tsx`).
-It fills `AppLayout`'s slots from one shared destination list
-([`navItems.ts`](./navItems.ts) → `PRIMARY_NAV_ITEMS`), so laptop and mobile navigate
-the same information architecture:
+One information architecture, one presentation per layout — never two navs at once:
 
-- **`SidebarNav`** — laptop sidebar: the primary destinations as a vertical list plus a
-  footer slot (sign out). Active route is `end`-matched for `/`.
-- **`BottomNav`** (Epic 02) — mobile bottom bar in the thumb zone; ≥48px tap targets.
-- **`ThumbFab`** — mobile-only floating primary action (e.g. _New trip_), pinned
-  bottom-right above the bottom nav with a ≥56px tap target and safe-area offset. Hidden
-  on laptop, where primary actions sit inline in the content.
+- **Desktop — `SidebarNav`**: the user's trips (upcoming, then a collapsible
+  "Past trips (n)"), with the open trip's sections nested under it — Days, Map & stays,
+  Journal, Money, Prep, Backlog (with count) — plus New trip and the profile footer.
+  There is no in-trip top tab bar.
+- **Phone, inside a trip — `BottomNav`**: five tabs, Days · Map · Journal · Money ·
+  Prep (`buildTripBottomNavItems`). Back to Trips and Share live in the trip header.
+- **Phone, outside a trip**: no bottom bar; the Trips screen header carries the profile
+  avatar, and Admin is reached from Profile.
 
-To change the destinations, edit `PRIMARY_NAV_ITEMS` once — both navs update.
+Section routes keep their historical paths (`/plan`, `/map`, `/journal`, `/budget` =
+Money, `/packing` = Prep, `/sharing`, `/backlog`). Edit sections once in
+[`navItems.ts`](./navItems.ts) (`buildTripSections`) — both navs follow.
+
+`active` state uses `aria-current="page"`. The bottom bar only reserves space
+(`--bottom-nav-height`) when it is rendered.
 
 ## Quick add/edit (S3)
 
