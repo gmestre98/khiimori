@@ -20,6 +20,7 @@ var _ packingStore = (*fakeStore)(nil)
 
 type fakeStore struct {
 	items     []Item
+	todos     []Todo
 	templates map[string]TemplateDetail // keyed by template id
 	seq       int
 }

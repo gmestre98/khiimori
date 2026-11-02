@@ -1125,6 +1125,36 @@
 .trip-packing-subtitle {
   margin: 0;
 }
+.trip-todos {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.todo-add .packing-add-meta {
+  grid-template-columns: 170px 1fr;
+}
+@media (max-width: 560px) {
+  .todo-add .packing-add-meta {
+    grid-template-columns: 1fr;
+  }
+  .todo-add .packing-add-note {
+    grid-column: auto;
+  }
+}
+.todo-group--overdue .packing-group-title {
+  color: var(--warn-ink);
+}
+.todo-due {
+  font-family: var(--font-label);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.todo-due--late {
+  color: var(--warn-ink);
+  font-weight: var(--fw-semi);
+}
 
 /* ── Trips dashboard ──────────────────────────────────────────────────────── */
 .trips-page {

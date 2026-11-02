@@ -109,7 +109,7 @@ func newIntegServer(t *testing.T, callerID string) *httptest.Server {
 		t.Skip("DATABASE_URL_TEST not set; skipping packing integration test")
 	}
 	_, err := testPool.Exec(context.Background(),
-		`TRUNCATE packing.template_items, packing.templates, packing.items, trip.trips, sharing.trip_memberships RESTART IDENTITY`)
+		`TRUNCATE packing.todos, packing.template_items, packing.templates, packing.items, trip.trips, sharing.trip_memberships RESTART IDENTITY CASCADE`)
 	if err != nil {
 		t.Fatalf("truncating tables: %v", err)
 	}

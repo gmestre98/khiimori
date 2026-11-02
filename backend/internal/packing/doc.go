@@ -2,7 +2,9 @@
 // traveller needs to bring, grouped by category and checked off as they are
 // packed. It also owns reusable packing templates — named lists a user can copy
 // into any trip so common kits (e.g. cold-weather safety gear) need not be
-// retyped each trip.
+// retyped each trip. Alongside the list it owns the trip's to-dos (packing.todos):
+// things to get done before or during the trip, each with an optional due date.
+// Together they back the trip's Prep tab.
 //
 // Like the other domain modules it owns its own Postgres schema (packing) and
 // declares a consumer-side Authorizer so it never imports the trip or sharing

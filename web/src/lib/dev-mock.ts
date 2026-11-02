@@ -412,6 +412,85 @@ function templateMeta(t: MockTemplate) {
   }
 }
 
+// --- Trip to-dos mock state ---
+type MockTodo = {
+  id: string
+  trip_id: string
+  title: string
+  note: string
+  due_date: string | null
+  done: boolean
+  position: number
+  created_at: string
+  updated_at: string
+}
+let todoSeq = 0
+// mockDate offsets the mock trip's start by `days` (YYYY-MM-DD).
+function mockDate(days: number): string {
+  const d = new Date(MOCK_TRIP_START + 'T00:00:00')
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+function mkTodo(partial: Partial<MockTodo>): MockTodo {
+  todoSeq += 1
+  return {
+    id: `td-${todoSeq}`,
+    trip_id: MOCK_CURRENT_TRIP_ID,
+    title: '',
+    note: '',
+    due_date: null,
+    done: false,
+    position: todoSeq,
+    created_at: nowIso(),
+    updated_at: nowIso(),
+    ...partial,
+  }
+}
+const todos: MockTodo[] = [
+  mkTodo({ title: 'Book the tea ceremony', due_date: mockDate(-10), done: true }),
+  mkTodo({
+    title: 'Reserve the ryokan dinner',
+    note: 'Ask for the kaiseki menu',
+    due_date: mockDate(-1),
+  }),
+  mkTodo({ title: 'Buy the JR Pass', due_date: mockDate(6) }),
+  mkTodo({ title: 'Print hotel confirmations' }),
+]
+// sortTodos mirrors the server: soonest deadline first, undated last.
+function sortTodos(list: MockTodo[]): MockTodo[] {
+  return [...list].sort((a, b) => {
+    if (!a.due_date !== !b.due_date) return a.due_date ? -1 : 1
+    if (a.due_date !== b.due_date) return (a.due_date ?? '') < (b.due_date ?? '') ? -1 : 1
+    return a.position - b.position
+  })
+}
+
+function resolveTodos(path: string, method: string, body: unknown): Response | null {
+  const one = path.match(/\/trips\/[^/]+\/todos\/([^/]+)$/)
+  if (one) {
+    const idx = todos.findIndex((t) => t.id === one[1])
+    if (method === 'PATCH') {
+      if (idx < 0) return json({ error: { message: 'not found' } }, 404)
+      todos[idx] = { ...todos[idx], ...(body as Partial<MockTodo>), updated_at: nowIso() }
+      return json(todos[idx])
+    }
+    if (method === 'DELETE') {
+      if (idx >= 0) todos.splice(idx, 1)
+      return new Response(null, { status: 204 })
+    }
+  }
+  if (/\/trips\/[^/]+\/todos$/.test(path)) {
+    if (method === 'GET') return json(sortTodos(todos))
+    if (method === 'POST') {
+      const b = (body ?? {}) as Partial<MockTodo>
+      const t = mkTodo({ title: b.title ?? '', note: b.note ?? '', due_date: b.due_date || null })
+      todos.push(t)
+      return json(t, 201)
+    }
+  }
+  return null
+}
+
 function resolvePacking(path: string, method: string, body: unknown): Response | null {
   // Apply a template into a trip.
   if (/\/trips\/[^/]+\/packing\/apply-template$/.test(path) && method === 'POST') {
@@ -509,6 +588,12 @@ function json(body: unknown, status = 200): Response {
 function resolve(path: string, method: string, search: string, body: unknown): Response | null {
   // /me — auth probe
   if (path === '/me') return json(profile)
+
+  // Trip to-dos (stateful in-memory mock).
+  if (path.includes('/todos')) {
+    const res = resolveTodos(path, method, body)
+    if (res) return res
+  }
 
   // Packing list + templates (stateful in-memory mock).
   if (path.includes('/packing') || path.startsWith('/packing/')) {
