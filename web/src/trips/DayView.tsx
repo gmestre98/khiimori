@@ -1,24 +1,17 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useLocation, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { collectLocatedItems, type ItemOrder } from './locatedItems'
 import { StaySlot } from './StaySlot'
 import {
-  BUDGET_CATEGORIES,
   UnauthorizedError,
-  fetchBudgetRollup,
   fetchDay,
-  listCostEntries,
   reorderPlanItems,
   reorderPlanItemsActual,
   datesInRange,
-  type BudgetLine,
-  type BudgetRollup,
-  type CostEntry,
   type Day,
   type PlanItem,
   type Stay,
 } from '../lib/api'
-import { euro } from '../lib/format'
 import { enqueue } from '../lib/mutationQueue'
 import { useIsOnline } from '../lib/useIsOnline'
 import { readCache, writeCache } from '../lib/resourceCache'
@@ -27,10 +20,6 @@ import { CacheStatus } from '../components/CacheStatus'
 import { Icon, type IconName } from '../components/ui/Icon'
 import { DateBox } from '../components/ui/DateBox'
 import { JournalEditor } from '../journal/JournalEditor'
-import { AddCostForm, CostEntryItem } from './FastAddCost'
-import { DayExtraEditor } from './BudgetEditor'
-import { DayRollup } from './RollupDisplay'
-import { dayBudgetTotal, patchRollupPlanned } from './budgetModel'
 import { useTripShell } from './useTripShell'
 import { QuickAddForm } from './PlanItemForm'
 import { PlanItemDetails } from './PlanItemDetails'
@@ -660,21 +649,14 @@ function JournalPanel({
   tripId,
   plan,
   onOpen,
-  compact = false,
 }: {
   day: Day
   tripId: string
   plan: PlanState
   onOpen: (item: PlanItem) => void
-  compact?: boolean
 }) {
   return (
-    <section
-      className={compact ? 'day-journal day-journal--rail' : 'day-journal'}
-      aria-label="Journal"
-      data-slot="journal"
-    >
-      {compact && <h2 className="fg-label">Journal</h2>}
+    <section className="day-journal" aria-label="Journal" data-slot="journal">
       <JournalEditor tripId={tripId} dayId={day.id} readOnly={false} photosFirst />
       <div className="day-happened">
         <h3 className="fg-label">What happened</h3>
@@ -695,263 +677,6 @@ function JournalPanel({
           />
         )}
         <QuickAddForm tripId={tripId} dayId={day.id} onAdded={plan.handleAdded} logDone />
-      </div>
-    </section>
-  )
-}
-
-// DayBudgetStrip is the budget presence on the streamlined day screen: how the
-// day is doing against its budget (spent vs planned, per category, via
-// DayRollup) plus quick-add for a cost, with a link to the whole-trip Budget tab
-// for deeper setup. The full per-day budget *editor* lives on the Budget tab, so
-// the day screen shows the day's budget without re-hosting the setup UI.
-// DayCostBreakdown is the single itemised list of everything that makes up the
-// day's spend: costs attached to plan items (an activity/transport leg with a
-// price) and manually-logged cost entries, merged into one list and sorted by
-// category so like costs sit together. It replaces the earlier split ("From
-// activities" list + a separate logged-entries list with its own subtotal), which
-// stacked two headers and echoed the same numbers — confusing to read. Manually
-// logged rows stay editable inline (CostEntryItem); activity rows are read-only
-// (edit the amount on the item in the plan) and a not-yet-done one is tagged
-// "upcoming" since it isn't spent yet. Skipped/cancelled activities are excluded.
-function DayCostBreakdown({
-  planItems,
-  entries,
-  onEntryUpdated,
-  onEntryDeleted,
-  isOnline,
-}: {
-  planItems: PlanItem[]
-  entries: CostEntry[]
-  onEntryUpdated: (e: CostEntry) => void
-  onEntryDeleted: (id: string) => void
-  isOnline: boolean
-}) {
-  const order = (cat: string) => {
-    const i = (BUDGET_CATEGORIES as readonly string[]).indexOf(cat)
-    return i === -1 ? BUDGET_CATEGORIES.length : i
-  }
-  const activityRows = planItems
-    .filter((i) => (i.cost ?? 0) > 0 && i.status !== 'skipped' && i.status !== 'cancelled')
-    .map((i) => ({
-      key: `item-${i.id}`,
-      category: i.type || 'Other',
-      amount: i.cost as number,
-      label: i.title,
-      upcoming: i.status !== 'done',
-      entry: null as CostEntry | null,
-    }))
-  const entryRows = entries.map((e) => ({
-    key: `entry-${e.id}`,
-    category: e.category as string,
-    amount: e.amount,
-    label: e.note || e.category,
-    upcoming: false,
-    entry: e,
-  }))
-  // Concatenate activities first, then a stable sort by category, so within a
-  // category the plan's costs read before the manually-logged ones.
-  const rows = [...activityRows, ...entryRows].sort((a, b) => order(a.category) - order(b.category))
-  if (rows.length === 0) return null
-
-  return (
-    <div className="day-cost-breakdown">
-      <div className="eyebrow day-cost-breakdown-head">Costs</div>
-      <ul className="cost-entry-list" aria-label="Day costs">
-        {rows.map((r) =>
-          r.entry ? (
-            <CostEntryItem
-              key={r.key}
-              entry={r.entry}
-              onUpdated={onEntryUpdated}
-              onDeleted={onEntryDeleted}
-              isOnline={isOnline}
-            />
-          ) : (
-            <li key={r.key} className="cost-entry cost-entry--readonly">
-              <span className="cost-entry-category">{r.category}</span>
-              <span className="cost-entry-amount">{euro(r.amount)}</span>
-              <span className="cost-entry-note">{r.label}</span>
-              {r.upcoming && <span className="day-activity-cost-upcoming meta">upcoming</span>}
-            </li>
-          ),
-        )}
-      </ul>
-    </div>
-  )
-}
-
-function DayBudgetStrip({
-  tripId,
-  day,
-  planItems,
-}: {
-  tripId: string
-  day: Day
-  // planItems is the day's live plan items; a change to any item's cost or status
-  // (e.g. marking a "what happened" item done) shifts the day's spent/upcoming
-  // totals, so the strip watches them to refresh the rollup — otherwise those
-  // costs would only appear after a full page reload, not when logged as expenses.
-  planItems: PlanItem[]
-}) {
-  const isOnline = useIsOnline()
-  const [rollup, setRollup] = useState<BudgetRollup | null>(null)
-  const [entries, setEntries] = useState<CostEntry[]>([])
-  const [extraOpen, setExtraOpen] = useState(false)
-
-  const loadRollup = useCallback(
-    (signal?: AbortSignal) => {
-      fetchBudgetRollup(tripId, signal)
-        .then((r) => {
-          setRollup(r)
-          void writeCache(cacheKeys.budgetRollup(tripId), r)
-        })
-        .catch((err: unknown) => {
-          if (err instanceof DOMException && err.name === 'AbortError') return
-        })
-    },
-    [tripId],
-  )
-
-  // loadEntries fetches the trip's manually-logged cost entries and keeps only
-  // this day's, so expenses logged on an earlier visit show in the list when the
-  // day is reopened — not just the ones added in the current session. Cost entries
-  // are stored per trip, so we filter by day_id here. The full list is cached
-  // (matching the service worker's key) so an offline reopen still shows them.
-  const loadEntries = useCallback(
-    (signal?: AbortSignal) => {
-      listCostEntries(tripId, signal)
-        .then((all) => {
-          void writeCache(cacheKeys.costEntries(tripId), all)
-          setEntries(all.filter((e) => e.day_id === day.id))
-        })
-        .catch((err: unknown) => {
-          if (err instanceof DOMException && err.name === 'AbortError') return
-        })
-    },
-    [tripId, day.id],
-  )
-
-  // applyOfflineLine reflects a day extra saved offline into the rollup + cache so
-  // it shows immediately and survives an offline reload (mirrors TripBudgetPage).
-  const applyOfflineLine = useCallback(
-    (line: BudgetLine) => {
-      setRollup((cur) => {
-        const patched = patchRollupPlanned(cur, line)
-        if (patched) void writeCache(cacheKeys.budgetRollup(tripId), patched)
-        return patched
-      })
-    },
-    [tripId],
-  )
-
-  useEffect(() => {
-    const controller = new AbortController()
-    let done = false
-    // Instant-render: seed the roll-up from cache, then refresh. Sequencing the
-    // fetch after the cache read means a slow fresh response can't be overwritten
-    // by a late-arriving cached value.
-    void readCache<BudgetRollup>(cacheKeys.budgetRollup(tripId)).then((cached) => {
-      if (done) return
-      if (cached) setRollup(cached.data)
-      loadRollup(controller.signal)
-    })
-    // Same instant-render sequence for this day's logged cost entries: seed the
-    // list from the cached trip entries (filtered to this day), then refresh.
-    void readCache<CostEntry[]>(cacheKeys.costEntries(tripId)).then((cached) => {
-      if (done) return
-      if (cached) setEntries(cached.data.filter((e) => e.day_id === day.id))
-      loadEntries(controller.signal)
-    })
-    return () => {
-      done = true
-      controller.abort()
-    }
-  }, [loadRollup, loadEntries, day.id, tripId])
-
-  // Refresh the rollup when a plan item's cost or status changes — a "what
-  // happened" item marked done (or given a cost) counts as spent, so the day
-  // total must move without waiting for a full reload. We watch only the
-  // cost/status signature so unrelated edits (title, time, reorder) don't refetch.
-  const costSignature = planItems.map((i) => `${i.id}:${i.cost ?? 0}:${i.status}`).join('|')
-  const lastCostSignature = useRef(costSignature)
-  useEffect(() => {
-    if (costSignature === lastCostSignature.current) return
-    lastCostSignature.current = costSignature
-    loadRollup()
-  }, [costSignature, loadRollup])
-
-  function handleEntryAdded(entry: CostEntry) {
-    setEntries((prev) => [...prev, entry])
-    loadRollup()
-  }
-
-  function handleEntryUpdated(entry: CostEntry) {
-    setEntries((prev) => prev.map((e) => (e.id === entry.id ? entry : e)))
-    loadRollup()
-  }
-
-  function handleEntryDeleted(id: string) {
-    setEntries((prev) => prev.filter((e) => e.id !== id))
-    loadRollup()
-  }
-
-  const daySpent = rollup?.by_day?.[day.id] ?? 0
-  const dayBudget = rollup ? dayBudgetTotal(rollup, day.id) : 0
-  const dayUpcoming = rollup?.estimated_by_day?.[day.id] ?? 0
-  // DayRollup renders nothing when the day has no spend/budget/estimate; mirror
-  // its condition so we can show a hint instead of an empty budget section.
-  const hasBudgetData = daySpent > 0 || dayBudget > 0 || dayUpcoming > 0
-
-  return (
-    <section className="day-slot day-slot-budget" aria-label="Budget" data-slot="budget">
-      <div className="day-slot-title-row">
-        <h2 className="day-slot-title">Budget</h2>
-        <Link to={`/trips/${tripId}/budget`} className="day-budget-more">
-          Open Budget ↗
-        </Link>
-      </div>
-      {rollup && hasBudgetData ? (
-        <DayRollup rollup={rollup} dayId={day.id} />
-      ) : (
-        <p className="day-budget-empty meta">Nothing spent or budgeted for this day yet.</p>
-      )}
-
-      <DayCostBreakdown
-        planItems={planItems}
-        entries={entries}
-        onEntryUpdated={handleEntryUpdated}
-        onEntryDeleted={handleEntryDeleted}
-        isOnline={isOnline}
-      />
-
-      <div className="day-budget-actions">
-        {!isOnline && (
-          <p className="fast-add-cost-offline">Offline — changes will sync when reconnected.</p>
-        )}
-        <AddCostForm
-          tripId={tripId}
-          dayId={day.id}
-          defaultCategory="Other"
-          isOnline={isOnline}
-          onAdded={handleEntryAdded}
-        />
-        <button
-          type="button"
-          className="day-budget-extra-toggle"
-          onClick={() => setExtraOpen((o) => !o)}
-          aria-expanded={extraOpen}
-        >
-          {extraOpen ? 'Done' : '+ Add extra to a category'}
-        </button>
-        {extraOpen && (
-          <DayExtraEditor
-            tripId={tripId}
-            dayId={day.id}
-            rollup={rollup}
-            onChanged={(line) => (line ? applyOfflineLine(line) : loadRollup())}
-          />
-        )}
       </div>
     </section>
   )
@@ -986,7 +711,11 @@ function MapSlot({
   )
 }
 
-type DayMode = 'plan' | 'journal'
+// DayVariant: the same day screen serves the Days tab (the plan) and the
+// Journal tab (photos, diary and what happened). Each tab owns one; there is
+// no Plan / Journal switch and no budget block on the day — money lives in
+// the Money tab only.
+export type DayVariant = 'plan' | 'journal'
 
 // useIsWide is true at the desktop layout (≥1024px), where the day shows its
 // plan with a right rail (stay, journal, money, map) instead of the phone's
@@ -1004,19 +733,19 @@ function useIsWide(): boolean {
 }
 
 // DayView renders a single trip day (/trips/:tripId/days/:date): date box +
-// country + place, a compact stay line, then on phones a Plan / Journal switch
+// country + place, a compact stay line, then (variant 'plan') the tick-to-done
+// plan with a pinned add bar, or (variant 'journal') photos, diary and what
+// happened. Legacy note from the switch era:
 // (tick-to-done plan with a pinned add bar · photos, diary and what happened),
 // and on desktop the plan beside a rail with the stay, journal, money and map.
 // Tapping an item's name opens the Plan details sheet.
-export function DayView() {
+export function DayView({ variant = 'plan' }: { variant?: DayVariant } = {}) {
   const { tripId, date } = useParams<{ tripId: string; date: string }>()
   const { trip, tripDays } = useTripShell()
-  const location = useLocation()
   const wide = useIsWide()
   const mobile = useMobile()
-  const initialMode =
-    (location.state as { view?: DayMode } | null)?.view === 'journal' ? 'journal' : 'plan'
-  const [mode, setMode] = useState<DayMode>(initialMode)
+  const journal = variant === 'journal'
+  const section = journal ? 'journal' : 'days'
 
   const [day, setDay] = useState<Day | null>(null)
   const [planItems, setPlanItems] = useState<PlanItem[]>([])
@@ -1152,8 +881,8 @@ export function DayView() {
     })
     return (
       <Link
-        to={`/trips/${trip.id}/days/${target}`}
-        state={{ trip, view: mode }}
+        to={`/trips/${trip.id}/${section}/${target}`}
+        state={{ trip }}
         className="fg-icon-btn"
         aria-label={`${label}, ${d}`}
       >
@@ -1165,9 +894,13 @@ export function DayView() {
   const header = (
     <>
       <div className="day-topbar">
-        <Link to={`/trips/${trip.id}/plan`} state={{ trip }} className="fg-back day-topbar-back">
+        <Link
+          to={`/trips/${trip.id}/${journal ? 'journal' : 'plan'}`}
+          state={{ trip }}
+          className="fg-back day-topbar-back"
+        >
           <Icon name="back" size={18} />
-          All days
+          {journal ? 'Journal' : 'All days'}
         </Link>
         <nav className="day-topbar-nav" aria-label="Day navigation">
           {navLink(prevDate, 'prev')}
@@ -1229,12 +962,8 @@ export function DayView() {
         tripId={tripId}
         plan={state}
         onOpen={(i) => setOpenItemId(i.id)}
-        compact={wide}
       />
     ) : null
-
-  const budget =
-    day && tripId ? <DayBudgetStrip tripId={tripId} day={day} planItems={planItems} /> : null
 
   return (
     <article
@@ -1252,7 +981,12 @@ export function DayView() {
         </p>
       )}
 
-      {wide ? (
+      {journal ? (
+        <div className={wide ? 'day-journal-page day-journal-page--wide' : 'day-journal-page'}>
+          {header}
+          {journalPanel}
+        </div>
+      ) : wide ? (
         <div className="day-desk">
           <div className="day-desk-main fg-card">
             {header}
@@ -1261,8 +995,6 @@ export function DayView() {
           </div>
           <aside className="day-desk-rail" aria-label="About this day">
             {staySlot}
-            {journalPanel}
-            {budget}
             <MapSlot day={liveDay} selectedId={selectedId} onSelect={setSelectedId} />
           </aside>
         </div>
@@ -1271,45 +1003,18 @@ export function DayView() {
           {header}
           {staySlot}
           {day?.notes && <p className="day-view-notes">{day.notes}</p>}
-          <div className="seg seg--block" role="group" aria-label="Day view">
-            <button
-              type="button"
-              className="seg-btn"
-              aria-pressed={mode === 'plan'}
-              onClick={() => setMode('plan')}
-            >
-              Plan{state.planItems.length > 0 ? ` · ${state.planItems.length}` : ''}
-            </button>
-            <button
-              type="button"
-              className="seg-btn"
-              aria-pressed={mode === 'journal'}
-              onClick={() => setMode('journal')}
-            >
-              Journal
-            </button>
-          </div>
-          {mode === 'plan' ? (
-            <>
-              {planPanel}
-              {budget}
-              {!mobile && (
-                <MapSlot day={liveDay} selectedId={selectedId} onSelect={setSelectedId} />
-              )}
-              <Link
-                to={`/trips/${trip.id}/map?day=${date}`}
-                state={{ trip }}
-                className="fg-link-card day-map-link"
-              >
-                <span className="fg-link-card-title">See this day on the map</span>
-                <Icon name="chevron-right" size={16} />
-              </Link>
-              {liveDay && tripId && (
-                <DayAddBar day={liveDay} tripId={tripId} plan={state} weekday={weekday} />
-              )}
-            </>
-          ) : (
-            journalPanel
+          {planPanel}
+          {!mobile && <MapSlot day={liveDay} selectedId={selectedId} onSelect={setSelectedId} />}
+          <Link
+            to={`/trips/${trip.id}/map?day=${date}`}
+            state={{ trip }}
+            className="fg-link-card day-map-link"
+          >
+            <span className="fg-link-card-title">See this day on the map</span>
+            <Icon name="chevron-right" size={16} />
+          </Link>
+          {liveDay && tripId && (
+            <DayAddBar day={liveDay} tripId={tripId} plan={state} weekday={weekday} />
           )}
         </div>
       )}

@@ -718,16 +718,11 @@
   gap: 16px;
 }
 .day-desk-rail > .day-stays-section .stay-line,
-.day-journal--rail,
-.day-rail-card,
-.day-desk-rail .day-slot-budget {
+.day-rail-card {
   padding: 14px 16px;
   border-radius: 14px;
   background: var(--surface);
   border: 1px solid var(--line);
-}
-.day-journal--rail .journal-body {
-  background: var(--bg);
 }
 .day-rail-card {
   display: flex;
@@ -1874,4 +1869,15 @@
   color: var(--on-fill);
   border-color: transparent;
   font-weight: var(--fw-semi);
+}
+
+/* ── A day's journal (Journal tab) ────────────────────────────────────────── */
+.day-journal-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 4px 20px 24px;
+}
+.day-journal-page--wide {
+  max-width: 760px;
 }

@@ -86,8 +86,8 @@ export function TripJournalPage() {
       )}
 
       <Link
-        to={`/trips/${trip.id}/days/${target}`}
-        state={{ trip, view: 'journal' }}
+        to={`/trips/${trip.id}/journal/${target}`}
+        state={{ trip }}
         className="fg-btn fg-btn--primary journal-write-btn"
       >
         <Icon name="camera" size={18} />
