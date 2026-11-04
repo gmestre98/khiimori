@@ -1372,7 +1372,7 @@ describe('DayView', () => {
       onLine.mockRestore()
     })
 
-    it('renders transport legs as indented rows with a tag', async () => {
+    it('renders transport legs like any other row, with a tag', async () => {
       const leg = makePlanItem({
         id: 't1',
         title: 'Ferry to Gorée',
@@ -1383,7 +1383,15 @@ describe('DayView', () => {
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [leg] }))
       renderDayView()
       const row = await screen.findByLabelText('Ferry to Gorée')
-      expect(row).toHaveClass('plan-row--leg')
+      // Same row, tick and spacing as every other item (no indent, no small tick).
+      expect(row).toHaveClass('plan-row')
+      expect(row).not.toHaveClass('plan-row--leg')
+      expect(within(row).getByRole('button', { name: 'Mark done: Ferry to Gorée' })).toHaveClass(
+        'tick',
+      )
+      expect(
+        within(row).getByRole('button', { name: 'Mark done: Ferry to Gorée' }),
+      ).not.toHaveClass('tick--sm')
       expect(within(row).getByText('Ferry')).toBeInTheDocument()
       expect(within(row).getByText('Dakar port → Gorée')).toBeInTheDocument()
     })

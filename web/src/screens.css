@@ -628,9 +628,6 @@
 .day-desk-main .plan-row {
   background: var(--surface);
 }
-.plan-row--leg {
-  padding: 4px 0 4px 18px;
-}
 .plan-row--selected {
   box-shadow: inset 3px 0 0 var(--accent);
 }
@@ -672,11 +669,6 @@
 }
 .plan-row-title:hover {
   color: var(--accent);
-}
-.plan-row--leg .plan-row-title {
-  font-size: 14px;
-  font-weight: var(--fw-med);
-  min-height: 28px;
 }
 .plan-row--done .plan-row-title,
 .plan-row--inactive .plan-row-title {

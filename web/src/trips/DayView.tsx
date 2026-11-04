@@ -175,7 +175,6 @@ function PlanRow({
       ref={rowRef}
       className={[
         'plan-row',
-        kind === 'transport' ? 'plan-row--leg' : '',
         done ? 'plan-row--done' : '',
         inactive ? 'plan-row--inactive' : '',
         isTouchDragging ? 'plan-row--dragging' : '',
@@ -198,7 +197,7 @@ function PlanRow({
       ) : (
         <button
           type="button"
-          className={kind === 'transport' ? 'tick tick--sm' : 'tick'}
+          className="tick"
           aria-pressed={done}
           aria-label={`${done ? 'Mark not done' : 'Mark done'}: ${item.title}`}
           onClick={onToggle}
