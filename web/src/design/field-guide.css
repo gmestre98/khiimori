@@ -2,8 +2,8 @@
  * Field-guide primitives — the shared visual vocabulary of the redesign.
  * Screens compose these; all values come from tokens.css.
  *
- *   .fg-display    Gloock display type (page titles, big dates, place names)
- *   .fg-label      JetBrains Mono small caps label (times, counts, eyebrows)
+ *   .fg-display    Newsreader display type (page titles, big dates, place names)
+ *   .fg-label      IBM Plex Mono small caps label (times, counts, eyebrows)
  *   .date-box      the signature: serif day number over a mono weekday with a
  *                  3px right border in the day's country colour
  *   .seg           segmented control (role="group", buttons with aria-pressed)
@@ -16,14 +16,15 @@
 
 .fg-display {
   font-family: var(--font-display);
-  font-weight: 400;
-  letter-spacing: 0;
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   color: var(--ink);
 }
 
 .fg-page-title {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   font-size: 34px;
   line-height: 1.05;
   margin: 0;
@@ -75,6 +76,8 @@
 }
 .date-box-num {
   font-family: var(--font-display);
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   font-size: 22px;
   line-height: 1;
 }
@@ -462,6 +465,8 @@
 }
 .fg-stat-value {
   font-family: var(--font-display);
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   font-size: 22px;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;

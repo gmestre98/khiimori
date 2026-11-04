@@ -16,8 +16,8 @@
   font-family: var(--font-display);
   font-size: 34px;
   line-height: 1.05;
-  font-weight: 400;
-  letter-spacing: 0;
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   margin: 0;
 }
 @media (min-width: 1024px) {

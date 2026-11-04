@@ -276,7 +276,8 @@
   margin: 0;
   font-family: var(--font-display);
   font-size: 26px;
-  font-weight: 400;
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   line-height: 1.15;
 }
 .profile-hero-email {
@@ -1243,8 +1244,8 @@
   font-family: var(--font-display);
   font-size: 30px;
   line-height: 1.05;
-  font-weight: 400;
-  letter-spacing: 0;
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   color: #fff;
   text-shadow: 0 1px 14px rgba(0, 0, 0, 0.28);
 }
@@ -5435,7 +5436,8 @@
   line-height: 1.05;
   color: var(--ink);
   margin: 0 0 3px;
-  font-weight: 400;
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
 }
 .admin-top p {
   margin: 0;

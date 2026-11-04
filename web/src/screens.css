@@ -35,7 +35,8 @@
 }
 .trip-header-name {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   font-size: 31px;
   line-height: 1.05;
   margin: 0;
@@ -222,6 +223,8 @@
 }
 .day-glance-num {
   font-family: var(--font-display);
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   font-size: 18px;
   line-height: 1;
 }
@@ -443,7 +446,8 @@
 }
 .day-title-place {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   font-size: 32px;
   line-height: 1.05;
   margin: 0;
@@ -489,6 +493,8 @@
   background: var(--surface);
   color: var(--ink);
   font-family: var(--font-display);
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   font-size: 26px;
   line-height: 1.15;
 }
@@ -972,6 +978,8 @@
 }
 .details-body .plan-item-form-title {
   font-family: var(--font-display);
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   font-size: 26px;
   border: 0;
   border-bottom: 1px solid var(--line);
@@ -1118,7 +1126,8 @@
 }
 .journal-entry-place {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   font-size: 22px;
   margin: 0;
 }
@@ -1370,7 +1379,8 @@
 }
 .trips-title {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   font-size: 46px;
   line-height: 1;
   margin: 0;
@@ -1427,7 +1437,8 @@
 }
 .featured-name {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   font-size: 28px;
   line-height: 1.05;
   margin: 0;
@@ -1591,6 +1602,8 @@
 }
 .past-year-num {
   font-family: var(--font-display);
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   font-size: 22px;
 }
 .past-year-count {
@@ -1966,7 +1979,8 @@
 }
 .backlog-group-title {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   font-size: 20px;
   margin: 0;
 }

@@ -79,14 +79,16 @@
   --cat-other: #5b6670;
 
   /* ---- Typography ---- */
-  /* Self-hosted (src/fonts.ts): Gloock for display, Instrument Sans (variable,
-     400–700) for text, JetBrains Mono (variable) for labels. */
-  --font-display: 'Gloock', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  /* "Travel journal" type, self-hosted (src/fonts.ts): Newsreader for display
+     (titles, day numbers, money), Public Sans for text, IBM Plex Mono for
+     labels. Display is set at --fw-display with a slight negative tracking. */
+  --font-display: 'Newsreader Variable', 'Newsreader', 'Iowan Old Style', Georgia, serif;
   --font:
-    'Instrument Sans Variable', 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
-    Roboto, Helvetica, Arial, sans-serif;
-  --font-label:
-    'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    'Public Sans Variable', 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-label: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --fw-display: 500;
+  --ls-display: -0.01em;
   --font-num: var(--font);
   --t-display: 34px;
   --t-display-lh: 36px;
