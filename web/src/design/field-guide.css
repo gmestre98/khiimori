@@ -229,9 +229,6 @@
   cursor: progress;
   opacity: 0.6;
 }
-.tick--sm::before {
-  inset: 10px;
-}
 
 /* ── Cards & rows ─────────────────────────────────────────────────────────── */
 .fg-card {
