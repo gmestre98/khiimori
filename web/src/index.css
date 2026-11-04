@@ -17,7 +17,7 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  /* Never fake a weight or slant the fonts don't have (Gloock is regular only):
+  /* Never fake a weight or slant the fonts don't have (e.g. an italic that is not bundled):
      a faux bold looks smeared and is the main source of "inconsistent" type. */
   font-synthesis: none;
 }
@@ -61,8 +61,8 @@ h1 {
   font-family: var(--font-display);
   font-size: var(--t-h1);
   line-height: var(--t-h1-lh);
-  font-weight: 400;
-  letter-spacing: 0;
+  font-weight: var(--fw-display);
+  letter-spacing: var(--ls-display);
   color: var(--ink);
   margin: 0;
 }

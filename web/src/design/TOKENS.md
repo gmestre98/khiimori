@@ -50,9 +50,9 @@ sea-salt — never use it for text). They are lightened in dark mode.
 ## Typography
 
 ```
---font-display  Gloock            page titles, big dates, place names
---font          Instrument Sans   body and UI
---font-label    JetBrains Mono    small uppercase labels, times, durations, counts
+--font-display  Newsreader        page titles, big dates, place names, money (weight --fw-display)
+--font          Public Sans       body and UI
+--font-label    IBM Plex Mono     small uppercase labels, times, durations, counts
 ```
 
 Helpers: `.fg-page-title`, `.fg-display`, `.fg-label`, `.fg-meta`.
