@@ -44,5 +44,12 @@ func (m *Module) handleGetRollup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, computeRollup(external, entries, lines))
+	packages, err := m.store.ListPackages(r.Context(), tripID)
+	if err != nil {
+		platformlog.FromContext(r.Context()).Error("budget: list packages", "err", err.Error())
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusInternalServerError, "internal_error", "internal error"))
+		return
+	}
+
+	writeJSON(w, http.StatusOK, computeRollup(external, entries, lines, packages))
 }

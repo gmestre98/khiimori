@@ -14,6 +14,7 @@ import {
 import { buildDayMetas, stayRuns, type DayMeta } from './tripDays'
 import { useTripShell } from './useTripShell'
 import type { TripDayMarkers } from './TripMap'
+import { isPaid, packageForStay, usePackages } from './packages'
 
 const TripMap = lazy(() => import('./TripMap'))
 
@@ -393,13 +394,19 @@ export function TripMapPage() {
 // from the stays already on each day (stayCoverage) — nothing new is stored.
 function StaysView({ entries, metas }: { entries: DayEntry[]; metas: DayMeta[] }) {
   const { trip } = useTripShell()
+  const packages = usePackages(trip.id)
   const dates = entries.map((e) => e.date)
   const runs = stayRuns(
     dates,
     entries.map((e) => e.day),
   )
+  // A stay a paid package covers counts as paid.
+  const covered = (id: string) => {
+    const p = packageForStay(packages, id)
+    return p ? { pkg: p, paid: isPaid(p) } : null
+  }
   const booked = runs
-    .filter((r) => r.kind === 'stay' && r.stay?.paid)
+    .filter((r) => r.kind === 'stay' && r.stay && (r.stay.paid || covered(r.stay.id)?.paid))
     .reduce((n, r) => n + r.nights, 0)
   const noBed = runs.filter((r) => r.kind === 'gap').reduce((n, r) => n + r.nights, 0)
   const bases = runs.filter((r) => r.kind === 'stay').length
@@ -456,7 +463,8 @@ function StaysView({ entries, metas }: { entries: DayEntry[]; metas: DayMeta[] }
             )
           }
           const stay = r.stay!
-          const status = stay.paid ? 'Paid' : stay.cost ? 'To pay' : ''
+          const inPkg = covered(stay.id)
+          const status = inPkg ? 'Included' : stay.paid ? 'Paid' : stay.cost ? 'To pay' : ''
           return (
             <li key={`${stay.id}-${r.start}`} className="stays-item">
               <span className="stays-dot" style={{ background: color, borderColor: color }} />
@@ -471,11 +479,13 @@ function StaysView({ entries, metas }: { entries: DayEntry[]; metas: DayMeta[] }
                 <span className="stays-sub">
                   {range}
                   {stay.location ? ` · ${stay.name}` : ''}
-                  {stay.cost ? ` · ${euroWhole(stay.cost)}` : ''}
+                  {inPkg ? ` · ${inPkg.pkg.name}` : stay.cost ? ` · ${euroWhole(stay.cost)}` : ''}
                 </span>
               </span>
               {status && (
-                <span className={stay.paid ? 'tag tag--ok' : 'tag tag--warn'}>{status}</span>
+                <span className={inPkg || stay.paid ? 'tag tag--ok' : 'tag tag--warn'}>
+                  {status}
+                </span>
               )}
             </li>
           )

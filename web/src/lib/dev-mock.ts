@@ -584,6 +584,54 @@ function json(body: unknown, status = 200): Response {
   })
 }
 
+// Packages (one price covering several days) in local dev.
+type MockPackage = Record<string, unknown> & {
+  id: string
+  stay_ids: string[]
+  plan_item_ids: string[]
+}
+const mockPackages: MockPackage[] = []
+let pkgSeq = 0
+function resolvePackages(path: string, method: string, body: unknown): Response | null {
+  const one = path.match(/\/trips\/[^/]+\/packages\/([^/]+)$/)
+  if (one) {
+    const i = mockPackages.findIndex((p) => p.id === one[1])
+    if (method === 'PATCH') {
+      if (i < 0) return json({ error: { message: 'not found' } }, 404)
+      mockPackages[i] = { ...mockPackages[i], ...(body as object), updated_at: nowIso() }
+      return json(mockPackages[i])
+    }
+    if (method === 'DELETE') {
+      if (i >= 0) mockPackages.splice(i, 1)
+      return new Response(null, { status: 204 })
+    }
+  }
+  if (/\/trips\/[^/]+\/packages$/.test(path)) {
+    if (method === 'GET') return json(mockPackages)
+    if (method === 'POST') {
+      pkgSeq += 1
+      const b = (body ?? {}) as Record<string, unknown>
+      const p: MockPackage = {
+        provider: '',
+        link: '',
+        paid_amount: b.total_cost ?? 0,
+        balance_due: null,
+        includes: [],
+        ...b,
+        id: `pkg-${pkgSeq}`,
+        trip_id: MOCK_CURRENT_TRIP_ID,
+        stay_ids: (b.stay_ids as string[]) ?? [],
+        plan_item_ids: (b.plan_item_ids as string[]) ?? [],
+        created_at: nowIso(),
+        updated_at: nowIso(),
+      }
+      mockPackages.push(p)
+      return json(p, 201)
+    }
+  }
+  return null
+}
+
 // Custom day titles set in local dev (PATCH /trips/:id/days/:date).
 const dayTitles = new Map<string, string>()
 
@@ -591,6 +639,12 @@ const dayTitles = new Map<string, string>()
 function resolve(path: string, method: string, search: string, body: unknown): Response | null {
   // /me — auth probe
   if (path === '/me') return json(profile)
+
+  // Packages (stateful in-memory mock).
+  if (path.includes('/packages')) {
+    const res = resolvePackages(path, method, body)
+    if (res) return res
+  }
 
   // Trip to-dos (stateful in-memory mock).
   if (path.includes('/todos')) {

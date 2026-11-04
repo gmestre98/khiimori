@@ -226,7 +226,7 @@ jobs:
         # visibly show the tests actually executing.
         run: |
           test -n "$DATABASE_URL_TEST" || { echo "DATABASE_URL_TEST unset — refusing to pass the integration gate without a DB"; exit 1; }
-          go test -tags=integration -p 1 -v ./migrations/... ./internal/auth/... ./internal/trip/... ./internal/packing/... ./cmd/api/...
+          go test -tags=integration -p 1 -v ./migrations/... ./internal/auth/... ./internal/trip/... ./internal/packing/... ./internal/budget/... ./cmd/api/...
 
   gcp-auth:
     name: GCP auth (WIF) — verify

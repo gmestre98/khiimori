@@ -18,6 +18,12 @@ type budgetStore interface {
 	UpdateCostEntry(ctx context.Context, e UpdateCostEntry) (CostEntry, error)
 	DeleteCostEntry(ctx context.Context, entryID, tripID string) error
 	ListCostEntries(ctx context.Context, tripID string) ([]CostEntry, error)
+
+	// Packages: one price covering several days, with the items it covers.
+	ListPackages(ctx context.Context, tripID string) ([]Package, error)
+	CreatePackage(ctx context.Context, tripID string, in PackageInput) (Package, error)
+	UpdatePackage(ctx context.Context, tripID, id string, in PackageInput) (Package, error)
+	DeletePackage(ctx context.Context, tripID, id string) error
 }
 
 // pgxBudgetStore is the Postgres-backed budget store.

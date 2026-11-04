@@ -6,6 +6,24 @@ import { DateBox } from '../components/ui/DateBox'
 import { Icon } from '../components/ui/Icon'
 import { buildDayMetas, planSummary, useTripDays, type DayMeta } from './tripDays'
 import { useTripShell } from './useTripShell'
+import { INCLUDE_LABELS, isPaid, packageForDate, usePackages } from './packages'
+import type { TripPackage } from '../lib/api'
+
+// groupByPackage splits the days into runs: days a package covers sit together
+// under it; other days stand alone.
+function groupByPackage(
+  metas: DayMeta[],
+  packages: TripPackage[] | null,
+): { pkg?: TripPackage; metas: DayMeta[] }[] {
+  const out: { pkg?: TripPackage; metas: DayMeta[] }[] = []
+  for (const m of metas) {
+    const pkg = packageForDate(packages, m.date)
+    const last = out[out.length - 1]
+    if (last && last.pkg?.id === pkg?.id) last.metas.push(m)
+    else out.push({ pkg, metas: [m] })
+  }
+  return out
+}
 
 // DayRow is one row of the trip's day list: the date box (country-coloured,
 // dashed when empty), the place/title, a one-line summary and badges.
@@ -60,6 +78,7 @@ export function TripPlanPage() {
   )
 
   const metas = tripDays.days ? buildDayMetas(tripDays.dates, tripDays.days) : null
+  const packages = usePackages(trip.id)
   const plannedCount = metas ? metas.filter((m) => m.hasPlans).length : 0
   const total = tripDays.dates.length
   const tripLink = (date: string) => `/trips/${trip.id}/days/${date}`
@@ -96,9 +115,40 @@ export function TripPlanPage() {
           </div>
 
           <ol className="days-list" aria-label="Days">
-            {metas.map((m) => (
-              <DayRow key={m.date} meta={m} tripLink={tripLink} />
-            ))}
+            {groupByPackage(metas, packages).map((g) =>
+              g.pkg ? (
+                <li key={`pkg-${g.pkg.id}-${g.metas[0].date}`} className="days-pkg">
+                  <section aria-label={g.pkg.name}>
+                    <Link to={`/trips/${trip.id}/budget`} className="days-pkg-head">
+                      <span className="days-pkg-titles">
+                        <span className="days-pkg-name">{g.pkg.name}</span>
+                        <span className="days-pkg-sub">
+                          {[
+                            g.pkg.provider,
+                            `${g.metas.length} ${g.metas.length === 1 ? 'day' : 'days'}`,
+                            g.pkg.includes
+                              .map((i) => INCLUDE_LABELS[i]?.toLowerCase() ?? i)
+                              .join(', '),
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                      </span>
+                      <span className={isPaid(g.pkg) ? 'tag tag--ok' : 'tag tag--warn'}>
+                        {isPaid(g.pkg) ? 'Paid' : 'Part paid'}
+                      </span>
+                    </Link>
+                    <ol className="days-list days-list--pkg">
+                      {g.metas.map((m) => (
+                        <DayRow key={m.date} meta={m} tripLink={tripLink} />
+                      ))}
+                    </ol>
+                  </section>
+                </li>
+              ) : (
+                g.metas.map((m) => <DayRow key={m.date} meta={m} tripLink={tripLink} />)
+              ),
+            )}
           </ol>
 
           <Link to={`/trips/${trip.id}/backlog`} state={{ trip }} className="fg-link-card">

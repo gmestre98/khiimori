@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { PlanItemValidationError, type PlanItem } from '../lib/api'
 import { useFocusTrap } from '../components/ui/useFocusTrap'
 import { Icon } from '../components/ui/Icon'
+import { PackagePicker } from './PackagePicker'
 import { PlanItemForm } from './PlanItemForm'
 import { PLAN_STATUSES, usePlanItemActions } from './planItemActions'
 import { fieldsFromItem, type PlanItemFormFields } from './planItemForm.helpers'
@@ -138,6 +139,8 @@ export function PlanItemDetails({
               ))}
             </div>
           </div>
+
+          <PackagePicker item={item} date={currentDate} />
 
           <PlanItemForm
             key={item.id}

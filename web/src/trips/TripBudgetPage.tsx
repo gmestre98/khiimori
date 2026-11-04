@@ -88,13 +88,37 @@ function MoneyCategories({ rollup, dayCount }: { rollup: BudgetRollup; dayCount:
     const budget = tripBudgetForCategory(rollup, dayCount, cat)
     return { cat, booked, spent, budget }
   })
-  if (rows.every((r) => r.booked === 0 && r.budget === 0)) {
+  const pkgBooked = (rollup.package_spent ?? 0) + (rollup.package_estimated ?? 0)
+  if (pkgBooked === 0 && rows.every((r) => r.booked === 0 && r.budget === 0)) {
     return <p className="fg-empty">No costs recorded yet.</p>
   }
   return (
     <section className="money-cats" aria-label="By category">
       <h2 className="fg-label fg-section-label">By category · booked vs budget</h2>
       <ul className="money-cat-list">
+        {pkgBooked > 0 && (
+          <li className="money-cat money-cat--package">
+            <div className="money-cat-head">
+              <span className="money-cat-name">Packages</span>
+              <span className="money-cat-fig">
+                {euroWhole(pkgBooked)}
+                {(rollup.package_estimated ?? 0) > 0
+                  ? ` · ${euroWhole(rollup.package_estimated ?? 0)} left to pay`
+                  : ' · paid'}
+              </span>
+            </div>
+            <div
+              className="fg-bar fg-bar--ok"
+              role="progressbar"
+              aria-label={`Packages: ${euroWhole(rollup.package_spent ?? 0)} paid of ${euroWhole(pkgBooked)}`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(((rollup.package_spent ?? 0) / pkgBooked) * 100)}
+            >
+              <span style={{ width: `${((rollup.package_spent ?? 0) / pkgBooked) * 100}%` }} />
+            </div>
+          </li>
+        )}
         {rows.map(({ cat, booked, spent, budget }) => {
           const over = booked > budget && booked > 0
           const pct = budget > 0 ? Math.min(100, (booked / budget) * 100) : booked > 0 ? 100 : 0
@@ -127,12 +151,13 @@ function MoneyCategories({ rollup, dayCount }: { rollup: BudgetRollup; dayCount:
   )
 }
 import { useTripShell } from './useTripShell'
+import { MoneyPackages } from './MoneyPackages'
 
 // TripBudgetPage renders the trip-level budget editor, rollup display, and the
 // ad-hoc expense logger.
 export function TripBudgetPage() {
   const { tripId } = useParams<{ tripId: string }>()
-  const { trip } = useTripShell()
+  const { trip, tripDays } = useTripShell()
   const online = useIsOnline()
   const tripDates = datesInRange(trip.start_date, trip.end_date)
   const [rollup, setRollup] = useState<BudgetRollup | null>(null)
@@ -313,6 +338,7 @@ export function TripBudgetPage() {
       )}
 
       {rollup && <MoneySummary rollup={rollup} dayCount={tripDates.length} />}
+      <MoneyPackages trip={trip} tripDays={tripDays} onChanged={() => loadRollup()} />
       {rollup && <MoneyCategories rollup={rollup} dayCount={tripDates.length} />}
 
       <TripExpenses
