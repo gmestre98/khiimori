@@ -20,6 +20,8 @@ import { CacheStatus } from '../components/CacheStatus'
 import { Icon, type IconName } from '../components/ui/Icon'
 import { DateBox } from '../components/ui/DateBox'
 import { DayTitle } from './DayTitle'
+import { PackageBanner } from './PackageBanner'
+import { packageForItem, usePackages } from './packages'
 import { JournalEditor } from '../journal/JournalEditor'
 import { useTripShell } from './useTripShell'
 import { QuickAddForm } from './PlanItemForm'
@@ -168,6 +170,7 @@ function PlanRow({
   const inactive = item.status === 'skipped' || item.status === 'cancelled'
   const word = statusWord(item.status)
   const tag = kindTag(item)
+  const includedIn = packageForItem(usePackages(item.trip_id), item.id)
   const where = itemWhere(item)
 
   return (
@@ -220,6 +223,11 @@ function PlanRow({
       </span>
       <span className="plan-row-end">
         {word && item.status !== 'done' && <span className="tag">{word}</span>}
+        {includedIn && (
+          <span className="tag tag--ok" title={`Included in ${includedIn.name}`}>
+            Included
+          </span>
+        )}
         {tag && (
           <span className={`tag tag--${tag.tone}`}>
             <Icon name={KIND_ICON[kind]} size={11} />
@@ -1000,6 +1008,7 @@ export function DayView({ variant = 'plan' }: { variant?: DayVariant } = {}) {
           </div>
           <aside className="day-desk-rail" aria-label="About this day">
             {staySlot}
+            {date && tripId && <PackageBanner tripId={tripId} date={date} />}
             <MapSlot day={liveDay} selectedId={selectedId} onSelect={setSelectedId} />
           </aside>
         </div>
@@ -1007,6 +1016,7 @@ export function DayView({ variant = 'plan' }: { variant?: DayVariant } = {}) {
         <div className="day-phone">
           {header}
           {staySlot}
+          {date && tripId && <PackageBanner tripId={tripId} date={date} />}
           {day?.notes && <p className="day-view-notes">{day.notes}</p>}
           {planPanel}
           {!mobile && <MapSlot day={liveDay} selectedId={selectedId} onSelect={setSelectedId} />}

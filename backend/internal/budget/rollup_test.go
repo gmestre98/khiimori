@@ -17,7 +17,7 @@ func TestComputeRollup_BudgetLineScopes(t *testing.T) {
 		{TripID: "t1", DayID: "", Category: CategoryStays, Scope: ScopeDaily, PlannedAmount: 25},
 		{TripID: "t1", DayID: "d1", Category: CategoryActivities, Scope: ScopeDay, PlannedAmount: 40},
 	}
-	r := computeRollup(nil, nil, lines)
+	r := computeRollup(nil, nil, lines, nil)
 
 	if r.PlannedByCategory["Food"] != 50 {
 		t.Errorf("lump: PlannedByCategory[Food] = %v, want 50", r.PlannedByCategory["Food"])
@@ -46,7 +46,7 @@ func TestComputeRollup_EditPropagation(t *testing.T) {
 	initial := []CostEntry{
 		{TripID: "t1", DayID: "d1", Category: CategoryFood, Amount: 50, CreatedAt: time.Now()},
 	}
-	r1 := computeRollup(nil, initial, nil)
+	r1 := computeRollup(nil, initial, nil, nil)
 	if r1.TripTotal != 50 {
 		t.Fatalf("before edit: trip_total = %f, want 50", r1.TripTotal)
 	}
@@ -55,7 +55,7 @@ func TestComputeRollup_EditPropagation(t *testing.T) {
 	edited := []CostEntry{
 		{TripID: "t1", DayID: "d1", Category: CategoryFood, Amount: 75, CreatedAt: time.Now()},
 	}
-	r2 := computeRollup(nil, edited, nil)
+	r2 := computeRollup(nil, edited, nil, nil)
 	if r2.TripTotal != 75 {
 		t.Fatalf("after edit: trip_total = %f, want 75", r2.TripTotal)
 	}
@@ -76,14 +76,14 @@ func TestComputeRollup_DeletePropagation(t *testing.T) {
 		{TripID: "t1", DayID: "d1", Category: CategoryFood, Amount: 30, CreatedAt: time.Now()},
 		{TripID: "t1", DayID: "d1", Category: CategoryTransport, Amount: 20, CreatedAt: time.Now()},
 	}
-	r1 := computeRollup(nil, entries, nil)
+	r1 := computeRollup(nil, entries, nil, nil)
 	if r1.TripTotal != 50 {
 		t.Fatalf("before delete: trip_total = %f, want 50", r1.TripTotal)
 	}
 
 	// Simulate a delete: remove the Food entry.
 	afterDelete := []CostEntry{entries[1]}
-	r2 := computeRollup(nil, afterDelete, nil)
+	r2 := computeRollup(nil, afterDelete, nil, nil)
 	if r2.TripTotal != 20 {
 		t.Fatalf("after delete: trip_total = %f, want 20", r2.TripTotal)
 	}
@@ -100,7 +100,7 @@ func TestComputeRollup_StayPropagation(t *testing.T) {
 	external := []ExternalCost{
 		{DayID: "", Category: CategoryStays, Amount: 200, Happened: true},
 	}
-	r := computeRollup(external, nil, nil)
+	r := computeRollup(external, nil, nil, nil)
 	if r.TripTotal != 200 {
 		t.Fatalf("trip_total: %f, want 200", r.TripTotal)
 	}
@@ -115,7 +115,7 @@ func TestComputeRollup_StayPropagation(t *testing.T) {
 	externalEdited := []ExternalCost{
 		{DayID: "", Category: CategoryStays, Amount: 150, Happened: true},
 	}
-	r2 := computeRollup(externalEdited, nil, nil)
+	r2 := computeRollup(externalEdited, nil, nil, nil)
 	if r2.TripTotal != 150 {
 		t.Fatalf("after stay edit: trip_total = %f, want 150", r2.TripTotal)
 	}
@@ -130,13 +130,13 @@ func TestComputeRollup_PlanItemPropagation(t *testing.T) {
 	external := []ExternalCost{
 		{DayID: "d1", Category: CategoryActivities, Amount: 80, Happened: true},
 	}
-	r := computeRollup(external, nil, nil)
+	r := computeRollup(external, nil, nil, nil)
 	if r.ByDay["d1"] != 80 {
 		t.Fatalf("day total: %f, want 80", r.ByDay["d1"])
 	}
 
 	// Simulate plan item deletion (no external costs).
-	r2 := computeRollup(nil, nil, nil)
+	r2 := computeRollup(nil, nil, nil, nil)
 	if r2.TripTotal != 0 {
 		t.Fatalf("after delete: trip_total = %f, want 0", r2.TripTotal)
 	}
@@ -160,7 +160,7 @@ func TestComputeRollup_SpentVsEstimated(t *testing.T) {
 		// Manual cost entries always count as spent.
 		{DayID: "d1", Category: CategoryFood, Amount: 15, CreatedAt: time.Now()},
 	}
-	r := computeRollup(external, entries, nil)
+	r := computeRollup(external, entries, nil, nil)
 
 	// Spent = done activity (60) + manual food (15).
 	if r.TripTotal != 75 {
@@ -207,7 +207,7 @@ func TestComputeRollup_ConsistentWithinRequest(t *testing.T) {
 		{DayID: "d1", Category: CategoryTransport, Amount: 25, CreatedAt: time.Now()},
 		{DayID: "", Category: CategoryOther, Amount: 10, CreatedAt: time.Now()},
 	}
-	r := computeRollup(external, entries, nil)
+	r := computeRollup(external, entries, nil, nil)
 
 	// TripTotal must equal sum of all ByCategory values.
 	catSum := 0.0

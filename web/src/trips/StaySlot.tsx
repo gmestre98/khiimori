@@ -15,6 +15,7 @@ import { Button, FormField, Input } from '../components/ui'
 import { LocationField } from './LocationField'
 import { Icon } from '../components/ui/Icon'
 import { coversDay } from './stayCoverage'
+import { packageForStay, usePackages } from './packages'
 
 // StaySlot is the pinned "where you're staying" panel at the top of a day's
 // plan (M12.1 S4). A stay is where you sleep, so it sits above the timeline and
@@ -411,6 +412,7 @@ function StayLine({
 }) {
   const ctx = nightContext(stay, date)
   const hasCost = stay.cost != null && stay.cost > 0
+  const includedIn = packageForStay(usePackages(stay.trip_id), stay.id)
   const sub = [ctx ? `Night ${ctx.night} of ${ctx.total}` : '', stayHint(ctx)]
     .filter(Boolean)
     .join(' · ')
@@ -428,7 +430,12 @@ function StayLine({
         <span className="stay-line-name">{stay.name}</span>
         {(sub || stay.location) && <span className="stay-line-sub">{sub || stay.location}</span>}
       </button>
-      {hasCost && (
+      {includedIn && (
+        <span className="tag tag--ok" title={`Included in ${includedIn.name}`}>
+          Included
+        </span>
+      )}
+      {hasCost && !includedIn && (
         <span
           className={stay.paid ? 'tag tag--ok' : 'tag tag--warn'}
           aria-label={stay.paid ? 'Paid — counts toward spent' : 'Not paid yet — upcoming estimate'}

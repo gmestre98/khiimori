@@ -31,6 +31,9 @@ type fakeBudgetStore struct {
 
 	listEntries []CostEntry
 	listErr     error
+
+	packages []Package
+	pkgSeq   int
 }
 
 func (f *fakeBudgetStore) Upsert(_ context.Context, line SetBudgetLine) (BudgetLine, error) {

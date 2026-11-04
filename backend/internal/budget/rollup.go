@@ -70,6 +70,13 @@ type RollupResult struct {
 	// DailyByCategory is the per-day allowance per category (scope 'daily') — the
 	// amount that applies to every day of the trip.
 	DailyByCategory map[string]float64 `json:"daily_by_category"`
+
+	// Packages (one price for several days, e.g. a tour) are counted once: what
+	// has been paid adds to TripTotal (spent), the unpaid rest adds to
+	// EstimatedTripTotal. They sit outside the fixed categories and days, so
+	// these two fields carry their share for the UI's "Package" line.
+	PackageSpent     float64 `json:"package_spent"`
+	PackageEstimated float64 `json:"package_estimated"`
 }
 
 // computeRollup aggregates spend from external costs (stays + plan items) and
@@ -78,7 +85,8 @@ type RollupResult struct {
 // entries are always spent. Costs with an empty DayID contribute to the trip and
 // category totals only (trip-level, e.g. stays). lines populates the planned
 // amount fields; pass nil when not needed.
-func computeRollup(external []ExternalCost, entries []CostEntry, lines []BudgetLine) RollupResult {
+// packages adds each package once: paid as spent, the rest as estimated.
+func computeRollup(external []ExternalCost, entries []CostEntry, lines []BudgetLine, packages []Package) RollupResult {
 	result := RollupResult{
 		ByCategory:           make(map[string]float64),
 		ByDay:                make(map[string]float64),
@@ -120,6 +128,17 @@ func computeRollup(external []ExternalCost, entries []CostEntry, lines []BudgetL
 	}
 	for _, e := range entries {
 		addSpent(e.DayID, e.Category, e.Amount)
+	}
+
+	for _, p := range packages {
+		paid := p.PaidAmount
+		if paid > p.TotalCost {
+			paid = p.TotalCost
+		}
+		result.TripTotal += paid
+		result.PackageSpent += paid
+		result.EstimatedTripTotal += p.TotalCost - paid
+		result.PackageEstimated += p.TotalCost - paid
 	}
 
 	for _, bl := range lines {

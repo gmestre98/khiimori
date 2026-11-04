@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { DayView } from './DayView'
+import { packageTestReset } from './packages'
 import * as api from '../lib/api'
 import type { Day, PlanItem, Stay, Trip } from '../lib/api'
 import { enqueue } from '../lib/mutationQueue'
@@ -91,6 +92,7 @@ vi.mock('../lib/api', async (importOriginal) => {
     fetchDayRoute: vi.fn(),
     geocodeLocation: vi.fn().mockResolvedValue(null),
     fetchAutocomplete: vi.fn().mockResolvedValue([]),
+    fetchPackages: vi.fn().mockResolvedValue([]),
   }
 })
 
@@ -1679,6 +1681,50 @@ describe('DayView', () => {
       ).not.toBeInTheDocument()
       // Located item still gets pin 1 (location-less item is skipped in numbering)
       expect(screen.getByRole('button', { name: /Map pin 1 for Located/ })).toBeInTheDocument()
+    })
+  })
+
+  describe('packages', () => {
+    it('marks a covered item and stay as included and shows the day banner', async () => {
+      packageTestReset()
+      vi.mocked(api.fetchPackages).mockResolvedValue([
+        {
+          id: 'pkg-1',
+          trip_id: 'trip-1',
+          name: 'Mauritania Round 18',
+          provider: 'Against the Compass',
+          link: '',
+          total_cost: 1200,
+          paid_amount: 1200,
+          balance_due: null,
+          start_date: '2026-06-01',
+          end_date: '2026-06-03',
+          includes: ['beds', 'transport'],
+          stay_ids: ['stay-1'],
+          plan_item_ids: ['i1'],
+          created_at: '',
+          updated_at: '',
+        },
+      ])
+      vi.mocked(api.fetchDay).mockResolvedValue(
+        makeDay({
+          stays: [makeStay({ id: 'stay-1', name: 'Tour camp' })],
+          plan_items: [
+            makePlanItem({ id: 'i1', title: 'Ore train', sort_order: 0 }),
+            makePlanItem({ id: 'i2', title: 'Tip the cook', sort_order: 1 }),
+          ],
+        }),
+      )
+      renderDayView()
+      const train = await screen.findByLabelText('Ore train')
+      await waitFor(() => expect(within(train).getByText('Included')).toBeInTheDocument())
+      expect(within(screen.getByLabelText('Tip the cook')).queryByText('Included')).toBeNull()
+      expect(
+        screen.getByRole('link', { name: /Part of Mauritania Round 18: Day 1 of 3/ }),
+      ).toBeInTheDocument()
+      expect(screen.getAllByText('Included')).toHaveLength(2)
+      vi.mocked(api.fetchPackages).mockResolvedValue([])
+      packageTestReset()
     })
   })
 })

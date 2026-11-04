@@ -1006,6 +1006,110 @@ export interface BudgetRollup {
   planned_by_day_category?: Record<string, Record<string, number>>
   // daily_by_category is the per-day allowance per category (applies every day).
   daily_by_category?: Record<string, number>
+  // Packages (one price covering several days) counted once: what's paid is
+  // already in trip_total, the unpaid rest in estimated_trip_total. Optional so
+  // a rollup cached before packages existed still parses.
+  package_spent?: number
+  package_estimated?: number
+}
+
+// --- Packages (one price covering several days, e.g. a tour) -----------------
+
+// PackageInclude is something a package says it covers.
+export type PackageInclude =
+  | 'beds'
+  | 'transport'
+  | 'meals'
+  | 'guide'
+  | 'fees'
+  | 'activities'
+  | 'flights'
+
+// TripPackage is the wire shape of a package. Its total is counted once in the
+// money totals; the stays and plan items it covers (stay_ids / plan_item_ids)
+// show "Included", and their own cost is an extra on top.
+export interface TripPackage {
+  id: string
+  trip_id: string
+  name: string
+  provider: string
+  link: string
+  total_cost: number
+  paid_amount: number
+  balance_due: string | null
+  start_date: string
+  end_date: string
+  includes: PackageInclude[]
+  stay_ids: string[]
+  plan_item_ids: string[]
+  created_at: string
+  updated_at: string
+}
+
+// PackageInput creates a package (name, total_cost, start_date, end_date
+// required) or, with every field optional, partially updates one. stay_ids /
+// plan_item_ids replace the links of that kind; balance_due: null clears it.
+export interface PackageInput {
+  name?: string
+  provider?: string
+  link?: string
+  total_cost?: number
+  paid_amount?: number
+  balance_due?: string | null
+  start_date?: string
+  end_date?: string
+  includes?: PackageInclude[]
+  stay_ids?: string[]
+  plan_item_ids?: string[]
+}
+
+async function packageError(res: Response): Promise<Error> {
+  const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+  return new Error(body?.error?.message ?? `API returned HTTP ${res.status}`)
+}
+
+// fetchPackages loads a trip's packages (GET /trips/:id/packages).
+export async function fetchPackages(tripId: string, signal?: AbortSignal): Promise<TripPackage[]> {
+  const res = await apiFetch(`/trips/${tripId}/packages`, { signal })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as TripPackage[]
+}
+
+// createPackage adds a package (POST /trips/:id/packages).
+export async function createPackage(tripId: string, input: PackageInput): Promise<TripPackage> {
+  const res = await apiFetch(`/trips/${tripId}/packages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw await packageError(res)
+  return (await res.json()) as TripPackage
+}
+
+// updatePackage partially updates a package (PATCH /trips/:id/packages/:pid).
+export async function updatePackage(
+  tripId: string,
+  packageId: string,
+  input: PackageInput,
+): Promise<TripPackage> {
+  const res = await apiFetch(`/trips/${tripId}/packages/${packageId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw await packageError(res)
+  return (await res.json()) as TripPackage
+}
+
+// deletePackage removes a package (DELETE /trips/:id/packages/:pid). Its items
+// go back to being priced on their own. A 404 (already gone) counts as success.
+export async function deletePackage(tripId: string, packageId: string): Promise<void> {
+  const res = await apiFetch(`/trips/${tripId}/packages/${packageId}`, { method: 'DELETE' })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok && res.status !== 404) throw await packageError(res)
 }
 
 // fetchBudgetRollup calls GET /trips/:id/budget/rollup.

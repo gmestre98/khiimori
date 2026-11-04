@@ -23,5 +23,9 @@ func (m *Module) TripRollup(ctx context.Context, tripID string) (RollupResult, e
 	if err != nil {
 		return RollupResult{}, fmt.Errorf("budget: budget lines: %w", err)
 	}
-	return computeRollup(external, entries, lines), nil
+	packages, err := m.store.ListPackages(ctx, tripID)
+	if err != nil {
+		return RollupResult{}, fmt.Errorf("budget: packages: %w", err)
+	}
+	return computeRollup(external, entries, lines, packages), nil
 }

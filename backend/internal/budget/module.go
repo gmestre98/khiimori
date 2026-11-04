@@ -50,6 +50,16 @@ func (m *Module) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("DELETE /trips/{tripID}/cost-entries/{entryID}",
 		m.requireAuth(http.HandlerFunc(m.handleDeleteCostEntry)))
 
+	// Packages: one price covering several days (a tour), with what it covers.
+	mux.Handle("GET /trips/{tripID}/packages",
+		m.requireAuth(http.HandlerFunc(m.handleListPackages)))
+	mux.Handle("POST /trips/{tripID}/packages",
+		m.requireAuth(http.HandlerFunc(m.handleCreatePackage)))
+	mux.Handle("PATCH /trips/{tripID}/packages/{packageID}",
+		m.requireAuth(http.HandlerFunc(m.handleUpdatePackage)))
+	mux.Handle("DELETE /trips/{tripID}/packages/{packageID}",
+		m.requireAuth(http.HandlerFunc(m.handleDeletePackage)))
+
 	// Roll-up: GET /trips/{tripID}/budget/rollup
 	mux.Handle("GET /trips/{tripID}/budget/rollup",
 		m.requireAuth(http.HandlerFunc(m.handleGetRollup)))

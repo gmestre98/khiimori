@@ -16,6 +16,7 @@ export const cacheKeys = {
   photos: (tripId: string, dayId: string) => `GET /trips/${tripId}/days/${dayId}/journal/photos`,
   packing: (tripId: string) => `GET /trips/${tripId}/packing`,
   todos: (tripId: string) => `GET /trips/${tripId}/todos`,
+  packages: (tripId: string) => `GET /trips/${tripId}/packages`,
   packingTemplates: () => 'GET /packing/templates',
   // Geocoded map waypoints for a day. Derived from a POST (/geo/day-route), which
   // the service worker can't cache, so the map's pins are cached app-side here
