@@ -274,8 +274,10 @@
 }
 .profile-hero-name {
   margin: 0;
-  font-size: var(--text-xl);
-  line-height: 1.2;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1.15;
 }
 .profile-hero-email {
   margin: 2px 0 0;
@@ -616,7 +618,7 @@
 
 .current-trip-panel-day {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: var(--fw-semi);
 }
 
 /* Card body */
@@ -695,7 +697,7 @@
 
 .current-trip-stat-value {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: var(--fw-semi);
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
@@ -972,7 +974,7 @@
 
 .trip-card-panel-day {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: var(--fw-semi);
 }
 
 .trip-card-body {
@@ -1229,24 +1231,26 @@
 }
 .trip-form-hero-eyebrow {
   margin: 0;
-  font-size: var(--t-eyebrow);
-  letter-spacing: 0.12em;
+  font-family: var(--font-label);
+  font-size: 11px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  font-weight: var(--fw-semi);
+  font-weight: 400;
   color: rgba(255, 255, 255, 0.85);
 }
 .trip-form-hero-title {
   margin: 8px 0 0;
-  font-size: 26px;
+  font-family: var(--font-display);
+  font-size: 30px;
   line-height: 1.05;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 400;
+  letter-spacing: 0;
   color: #fff;
   text-shadow: 0 1px 14px rgba(0, 0, 0, 0.28);
 }
 .trip-form-hero-placeholder {
   color: rgba(255, 255, 255, 0.62);
-  font-weight: 700;
+  font-weight: var(--fw-semi);
 }
 .trip-form-hero-sub {
   margin-top: 11px;
@@ -1410,7 +1414,7 @@
   background: var(--accent);
   color: var(--accent-on);
   font-size: 16px;
-  font-weight: 700;
+  font-weight: var(--fw-semi);
 }
 .cover-picker-title {
   font-size: 0.88rem;
@@ -5426,11 +5430,12 @@
   margin-bottom: 22px;
 }
 .admin-top h1 {
-  font-size: var(--t-h1);
-  line-height: var(--t-h1-lh);
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 1.05;
   color: var(--ink);
   margin: 0 0 3px;
-  font-weight: var(--fw-semi);
+  font-weight: 400;
 }
 .admin-top p {
   margin: 0;
@@ -6162,7 +6167,7 @@
   margin: 8px 0 0;
   font-size: 28px;
   line-height: 1.05;
-  font-weight: 800;
+  font-weight: var(--fw-semi);
   letter-spacing: -0.02em;
   color: #fff;
   text-shadow: 0 1px 14px rgba(0, 0, 0, 0.28);

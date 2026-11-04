@@ -1290,6 +1290,42 @@
   gap: 22px;
   padding-top: 24px;
 }
+.trips-board {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+/* Wide screens: use the width. The current / next trip takes the left column;
+   later trips and "New trip" stack on the right. Past trips flow in two
+   columns. Below 1200px it stays a single readable column. */
+@media (min-width: 1200px) {
+  .trips-page {
+    max-width: 1280px;
+  }
+  .trips-board {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr);
+    grid-template-rows: min-content 1fr;
+    column-gap: 40px;
+    row-gap: 22px;
+    align-items: start;
+  }
+  .trips-board > .trips-featured,
+  .trips-board > .fg-empty {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+  .trips-board > .trips-later,
+  .trips-board > .trips-new {
+    grid-column: 2;
+    align-self: start;
+  }
+  .trips-page[data-tab='past'] .trip-rows {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 40px;
+  }
+}
 .trips-top {
   display: flex;
   align-items: center;

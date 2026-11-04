@@ -551,7 +551,7 @@ export function TripsDashboard() {
         />
       )}
 
-      <div className="trips-page fg-screen">
+      <div className="trips-page fg-screen" data-tab={tab}>
         <div className="trips-top">
           <span className="trips-brand">Khiimori</span>
           <Link to="/profile" className="trips-avatar" aria-label="Profile and settings">
@@ -645,7 +645,7 @@ export function TripsDashboard() {
         )}
 
         {!loading && !error && data && tab === 'upcoming' && (
-          <>
+          <div className="trips-board">
             {leadTrip ? (
               <FeaturedTrip
                 trip={leadTrip}
@@ -677,7 +677,7 @@ export function TripsDashboard() {
                 </span>
               </span>
             </Link>
-          </>
+          </div>
         )}
 
         {!loading && !error && data && tab === 'past' && (

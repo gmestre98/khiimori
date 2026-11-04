@@ -79,11 +79,14 @@
   --cat-other: #5b6670;
 
   /* ---- Typography ---- */
+  /* Self-hosted (src/fonts.ts): Gloock for display, Instrument Sans (variable,
+     400–700) for text, JetBrains Mono (variable) for labels. */
   --font-display: 'Gloock', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
   --font:
-    'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
-    sans-serif;
-  --font-label: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    'Instrument Sans Variable', 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, Helvetica, Arial, sans-serif;
+  --font-label:
+    'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   --font-num: var(--font);
   --t-display: 34px;
   --t-display-lh: 36px;

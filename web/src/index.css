@@ -17,6 +17,25 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  /* Never fake a weight or slant the fonts don't have (Gloock is regular only):
+     a faux bold looks smeared and is the main source of "inconsistent" type. */
+  font-synthesis: none;
+}
+
+/* Form controls don't inherit the page font by default — they'd fall back to
+   the system UI font. Make every control use the app's type. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  letter-spacing: inherit;
+}
+
+strong,
+b {
+  font-weight: var(--fw-semi);
 }
 
 *,
