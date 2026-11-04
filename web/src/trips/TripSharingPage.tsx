@@ -321,8 +321,8 @@ export function TripSharingPage() {
                     <div className="avatar sharing-invitation-avatar">?</div>
                     <div className="grow">
                       <div className="sharing-invitation-email">{inv.email}</div>
-                      <div className="meta" style={{ textTransform: 'capitalize' }}>
-                        Invited as {inv.role} · {inv.status}
+                      <div className="meta">
+                        Invited as {inv.role.toLowerCase()} · {inv.status.toLowerCase()}
                       </div>
                     </div>
                     <button
