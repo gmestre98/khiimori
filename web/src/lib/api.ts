@@ -499,6 +499,9 @@ export interface Stay {
   // so cached day data written before the field existed still parses (treat
   // missing as false).
   paid?: boolean
+  // booking_status is none | to_book | booked | paid (paid mirrors it).
+  // Optional for cached days written before it existed (see bookingOfStay).
+  booking_status?: string
 }
 
 // StayInput is the editable payload for creating or updating a stay. Only name
@@ -513,6 +516,7 @@ export interface StayInput {
   cost?: number | null
   link?: string | null
   paid?: boolean
+  booking_status?: string
 }
 
 // StayValidationError carries the API's 400 message so the form can show it.

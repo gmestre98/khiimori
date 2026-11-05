@@ -149,9 +149,12 @@ describe('TripMapPage', () => {
     // 3-day trip = 2 nights: one paid stay, then one night with no bed.
     expect(rows).toHaveLength(2)
     expect(within(rows[0]).getByText('Le Marais')).toBeInTheDocument()
-    expect(within(rows[0]).getByText('Paid')).toBeInTheDocument()
+    expect(within(rows[0]).getByRole('combobox', { name: 'Booking: Hotel Paris' })).toHaveValue(
+      'paid',
+    )
     expect(within(rows[1]).getByText('Find a bed')).toBeInTheDocument()
-    expect(screen.getByText('nights with no bed yet')).toBeInTheDocument()
+    expect(screen.getByText('no bed yet')).toBeInTheDocument()
+    expect(screen.getByText('paid').previousElementSibling).toHaveTextContent('1')
   })
 
   // The day rows live in the "Days" nav; scope queries there since map marker

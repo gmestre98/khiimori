@@ -3276,16 +3276,10 @@
   background: var(--accent-tint);
 }
 /* "Paid" checkbox row in the stay form. */
-.stay-paid-check {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--s2);
+.stay-booking-hint {
+  margin: calc(var(--s2) * -1) 0 0;
   font-size: var(--text-sm);
   color: var(--text-secondary);
-  cursor: pointer;
-}
-.stay-paid-check input {
-  margin-top: 2px;
 }
 .stay-item-actions {
   display: flex;

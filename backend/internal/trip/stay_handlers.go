@@ -37,6 +37,8 @@ type createStayRequest struct {
 	Cost     *float64 `json:"cost"`
 	Link     *string  `json:"link"`
 	Paid     bool     `json:"paid"`
+	// BookingStatus wins over Paid when sent; older clients send only paid.
+	BookingStatus *string `json:"booking_status"`
 }
 
 func (req createStayRequest) toNewStay(tripID string) (NewStay, error) {
@@ -60,8 +62,7 @@ func (req createStayRequest) toNewStay(tripID string) (NewStay, error) {
 		CheckOut: co,
 		Cost:     req.Cost,
 		Link:     req.Link,
-		Paid:     req.Paid,
-	}, nil
+	}.withBooking(req.BookingStatus, req.Paid), nil
 }
 
 // editStayRequest is the edit-stay wire shape.
@@ -73,6 +74,8 @@ type editStayRequest struct {
 	Cost     *float64 `json:"cost"`
 	Link     *string  `json:"link"`
 	Paid     bool     `json:"paid"`
+	// BookingStatus wins over Paid when sent; older clients send only paid.
+	BookingStatus *string `json:"booking_status"`
 }
 
 func (req editStayRequest) toEditStay() (EditStay, error) {
@@ -94,8 +97,7 @@ func (req editStayRequest) toEditStay() (EditStay, error) {
 		CheckOut: co,
 		Cost:     req.Cost,
 		Link:     req.Link,
-		Paid:     req.Paid,
-	}, nil
+	}.withBooking(req.BookingStatus, req.Paid), nil
 }
 
 // stayResponse is the stable wire shape returned for a single stay.
@@ -109,17 +111,20 @@ type stayResponse struct {
 	Cost     *float64 `json:"cost,omitempty"`
 	Link     *string  `json:"link,omitempty"`
 	Paid     bool     `json:"paid"`
+	// BookingStatus is none | to_book | booked | paid.
+	BookingStatus string `json:"booking_status"`
 }
 
 func newStayResponse(s Stay) stayResponse {
 	resp := stayResponse{
-		ID:       s.ID,
-		TripID:   s.TripID,
-		Name:     s.Name,
-		Location: s.Location,
-		Cost:     s.Cost,
-		Link:     s.Link,
-		Paid:     s.Paid,
+		ID:            s.ID,
+		TripID:        s.TripID,
+		Name:          s.Name,
+		Location:      s.Location,
+		Cost:          s.Cost,
+		Link:          s.Link,
+		Paid:          s.Paid,
+		BookingStatus: s.BookingStatus,
 	}
 	if s.CheckIn != nil {
 		resp.CheckIn = s.CheckIn.Format(dateLayout)
@@ -255,4 +260,32 @@ func (m *Module) handleDeleteStay(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// withBooking resolves a new stay's status: the sent booking_status, else
+// paid → paid and unpaid → booked (what older clients meant).
+func (ns NewStay) withBooking(booking *string, paid bool) NewStay {
+	switch {
+	case booking != nil:
+		ns.BookingStatus = normalizeBooking(booking)
+	case paid:
+		ns.BookingStatus = BookingPaid
+	default:
+		ns.BookingStatus = BookingBooked
+	}
+	ns.Paid = ns.BookingStatus == BookingPaid
+	return ns
+}
+
+// withBooking keeps the sent booking_status (normalised); without one the
+// store derives it from paid and the current value.
+func (e EditStay) withBooking(booking *string, paid bool) EditStay {
+	if booking != nil {
+		v := normalizeBooking(booking)
+		e.BookingStatus = &v
+		e.Paid = v == BookingPaid
+		return e
+	}
+	e.Paid = paid
+	return e
 }

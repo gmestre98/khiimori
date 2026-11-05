@@ -1,3 +1,4 @@
+import { normalizeBooking } from './booking'
 import { useEffect, useState } from 'react'
 import type { PlanItem, PlanItemInput, PlanItemKind } from '../lib/api'
 
@@ -78,7 +79,7 @@ export function hasDetailValues(f: PlanItemFormFields): boolean {
     f.type ||
     f.start_time ||
     f.duration ||
-    f.booking_status ||
+    (f.booking_status && f.booking_status !== 'none') ||
     f.cost ||
     f.link ||
     f.origin ||
@@ -133,7 +134,7 @@ export function fieldsFromItem(item: PlanItem): PlanItemFormFields {
     start_time: item.start_time ? item.start_time.slice(0, 5) : '',
     duration: item.duration ?? '',
     location: item.location ?? '',
-    booking_status: item.booking_status ?? '',
+    booking_status: normalizeBooking(item.booking_status),
     cost: item.cost != null ? String(item.cost) : '',
     link: item.link ?? '',
     origin: item.origin ?? '',
@@ -208,7 +209,7 @@ export function fieldsToInput(
     start_time: isNote ? null : fields.start_time.trim() || null,
     duration: isNote || isTransport ? null : fields.duration.trim() || null,
     location: isNote || isTransport ? null : fields.location.trim() || null,
-    booking_status: isNote ? null : fields.booking_status.trim() || null,
+    booking_status: isNote ? null : normalizeBooking(fields.booking_status),
     cost,
     link: fields.link.trim() || null,
     origin: isTransport ? fields.origin.trim() || null : null,

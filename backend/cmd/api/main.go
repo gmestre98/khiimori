@@ -379,8 +379,8 @@ func (a tripCostReaderAdapter) GetTripCosts(ctx context.Context, tripID string) 
 	var out []budget.ExternalCost
 
 	// --- Stays → CategoryStays, trip-level (no day) ---
-	// A stay's cost is only spent once it's marked paid; an unpaid stay is an
-	// upcoming estimate (M12.2 S2).
+	// A stay's cost is only spent once its booking is paid (stays.paid mirrors
+	// booking_status = 'paid'); otherwise it's an upcoming estimate.
 	stayRows, err := a.pool.Query(ctx,
 		`SELECT COALESCE(cost, 0), paid FROM trip.stays WHERE trip_id = $1::uuid AND cost IS NOT NULL AND cost > 0`,
 		tripID)
@@ -406,30 +406,31 @@ func (a tripCostReaderAdapter) GetTripCosts(ctx context.Context, tripID string) 
 	}
 
 	// --- Plan items → category mapped from type field ---
-	// A plan item's cost is only spent once the item is done; an idea/planned
-	// item is an upcoming estimate; a skipped/cancelled item never happens and
-	// is dropped from the budget entirely (M12.2 S1).
+	// A plan item's cost is spent once it's paid or done (done without paid =
+	// paid on the spot); otherwise it's an upcoming estimate. A skipped or
+	// cancelled item drops out of the budget unless it was paid: money already
+	// paid is spent either way.
 	itemRows, err := a.pool.Query(ctx,
-		`SELECT COALESCE(day_id::text, ''), COALESCE(type, ''), COALESCE(cost, 0), status
+		`SELECT COALESCE(day_id::text, ''), COALESCE(type, ''), COALESCE(cost, 0), status, booking_status
 		 FROM trip.plan_items
 		 WHERE trip_id = $1::uuid AND cost IS NOT NULL AND cost > 0
-		   AND status NOT IN ('skipped', 'cancelled')`,
+		   AND (status NOT IN ('skipped', 'cancelled') OR booking_status = 'paid')`,
 		tripID)
 	if err != nil {
 		return nil, fmt.Errorf("tripCostReader: query plan items: %w", err)
 	}
 	defer itemRows.Close()
 	for itemRows.Next() {
-		var dayID, itemType, status string
+		var dayID, itemType, status, booking string
 		var amount float64
-		if err := itemRows.Scan(&dayID, &itemType, &amount, &status); err != nil {
+		if err := itemRows.Scan(&dayID, &itemType, &amount, &status, &booking); err != nil {
 			return nil, fmt.Errorf("tripCostReader: scan plan item: %w", err)
 		}
 		out = append(out, budget.ExternalCost{
 			DayID:    dayID,
 			Category: planItemCategory(itemType),
 			Amount:   amount,
-			Happened: status == "done",
+			Happened: status == "done" || booking == "paid",
 		})
 	}
 	if err := itemRows.Err(); err != nil {

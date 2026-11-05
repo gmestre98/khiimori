@@ -148,6 +148,7 @@ function MoneyCategories({
 }
 import { useTripShell } from './useTripShell'
 import { MoneyPackages } from './MoneyPackages'
+import { MoneyUnpaid } from './MoneyUnpaid'
 import { usePackages } from './packages'
 
 // TripBudgetPage renders the trip-level budget editor, rollup display, and the
@@ -335,6 +336,11 @@ export function TripBudgetPage() {
       )}
 
       {rollup && <MoneySummary rollup={rollup} dayCount={tripDates.length} />}
+      <p className="money-rule">
+        <b>Spent</b> is everything paid, plus things you ticked done. <b>Booked</b> adds what’s
+        still to pay.
+      </p>
+      <MoneyUnpaid tripId={trip.id} tripDays={tripDays} onChanged={() => loadRollup()} />
       <MoneyPackages trip={trip} tripDays={tripDays} onChanged={() => loadRollup()} />
       {rollup && <MoneyCategories rollup={rollup} dayCount={tripDates.length} tripId={trip.id} />}
 

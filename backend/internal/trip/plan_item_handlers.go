@@ -56,7 +56,7 @@ func (req createPlanItemRequest) toNewPlanItem(tripID string) (NewPlanItem, erro
 		StartTime:     req.StartTime,
 		Duration:      req.Duration,
 		Location:      req.Location,
-		BookingStatus: req.BookingStatus,
+		BookingStatus: bookingPtr(req.BookingStatus),
 		Cost:          req.Cost,
 		Link:          req.Link,
 		Origin:        req.Origin,
@@ -133,7 +133,7 @@ func (req editPlanItemRequest) toEditPlanItem() (EditPlanItem, error) {
 		StartTime:     req.StartTime,
 		Duration:      req.Duration,
 		Location:      req.Location,
-		BookingStatus: req.BookingStatus,
+		BookingStatus: bookingPtr(req.BookingStatus),
 		Cost:          req.Cost,
 		Link:          req.Link,
 		Origin:        req.Origin,
@@ -599,4 +599,12 @@ func (m *Module) handleDeletePlanItem(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// bookingPtr normalises a client booking value (see normalizeBooking) into
+// the pointer the store writes; it is never nil, so the NOT NULL column
+// always gets one of the four statuses.
+func bookingPtr(s *string) *string {
+	v := normalizeBooking(s)
+	return &v
 }

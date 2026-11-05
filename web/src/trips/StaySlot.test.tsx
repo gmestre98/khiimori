@@ -152,26 +152,56 @@ describe('StaySlot', () => {
     )
   })
 
-  it('shows a payment chip and marks the stay paid from its edit form', async () => {
+  it('shows the booking chip and sets Paid from the edit form', async () => {
     const user = userEvent.setup()
-    const stay = makeStay({ cost: 120, paid: false })
-    vi.mocked(api.updateStay).mockResolvedValue({ ...stay, paid: true })
+    const stay = makeStay({ cost: 120, paid: false, booking_status: 'booked' })
+    vi.mocked(api.updateStay).mockResolvedValue({ ...stay, paid: true, booking_status: 'paid' })
     const setStays = vi.fn()
 
     render(<StaySlot day={makeDay({ stays: [stay] })} tripId="trip-1" setStays={setStays} />)
-    expect(screen.getByText('To pay')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Booking: Hotel Paris' })).toHaveValue('booked')
     await user.click(screen.getByRole('button', { name: 'Edit Hotel Paris' }))
-    await user.click(screen.getByRole('checkbox', { name: /Paid/ }))
+    await user.selectOptions(screen.getByLabelText('Booking'), 'paid')
     await user.click(screen.getByRole('button', { name: 'Save stay' }))
 
     await waitFor(() => expect(api.updateStay).toHaveBeenCalledTimes(1))
-    expect(vi.mocked(api.updateStay).mock.calls[0][2]).toMatchObject({ paid: true, cost: 120 })
+    expect(vi.mocked(api.updateStay).mock.calls[0][2]).toMatchObject({
+      booking_status: 'paid',
+      paid: true,
+      cost: 120,
+    })
   })
 
-  it('shows no payment chip when the stay has no cost', () => {
-    render(<StaySlot day={makeDay({ stays: [makeStay()] })} tripId="trip-1" setStays={vi.fn()} />)
-    expect(screen.queryByText('To pay')).not.toBeInTheDocument()
-    expect(screen.queryByText('Paid')).not.toBeInTheDocument()
+  it('changes the booking straight from the chip', async () => {
+    const user = userEvent.setup()
+    const stay = makeStay({ cost: 120, booking_status: 'to_book' })
+    vi.mocked(api.updateStay).mockResolvedValue({ ...stay, booking_status: 'booked' })
+    const setStays = vi.fn()
+
+    render(<StaySlot day={makeDay({ stays: [stay] })} tripId="trip-1" setStays={setStays} />)
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Booking: Hotel Paris' }),
+      'booked',
+    )
+    await waitFor(() => expect(api.updateStay).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(api.updateStay).mock.calls[0][2]).toMatchObject({
+      name: 'Hotel Paris',
+      booking_status: 'booked',
+      paid: false,
+      cost: 120,
+    })
+    expect(setStays).toHaveBeenCalled()
+  })
+
+  it('reads an older cached stay without a status from paid', () => {
+    render(
+      <StaySlot
+        day={makeDay({ stays: [makeStay({ paid: true })] })}
+        tripId="trip-1"
+        setStays={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('combobox', { name: 'Booking: Hotel Paris' })).toHaveValue('paid')
   })
 
   it('queues the add offline instead of calling the API', async () => {

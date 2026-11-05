@@ -16,6 +16,9 @@ import { LocationField } from './LocationField'
 import { Icon } from '../components/ui/Icon'
 import { coversDay } from './stayCoverage'
 import { packageForStay, usePackages } from './packages'
+import { BookingChip, BookingSelect } from './BookingChip'
+import { bookingOfStay, type Booking } from './booking'
+import { saveStayBooking } from './bookingSave'
 
 // StaySlot is the pinned "where you're staying" panel at the top of a day's
 // plan (M12.1 S4). A stay is where you sleep, so it sits above the timeline and
@@ -61,7 +64,7 @@ interface StayFormFields {
   check_out: string
   cost: string
   link: string
-  paid: boolean
+  booking: Booking
 }
 
 function emptyStayFields(date: string): StayFormFields {
@@ -75,7 +78,7 @@ function emptyStayFields(date: string): StayFormFields {
     check_out: nextDay,
     cost: '',
     link: '',
-    paid: false,
+    booking: 'booked',
   }
 }
 
@@ -87,7 +90,7 @@ function fieldsFromStay(stay: Stay): StayFormFields {
     check_out: stay.check_out ?? '',
     cost: stay.cost != null ? String(stay.cost) : '',
     link: stay.link ?? '',
-    paid: stay.paid ?? false,
+    booking: bookingOfStay(stay),
   }
 }
 
@@ -99,7 +102,8 @@ function fieldsToStayInput(fields: StayFormFields): StayInput {
     check_out: fields.check_out.trim() || null,
     cost: fields.cost.trim() ? parseFloat(fields.cost) : null,
     link: fields.link.trim() || null,
-    paid: fields.paid,
+    booking_status: fields.booking,
+    paid: fields.booking === 'paid',
   }
 }
 
@@ -116,6 +120,7 @@ function tempStay(tripId: string, input: StayInput): Stay {
     cost: input.cost ?? undefined,
     link: input.link ?? undefined,
     paid: input.paid ?? false,
+    booking_status: input.booking_status,
   }
 }
 
@@ -224,6 +229,18 @@ export function StaySlot({
     }
   }
 
+  // changeBooking saves just the booking status from the chip on the stay line.
+  async function changeBooking(booking: Booking) {
+    if (!stay) return
+    reflect({ ...stay, booking_status: booking, paid: booking === 'paid' })
+    try {
+      reflect(await saveStayBooking(tripId, stay, booking, online))
+    } catch {
+      reflect(stay)
+      setError('Could not change the booking.')
+    }
+  }
+
   async function handleRemove() {
     if (!stay) return
     setSubmitting(true)
@@ -308,15 +325,19 @@ export function StaySlot({
               />
             </FormField>
           </div>
-          <label className="stay-paid-check">
-            <input
-              type="checkbox"
-              checked={fields.paid}
-              onChange={(e) => setFields((f) => ({ ...f, paid: e.target.checked }))}
+          <FormField label="Booking" htmlFor="stay-booking">
+            <BookingSelect
+              id="stay-booking"
+              value={fields.booking}
+              onChange={(b) => setFields((f) => ({ ...f, booking: b }))}
               disabled={submitting}
             />
-            <span>Paid — count this toward spent (otherwise it&rsquo;s an upcoming estimate)</span>
-          </label>
+          </FormField>
+          <p className="stay-booking-hint">
+            {fields.booking === 'paid'
+              ? 'Counts as spent.'
+              : 'Counts as booked until you set it to Paid.'}
+          </p>
           {error && (
             <p role="alert" className="stay-form-error">
               {error}
@@ -365,6 +386,7 @@ export function StaySlot({
           pinNumber={pinNumberForId?.(stay.id)}
           onSelect={onSelect}
           onEdit={openEdit}
+          onBooking={(b) => void changeBooking(b)}
         />
       ) : (
         <button type="button" className="stay-add-btn" onClick={openAdd}>
@@ -402,6 +424,7 @@ function StayLine({
   pinNumber,
   onSelect,
   onEdit,
+  onBooking,
 }: {
   stay: Stay
   date: string
@@ -409,9 +432,9 @@ function StayLine({
   pinNumber?: number
   onSelect?: (id: string | null) => void
   onEdit: () => void
+  onBooking: (booking: Booking) => void
 }) {
   const ctx = nightContext(stay, date)
-  const hasCost = stay.cost != null && stay.cost > 0
   const includedIn = packageForStay(usePackages(stay.trip_id), stay.id)
   const sub = [ctx ? `Night ${ctx.night} of ${ctx.total}` : '', stayHint(ctx)]
     .filter(Boolean)
@@ -435,13 +458,8 @@ function StayLine({
           Included
         </span>
       )}
-      {hasCost && !includedIn && (
-        <span
-          className={stay.paid ? 'tag tag--ok' : 'tag tag--warn'}
-          aria-label={stay.paid ? 'Paid — counts toward spent' : 'Not paid yet — upcoming estimate'}
-        >
-          {stay.paid ? 'Paid' : 'To pay'}
-        </span>
+      {!includedIn && (
+        <BookingChip value={bookingOfStay(stay)} label={stay.name} onChange={onBooking} />
       )}
       {pinNumber != null && onSelect && (
         <button

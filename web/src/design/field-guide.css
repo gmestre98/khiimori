@@ -482,6 +482,9 @@
 .fg-stat--ok .fg-stat-value {
   color: var(--ok-ink);
 }
+.fg-stat--accent .fg-stat-value {
+  color: var(--accent);
+}
 
 /* ── Callouts ─────────────────────────────────────────────────────────────── */
 .fg-callout {

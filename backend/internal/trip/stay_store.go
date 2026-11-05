@@ -40,12 +40,12 @@ type pgxStayStore struct {
 }
 
 // stayColumns is the trip.stays column list in scan order.
-const stayColumns = `id::text, trip_id::text, name, location, check_in, check_out, cost, link, paid`
+const stayColumns = `id::text, trip_id::text, name, location, check_in, check_out, cost, link, paid, booking_status`
 
 // scanStay scans a trip.stays row (in stayColumns order) into s.
 func scanStay(row pgx.Row, s *Stay) error {
 	return row.Scan(
-		&s.ID, &s.TripID, &s.Name, &s.Location, &s.CheckIn, &s.CheckOut, &s.Cost, &s.Link, &s.Paid,
+		&s.ID, &s.TripID, &s.Name, &s.Location, &s.CheckIn, &s.CheckOut, &s.Cost, &s.Link, &s.Paid, &s.BookingStatus,
 	)
 }
 
@@ -106,8 +106,8 @@ func (s *pgxStayStore) CreateStay(ctx context.Context, ns NewStay) (Stay, error)
 
 	if ns.ClientID != "" {
 		q = `
-			INSERT INTO trip.stays (id, trip_id, name, location, check_in, check_out, cost, link, paid)
-			VALUES ($1::uuid, $2::uuid, $3, $4, $5::date, $6::date, $7, $8, $9)
+			INSERT INTO trip.stays (id, trip_id, name, location, check_in, check_out, cost, link, paid, booking_status)
+			VALUES ($1::uuid, $2::uuid, $3, $4, $5::date, $6::date, $7, $8, $9, $10)
 			ON CONFLICT (id) DO UPDATE
 				SET name = EXCLUDED.name,
 				    location = EXCLUDED.location,
@@ -115,16 +115,17 @@ func (s *pgxStayStore) CreateStay(ctx context.Context, ns NewStay) (Stay, error)
 				    check_out = EXCLUDED.check_out,
 				    cost = EXCLUDED.cost,
 				    link = EXCLUDED.link,
-				    paid = EXCLUDED.paid
+				    paid = EXCLUDED.paid,
+				    booking_status = EXCLUDED.booking_status
 			WHERE trip.stays.trip_id = EXCLUDED.trip_id
 			RETURNING ` + stayColumns
-		args = []any{ns.ClientID, ns.TripID, ns.Name, ns.Location, ns.CheckIn, ns.CheckOut, ns.Cost, ns.Link, ns.Paid}
+		args = []any{ns.ClientID, ns.TripID, ns.Name, ns.Location, ns.CheckIn, ns.CheckOut, ns.Cost, ns.Link, ns.Paid, bookingOrDefault(ns.BookingStatus, ns.Paid)}
 	} else {
 		q = `
-			INSERT INTO trip.stays (trip_id, name, location, check_in, check_out, cost, link, paid)
-			VALUES ($1::uuid, $2, $3, $4::date, $5::date, $6, $7, $8)
+			INSERT INTO trip.stays (trip_id, name, location, check_in, check_out, cost, link, paid, booking_status)
+			VALUES ($1::uuid, $2, $3, $4::date, $5::date, $6, $7, $8, $9)
 			RETURNING ` + stayColumns
-		args = []any{ns.TripID, ns.Name, ns.Location, ns.CheckIn, ns.CheckOut, ns.Cost, ns.Link, ns.Paid}
+		args = []any{ns.TripID, ns.Name, ns.Location, ns.CheckIn, ns.CheckOut, ns.Cost, ns.Link, ns.Paid, bookingOrDefault(ns.BookingStatus, ns.Paid)}
 	}
 
 	var st Stay
@@ -148,12 +149,20 @@ func (s *pgxStayStore) UpdateStay(ctx context.Context, tripID, stayID string, e 
 	const q = `
 		UPDATE trip.stays
 		SET name = $3, location = $4, check_in = $5::date, check_out = $6::date,
-		    cost = $7, link = $8, paid = $9
+		    cost = $7, link = $8,
+		    -- Sent status wins; without one (older client) keep the current
+		    -- status unless paid changed it.
+		    booking_status = CASE
+		        WHEN $10::text IS NOT NULL THEN $10::text
+		        WHEN $9 THEN 'paid'
+		        WHEN booking_status = 'paid' THEN 'booked'
+		        ELSE booking_status END,
+		    paid = CASE WHEN $10::text IS NOT NULL THEN $10::text = 'paid' ELSE $9 END
 		WHERE id = $1::uuid AND trip_id = $2::uuid
 		RETURNING ` + stayColumns
 	var st Stay
 	err := scanStay(s.pool.QueryRow(ctx, q,
-		stayID, tripID, e.Name, e.Location, e.CheckIn, e.CheckOut, e.Cost, e.Link, e.Paid), &st)
+		stayID, tripID, e.Name, e.Location, e.CheckIn, e.CheckOut, e.Cost, e.Link, e.Paid, e.BookingStatus), &st)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Stay{}, errStayNotFound
@@ -207,4 +216,16 @@ func (s *pgxStayStore) DeleteStay(ctx context.Context, tripID, stayID string) er
 		return fmt.Errorf("trip: delete stay: %w", err)
 	}
 	return nil
+}
+
+// bookingOrDefault fills an empty status (a NewStay built without the
+// handler, e.g. in tests) from paid.
+func bookingOrDefault(b string, paid bool) string {
+	if b != "" {
+		return b
+	}
+	if paid {
+		return BookingPaid
+	}
+	return BookingBooked
 }

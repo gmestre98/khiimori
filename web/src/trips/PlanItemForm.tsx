@@ -4,6 +4,8 @@ import { useFocusTrap } from '../components/ui/useFocusTrap'
 import { Button, FormField, Input, Select } from '../components/ui'
 import { Icon } from '../components/ui/Icon'
 import { LocationField } from './LocationField'
+import { BookingSelect } from './BookingChip'
+import { normalizeBooking } from './booking'
 import { MAX_SPLIT_PARTS, splitAmount } from './splitAmount'
 import {
   PlanItemValidationError,
@@ -128,6 +130,8 @@ interface PlanItemFormProps {
   // Title field placeholder / accessible label overrides.
   placeholder?: string
   titleLabel?: string
+  // hideBooking leaves out the Booking field (Plan details shows it above).
+  hideBooking?: boolean
 }
 
 export function PlanItemForm({
@@ -141,6 +145,7 @@ export function PlanItemForm({
   variant = 'full',
   placeholder = 'Add an activity, place or note…',
   titleLabel = 'Title',
+  hideBooking = false,
 }: PlanItemFormProps) {
   // engaged: the bar variant reveals its extra fields once the user interacts.
   const [engaged, setEngaged] = useState(false)
@@ -501,16 +506,16 @@ export function PlanItemForm({
                       </div>
                     )}
                   </FormField>
-                  <FormField label="Booking" htmlFor={`${fid}-book`}>
-                    <Input
-                      id={`${fid}-book`}
-                      type="text"
-                      value={fields.booking_status}
-                      onChange={(e) => set('booking_status', e.target.value)}
-                      placeholder="e.g. confirmed"
-                      disabled={submitting}
-                    />
-                  </FormField>
+                  {!hideBooking && (
+                    <FormField label="Booking" htmlFor={`${fid}-book`}>
+                      <BookingSelect
+                        id={`${fid}-book`}
+                        value={normalizeBooking(fields.booking_status)}
+                        onChange={(b) => set('booking_status', b)}
+                        disabled={submitting}
+                      />
+                    </FormField>
+                  )}
                 </div>
               )}
 

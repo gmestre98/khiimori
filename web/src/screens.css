@@ -2467,3 +2467,170 @@
   min-height: 44px;
   white-space: nowrap;
 }
+
+/* Booking status: one chip/select for stays and plan items everywhere. The
+   chip is a native <select> so tapping opens the phone's own picker. The
+   chevron is a mid grey that reads on light and dark themes. */
+.bk-chip {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 5px 22px 5px 8px;
+  border: 0;
+  border-radius: 7px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238A939A' stroke-width='1.6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 9px;
+}
+.bk-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.bk-chip:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.bk-chip--paid {
+  background-color: var(--ok-tint);
+  color: var(--ok-ink);
+}
+.bk-chip--booked {
+  background-color: var(--accent-tint);
+  color: var(--accent);
+}
+.bk-chip--to_book {
+  background-color: var(--warn-tint);
+  color: var(--warn-ink);
+}
+.bk-chip--none {
+  background-color: transparent;
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.bk-select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238A939A' stroke-width='1.6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 11px;
+}
+/* Plan details: Booking + Happened? side by side, with what the cost counts as. */
+.details-status {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--bg);
+}
+.details-status-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.details-status-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--ink-2, var(--muted));
+}
+
+.stays-stats-note {
+  margin: -6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Money: the spent/booked rule and the "Not paid yet" list. */
+.money-rule {
+  margin: -8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.money-rule b {
+  color: var(--ink);
+  font-weight: var(--fw-semi);
+}
+.money-unpaid {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px 6px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.money-unpaid-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding-bottom: 6px;
+}
+.money-unpaid-head .fg-section-label {
+  color: var(--accent);
+}
+.money-unpaid-count {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.money-unpaid-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.money-unpaid-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.money-unpaid-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.money-unpaid-name {
+  font-weight: var(--fw-semi);
+  font-size: 14.5px;
+}
+.money-unpaid-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+.money-unpaid-cost {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+/* A row's tags (booking chip, kind) share one group; on a phone they stack so
+   the title keeps its width. */
+.plan-row-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+@media (max-width: 520px) {
+  .plan-row-tags {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+}
