@@ -412,7 +412,8 @@ func (e exportReader) PlanItems(ctx context.Context, tripID string) ([]export.Da
 	const q = `
 		SELECT day_id::text, title, kind,
 		       COALESCE(start_time::text, ''), COALESCE(location, ''),
-		       COALESCE(booking_status, ''), cost,
+		       CASE booking_status WHEN 'to_book' THEN 'to book' WHEN 'booked' THEN 'booked'
+		            WHEN 'paid' THEN 'paid' ELSE '' END, cost,
 		       COALESCE(origin, ''), COALESCE(destination, ''), COALESCE(arrive_time::text, ''),
 		       COALESCE(note, ''), unplanned, sort_order, actual_order, status
 		FROM trip.plan_items

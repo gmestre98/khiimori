@@ -53,7 +53,7 @@ func TestAllFieldsPreservedThroughPromoteDemote(t *testing.T) {
 		"title":          "Visit the market",
 		"type":           "food",
 		"location":       "Mercado da Ribeira",
-		"booking_status": "pending",
+		"booking_status": "to_book",
 		"cost":           12.50,
 		"link":           "https://example.com/market"
 	}`
@@ -76,8 +76,8 @@ func TestAllFieldsPreservedThroughPromoteDemote(t *testing.T) {
 	if promoted.Location == nil || *promoted.Location != "Mercado da Ribeira" {
 		t.Errorf("promote: location = %v, want Mercado da Ribeira", promoted.Location)
 	}
-	if promoted.BookingStatus == nil || *promoted.BookingStatus != "pending" {
-		t.Errorf("promote: booking_status = %v, want pending", promoted.BookingStatus)
+	if promoted.BookingStatus == nil || *promoted.BookingStatus != "to_book" {
+		t.Errorf("promote: booking_status = %v, want to_book", promoted.BookingStatus)
 	}
 	if promoted.Cost == nil || *promoted.Cost != 12.50 {
 		t.Errorf("promote: cost = %v, want 12.50", promoted.Cost)
@@ -101,8 +101,8 @@ func TestAllFieldsPreservedThroughPromoteDemote(t *testing.T) {
 	if demoted.Location == nil || *demoted.Location != "Mercado da Ribeira" {
 		t.Errorf("demote: location = %v, want Mercado da Ribeira", demoted.Location)
 	}
-	if demoted.BookingStatus == nil || *demoted.BookingStatus != "pending" {
-		t.Errorf("demote: booking_status = %v, want pending", demoted.BookingStatus)
+	if demoted.BookingStatus == nil || *demoted.BookingStatus != "to_book" {
+		t.Errorf("demote: booking_status = %v, want to_book", demoted.BookingStatus)
 	}
 	if demoted.Cost == nil || *demoted.Cost != 12.50 {
 		t.Errorf("demote: cost = %v, want 12.50", demoted.Cost)

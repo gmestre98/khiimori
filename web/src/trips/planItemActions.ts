@@ -15,7 +15,9 @@ import { useIsOnline } from '../lib/useIsOnline'
 import { readCache, writeCache } from '../lib/resourceCache'
 import { cacheKeys } from '../lib/cacheKeys'
 import { splitAmount } from './splitAmount'
+import type { Booking } from './booking'
 import {
+  fieldsFromItem,
   fieldsToInput,
   mergeInput,
   tempPlanItem,
@@ -96,6 +98,22 @@ export function usePlanItemActions({
     [online, tripId, onUpdated, onAdded],
   )
 
+  // setBooking changes only the booking status: shown at once, then saved
+  // through the normal update (queued when offline).
+  const setBooking = useCallback(
+    async (item: PlanItem, booking: Booking) => {
+      onUpdated({ ...item, booking_status: booking })
+      await save(
+        { ...item, booking_status: booking },
+        {
+          ...fieldsFromItem(item),
+          booking_status: booking,
+        },
+      )
+    },
+    [onUpdated, save],
+  )
+
   const moveToDay = useCallback(
     async (item: PlanItem, targetDate: string): Promise<PlanItem> => {
       if (!online) {
@@ -140,5 +158,5 @@ export function usePlanItemActions({
     [online, tripId, onRemoved],
   )
 
-  return { setStatus, save, moveToDay, demote, remove }
+  return { setStatus, setBooking, save, moveToDay, demote, remove }
 }

@@ -1,6 +1,13 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { datesInRange, fetchDay, UnauthorizedError, type Day, type LatLng } from '../lib/api'
+import {
+  datesInRange,
+  fetchDay,
+  UnauthorizedError,
+  type Day,
+  type LatLng,
+  type Stay,
+} from '../lib/api'
 import { loadDayRoute } from '../lib/dayRouteCache'
 import { euroWhole, localToday } from '../lib/format'
 import { countryColor, NO_COUNTRY_COLOR } from '../design/countries'
@@ -15,6 +22,10 @@ import { buildDayMetas, stayRuns, type DayMeta } from './tripDays'
 import { useTripShell } from './useTripShell'
 import type { TripDayMarkers } from './TripMap'
 import { isPaid, packageForStay, usePackages } from './packages'
+import { BookingChip } from './BookingChip'
+import { bookingOfStay, type Booking } from './booking'
+import { saveStayBooking } from './bookingSave'
+import { useIsOnline } from '../lib/useIsOnline'
 
 const TripMap = lazy(() => import('./TripMap'))
 
@@ -247,7 +258,24 @@ export function TripMapPage() {
           Loading trip map…
         </p>
       ) : view === 'stays' ? (
-        <StaysView entries={entries} metas={metas} />
+        <StaysView
+          entries={entries}
+          metas={metas}
+          onStayChanged={(s) =>
+            setEntries((cur) =>
+              cur
+                ? cur.map((e) =>
+                    e.day.stays.some((x) => x.id === s.id)
+                      ? {
+                          ...e,
+                          day: { ...e.day, stays: e.day.stays.map((x) => (x.id === s.id ? s : x)) },
+                        }
+                      : e,
+                  )
+                : cur,
+            )
+          }
+        />
       ) : (
         <div className="map-layout">
           <div className="map-frame">
@@ -392,9 +420,29 @@ export function TripMapPage() {
 // StaysView lists the trip's bases in order: where you sleep, for how many
 // nights, whether it's paid, and the runs of nights with no bed yet. Built
 // from the stays already on each day (stayCoverage) — nothing new is stored.
-function StaysView({ entries, metas }: { entries: DayEntry[]; metas: DayMeta[] }) {
+function StaysView({
+  entries,
+  metas,
+  onStayChanged,
+}: {
+  entries: DayEntry[]
+  metas: DayMeta[]
+  onStayChanged: (stay: Stay) => void
+}) {
   const { trip } = useTripShell()
+  const online = useIsOnline()
   const packages = usePackages(trip.id)
+  const [error, setError] = useState<string | null>(null)
+  async function changeBooking(stay: Stay, booking: Booking) {
+    setError(null)
+    onStayChanged({ ...stay, booking_status: booking, paid: booking === 'paid' })
+    try {
+      onStayChanged(await saveStayBooking(trip.id, stay, booking, online))
+    } catch {
+      onStayChanged(stay)
+      setError(`Could not change the booking for ${stay.name}.`)
+    }
+  }
   const dates = entries.map((e) => e.date)
   const runs = stayRuns(
     dates,
@@ -405,9 +453,19 @@ function StaysView({ entries, metas }: { entries: DayEntry[]; metas: DayMeta[] }
     const p = packageForStay(packages, id)
     return p ? { pkg: p, paid: isPaid(p) } : null
   }
-  const booked = runs
-    .filter((r) => r.kind === 'stay' && r.stay && (r.stay.paid || covered(r.stay.id)?.paid))
-    .reduce((n, r) => n + r.nights, 0)
+  // Nights by booking status; a stay in a package takes the package's status.
+  const nightsBy = (b: Booking) =>
+    runs
+      .filter((r) => {
+        if (r.kind !== 'stay' || !r.stay) return false
+        const pkg = covered(r.stay.id)
+        const status: Booking = pkg ? (pkg.paid ? 'paid' : 'booked') : bookingOfStay(r.stay)
+        return status === b
+      })
+      .reduce((n, r) => n + r.nights, 0)
+  const paidNights = nightsBy('paid')
+  const bookedNights = nightsBy('booked')
+  const toBookNights = nightsBy('to_book')
   const noBed = runs.filter((r) => r.kind === 'gap').reduce((n, r) => n + r.nights, 0)
   const bases = runs.filter((r) => r.kind === 'stay').length
   const transfers = entries.reduce(
@@ -422,20 +480,33 @@ function StaysView({ entries, metas }: { entries: DayEntry[]; metas: DayMeta[] }
 
   return (
     <div className="stays-view">
-      <div className="fg-stats stays-stats" style={{ '--cols': 3 } as React.CSSProperties}>
+      <div className="fg-stats stays-stats" style={{ '--cols': 4 } as React.CSSProperties}>
         <div className="fg-stat fg-stat--ok">
-          <span className="fg-stat-value">{booked}</span>
-          <span className="fg-stat-label">nights paid</span>
+          <span className="fg-stat-value">{paidNights}</span>
+          <span className="fg-stat-label">paid</span>
+        </div>
+        <div className="fg-stat fg-stat--accent">
+          <span className="fg-stat-value">{bookedNights}</span>
+          <span className="fg-stat-label">booked</span>
+        </div>
+        <div className={toBookNights > 0 ? 'fg-stat fg-stat--warn' : 'fg-stat'}>
+          <span className="fg-stat-value">{toBookNights}</span>
+          <span className="fg-stat-label">to book</span>
         </div>
         <div className={noBed > 0 ? 'fg-stat fg-stat--warn' : 'fg-stat'}>
           <span className="fg-stat-value">{noBed}</span>
-          <span className="fg-stat-label">nights with no bed yet</span>
-        </div>
-        <div className="fg-stat">
-          <span className="fg-stat-value">{transfers > 0 ? transfers : bases}</span>
-          <span className="fg-stat-label">{transfers > 0 ? 'journeys' : 'bases'}</span>
+          <span className="fg-stat-label">no bed yet</span>
         </div>
       </div>
+      <p className="stays-stats-note">
+        Nights · {bases} {bases === 1 ? 'base' : 'bases'}
+        {transfers > 0 ? ` · ${transfers} ${transfers === 1 ? 'journey' : 'journeys'}` : ''}
+      </p>
+      {error && (
+        <p role="alert" className="fg-error">
+          {error}
+        </p>
+      )}
 
       <ol className="stays-list" aria-label="Stays in order">
         {runs.map((r) => {
@@ -464,7 +535,6 @@ function StaysView({ entries, metas }: { entries: DayEntry[]; metas: DayMeta[] }
           }
           const stay = r.stay!
           const inPkg = covered(stay.id)
-          const status = inPkg ? 'Included' : stay.paid ? 'Paid' : stay.cost ? 'To pay' : ''
           return (
             <li key={`${stay.id}-${r.start}`} className="stays-item">
               <span className="stays-dot" style={{ background: color, borderColor: color }} />
@@ -482,10 +552,14 @@ function StaysView({ entries, metas }: { entries: DayEntry[]; metas: DayMeta[] }
                   {inPkg ? ` · ${inPkg.pkg.name}` : stay.cost ? ` · ${euroWhole(stay.cost)}` : ''}
                 </span>
               </span>
-              {status && (
-                <span className={inPkg || stay.paid ? 'tag tag--ok' : 'tag tag--warn'}>
-                  {status}
-                </span>
+              {inPkg ? (
+                <span className="tag tag--ok">Included</span>
+              ) : (
+                <BookingChip
+                  value={bookingOfStay(stay)}
+                  label={stay.name}
+                  onChange={(b) => void changeBooking(stay, b)}
+                />
               )}
             </li>
           )

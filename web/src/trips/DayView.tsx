@@ -22,6 +22,8 @@ import { DateBox } from '../components/ui/DateBox'
 import { DayTitle } from './DayTitle'
 import { PackageBanner } from './PackageBanner'
 import { packageForItem, usePackages } from './packages'
+import { BookingChip } from './BookingChip'
+import { bookingOfItem, type Booking } from './booking'
 import { JournalEditor } from '../journal/JournalEditor'
 import { useTripShell } from './useTripShell'
 import { QuickAddForm } from './PlanItemForm'
@@ -137,6 +139,7 @@ function PlanRow({
   onToggle,
   toggling,
   onOpen,
+  onBooking,
   onDragStart,
   onDragOver,
   onDrop,
@@ -153,6 +156,7 @@ function PlanRow({
   onToggle: () => void
   toggling: boolean
   onOpen: () => void
+  onBooking?: (booking: Booking) => void
   onDragStart: (e: React.DragEvent, id: string) => void
   onDragOver: (e: React.DragEvent) => void
   onDrop: (e: React.DragEvent, id: string) => void
@@ -222,18 +226,23 @@ function PlanRow({
         {item.note && <span className="plan-row-note">{item.note}</span>}
       </span>
       <span className="plan-row-end">
-        {word && item.status !== 'done' && <span className="tag">{word}</span>}
-        {includedIn && (
-          <span className="tag tag--ok" title={`Included in ${includedIn.name}`}>
-            Included
-          </span>
-        )}
-        {tag && (
-          <span className={`tag tag--${tag.tone}`}>
-            <Icon name={KIND_ICON[kind]} size={11} />
-            {tag.label}
-          </span>
-        )}
+        <span className="plan-row-tags">
+          {word && item.status !== 'done' && <span className="tag">{word}</span>}
+          {includedIn && (
+            <span className="tag tag--ok" title={`Included in ${includedIn.name}`}>
+              Included
+            </span>
+          )}
+          {!includedIn && onBooking && kind !== 'note' && (
+            <BookingChip value={bookingOfItem(item)} label={item.title} onChange={onBooking} />
+          )}
+          {tag && (
+            <span className={`tag tag--${tag.tone}`}>
+              <Icon name={KIND_ICON[kind]} size={11} />
+              {tag.label}
+            </span>
+          )}
+        </span>
         {pinNumber != null && onSelect && (
           <button
             type="button"
@@ -283,6 +292,7 @@ function ReorderableList({
   onToggle,
   togglingId,
   onOpen,
+  onBooking,
   onReordered,
 }: {
   items: PlanItem[]
@@ -294,6 +304,7 @@ function ReorderableList({
   onToggle: (item: PlanItem) => void
   togglingId: string | null
   onOpen: (item: PlanItem) => void
+  onBooking?: (item: PlanItem, booking: Booking) => void
   onReordered: (order: PlanItem[]) => void
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -437,6 +448,7 @@ function ReorderableList({
           onToggle={() => onToggle(item)}
           toggling={togglingId === item.id}
           onOpen={() => onOpen(item)}
+          onBooking={onBooking ? (b) => onBooking(item, b) : undefined}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
@@ -484,6 +496,16 @@ function usePlanState({
     onRemoved: handleRemoved,
     onAdded: handleAdded,
   })
+
+  async function changeBooking(item: PlanItem, booking: Booking) {
+    setToggleError(null)
+    try {
+      await actions.setBooking(item, booking)
+    } catch {
+      handleUpdated(item)
+      setToggleError(`Could not change the booking for “${item.title}”.`)
+    }
+  }
 
   async function toggleDone(item: PlanItem) {
     setTogglingId(item.id)
@@ -550,6 +572,7 @@ function usePlanState({
     togglingId,
     toggleError,
     toggleDone,
+    changeBooking,
     handleAdded,
     handleUpdated,
     handleRemoved,
@@ -608,6 +631,7 @@ function PlanPanel({
             onToggle={(i) => void plan.toggleDone(i)}
             togglingId={plan.togglingId}
             onOpen={onOpen}
+            onBooking={(i, b) => void plan.changeBooking(i, b)}
             onReordered={plan.handlePlanReordered}
           />
         </>

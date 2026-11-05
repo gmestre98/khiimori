@@ -6,6 +6,10 @@ import { Icon } from '../components/ui/Icon'
 import { PackagePicker } from './PackagePicker'
 import { PlanItemForm } from './PlanItemForm'
 import { PLAN_STATUSES, usePlanItemActions } from './planItemActions'
+import { BookingSelect } from './BookingChip'
+import { bookingOfItem, itemCounts, itemCountsAsSpent } from './booking'
+import { packageForItem, usePackages } from './packages'
+import { euroWhole } from '../lib/format'
 import { fieldsFromItem, type PlanItemFormFields } from './planItemForm.helpers'
 
 // dayOptionLabel: "Thu 19 Nov · Day 2".
@@ -77,10 +81,22 @@ export function PlanItemDetails({
     }
   }
 
+  // The form doesn't show Booking here (it sits above it), so its saves carry
+  // the item's current status rather than the value it was opened with.
+  const withBooking = (fields: PlanItemFormFields): PlanItemFormFields => ({
+    ...fields,
+    booking_status: bookingOfItem(item),
+  })
+  const includedIn = packageForItem(usePackages(item.trip_id), item.id)
+  const isNote = (item.kind ?? 'activity') === 'note'
+  const statusValue = ['done', 'skipped', 'cancelled'].includes(item.status)
+    ? item.status
+    : 'planned'
+
   async function handleSubmit(fields: PlanItemFormFields, splitParts: number) {
     setError(null)
     try {
-      await actions.save(item, fields, splitParts)
+      await actions.save(item, withBooking(fields), splitParts)
       onClose()
     } catch (err) {
       setError(err instanceof PlanItemValidationError ? err.message : 'Could not save changes.')
@@ -114,30 +130,55 @@ export function PlanItemDetails({
         </div>
 
         <div className="details-body">
-          <div className="details-section">
-            <span className="details-field-label" id={`status-${item.id}`}>
-              Status
-            </span>
-            <div className="seg seg--block" role="group" aria-labelledby={`status-${item.id}`}>
-              {PLAN_STATUSES.map((s) => (
-                <button
-                  key={s.value}
-                  type="button"
-                  className={`seg-btn seg-btn--status-${s.value}`}
-                  aria-pressed={
-                    item.status === s.value ||
-                    (s.value === 'planned' &&
-                      !['done', 'skipped', 'cancelled'].includes(item.status))
-                  }
+          <div className="details-section details-status">
+            {!isNote && !includedIn && (
+              <label className="details-status-field">
+                <span className="details-field-label">Booking</span>
+                <BookingSelect
+                  value={bookingOfItem(item)}
                   disabled={busy}
-                  onClick={() =>
-                    void run(() => actions.setStatus(item, s.value), 'Could not change the status.')
+                  onChange={(b) =>
+                    void run(() => actions.setBooking(item, b), 'Could not change the booking.')
                   }
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
+                />
+              </label>
+            )}
+            <label className="details-status-field">
+              <span className="details-field-label">Happened?</span>
+              <select
+                className="form-input bk-select"
+                value={statusValue}
+                disabled={busy}
+                onChange={(e) =>
+                  void run(
+                    () => actions.setStatus(item, e.target.value),
+                    'Could not change the status.',
+                  )
+                }
+              >
+                {PLAN_STATUSES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {!isNote && !includedIn && item.cost != null && item.cost > 0 && (
+              <p className="details-status-hint">
+                {!itemCounts(item) ? (
+                  <>{euroWhole(item.cost)} isn’t counted: it didn’t happen and wasn’t paid.</>
+                ) : itemCountsAsSpent(item) ? (
+                  <>
+                    {euroWhole(item.cost)} counts as <b>spent</b>.
+                  </>
+                ) : (
+                  <>
+                    {euroWhole(item.cost)} counts as <b>booked</b>. Mark it paid or done and it
+                    moves to spent.
+                  </>
+                )}
+              </p>
+            )}
           </div>
 
           <PackagePicker item={item} date={currentDate} />
@@ -147,9 +188,10 @@ export function PlanItemDetails({
             initialFields={fieldsFromItem(item)}
             submitLabel="Save"
             onSubmit={handleSubmit}
-            onAutoSave={(fields) => actions.save(item, fields)}
+            onAutoSave={(fields) => actions.save(item, withBooking(fields))}
             error={null}
             actionsPlacement="footer"
+            hideBooking
           />
 
           {error && (

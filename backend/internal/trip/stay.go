@@ -29,9 +29,10 @@ type Stay struct {
 	CheckOut *time.Time // optional; date only
 	Cost     *float64   // optional
 	Link     *string    // optional; URL; NULL when absent
-	// Paid marks the stay as actually paid for; the budget roll-up counts a
-	// stay's cost as spent only when paid, otherwise as an upcoming estimate
-	// (M12.2 S2). Defaults to false.
+	// BookingStatus is one of none | to_book | booked | paid (see booking.go).
+	BookingStatus string
+	// Paid mirrors BookingStatus == paid: the budget roll-up counts a stay's
+	// cost as spent only when paid, otherwise as an upcoming estimate.
 	Paid bool
 }
 
@@ -48,7 +49,9 @@ type NewStay struct {
 	CheckOut *time.Time
 	Cost     *float64
 	Link     *string // nil when absent
-	Paid     bool
+	// BookingStatus is resolved by the handler (never empty); Paid mirrors it.
+	BookingStatus string
+	Paid          bool
 }
 
 // EditStay is the validated input to edit a stay. All fields replace the
@@ -60,7 +63,11 @@ type EditStay struct {
 	CheckOut *time.Time
 	Cost     *float64
 	Link     *string // nil when absent
-	Paid     bool
+	// BookingStatus is the normalised status, or nil when an older client sent
+	// only paid: then the store keeps the current status unless paid changes
+	// it (paid → paid; un-ticking paid → booked).
+	BookingStatus *string
+	Paid          bool
 }
 
 // validateStayFields checks the client-supplied stay fields used by both create

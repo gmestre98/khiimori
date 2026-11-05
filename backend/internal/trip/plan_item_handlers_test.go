@@ -372,6 +372,22 @@ func TestHandleCreatePlanItemTimed(t *testing.T) {
 
 // TestHandleCreatePlanItemAllFields asserts all optional fields are forwarded
 // to the store when supplied.
+func TestHandleCreatePlanItemNormalisesBooking(t *testing.T) {
+	for in, want := range map[string]string{`"confirmed"`: "booked", `null`: "none", `"to_book"`: "to_book"} {
+		r := createPlanItemRequest{Title: "Ferry"}
+		if err := json.Unmarshal([]byte(`{"title":"Ferry","booking_status":`+in+`}`), &r); err != nil {
+			t.Fatal(err)
+		}
+		n, err := r.toNewPlanItem("trip-1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n.BookingStatus == nil || *n.BookingStatus != want {
+			t.Errorf("booking %s → %v, want %s", in, n.BookingStatus, want)
+		}
+	}
+}
+
 func TestHandleCreatePlanItemAllFields(t *testing.T) {
 	t.Parallel()
 
@@ -381,7 +397,7 @@ func TestHandleCreatePlanItemAllFields(t *testing.T) {
 	body := `{
 		"title":"Boat trip","day_id":"day-1",
 		"type":"activity","start_time":"14:00","duration":"PT3H",
-		"location":"Marina","booking_status":"confirmed",
+		"location":"Marina","booking_status":"paid",
 		"cost":49.99,"link":"https://example.com/booking",
 		"note":"Turned out amazing — went twice"
 	}`
@@ -398,8 +414,8 @@ func TestHandleCreatePlanItemAllFields(t *testing.T) {
 	if n.Location == nil || *n.Location != "Marina" {
 		t.Errorf("location = %v, want Marina", n.Location)
 	}
-	if n.BookingStatus == nil || *n.BookingStatus != "confirmed" {
-		t.Errorf("booking_status = %v, want confirmed", n.BookingStatus)
+	if n.BookingStatus == nil || *n.BookingStatus != "paid" {
+		t.Errorf("booking_status = %v, want paid", n.BookingStatus)
 	}
 	if n.Cost == nil || *n.Cost != 49.99 {
 		t.Errorf("cost = %v, want 49.99", n.Cost)

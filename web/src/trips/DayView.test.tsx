@@ -655,11 +655,8 @@ describe('DayView', () => {
       const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       const titleInput = within(editingLi as HTMLElement).getByLabelText('Title')
       expect((titleInput as HTMLInputElement).value).toBe('Visit museum')
-      const status = within(editingLi).getByRole('group', { name: 'Status' })
-      expect(within(status).getByRole('button', { name: 'Planned' })).toHaveAttribute(
-        'aria-pressed',
-        'true',
-      )
+      expect(within(editingLi).getByRole('combobox', { name: 'Happened?' })).toHaveValue('planned')
+      expect(within(editingLi).getByRole('combobox', { name: 'Booking' })).toHaveValue('none')
       for (const action of ['Move to another day', 'Move to the backlog', /Delete/]) {
         expect(within(editingLi).getByRole('button', { name: action })).toBeInTheDocument()
       }
@@ -1224,6 +1221,47 @@ describe('DayView', () => {
       onLine.mockRestore()
     })
 
+    it('changes the booking from the chip on the row', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Djoudj tour', cost: 35, booking_status: 'booked' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      vi.mocked(api.updatePlanItem).mockResolvedValue({ ...item, booking_status: 'paid' })
+
+      renderDayView()
+      const chip = await screen.findByRole('combobox', { name: 'Booking: Djoudj tour' })
+      expect(chip).toHaveValue('booked')
+      await user.selectOptions(chip, 'paid')
+      expect(chip).toHaveValue('paid')
+      await waitFor(() =>
+        expect(api.updatePlanItem).toHaveBeenCalledWith(
+          'trip-1',
+          'item-1',
+          expect.objectContaining({ title: 'Djoudj tour', booking_status: 'paid', cost: 35 }),
+        ),
+      )
+    })
+
+    it('sets the booking in the details sheet and says what the cost counts as', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Djoudj tour', cost: 35, booking_status: 'booked' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      vi.mocked(api.updatePlanItem).mockResolvedValue({ ...item, booking_status: 'paid' })
+
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Djoudj tour')).toBeInTheDocument())
+      const dialog = await openDetails(user, 'Djoudj tour')
+      expect(within(dialog).getByText(/counts as/)).toHaveTextContent('€35 counts as booked')
+      await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Booking' }), 'paid')
+      await waitFor(() =>
+        expect(within(dialog).getByText(/counts as/)).toHaveTextContent('€35 counts as spent'),
+      )
+      expect(api.updatePlanItem).toHaveBeenCalledWith(
+        'trip-1',
+        'item-1',
+        expect.objectContaining({ booking_status: 'paid' }),
+      )
+    })
+
     it('sets Skipped from the details sheet status control', async () => {
       const user = userEvent.setup()
       const item = makePlanItem({ title: 'Visit museum', status: 'planned' })
@@ -1233,18 +1271,13 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
       const dialog = await openDetails(user, 'Visit museum')
-      const status = within(dialog).getByRole('group', { name: 'Status' })
-      await user.click(within(status).getByRole('button', { name: 'Skipped' }))
+      const status = within(dialog).getByRole('combobox', { name: 'Happened?' })
+      await user.selectOptions(status, 'skipped')
 
       await waitFor(() =>
         expect(api.setPlanItemStatus).toHaveBeenCalledWith('trip-1', 'item-1', 'skipped'),
       )
-      await waitFor(() =>
-        expect(within(status).getByRole('button', { name: 'Skipped' })).toHaveAttribute(
-          'aria-pressed',
-          'true',
-        ),
-      )
+      await waitFor(() => expect(status).toHaveValue('skipped'))
     })
 
     it('moves an item to another day from the sheet', async () => {
