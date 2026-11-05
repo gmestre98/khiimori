@@ -64,7 +64,9 @@ export function MoneyPackages({
               <span className="money-package-titles">
                 <span className="money-package-name">{p.name}</span>
                 <span className="money-package-sub">
-                  {[p.provider, rangeLabel(p.start_date, p.end_date)].filter(Boolean).join(' · ')}
+                  {[p.provider, rangeLabel(p.start_date, p.end_date), `in ${p.category ?? 'Other'}`]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </span>
               </span>
               <span className="money-package-price">{euroWhole(p.total_cost)}</span>

@@ -614,6 +614,7 @@ function resolvePackages(path: string, method: string, body: unknown): Response 
       const p: MockPackage = {
         provider: '',
         link: '',
+        category: 'Other',
         paid_amount: b.total_cost ?? 0,
         balance_due: null,
         includes: [],
@@ -630,6 +631,27 @@ function resolvePackages(path: string, method: string, body: unknown): Response 
     }
   }
   return null
+}
+
+// rollupWithPackages adds the mock packages to their category, like the
+// backend does: paid as spent, the rest as estimated.
+function rollupWithPackages() {
+  const r = structuredClone(budgetRollup) as typeof budgetRollup & {
+    by_category: Record<string, number>
+    estimated_by_category?: Record<string, number>
+    estimated_trip_total?: number
+  }
+  r.estimated_by_category = { ...(r.estimated_by_category ?? {}) }
+  for (const p of mockPackages) {
+    const total = Number(p.total_cost ?? 0)
+    const paid = Math.min(Number(p.paid_amount ?? 0), total)
+    const cat = String(p.category ?? 'Other')
+    r.trip_total += paid
+    r.by_category[cat] = (r.by_category[cat] ?? 0) + paid
+    r.estimated_trip_total = (r.estimated_trip_total ?? 0) + total - paid
+    r.estimated_by_category[cat] = (r.estimated_by_category[cat] ?? 0) + total - paid
+  }
+  return r
 }
 
 // Custom day titles set in local dev (PATCH /trips/:id/days/:date).
@@ -756,7 +778,7 @@ function resolve(path: string, method: string, search: string, body: unknown): R
     })
   }
   // budget rollup
-  if (/\/budget\/rollup$/.test(path)) return json(budgetRollup)
+  if (/\/budget\/rollup$/.test(path)) return json(rollupWithPackages())
   // budget lines (writes)
   if (/\/budget-lines$/.test(path))
     return json({

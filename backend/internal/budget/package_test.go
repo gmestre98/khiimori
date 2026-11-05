@@ -62,6 +62,9 @@ func applyFake(p *Package, in PackageInput) {
 	set(&p.Name, in.Name)
 	set(&p.Provider, in.Provider)
 	set(&p.Link, in.Link)
+	if in.Category != nil {
+		p.Category = Category(*in.Category)
+	}
 	set(&p.StartDate, in.StartDate)
 	set(&p.EndDate, in.EndDate)
 	if in.ClearBalanceDue {
@@ -123,6 +126,8 @@ func TestPackageInput_ValidateCreate(t *testing.T) {
 		{"bad date", func(p *PackageInput) { p.EndDate = str("6 Dec") }, true},
 		{"bad link", func(p *PackageInput) { p.Link = str("javascript:alert(1)") }, true},
 		{"unknown include", func(p *PackageInput) { inc := []string{"spa"}; p.Includes = &inc }, true},
+		{"category ok", func(p *PackageInput) { p.Category = str("Activities") }, false},
+		{"bad category", func(p *PackageInput) { p.Category = str("Tours") }, true},
 		{"bad stay id", func(p *PackageInput) { ids := []string{"x"}; p.StayIDs = &ids }, true},
 	}
 	for _, tc := range cases {
@@ -239,9 +244,14 @@ func TestComputeRollup_PackagesCountOnce(t *testing.T) {
 	if r.PackageSpent != 350 || r.PackageEstimated != 900 {
 		t.Errorf("package fields = %v / %v", r.PackageSpent, r.PackageEstimated)
 	}
-	// Packages stay out of the fixed categories and days.
-	if r.ByCategory[string(CategoryFood)] != 10 || len(r.ByDay) != 1 {
-		t.Errorf("categories/days changed: %v %v", r.ByCategory, r.ByDay)
+	// Packages count in their category (Other when unset), never on a day.
+	if r.ByCategory[string(CategoryFood)] != 10 || r.ByCategory[string(CategoryOther)] != 350 ||
+		r.EstimatedByCategory[string(CategoryOther)] != 900 || len(r.ByDay) != 1 {
+		t.Errorf("categories/days: %v %v %v", r.ByCategory, r.EstimatedByCategory, r.ByDay)
+	}
+	r2 := computeRollup(nil, nil, nil, []Package{{Category: CategoryActivities, TotalCost: 100, PaidAmount: 40}})
+	if r2.ByCategory[string(CategoryActivities)] != 40 || r2.EstimatedByCategory[string(CategoryActivities)] != 60 {
+		t.Errorf("chosen category: %v %v", r2.ByCategory, r2.EstimatedByCategory)
 	}
 }
 

@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import {
+  BUDGET_CATEGORIES,
   createPackage,
   deletePackage,
   updatePackage,
   UnauthorizedError,
+  type BudgetCategory,
   type Day,
   type PackageInclude,
   type PackageInput,
@@ -66,6 +68,7 @@ export function PackageSheet({
     new Set(pkg?.includes ?? ['beds', 'transport']),
   )
   const [link, setLink] = useState(pkg?.link ?? '')
+  const [category, setCategory] = useState<BudgetCategory>(pkg?.category ?? 'Other')
   // Which covered rows are ticked. Unset until the covers step first opens.
   const [ticked, setTicked] = useState<Set<string> | null>(
     pkg
@@ -117,6 +120,7 @@ export function PackageSheet({
       name: name.trim(),
       provider: provider.trim(),
       link: link.trim(),
+      category,
       total_cost: totalNum!,
       paid_amount: paidNum!,
       balance_due: deposit && due ? due : null,
@@ -227,6 +231,23 @@ export function PackageSheet({
                 />
               </label>
             </div>
+
+            <label className="pkg-field">
+              <span>Counts toward</span>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as BudgetCategory)}
+              >
+                {BUDGET_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <small className="pkg-hint">
+                Its price adds to this category in Money: paid as spent, the rest as booked.
+              </small>
+            </label>
 
             <fieldset className="pkg-fieldset">
               <legend>Payment</legend>

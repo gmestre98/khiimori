@@ -1034,6 +1034,8 @@ export interface TripPackage {
   name: string
   provider: string
   link: string
+  // The budget category it counts toward (default Other).
+  category: BudgetCategory
   total_cost: number
   paid_amount: number
   balance_due: string | null
@@ -1053,6 +1055,7 @@ export interface PackageInput {
   name?: string
   provider?: string
   link?: string
+  category?: BudgetCategory
   total_cost?: number
   paid_amount?: number
   balance_due?: string | null
