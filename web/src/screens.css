@@ -2425,3 +2425,45 @@
   font-weight: var(--fw-med);
   min-width: 0;
 }
+
+/* To-do edit: stacked, labelled fields; the text gets the full width. */
+.todo-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+.todo-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+.todo-edit-field > span {
+  font-size: 13px;
+  font-weight: var(--fw-semi);
+}
+.todo-edit-title {
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 12px;
+  resize: vertical;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.35;
+}
+.todo-edit .form-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 16px;
+}
+.todo-edit-due {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+.todo-edit-due .fg-link-btn {
+  min-height: 44px;
+  white-space: nowrap;
+}

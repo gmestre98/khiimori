@@ -6603,8 +6603,19 @@
   display: flex;
   gap: var(--s2);
 }
+/* Fields share the row evenly (each input is width: 100%, which used to let
+   the second one take the whole row and squeeze the first to nothing on a
+   phone); the quantity stays narrow. */
+.packing-edit-row .form-input {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+}
 .packing-edit-row .form-input:first-child {
-  flex: 1;
+  flex-grow: 2;
+}
+.packing-edit-row .packing-add-qty {
+  flex: 0 0 72px;
 }
 .packing-edit-actions {
   display: flex;
