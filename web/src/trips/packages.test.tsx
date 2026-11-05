@@ -43,6 +43,7 @@ function pkg(over: Partial<TripPackage> = {}): TripPackage {
     trip_id: 'trip-1',
     name: 'Mauritania Round 18',
     provider: 'Against the Compass',
+    category: 'Other',
     link: '',
     total_cost: 1200,
     paid_amount: 1200,
@@ -214,6 +215,7 @@ describe('PackageSheet', () => {
         name: 'Mauritania Round 18',
         provider: 'Against the Compass',
         link: '',
+        category: 'Other',
         total_cost: 1200,
         paid_amount: 1200,
         balance_due: null,
@@ -233,6 +235,7 @@ describe('PackageSheet', () => {
     renderSheet()
     await user.type(screen.getByLabelText('Name'), 'Tour')
     await user.type(screen.getByLabelText('Total price (EUR)'), '1200')
+    await user.selectOptions(screen.getByRole('combobox', { name: /Counts toward/ }), 'Activities')
     await user.click(screen.getByRole('button', { name: 'Deposit paid' }))
     await user.type(screen.getByLabelText('Paid so far'), '2000')
     await user.click(screen.getByRole('button', { name: 'Next: what it covers' }))
@@ -246,7 +249,12 @@ describe('PackageSheet', () => {
     await waitFor(() =>
       expect(api.createPackage).toHaveBeenCalledWith(
         'trip-1',
-        expect.objectContaining({ total_cost: 1200, paid_amount: 300, balance_due: '2026-11-15' }),
+        expect.objectContaining({
+          category: 'Activities',
+          total_cost: 1200,
+          paid_amount: 300,
+          balance_due: '2026-11-15',
+        }),
       ),
     )
   })
@@ -281,6 +289,7 @@ describe('package surfaces', () => {
     expect(within(line).getByText('Paid')).toBeInTheDocument()
     expect(within(line).getByText('Beds · Transport · Meals')).toBeInTheDocument()
     expect(within(line).getByText(/2 items on those days/)).toBeInTheDocument()
+    expect(within(line).getByText(/in Other$/)).toBeInTheDocument()
   })
 
   it('shows a part-paid package with what is left and when', async () => {

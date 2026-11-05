@@ -18,6 +18,7 @@ type packageRequest struct {
 	Name        *string         `json:"name"`
 	Provider    *string         `json:"provider"`
 	Link        *string         `json:"link"`
+	Category    *string         `json:"category"`
 	TotalCost   *float64        `json:"total_cost"`
 	PaidAmount  *float64        `json:"paid_amount"`
 	BalanceDue  json.RawMessage `json:"balance_due"`
@@ -30,7 +31,7 @@ type packageRequest struct {
 
 func (r packageRequest) toInput() (PackageInput, error) {
 	in := PackageInput{
-		Name: r.Name, Provider: r.Provider, Link: r.Link, TotalCost: r.TotalCost,
+		Name: r.Name, Provider: r.Provider, Link: r.Link, Category: r.Category, TotalCost: r.TotalCost,
 		PaidAmount: r.PaidAmount, StartDate: r.StartDate, EndDate: r.EndDate,
 		Includes: r.Includes, StayIDs: r.StayIDs, PlanItemIDs: r.PlanItemIDs,
 	}
@@ -55,6 +56,7 @@ type packageResponse struct {
 	Name        string   `json:"name"`
 	Provider    string   `json:"provider"`
 	Link        string   `json:"link"`
+	Category    string   `json:"category"`
 	TotalCost   float64  `json:"total_cost"`
 	PaidAmount  float64  `json:"paid_amount"`
 	BalanceDue  *string  `json:"balance_due"`
@@ -81,6 +83,7 @@ func packageToResponse(p Package) packageResponse {
 	}
 	return packageResponse{
 		ID: p.ID, TripID: p.TripID, Name: p.Name, Provider: p.Provider, Link: p.Link,
+		Category:  string(categoryOrOther(p.Category)),
 		TotalCost: p.TotalCost, PaidAmount: p.PaidAmount, BalanceDue: due,
 		StartDate: p.StartDate, EndDate: p.EndDate, Includes: nonNil(p.Includes),
 		StayIDs: nonNil(p.StayIDs), PlanItemIDs: nonNil(p.PlanItemIDs),
@@ -232,4 +235,12 @@ func (m *Module) handleDeletePackage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// categoryOrOther treats an unset category as Other.
+func categoryOrOther(c Category) Category {
+	if c == "" {
+		return CategoryOther
+	}
+	return c
 }

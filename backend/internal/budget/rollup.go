@@ -71,10 +71,11 @@ type RollupResult struct {
 	// amount that applies to every day of the trip.
 	DailyByCategory map[string]float64 `json:"daily_by_category"`
 
-	// Packages (one price for several days, e.g. a tour) are counted once: what
-	// has been paid adds to TripTotal (spent), the unpaid rest adds to
-	// EstimatedTripTotal. They sit outside the fixed categories and days, so
-	// these two fields carry their share for the UI's "Package" line.
+	// Packages (one price for several days, e.g. a tour) are counted once, in
+	// their category: what has been paid adds to TripTotal and ByCategory
+	// (spent), the unpaid rest to EstimatedTripTotal and EstimatedByCategory.
+	// They are not tied to a day. These two fields carry the packages' share of
+	// those totals so the UI can say how much of a category is a package.
 	PackageSpent     float64 `json:"package_spent"`
 	PackageEstimated float64 `json:"package_estimated"`
 }
@@ -135,9 +136,12 @@ func computeRollup(external []ExternalCost, entries []CostEntry, lines []BudgetL
 		if paid > p.TotalCost {
 			paid = p.TotalCost
 		}
+		cat := string(categoryOrOther(p.Category))
 		result.TripTotal += paid
+		result.ByCategory[cat] += paid
 		result.PackageSpent += paid
 		result.EstimatedTripTotal += p.TotalCost - paid
+		result.EstimatedByCategory[cat] += p.TotalCost - paid
 		result.PackageEstimated += p.TotalCost - paid
 	}
 

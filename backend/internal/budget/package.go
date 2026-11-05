@@ -18,6 +18,7 @@ type Package struct {
 	Name        string
 	Provider    string
 	Link        string
+	Category    Category
 	TotalCost   float64
 	PaidAmount  float64
 	BalanceDue  string // YYYY-MM-DD, "" when none
@@ -55,6 +56,7 @@ type PackageInput struct {
 	Name            *string
 	Provider        *string
 	Link            *string
+	Category        *string
 	TotalCost       *float64
 	PaidAmount      *float64
 	BalanceDue      *string
@@ -67,7 +69,7 @@ type PackageInput struct {
 }
 
 func (in *PackageInput) normalize() {
-	for _, p := range []*string{in.Name, in.Provider, in.Link, in.BalanceDue, in.StartDate, in.EndDate} {
+	for _, p := range []*string{in.Name, in.Provider, in.Link, in.Category, in.BalanceDue, in.StartDate, in.EndDate} {
 		if p != nil {
 			*p = strings.TrimSpace(*p)
 		}
@@ -124,6 +126,11 @@ func (in PackageInput) validateFields() error {
 		u, err := url.ParseRequestURI(*in.Link)
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 			return errors.New("link must be an http(s) URL")
+		}
+	}
+	if in.Category != nil {
+		if _, ok := validCategories[Category(*in.Category)]; !ok {
+			return errors.New("category must be one of Stays, Transport, Food, Activities, Other")
 		}
 	}
 	if in.TotalCost != nil && *in.TotalCost < 0 {

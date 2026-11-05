@@ -2169,8 +2169,13 @@
   flex-wrap: wrap;
   gap: 6px;
 }
-.money-cat--package .money-cat-name {
+.money-cat-pkg {
+  font-size: 12px;
   color: var(--accent);
+}
+.pkg-hint {
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .pkg-banner {
@@ -2305,7 +2310,8 @@
   font-size: 13px;
   font-weight: var(--fw-semi);
 }
-.pkg-field input {
+.pkg-field input,
+.pkg-field select {
   min-height: 46px;
   min-width: 0;
   padding: 0 12px;

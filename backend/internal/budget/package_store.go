@@ -15,13 +15,13 @@ type errPackageInvalid struct{ msg string }
 
 func (e errPackageInvalid) Error() string { return e.msg }
 
-const packageColumns = `id::text, trip_id::text, name, provider, link, total_cost::float8, paid_amount::float8,
+const packageColumns = `id::text, trip_id::text, name, provider, link, category, total_cost::float8, paid_amount::float8,
 	COALESCE(to_char(balance_due, 'YYYY-MM-DD'), ''), to_char(start_date, 'YYYY-MM-DD'),
 	to_char(end_date, 'YYYY-MM-DD'), includes, created_at, updated_at`
 
 func scanPackage(row pgx.Row) (Package, error) {
 	var p Package
-	err := row.Scan(&p.ID, &p.TripID, &p.Name, &p.Provider, &p.Link, &p.TotalCost, &p.PaidAmount,
+	err := row.Scan(&p.ID, &p.TripID, &p.Name, &p.Provider, &p.Link, &p.Category, &p.TotalCost, &p.PaidAmount,
 		&p.BalanceDue, &p.StartDate, &p.EndDate, &p.Includes, &p.CreatedAt, &p.UpdatedAt)
 	if p.Includes == nil {
 		p.Includes = []string{}
@@ -152,12 +152,16 @@ func (s *pgxBudgetStore) CreatePackage(ctx context.Context, tripID string, in Pa
 	if in.Includes != nil {
 		includes = *in.Includes
 	}
+	category := string(CategoryOther)
+	if in.Category != nil && *in.Category != "" {
+		category = *in.Category
+	}
 	var id string
 	err = tx.QueryRow(ctx, `INSERT INTO budget.packages
-		(trip_id, name, provider, link, total_cost, paid_amount, balance_due, start_date, end_date, includes)
-		VALUES ($1::uuid, $2, $3, $4, $5, $6, NULLIF($7, '')::date, $8::date, $9::date, $10)
+		(trip_id, name, provider, link, category, total_cost, paid_amount, balance_due, start_date, end_date, includes)
+		VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, NULLIF($8, '')::date, $9::date, $10::date, $11)
 		RETURNING id::text`,
-		tripID, str(in.Name), str(in.Provider), str(in.Link), *in.TotalCost, paid,
+		tripID, str(in.Name), str(in.Provider), str(in.Link), category, *in.TotalCost, paid,
 		str(in.BalanceDue), str(in.StartDate), str(in.EndDate), includes).Scan(&id)
 	if err != nil {
 		return Package{}, fmt.Errorf("budget: insert package: %w", err)
@@ -210,6 +214,9 @@ func (s *pgxBudgetStore) UpdatePackage(ctx context.Context, tripID, id string, i
 	if in.Link != nil {
 		merged.Link = *in.Link
 	}
+	if in.Category != nil {
+		merged.Category = Category(*in.Category)
+	}
 	if in.TotalCost != nil {
 		merged.TotalCost = *in.TotalCost
 	}
@@ -240,10 +247,10 @@ func (s *pgxBudgetStore) UpdatePackage(ctx context.Context, tripID, id string, i
 	if _, err := tx.Exec(ctx, `UPDATE budget.packages SET
 		name = $3, provider = $4, link = $5, total_cost = $6, paid_amount = $7,
 		balance_due = NULLIF($8, '')::date, start_date = $9::date, end_date = $10::date,
-		includes = $11, updated_at = now()
+		includes = $11, category = $12, updated_at = now()
 		WHERE id = $1::uuid AND trip_id = $2::uuid`,
 		id, tripID, merged.Name, merged.Provider, merged.Link, merged.TotalCost, merged.PaidAmount,
-		merged.BalanceDue, merged.StartDate, merged.EndDate, merged.Includes); err != nil {
+		merged.BalanceDue, merged.StartDate, merged.EndDate, merged.Includes, string(merged.Category)); err != nil {
 		return Package{}, fmt.Errorf("budget: update package: %w", err)
 	}
 	if in.StayIDs != nil {

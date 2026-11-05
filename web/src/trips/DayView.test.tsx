@@ -1694,6 +1694,7 @@ describe('DayView', () => {
           name: 'Mauritania Round 18',
           provider: 'Against the Compass',
           link: '',
+          category: 'Other',
           total_cost: 1200,
           paid_amount: 1200,
           balance_due: null,

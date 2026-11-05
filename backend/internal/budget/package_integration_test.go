@@ -74,7 +74,7 @@ func TestIntegration_Packages_RoundTripLinksAndRollup(t *testing.T) {
 	if p.TotalCost != 1200 || p.PaidAmount != 300 || p.BalanceDue == nil || len(p.StayIDs) != 2 || len(p.PlanItemIDs) != 1 {
 		t.Fatalf("created: %+v", p)
 	}
-	if p.StartDate != "2026-11-29" || p.EndDate != "2026-12-06" || len(p.Includes) != 3 {
+	if p.StartDate != "2026-11-29" || p.EndDate != "2026-12-06" || len(p.Includes) != 3 || p.Category != "Other" {
 		t.Fatalf("created fields: %+v", p)
 	}
 
@@ -82,8 +82,23 @@ func TestIntegration_Packages_RoundTripLinksAndRollup(t *testing.T) {
 	resp = do(http.MethodGet, srv.URL+"/trips/"+tripID+"/budget/rollup", nil)
 	var r RollupResult
 	decode(resp, &r)
-	if r.TripTotal != 300 || r.EstimatedTripTotal != 900 || r.PackageSpent != 300 {
+	if r.TripTotal != 300 || r.EstimatedTripTotal != 900 || r.PackageSpent != 300 ||
+		r.ByCategory["Other"] != 300 || r.EstimatedByCategory["Other"] != 900 {
 		t.Fatalf("rollup before paying: %+v", r)
+	}
+
+	// Move it to Activities: the category totals follow.
+	resp = do(http.MethodPatch, base+"/"+p.ID, map[string]any{"category": "Activities"})
+	var moved packageResponse
+	decode(resp, &moved)
+	if moved.Category != "Activities" {
+		t.Fatalf("category update: %+v", moved)
+	}
+	resp = do(http.MethodGet, srv.URL+"/trips/"+tripID+"/budget/rollup", nil)
+	var rm RollupResult
+	decode(resp, &rm)
+	if rm.ByCategory["Activities"] != 300 || rm.ByCategory["Other"] != 0 {
+		t.Fatalf("rollup after moving category: %+v", rm.ByCategory)
 	}
 
 	// Pay the rest, clear the due date, drop one stay link; name untouched.
