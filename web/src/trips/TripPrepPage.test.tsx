@@ -147,6 +147,40 @@ describe('TripPrepPage', () => {
     })
   })
 
+  it('edits the to-do text itself, saving with Enter', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.updateTodo).mockResolvedValue({
+      ...seeded[1],
+      title: 'Mauritanian visa (e-visa)',
+    })
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Edit Mauritanian visa' }))
+    const form = screen.getByRole('form', { name: 'Edit Mauritanian visa' })
+    const title = within(form).getByLabelText('To-do')
+    expect(title).toHaveFocus()
+    await user.type(title, ' (e-visa){Enter}')
+    expect(api.updateTodo).toHaveBeenCalledWith('trip-1', 't2', {
+      title: 'Mauritanian visa (e-visa)',
+      due_date: seeded[1].due_date,
+      note: 'anrpts.gov.mr',
+    })
+  })
+
+  it('clears a deadline with No date', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.updateTodo).mockResolvedValue({ ...seeded[1], due_date: null })
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Edit Mauritanian visa' }))
+    const form = screen.getByRole('form', { name: 'Edit Mauritanian visa' })
+    await user.click(within(form).getByRole('button', { name: 'No date' }))
+    await user.click(within(form).getByRole('button', { name: 'Save' }))
+    expect(api.updateTodo).toHaveBeenCalledWith(
+      'trip-1',
+      't2',
+      expect.objectContaining({ due_date: null }),
+    )
+  })
+
   it('removes a to-do after confirming', async () => {
     const user = userEvent.setup()
     vi.mocked(api.deleteTodo).mockResolvedValue()

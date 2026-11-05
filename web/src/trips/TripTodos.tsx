@@ -297,32 +297,57 @@ function TodoRow({
   }
 
   if (editing) {
+    // Stacked, labelled fields so the to-do text gets the full width on a
+    // phone (side by side, the date input squeezed it to nothing).
     return (
       <li className="packing-item packing-item--editing">
-        <form className="packing-edit" onSubmit={save} aria-label={`Edit ${todo.title}`}>
-          <div className="packing-edit-row">
-            <Input
+        <form className="todo-edit" onSubmit={save} aria-label={`Edit ${todo.title}`}>
+          <label className="todo-edit-field">
+            <span>To-do</span>
+            <textarea
+              className="form-input todo-edit-title"
               aria-label="To-do"
+              rows={2}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={(e) => {
+                // Enter saves (like a single-line field); Shift+Enter is ignored
+                // too, since titles are one line.
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  e.currentTarget.form?.requestSubmit()
+                }
+              }}
+              maxLength={200}
               autoFocus
             />
-            <Input
-              type="date"
-              className="todo-date-input"
-              aria-label="Due date"
-              value={due}
-              onChange={(e) => setDue(e.target.value)}
-            />
+          </label>
+          <div className="todo-edit-due">
+            <label className="todo-edit-field">
+              <span>Due</span>
+              <Input
+                type="date"
+                className="todo-date-input"
+                aria-label="Due date"
+                value={due}
+                onChange={(e) => setDue(e.target.value)}
+              />
+            </label>
+            {due && (
+              <button type="button" className="fg-link-btn" onClick={() => setDue('')}>
+                No date
+              </button>
+            )}
           </div>
-          <div className="packing-edit-row">
+          <label className="todo-edit-field">
+            <span>Note</span>
             <Input
-              placeholder="Note"
+              placeholder="Optional"
               aria-label="Note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
-          </div>
+          </label>
           <div className="packing-edit-actions">
             <Button type="submit" size="sm" disabled={!title.trim()}>
               Save
