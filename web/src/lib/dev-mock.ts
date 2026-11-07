@@ -87,6 +87,7 @@ function richKyotoDay(date: string) {
         destination: 'Arashiyama',
         arrive_time: '14:00',
         booking_status: 'paid',
+        note: 'Buy an ICOCA card at the station first. Sit on the right for the river views; the last stretch runs along the Hozu gorge.',
         cost: 4.5,
         sort_order: 2.5,
         status: 'active',
