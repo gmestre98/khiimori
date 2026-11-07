@@ -615,12 +615,16 @@
   padding: 0;
   display: flex;
   flex-direction: column;
+  /* Rows stack their tags by their own width (see .plan-row-tags). */
+  container-type: inline-size;
 }
+/* Rows line up on the title's first line, so a long note doesn't leave the
+   circle and tags floating in the middle. */
 .plan-row {
   display: grid;
   grid-template-columns: 30px minmax(0, 1fr) auto;
   gap: 10px;
-  align-items: center;
+  align-items: start;
   padding: 8px 0;
   border-bottom: 1px solid var(--line-2);
   background: var(--bg);
@@ -686,8 +690,15 @@
 }
 .plan-row-end {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
+  padding-top: 5px;
+}
+.plan-row-end .plan-row-grip {
+  margin-top: -11px;
+}
+.plan-row > :first-child {
+  margin-top: 1px;
 }
 .plan-row-grip {
   width: 32px;
@@ -831,9 +842,12 @@
   font-size: 34px;
 }
 .day-desk-main .plan-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  column-gap: 28px;
+  /* One list, read top to bottom like the day itself. */
+  display: flex;
+  flex-direction: column;
+}
+.day-desk-main .plan-row {
+  padding: 10px 0;
 }
 .day-desk-rail {
   flex: 1 1 300px;
@@ -2627,7 +2641,7 @@
   align-items: center;
   gap: 6px;
 }
-@media (max-width: 520px) {
+@container (max-width: 520px) {
   .plan-row-tags {
     flex-direction: column;
     align-items: flex-end;
