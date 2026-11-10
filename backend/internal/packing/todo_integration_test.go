@@ -95,3 +95,63 @@ func TestIntegration_Todos_NonMemberDenied(t *testing.T) {
 	}
 	_ = resp.Body.Close()
 }
+
+// TestIntegration_ClientIDCreatesAreIdempotent covers offline creates: the
+// app makes the id, and a replayed create (the first one may have reached the
+// server before the connection dropped) returns the same row, unchanged, instead
+// of adding a second one. An id from another trip is refused.
+func TestIntegration_ClientIDCreatesAreIdempotent(t *testing.T) {
+	ownerID := freshUUID(t)
+	srv := newIntegServer(t, ownerID)
+	tripID := insertTrip(t, ownerID)
+	otherTrip := insertTrip(t, ownerID)
+
+	// To-dos.
+	todoID := freshUUID(t)
+	base := srv.URL + "/trips/" + tripID + "/todos"
+	first := decodeTodo(t, do(t, http.MethodPost, base, map[string]any{"id": todoID, "title": "Visa"}))
+	if first.ID != todoID {
+		t.Fatalf("client id not used: %s", first.ID)
+	}
+	decodeTodo(t, do(t, http.MethodPatch, base+"/"+todoID, map[string]any{"title": "Mauritanian visa"}))
+	again := decodeTodo(t, do(t, http.MethodPost, base, map[string]any{"id": todoID, "title": "Visa"}))
+	if again.ID != todoID || again.Title != "Mauritanian visa" {
+		t.Fatalf("replayed create changed the row: %+v", again)
+	}
+	resp := do(t, http.MethodGet, base, nil)
+	var list []todoResponse
+	_ = json.NewDecoder(resp.Body).Decode(&list)
+	_ = resp.Body.Close()
+	if len(list) != 1 {
+		t.Fatalf("replay duplicated the to-do: %d", len(list))
+	}
+	if r := do(t, http.MethodPost, srv.URL+"/trips/"+otherTrip+"/todos", map[string]any{"id": todoID, "title": "x"}); r.StatusCode != http.StatusConflict {
+		t.Fatalf("id from another trip: want 409, got %d", r.StatusCode)
+	}
+	if r := do(t, http.MethodPost, base, map[string]any{"id": "not-a-uuid", "title": "x"}); r.StatusCode != http.StatusBadRequest {
+		t.Fatalf("bad id: want 400, got %d", r.StatusCode)
+	}
+
+	// Packing items.
+	itemID := freshUUID(t)
+	pbase := srv.URL + "/trips/" + tripID + "/packing"
+	for i := 0; i < 2; i++ {
+		r := do(t, http.MethodPost, pbase, map[string]any{"id": itemID, "label": "Head torch"})
+		if r.StatusCode != http.StatusCreated {
+			t.Fatalf("item create %d: %d", i, r.StatusCode)
+		}
+		var it itemResponse
+		_ = json.NewDecoder(r.Body).Decode(&it)
+		_ = r.Body.Close()
+		if it.ID != itemID {
+			t.Fatalf("item client id not used: %s", it.ID)
+		}
+	}
+	r := do(t, http.MethodGet, pbase, nil)
+	var items []itemResponse
+	_ = json.NewDecoder(r.Body).Decode(&items)
+	_ = r.Body.Close()
+	if len(items) != 1 {
+		t.Fatalf("replay duplicated the item: %d", len(items))
+	}
+}

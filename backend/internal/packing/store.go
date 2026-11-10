@@ -80,12 +80,20 @@ func (s *pgxPackingStore) ListItems(ctx context.Context, tripID string) ([]Item,
 // CreateItem inserts a new item, appending it to the end of the trip's list
 // (position = current max + 1).
 func (s *pgxPackingStore) CreateItem(ctx context.Context, in CreateItem) (Item, error) {
-	q := `INSERT INTO packing.items (trip_id, category, label, quantity, note, position)
-		VALUES ($1::uuid, $2, $3, $4, $5,
+	// With a client id the insert is idempotent: a replay returns the stored
+	// row unchanged (later edits replay on their own); an id from another trip
+	// matches no row and is reported as ErrIDTaken.
+	q := `INSERT INTO packing.items (id, trip_id, category, label, quantity, note, position)
+		VALUES (COALESCE(NULLIF($6, '')::uuid, gen_random_uuid()), $1::uuid, $2, $3, $4, $5,
 		        (SELECT COALESCE(MAX(position), 0) + 1 FROM packing.items WHERE trip_id = $1::uuid))
+		ON CONFLICT (id) DO UPDATE SET updated_at = packing.items.updated_at
+		WHERE packing.items.trip_id = EXCLUDED.trip_id
 		RETURNING ` + itemColumns
 
-	it, err := scanItem(s.pool.QueryRow(ctx, q, in.TripID, in.Category, in.Label, in.Quantity, in.Note))
+	it, err := scanItem(s.pool.QueryRow(ctx, q, in.TripID, in.Category, in.Label, in.Quantity, in.Note, in.ID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Item{}, ErrIDTaken
+	}
 	if err != nil {
 		return Item{}, fmt.Errorf("packing: create item: %w", err)
 	}

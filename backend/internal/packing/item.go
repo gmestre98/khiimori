@@ -2,6 +2,7 @@ package packing
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -35,6 +36,9 @@ var ErrItemNotFound = errors.New("packing: item not found")
 
 // CreateItem is the validated input for adding an item to a trip's list.
 type CreateItem struct {
+	// ID is an optional client-made UUID (offline creates): replaying the same
+	// create returns the existing item instead of adding a second one.
+	ID       string
 	TripID   string
 	Category string
 	Label    string
@@ -56,6 +60,9 @@ func (c *CreateItem) normalize() {
 func (c CreateItem) validate() error {
 	if c.TripID == "" {
 		return errors.New("packing: trip_id is required")
+	}
+	if c.ID != "" && !uuidRe.MatchString(c.ID) {
+		return errors.New("id must be a UUID")
 	}
 	return validateFields(c.Label, c.Category, c.Note, c.Quantity)
 }
@@ -132,3 +139,9 @@ func validateFields(label, category, note string, quantity int) error {
 	}
 	return nil
 }
+
+// uuidRe matches a canonical UUID (client-made ids for offline creates).
+var uuidRe = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// ErrIDTaken means a client-made id already belongs to another trip.
+var ErrIDTaken = errors.New("packing: id already used")

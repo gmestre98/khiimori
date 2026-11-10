@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { enqueue } from '../lib/mutationQueue'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { TripPackingPage } from './TripPackingPage'
 import * as api from '../lib/api'
@@ -21,6 +22,11 @@ vi.mock('../lib/api', async (importOriginal) => {
 })
 
 // Cache is a no-op in tests: readCache misses (straight to fetch), writeCache is inert.
+vi.mock('../lib/mutationQueue', () => ({
+  enqueue: vi.fn().mockResolvedValue({}),
+  getAll: vi.fn().mockResolvedValue([]),
+  hasPending: vi.fn().mockResolvedValue(false),
+}))
 vi.mock('../lib/resourceCache', () => ({
   readCache: vi.fn().mockResolvedValue(null),
   writeCache: vi.fn().mockResolvedValue(undefined),
@@ -107,6 +113,51 @@ describe('TripPackingPage', () => {
     )
   })
 
+  it('keeps a tick made on bad wifi and queues it to sync later', async () => {
+    const user = userEvent.setup()
+    mockedApi.fetchPackingItems.mockResolvedValue([
+      mkItem({ id: 'i1', label: 'Gloves', packed: false }),
+    ])
+    mockedApi.updatePackingItem.mockRejectedValue(new TypeError('Failed to fetch'))
+    renderPage()
+
+    const checkbox = await screen.findByRole('checkbox', { name: /Mark Gloves as packed/i })
+    await user.click(checkbox)
+
+    await waitFor(() =>
+      expect(vi.mocked(enqueue)).toHaveBeenCalledWith('updatePackingItem', {
+        tripId: 'trip-1',
+        itemId: 'i1',
+        patch: { packed: true },
+      }),
+    )
+    expect(screen.getByRole('checkbox', { name: /Gloves/i })).toBeChecked()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('adds an item offline with its own id and queues it', async () => {
+    const user = userEvent.setup()
+    mockedApi.fetchPackingItems.mockResolvedValue([])
+    const online = Object.getOwnPropertyDescriptor(Navigator.prototype, 'onLine')
+    Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false })
+    try {
+      renderPage()
+      await screen.findByText(/nothing|empty|start/i)
+      await user.type(screen.getAllByRole('textbox')[0], 'Head torch{Enter}')
+      await waitFor(() =>
+        expect(vi.mocked(enqueue)).toHaveBeenCalledWith('createPackingItem', {
+          tripId: 'trip-1',
+          input: expect.objectContaining({ id: expect.any(String), label: 'Head torch' }),
+        }),
+      )
+      expect(mockedApi.createPackingItem).not.toHaveBeenCalled()
+      expect(screen.getByText('Head torch')).toBeInTheDocument()
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>).onLine
+      if (online) Object.defineProperty(Navigator.prototype, 'onLine', online)
+    }
+  })
+
   it('adds a new item with category, quantity and note', async () => {
     const user = userEvent.setup()
     mockedApi.fetchPackingItems.mockResolvedValue([])
@@ -126,6 +177,7 @@ describe('TripPackingPage', () => {
 
     await waitFor(() =>
       expect(mockedApi.createPackingItem).toHaveBeenCalledWith('trip-1', {
+        id: expect.any(String),
         label: 'Dust mask',
         category: 'Safety gear',
         quantity: 3,

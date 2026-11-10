@@ -13,8 +13,13 @@ import { Button, Input, ProgressBar } from '../components/ui'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { cacheKeys } from '../lib/cacheKeys'
 import { readCache, writeCache } from '../lib/resourceCache'
+import { writeOrQueue } from '../lib/offlineWrite'
+import { hasPending, type MutationKind } from '../lib/mutationQueue'
+import { SYNCED_EVENT } from '../lib/replayQueue'
 import { localToday } from '../lib/format'
 import { dueLabel, groupTodos, shortDate } from './todoGroups'
+
+const TODO_KINDS: MutationKind[] = ['createTodo', 'updateTodo', 'deleteTodo']
 
 // sortTodos keeps the working copy in the server's order after a local change:
 // soonest deadline first, undated last, then position.
@@ -29,7 +34,8 @@ function sortTodos(list: TripTodo[]): TripTodo[] {
 // TripTodos is the To-dos half of the Prep tab: things to get done for the trip,
 // each with an optional deadline, grouped by when they're due and ticked off.
 // Optimistic like the packing list: cached first paint, then revalidated; a
-// failed write re-syncs from the server.
+// failed write re-syncs from the server. Works offline: changes show at once and
+// are queued when they can't be sent (see writeOrQueue), then sync later.
 export function TripTodos({ tripId }: { tripId: string }) {
   const [todos, setTodos] = useState<TripTodo[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -48,7 +54,10 @@ export function TripTodos({ tripId }: { tripId: string }) {
   const load = useCallback(
     (signal?: AbortSignal) => {
       fetchTodos(tripId, signal)
-        .then((list) => {
+        .then(async (list) => {
+          // Queued changes aren't on the server yet: keep the local copy,
+          // which already shows them, until they sync.
+          if (todosRef.current && (await hasPending(TODO_KINDS, tripId).catch(() => false))) return
           setTodos(list)
           void writeCache(cacheKeys.todos(tripId), list)
         })
@@ -75,6 +84,13 @@ export function TripTodos({ tripId }: { tripId: string }) {
     }
   }, [tripId, load])
 
+  // After queued changes sync, show the server's version.
+  useEffect(() => {
+    const onSynced = () => load()
+    window.addEventListener(SYNCED_EVENT, onSynced)
+    return () => window.removeEventListener(SYNCED_EVENT, onSynced)
+  }, [load])
+
   const apply = useCallback(
     (fn: (prev: TripTodo[]) => TripTodo[]) =>
       setTodos((prev) => {
@@ -96,9 +112,25 @@ export function TripTodos({ tripId }: { tripId: string }) {
 
   async function handleAdd(input: TodoInput) {
     setError(null)
+    const now = new Date().toISOString()
+    const withId: TodoInput = { ...input, id: crypto.randomUUID() }
+    const local: TripTodo = {
+      id: withId.id!,
+      trip_id: tripId,
+      title: input.title.trim(),
+      note: input.note?.trim() ?? '',
+      due_date: input.due_date ?? null,
+      done: false,
+      position: Math.max(0, ...(todosRef.current ?? []).map((t) => t.position)) + 1,
+      created_at: now,
+      updated_at: now,
+    }
+    apply((prev) => [...prev, local])
     try {
-      const created = await createTodo(tripId, input)
-      apply((prev) => [...prev, created])
+      const created = await writeOrQueue('createTodo', { tripId, input: withId }, () =>
+        createTodo(tripId, withId),
+      )
+      if (created) apply((prev) => prev.map((t) => (t.id === local.id ? created : t)))
     } catch (err) {
       handleError(err, 'Could not add the to-do.')
     }
@@ -106,8 +138,11 @@ export function TripTodos({ tripId }: { tripId: string }) {
 
   async function handleToggle(todo: TripTodo) {
     apply((prev) => prev.map((t) => (t.id === todo.id ? { ...t, done: !t.done } : t)))
+    const patch: TodoPatch = { done: !todo.done }
     try {
-      await updateTodo(tripId, todo.id, { done: !todo.done })
+      await writeOrQueue('updateTodo', { tripId, todoId: todo.id, patch }, () =>
+        updateTodo(tripId, todo.id, patch),
+      )
     } catch (err) {
       handleError(err, 'Could not update the to-do.')
     }
@@ -115,9 +150,24 @@ export function TripTodos({ tripId }: { tripId: string }) {
 
   async function handleEdit(todo: TripTodo, patch: TodoPatch) {
     setError(null)
+    apply((prev) =>
+      prev.map((t) =>
+        t.id === todo.id
+          ? {
+              ...t,
+              ...(patch.title !== undefined ? { title: patch.title.trim() } : {}),
+              ...(patch.note !== undefined ? { note: patch.note.trim() } : {}),
+              ...(patch.due_date !== undefined ? { due_date: patch.due_date } : {}),
+              ...(patch.done !== undefined ? { done: patch.done } : {}),
+            }
+          : t,
+      ),
+    )
     try {
-      const updated = await updateTodo(tripId, todo.id, patch)
-      apply((prev) => prev.map((t) => (t.id === todo.id ? updated : t)))
+      const updated = await writeOrQueue('updateTodo', { tripId, todoId: todo.id, patch }, () =>
+        updateTodo(tripId, todo.id, patch),
+      )
+      if (updated) apply((prev) => prev.map((t) => (t.id === todo.id ? updated : t)))
     } catch (err) {
       handleError(err, 'Could not save the to-do.')
     }
@@ -126,7 +176,9 @@ export function TripTodos({ tripId }: { tripId: string }) {
   async function handleDelete(todo: TripTodo) {
     apply((prev) => prev.filter((t) => t.id !== todo.id))
     try {
-      await deleteTodo(tripId, todo.id)
+      await writeOrQueue('deleteTodo', { tripId, todoId: todo.id }, () =>
+        deleteTodo(tripId, todo.id),
+      )
     } catch (err) {
       handleError(err, 'Could not remove the to-do.')
     }

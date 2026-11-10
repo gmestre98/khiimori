@@ -41,7 +41,7 @@ func (s *fakeStore) CreateTodo(_ context.Context, in CreateTodo) (Todo, error) {
 	}
 	now := time.Now()
 	t := Todo{
-		ID: s.nextID("todo"), TripID: in.TripID, Title: in.Title, Note: in.Note,
+		ID: idOr(in.ID, s.nextID("todo")), TripID: in.TripID, Title: in.Title, Note: in.Note,
 		DueDate: in.DueDate, Position: maxPos + 1, CreatedAt: now, UpdatedAt: now,
 	}
 	s.todos = append(s.todos, t)

@@ -1740,6 +1740,8 @@ export interface PackingItem {
 // PackingItemInput is the payload for creating an item (POST). Only label is
 // required; quantity defaults to 1 server-side when 0/omitted.
 export interface PackingItemInput {
+  // id is made by the app so an offline create replays without duplicating.
+  id?: string
   category?: string
   label: string
   quantity?: number
@@ -1843,6 +1845,8 @@ export interface TripTodo {
 
 // TodoInput is the payload for creating a to-do (POST). Only title is required.
 export interface TodoInput {
+  // id is made by the app (see PackingItemInput.id).
+  id?: string
   title: string
   note?: string
   due_date?: string | null

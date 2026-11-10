@@ -35,6 +35,8 @@ var ErrTodoNotFound = errors.New("packing: to-do not found")
 
 // CreateTodo is the validated input for adding a to-do to a trip.
 type CreateTodo struct {
+	// ID is an optional client-made UUID (see CreateItem.ID).
+	ID      string
 	TripID  string
 	Title   string
 	Note    string
@@ -48,6 +50,9 @@ func (c *CreateTodo) normalize() {
 }
 
 func (c CreateTodo) validate() error {
+	if c.ID != "" && !uuidRe.MatchString(c.ID) {
+		return errors.New("id must be a UUID")
+	}
 	if c.TripID == "" {
 		return errors.New("packing: trip_id is required")
 	}
