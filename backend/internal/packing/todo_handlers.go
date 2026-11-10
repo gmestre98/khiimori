@@ -46,6 +46,7 @@ func todoToResponse(t Todo) todoResponse {
 // createTodoRequest is the wire shape for adding a to-do. due_date may be
 // omitted, null or "" for no deadline.
 type createTodoRequest struct {
+	ID      string  `json:"id"`
 	Title   string  `json:"title"`
 	Note    string  `json:"note"`
 	DueDate *string `json:"due_date"`
@@ -124,7 +125,7 @@ func (m *Module) handleCreateTodo(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusBadRequest, "invalid_json", "invalid JSON"))
 		return
 	}
-	in := CreateTodo{TripID: tripID, Title: req.Title, Note: req.Note}
+	in := CreateTodo{ID: req.ID, TripID: tripID, Title: req.Title, Note: req.Note}
 	if req.DueDate != nil {
 		in.DueDate = *req.DueDate
 	}
@@ -135,6 +136,10 @@ func (m *Module) handleCreateTodo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	t, err := m.store.CreateTodo(r.Context(), in)
+	if errors.Is(err, ErrIDTaken) {
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusConflict, "id_taken", "id already used"))
+		return
+	}
 	if err != nil {
 		internalError(w, r, "packing: create todo", err)
 		return

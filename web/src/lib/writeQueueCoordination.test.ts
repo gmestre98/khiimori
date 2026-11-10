@@ -45,10 +45,33 @@ describe('startWriteQueueCoordination', () => {
     expect(mockStart).toHaveBeenCalledTimes(1)
   })
 
-  it('returns the teardown that stops the reconnect listener', () => {
+  it('returns a teardown that stops the reconnect listener', () => {
     setOnline(false)
     const stop = startWriteQueueCoordination()
-    expect(stop).toBe(mockStop)
+    stop()
+    expect(mockStop).toHaveBeenCalled()
+  })
+
+  it('retries waiting writes on a timer even without an online event (plane wifi)', async () => {
+    vi.useFakeTimers()
+    try {
+      setOnline(true)
+      mockGetAll.mockResolvedValue([])
+      const stop = startWriteQueueCoordination()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(mockReplay).not.toHaveBeenCalled()
+      mockGetAll.mockResolvedValue([
+        { id: 'm1', seq: 1, kind: 'updateTodo', payload: {}, enqueuedAt: '' },
+      ])
+      mockReplay.mockResolvedValue([])
+      await vi.advanceTimersByTimeAsync(30000)
+      expect(mockReplay).toHaveBeenCalledTimes(1)
+      stop()
+      await vi.advanceTimersByTimeAsync(30000)
+      expect(mockReplay).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('does NOT cold-start drain when offline', async () => {

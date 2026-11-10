@@ -18,6 +18,7 @@
 import * as api from './api'
 import { getAll, remove, type QueuedMutation } from './mutationQueue'
 import { resolveConflicts } from './conflictResolution'
+import { withTimeout, WRITE_TIMEOUT_MS } from './offlineWrite'
 
 // ReplayResult summarises what happened to a single queued mutation during replay.
 export type ReplayOutcome = 'success' | 'permanent_failure' | 'transient_failure'
@@ -143,6 +144,35 @@ interface UpsertJournalEntryPayload {
   input: api.JournalEntryInput
 }
 
+// Packing and to-do payload shapes. Updates are partial patches, so they are
+// never collapsed (each one replays in order).
+interface CreatePackingItemPayload {
+  tripId: string
+  input: api.PackingItemInput
+}
+interface UpdatePackingItemPayload {
+  tripId: string
+  itemId: string
+  patch: api.PackingItemPatch
+}
+interface DeletePackingItemPayload {
+  tripId: string
+  itemId: string
+}
+interface CreateTodoPayload {
+  tripId: string
+  input: api.TodoInput
+}
+interface UpdateTodoPayload {
+  tripId: string
+  todoId: string
+  patch: api.TodoPatch
+}
+interface DeleteTodoPayload {
+  tripId: string
+  todoId: string
+}
+
 interface UploadPhotoPayload {
   tripId: string
   dayId: string
@@ -156,11 +186,14 @@ interface UploadPhotoPayload {
 // a fresh action will re-enqueue the write.
 function isPermanentFailure(err: unknown): boolean {
   if (err instanceof api.UnauthorizedError) return true
+  // 409 on a client-id create: that id belongs elsewhere; retrying won't help.
+  if (err instanceof Error && err.message === 'API returned HTTP 409') return true
   if (err instanceof api.PlanItemValidationError) return true
   // A stay that fails validation (400) or overlaps another stay (409) on replay
   // will never succeed on retry — drop it rather than retrying forever (M12.1 S4).
   if (err instanceof api.StayValidationError) return true
   if (err instanceof api.StayOverlapError) return true
+  if (err instanceof api.PackingValidationError) return true
   if (err instanceof Error && /^API returned HTTP (4\d\d)$/.test(err.message)) return true
   return false
 }
@@ -265,6 +298,36 @@ async function dispatch(m: QueuedMutation): Promise<void> {
       await api.uploadPhoto(tripId, dayId, file, caption)
       return
     }
+    case 'createPackingItem': {
+      const { tripId, input } = p as unknown as CreatePackingItemPayload
+      await api.createPackingItem(tripId, input)
+      return
+    }
+    case 'updatePackingItem': {
+      const { tripId, itemId, patch } = p as unknown as UpdatePackingItemPayload
+      await api.updatePackingItem(tripId, itemId, patch)
+      return
+    }
+    case 'deletePackingItem': {
+      const { tripId, itemId } = p as unknown as DeletePackingItemPayload
+      await api.deletePackingItem(tripId, itemId)
+      return
+    }
+    case 'createTodo': {
+      const { tripId, input } = p as unknown as CreateTodoPayload
+      await api.createTodo(tripId, input)
+      return
+    }
+    case 'updateTodo': {
+      const { tripId, todoId, patch } = p as unknown as UpdateTodoPayload
+      await api.updateTodo(tripId, todoId, patch)
+      return
+    }
+    case 'deleteTodo': {
+      const { tripId, todoId } = p as unknown as DeleteTodoPayload
+      await api.deleteTodo(tripId, todoId)
+      return
+    }
     default: {
       // Unknown kind — treat as permanent so it doesn't clog the queue.
       throw new api.PlanItemValidationError(
@@ -277,7 +340,23 @@ async function dispatch(m: QueuedMutation): Promise<void> {
 // replayQueue reads all pending mutations in seq order, applies each one, and
 // removes it on success or permanent failure. Returns the full list of results.
 // Throws ReplayError if any mutation experienced a transient failure.
-export async function replayQueue(): Promise<ReplayResult[]> {
+// SYNCED_EVENT is dispatched on window after a replay applied at least one
+// change, so screens holding a local copy can refetch the server's version.
+export const SYNCED_EVENT = 'khiimori:synced'
+
+let _inFlight: Promise<ReplayResult[]> | null = null
+
+// replayQueue runs one replay at a time: a call while one is running joins it,
+// so the same queued write is never sent twice concurrently.
+export function replayQueue(): Promise<ReplayResult[]> {
+  if (_inFlight) return _inFlight
+  _inFlight = replayOnce().finally(() => {
+    _inFlight = null
+  })
+  return _inFlight
+}
+
+async function replayOnce(): Promise<ReplayResult[]> {
   const pending = await getAll()
   if (pending.length === 0) return []
 
@@ -296,7 +375,9 @@ export async function replayQueue(): Promise<ReplayResult[]> {
     let outcome: ReplayOutcome
     let error: unknown
     try {
-      await dispatch(m)
+      // A hanging request (bad wifi) must not block this and every later
+      // replay; a timeout is a transient failure, retried next time.
+      await withTimeout(dispatch(m), WRITE_TIMEOUT_MS)
       outcome = 'success'
     } catch (err) {
       error = err
@@ -308,6 +389,10 @@ export async function replayQueue(): Promise<ReplayResult[]> {
     }
 
     results.push({ id: m.id, seq: m.seq, kind: m.kind, outcome, error })
+  }
+
+  if (results.some((r) => r.outcome === 'success') && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(SYNCED_EVENT))
   }
 
   const hasTransient = results.some((r) => r.outcome === 'transient_failure')

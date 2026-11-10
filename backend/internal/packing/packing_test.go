@@ -53,7 +53,7 @@ func (s *fakeStore) CreateItem(_ context.Context, in CreateItem) (Item, error) {
 	}
 	now := time.Now()
 	it := Item{
-		ID: s.nextID("item"), TripID: in.TripID, Category: in.Category, Label: in.Label,
+		ID: idOr(in.ID, s.nextID("item")), TripID: in.TripID, Category: in.Category, Label: in.Label,
 		Quantity: in.Quantity, Note: in.Note, Position: maxPos + 1, CreatedAt: now, UpdatedAt: now,
 	}
 	s.items = append(s.items, it)
@@ -492,4 +492,12 @@ func TestGetTemplate_NotFound(t *testing.T) {
 		t.Fatalf("want 404, got %d", resp.StatusCode)
 	}
 	_ = resp.Body.Close()
+}
+
+// idOr returns the client id when one was sent.
+func idOr(id, fallback string) string {
+	if id != "" {
+		return id
+	}
+	return fallback
 }

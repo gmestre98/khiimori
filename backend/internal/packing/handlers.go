@@ -88,6 +88,7 @@ func itemToResponse(it Item) itemResponse {
 
 // createItemRequest is the wire shape for adding an item.
 type createItemRequest struct {
+	ID       string `json:"id"`
 	Category string `json:"category"`
 	Label    string `json:"label"`
 	Quantity int    `json:"quantity"`
@@ -150,6 +151,7 @@ func (m *Module) handleCreateItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	in := CreateItem{
+		ID:       req.ID,
 		TripID:   tripID,
 		Category: req.Category,
 		Label:    req.Label,
@@ -163,6 +165,10 @@ func (m *Module) handleCreateItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	it, err := m.store.CreateItem(r.Context(), in)
+	if errors.Is(err, ErrIDTaken) {
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusConflict, "id_taken", "id already used"))
+		return
+	}
 	if err != nil {
 		platformlog.FromContext(r.Context()).Error("packing: create item", "err", err.Error())
 		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusInternalServerError, "internal_error", "internal error"))

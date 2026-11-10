@@ -54,12 +54,18 @@ func (s *pgxPackingStore) ListTodos(ctx context.Context, tripID string) ([]Todo,
 
 // CreateTodo inserts a to-do at the end of the trip's list.
 func (s *pgxPackingStore) CreateTodo(ctx context.Context, in CreateTodo) (Todo, error) {
-	q := `INSERT INTO packing.todos (trip_id, title, note, due_date, position)
-		VALUES ($1::uuid, $2, $3, NULLIF($4, '')::date,
+	// Idempotent with a client id, as CreateItem.
+	q := `INSERT INTO packing.todos (id, trip_id, title, note, due_date, position)
+		VALUES (COALESCE(NULLIF($5, '')::uuid, gen_random_uuid()), $1::uuid, $2, $3, NULLIF($4, '')::date,
 		        (SELECT COALESCE(MAX(position), 0) + 1 FROM packing.todos WHERE trip_id = $1::uuid))
+		ON CONFLICT (id) DO UPDATE SET updated_at = packing.todos.updated_at
+		WHERE packing.todos.trip_id = EXCLUDED.trip_id
 		RETURNING ` + todoColumns
 
-	t, err := scanTodo(s.pool.QueryRow(ctx, q, in.TripID, in.Title, in.Note, in.DueDate))
+	t, err := scanTodo(s.pool.QueryRow(ctx, q, in.TripID, in.Title, in.Note, in.DueDate, in.ID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Todo{}, ErrIDTaken
+	}
 	if err != nil {
 		return Todo{}, fmt.Errorf("packing: create todo: %w", err)
 	}

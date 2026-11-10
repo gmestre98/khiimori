@@ -18,6 +18,15 @@ import { Button, Input, ProgressBar, Sheet } from '../components/ui'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { cacheKeys } from '../lib/cacheKeys'
 import { readCache, writeCache } from '../lib/resourceCache'
+import { isNetworkFailure, writeOrQueue } from '../lib/offlineWrite'
+import { hasPending, type MutationKind } from '../lib/mutationQueue'
+import { SYNCED_EVENT } from '../lib/replayQueue'
+
+const PACKING_KINDS: MutationKind[] = [
+  'createPackingItem',
+  'updatePackingItem',
+  'deletePackingItem',
+]
 
 const UNCATEGORISED = 'Other'
 
@@ -71,7 +80,11 @@ export function TripPackingPage({ embedded = false }: { embedded?: boolean } = {
     (signal?: AbortSignal) => {
       if (!tripId) return
       fetchPackingItems(tripId, signal)
-        .then((list) => {
+        .then(async (list) => {
+          // Queued changes aren't on the server yet: keep the local copy.
+          if (itemsRef.current && (await hasPending(PACKING_KINDS, tripId).catch(() => false))) {
+            return
+          }
           setItems(list)
           void writeCache(cacheKeys.packing(tripId), list)
         })
@@ -101,6 +114,13 @@ export function TripPackingPage({ embedded = false }: { embedded?: boolean } = {
     }
   }, [tripId, load])
 
+  // After queued changes sync, show the server's version.
+  useEffect(() => {
+    const onSynced = () => load()
+    window.addEventListener(SYNCED_EVENT, onSynced)
+    return () => window.removeEventListener(SYNCED_EVENT, onSynced)
+  }, [load])
+
   const list = useMemo(() => items ?? [], [items])
   const categories = useMemo(
     () => [...new Set(list.map((it) => it.category.trim()).filter(Boolean))].sort(),
@@ -121,17 +141,38 @@ export function TripPackingPage({ embedded = false }: { embedded?: boolean } = {
     [load],
   )
 
+  // update applies a change to the list and keeps the cached copy in step.
+  function update(fn: (base: PackingItem[]) => PackingItem[]) {
+    setItems((prev) => {
+      const next = fn(prev ?? [])
+      persist(next)
+      return next
+    })
+  }
+
   async function handleAdd(input: PackingItemInput) {
     if (!tripId) return
     setError(null)
+    const now = new Date().toISOString()
+    const withId: PackingItemInput = { ...input, id: crypto.randomUUID() }
+    const local: PackingItem = {
+      id: withId.id!,
+      trip_id: tripId,
+      category: input.category?.trim() ?? '',
+      label: input.label.trim(),
+      quantity: input.quantity && input.quantity > 0 ? input.quantity : 1,
+      note: input.note?.trim() ?? '',
+      packed: false,
+      position: Math.max(0, ...(items ?? []).map((it) => it.position)) + 1,
+      created_at: now,
+      updated_at: now,
+    }
+    update((base) => [...base, local])
     try {
-      const created = await createPackingItem(tripId, input)
-      setItems((prev) => {
-        const base = prev ?? []
-        const next = [...base, created]
-        persist(next)
-        return next
-      })
+      const created = await writeOrQueue('createPackingItem', { tripId, input: withId }, () =>
+        createPackingItem(tripId, withId),
+      )
+      if (created) update((base) => base.map((it) => (it.id === local.id ? created : it)))
     } catch (err) {
       handleError(err, 'Could not add item.')
     }
@@ -146,8 +187,11 @@ export function TripPackingPage({ embedded = false }: { embedded?: boolean } = {
       persist(next)
       return next
     })
+    const patch = { packed: !item.packed }
     try {
-      await updatePackingItem(tripId, item.id, { packed: !item.packed })
+      await writeOrQueue('updatePackingItem', { tripId, itemId: item.id, patch }, () =>
+        updatePackingItem(tripId, item.id, patch),
+      )
     } catch (err) {
       handleError(err, 'Could not update item.')
     }
@@ -156,19 +200,32 @@ export function TripPackingPage({ embedded = false }: { embedded?: boolean } = {
   async function handleEdit(item: PackingItem, patch: PackingItemInput) {
     if (!tripId) return
     setError(null)
+    const full = {
+      label: patch.label,
+      category: patch.category ?? '',
+      quantity: patch.quantity ?? 1,
+      note: patch.note ?? '',
+    }
+    update((base) =>
+      base.map((it) =>
+        it.id === item.id
+          ? {
+              ...it,
+              label: full.label.trim(),
+              category: full.category.trim(),
+              quantity: full.quantity > 0 ? full.quantity : 1,
+              note: full.note.trim(),
+            }
+          : it,
+      ),
+    )
     try {
-      const updated = await updatePackingItem(tripId, item.id, {
-        label: patch.label,
-        category: patch.category ?? '',
-        quantity: patch.quantity ?? 1,
-        note: patch.note ?? '',
-      })
-      setItems((prev) => {
-        const base = prev ?? []
-        const next = base.map((it) => (it.id === item.id ? updated : it))
-        persist(next)
-        return next
-      })
+      const updated = await writeOrQueue(
+        'updatePackingItem',
+        { tripId, itemId: item.id, patch: full },
+        () => updatePackingItem(tripId, item.id, full),
+      )
+      if (updated) update((base) => base.map((it) => (it.id === item.id ? updated : it)))
     } catch (err) {
       handleError(err, 'Could not save changes.')
     }
@@ -183,7 +240,9 @@ export function TripPackingPage({ embedded = false }: { embedded?: boolean } = {
       return next
     })
     try {
-      await deletePackingItem(tripId, item.id)
+      await writeOrQueue('deletePackingItem', { tripId, itemId: item.id }, () =>
+        deletePackingItem(tripId, item.id),
+      )
     } catch (err) {
       handleError(err, 'Could not remove item.')
     }
@@ -202,6 +261,11 @@ export function TripPackingPage({ embedded = false }: { embedded?: boolean } = {
       })
       setTemplatesOpen(false)
     } catch (err) {
+      // Templates add many items on the server; they need a connection.
+      if (isNetworkFailure(err) || !navigator.onLine) {
+        setError('Adding a template needs a connection. Your list is unchanged.')
+        return
+      }
       handleError(err, 'Could not apply template.')
     }
   }

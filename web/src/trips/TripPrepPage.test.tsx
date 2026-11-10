@@ -111,6 +111,7 @@ describe('TripPrepPage', () => {
 
     await waitFor(() =>
       expect(api.createTodo).toHaveBeenCalledWith('trip-1', {
+        id: expect.any(String),
         title: 'Travel insurance',
         due_date: '2026-11-17',
         note: '',

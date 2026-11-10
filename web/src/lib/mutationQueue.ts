@@ -32,6 +32,12 @@ export type MutationKind =
   | 'deleteCostEntry'
   | 'upsertJournalEntry'
   | 'uploadPhoto'
+  | 'createPackingItem'
+  | 'updatePackingItem'
+  | 'deletePackingItem'
+  | 'createTodo'
+  | 'updateTodo'
+  | 'deleteTodo'
 
 // QueuedMutation is the persisted record shape. It is designed to be
 // replayed verbatim: kind + payload carry enough data to reconstruct the
@@ -138,6 +144,16 @@ export async function clearQueue(): Promise<void> {
     req.onsuccess = () => resolve()
     req.onerror = () => reject(req.error)
   })
+}
+
+// hasPending reports whether any queued mutation of these kinds for this trip
+// is still waiting. Lists use it to keep their local copy (which already shows
+// the queued changes) instead of replacing it with the server's older one.
+export async function hasPending(kinds: MutationKind[], tripId: string): Promise<boolean> {
+  const all = await getAll()
+  return all.some(
+    (m) => kinds.includes(m.kind) && (m.payload as { tripId?: unknown } | null)?.tripId === tripId,
+  )
 }
 
 // _resetForTesting closes the cached DB handle and resets the seq counter so
