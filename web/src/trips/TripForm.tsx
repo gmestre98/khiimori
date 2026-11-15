@@ -1,3 +1,4 @@
+import { coverSrc } from '../lib/coverPreload'
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import {
   TripValidationError,
@@ -131,7 +132,7 @@ export function TripForm({ trip, onSuccess, onCancel }: TripFormProps) {
   const coverRef = trip?.cover ?? ''
   const [coverFile, setCoverFile] = useState<File | null>(null)
   const [coverObjectUrl, setCoverObjectUrl] = useState<string | null>(null)
-  const existingCoverUrl = trip?.cover_url ?? ''
+  const existingCoverUrl = trip ? coverSrc(trip) : ''
   const [coverRemoved, setCoverRemoved] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 

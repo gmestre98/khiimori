@@ -1,3 +1,4 @@
+import { coverSrc } from '../lib/coverPreload'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { Trip } from '../lib/api'
@@ -60,7 +61,7 @@ export function CurrentTripCard({
         <div className="current-trip-panel" aria-hidden="true">
           <HeroScene
             seed={trip.destinations[0] || trip.name}
-            image={trip.cover_url || trip.cover}
+            image={coverSrc(trip)}
             className="current-trip-panel-scene"
           />
           <div className="current-trip-panel-scrim" />

@@ -77,6 +77,14 @@ const DATA_CACHE = `khiimori-data-${CACHE_VERSION}`
 // being thrown away on every deploy. It is pruned by MAX_TILE_ENTRIES below.
 const TILE_CACHE = 'khiimori-tiles'
 
+// COVER_CACHE holds trip cover images. A cover's URL carries its version
+// (…/trips/<id>/cover/<version>) and only changes when the cover does, so a
+// cached cover is always right: served cache-first, instantly and offline.
+// Not versioned with the app, and capped like the tiles.
+const COVER_CACHE = 'khiimori-covers'
+const MAX_COVER_ENTRIES = 200
+const COVER_PATH_RE = /\/trips\/[^/]+\/cover\/[0-9a-f]{12}$/
+
 // MAX_TILE_ENTRIES caps how many tiles we keep so opportunistic caching (tiles
 // fetched as the user pans while online) plus pre-fetch can't grow without
 // bound. At ~20 KB/tile this holds the tile cache near ~50 MB. When exceeded we
@@ -141,7 +149,7 @@ self.addEventListener('install', (event) => {
 // immediately (without waiting for a full page reload per-client).
 // Broadcasts SW_ACTIVATED so the app can reload and pick up the new shell.
 self.addEventListener('activate', (event) => {
-  const keep = new Set([CACHE_NAME, DATA_CACHE, TILE_CACHE])
+  const keep = new Set([CACHE_NAME, DATA_CACHE, TILE_CACHE, COVER_CACHE])
   event.waitUntil(
     caches
       .keys()
@@ -232,6 +240,22 @@ async function pruneTileCache(cache) {
   }
 }
 
+// cacheFirstCover serves a trip cover from the cover cache, else fetches and
+// keeps it (only successful responses), trimming the oldest past the cap.
+async function cacheFirstCover(request) {
+  const cache = await caches.open(COVER_CACHE)
+  const cached = await cache.match(request)
+  if (cached) return cached
+  const response = await fetch(request)
+  if (response.ok) {
+    await cache.put(request, response.clone())
+    void cache.keys().then(async (keys) => {
+      for (let i = 0; i < keys.length - MAX_COVER_ENTRIES; i++) await cache.delete(keys[i])
+    })
+  }
+  return response
+}
+
 // networkFirstShell: try the network (fresh shell), fall back to the cached
 // `index.html` when offline so the SPA still boots.
 async function networkFirstShell(request) {
@@ -276,6 +300,12 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return
 
   const url = new URL(request.url)
+
+  // Trip covers (versioned URLs) → cache-first cover cache.
+  if (COVER_PATH_RE.test(url.pathname)) {
+    event.respondWith(cacheFirstCover(request))
+    return
+  }
 
   // Cacheable API reads (same-origin under /api, or cross-origin) → network-first
   // data cache, across all trips (see isCacheableRead).

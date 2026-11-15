@@ -1,8 +1,10 @@
 package trip
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -24,7 +26,7 @@ import (
 type mediaStore interface {
 	Put(ctx context.Context, key, contentType string, size int64, r io.Reader) (url string, err error)
 	Delete(ctx context.Context, url string) error
-	SignedURL(ctx context.Context, url string) (string, error)
+	Get(ctx context.Context, url string) (io.ReadCloser, string, error)
 }
 
 // maxCoverUploadBytes caps a single cover upload. Mirrors the journal photo limit
@@ -39,22 +41,28 @@ var coverContentTypes = map[string]bool{
 	"image/gif":  true,
 }
 
-// signCover turns a stored cover reference into a browser-loadable URL. A gs://
-// object (an uploaded cover) becomes a short-lived signed URL; anything else — an
-// external http(s) URL, or empty — is returned unchanged. When no media store is
-// configured (nil: unit tests, or MEDIA_BUCKET_NAME unset) the raw value is
-// returned so the server still boots and responds.
-func (m *Module) signCover(ctx context.Context, cover string) string {
-	if cover == "" || m.media == nil || !strings.HasPrefix(cover, "gs://") {
+// coverURL turns a stored cover reference into the URL the app loads. An
+// uploaded cover (gs://) is served by this API at a path that only changes
+// when the cover does (…/cover/{version}), relative to the API base, so the
+// browser can cache it for good and no per-request URL signing is needed. An
+// external http(s) URL, or "", is returned unchanged.
+func (m *Module) coverURL(_ context.Context, tripID, cover string) string {
+	if cover == "" || !strings.HasPrefix(cover, "gs://") {
 		return cover
 	}
-	signed, err := m.media.SignedURL(ctx, cover)
-	if err != nil {
-		platformlog.FromContext(ctx).Error("trip: sign cover url", "err", err.Error())
-		return ""
-	}
-	return signed
+	return TripsPath + "/" + tripID + "/cover/" + coverVersion(cover)
 }
+
+// coverVersion is a short, stable fingerprint of a cover reference. Each
+// upload gets a new random object key, so a new cover means a new version.
+func coverVersion(cover string) string {
+	sum := sha256.Sum256([]byte(cover))
+	return hex.EncodeToString(sum[:6])
+}
+
+// displayRef is where the display-size copy of an uploaded cover lives: next
+// to the original, so replacing or deleting the cover can remove both.
+func displayRef(cover string) string { return cover + "-display.jpg" }
 
 // newCoverKey returns a unique GCS object key for a trip's cover, namespaced per
 // trip (matching the journal photo layout: "trips/{tripID}/...").
@@ -149,11 +157,15 @@ func (m *Module) handleUploadCover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Best-effort removal of the replaced object (never blocks the response).
+	// Make the display-size copy now so the first view is fast; on failure it
+	// is made on first view instead.
+	if _, err := m.ensureDisplayCover(r.Context(), storageURL); err != nil {
+		platformlog.FromContext(r.Context()).Error("trip: cover display copy", "err", err.Error())
+	}
+
+	// Best-effort removal of the replaced object and its display copy.
 	if strings.HasPrefix(prev, "gs://") && prev != storageURL {
-		if delErr := m.media.Delete(r.Context(), prev); delErr != nil {
-			platformlog.FromContext(r.Context()).Error("trip: delete replaced cover", "err", delErr.Error())
-		}
+		m.deleteCoverObjects(r.Context(), prev)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -193,13 +205,103 @@ func (m *Module) handleDeleteCover(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if m.media != nil && strings.HasPrefix(prev, "gs://") {
-		if delErr := m.media.Delete(r.Context(), prev); delErr != nil {
-			platformlog.FromContext(r.Context()).Error("trip: delete cover", "err", delErr.Error())
-		}
+		m.deleteCoverObjects(r.Context(), prev)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(m.tripResp(r.Context(), t))
+}
+
+// deleteCoverObjects removes a replaced cover and its display copy, best
+// effort (a missing display copy is fine).
+func (m *Module) deleteCoverObjects(ctx context.Context, cover string) {
+	if err := m.media.Delete(ctx, cover); err != nil {
+		platformlog.FromContext(ctx).Error("trip: delete cover", "err", err.Error())
+	}
+	_ = m.media.Delete(ctx, displayRef(cover))
+}
+
+// ensureDisplayCover returns the display-size JPEG for an uploaded cover,
+// making and storing it from the original when it doesn't exist yet (covers
+// uploaded before this existed, or a failed attempt at upload time).
+func (m *Module) ensureDisplayCover(ctx context.Context, cover string) ([]byte, error) {
+	if rc, _, err := m.media.Get(ctx, displayRef(cover)); err == nil {
+		defer func() { _ = rc.Close() }()
+		return io.ReadAll(rc)
+	}
+	rc, contentType, err := m.media.Get(ctx, cover)
+	if err != nil {
+		return nil, fmt.Errorf("open original: %w", err)
+	}
+	defer func() { _ = rc.Close() }()
+	data, err := makeDisplayCover(io.LimitReader(rc, maxCoverUploadBytes+1), contentType)
+	if err != nil {
+		return nil, err
+	}
+	key := strings.TrimPrefix(displayRef(cover), "gs://")
+	if i := strings.Index(key, "/"); i >= 0 {
+		key = key[i+1:] // drop the bucket name: Put takes the object key
+	}
+	if _, err := m.media.Put(ctx, key, "image/jpeg", int64(len(data)), bytes.NewReader(data)); err != nil {
+		// Still serve it; the next view tries to store it again.
+		platformlog.FromContext(ctx).Error("trip: store cover display copy", "err", err.Error())
+	}
+	return data, nil
+}
+
+// handleGetCover serves a trip's uploaded cover (its display-size copy) from
+// this API, so the app loads it same-origin with the session cookie. The URL
+// carries the cover's version, so a matching request is cached for a year;
+// a stale version is served without caching.
+//
+// GET /trips/{id}/cover/{version}
+func (m *Module) handleGetCover(w http.ResponseWriter, r *http.Request) {
+	p, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusUnauthorized, "auth_required", "authentication required"))
+		return
+	}
+	id := r.PathValue("id")
+	if err := m.checkAccess(r.Context(), p.UserID, ActionRead, id); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	notFound := func() {
+		httpx.WriteError(w, r, httpx.NewAPIError(http.StatusNotFound, "cover_not_found", "no cover"))
+	}
+	if m.media == nil {
+		notFound()
+		return
+	}
+	cover, err := m.store.GetCover(r.Context(), id)
+	if err != nil || !strings.HasPrefix(cover, "gs://") {
+		notFound()
+		return
+	}
+	version := coverVersion(cover)
+	current := r.PathValue("version") == version
+	if current && r.Header.Get("If-None-Match") == `"`+version+`"` {
+		w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	data, err := m.ensureDisplayCover(r.Context(), cover)
+	if err != nil {
+		platformlog.FromContext(r.Context()).Error("trip: serve cover", "err", err.Error())
+		notFound()
+		return
+	}
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Content-Length", fmt.Sprint(len(data)))
+	if current {
+		w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
+		w.Header().Set("ETag", `"`+version+`"`)
+	} else {
+		w.Header().Set("Cache-Control", "private, no-cache")
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
 }
