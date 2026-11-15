@@ -1,3 +1,4 @@
+import { coverSrc, preloadCovers } from '../lib/coverPreload'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -198,7 +199,7 @@ function FeaturedTrip({
   const total = tripDayCount(trip.start_date, trip.end_date)
   const until = daysUntil(trip.start_date)
   const booked = rollup ? rollup.trip_total + (rollup.estimated_trip_total ?? 0) : null
-  const cover = trip.cover_url || trip.cover
+  const cover = coverSrc(trip)
   const eyebrow =
     trip.is_current || until <= 0 ? 'Now' : `Next up · in ${until} ${until === 1 ? 'day' : 'days'}`
 
@@ -302,7 +303,7 @@ function TripRow({
         <span className="trip-row-thumb" aria-hidden="true">
           <HeroScene
             seed={trip.destinations[0] || trip.name}
-            image={trip.cover_url || trip.cover}
+            image={coverSrc(trip)}
             className="trip-row-scene"
           />
         </span>
@@ -377,6 +378,7 @@ export function TripsDashboard() {
     void readCache<TripsResponse>(key).then((cached) => {
       if (done) return
       if (cached) {
+        preloadCovers(cached.data)
         setData(cached.data)
         setLoading(false)
         setFromCache(true)
@@ -386,6 +388,7 @@ export function TripsDashboard() {
       return fetchTrips(controller.signal).then(
         (trips) => {
           if (done) return
+          preloadCovers(trips)
           setData(trips)
           setLoading(false)
           setFromCache(false)

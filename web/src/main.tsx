@@ -6,6 +6,7 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './auth/AuthProvider.tsx'
 import { registerServiceWorker } from './lib/registerSW.ts'
+import { preloadCachedCovers } from './lib/coverPreload.ts'
 
 // Dev-only: serve canned API responses so the app runs without a backend.
 // Behind VITE_USE_MOCK_TRIPS so production builds never include this.
@@ -13,6 +14,9 @@ if (import.meta.env.VITE_USE_MOCK_TRIPS === 'true') {
   const { installDevMock } = await import('./lib/dev-mock.ts')
   installDevMock()
 }
+
+// Start the trip covers first, from the saved trips list, before rendering.
+void preloadCachedCovers()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -29,6 +29,9 @@ type tripStore interface {
 	// updated trip together with the previous cover value, so the caller can
 	// delete the replaced storage object. cover may be "" to clear it.
 	SetCover(ctx context.Context, id, ownerID, cover string) (Trip, string, error)
+	// GetCover returns a trip's stored cover reference ("" when none).
+	// Trip-scoped; the handler checks read access first.
+	GetCover(ctx context.Context, id string) (string, error)
 	Archive(ctx context.Context, id, ownerID string) (Trip, error)
 	Unarchive(ctx context.Context, id, ownerID string) (Trip, error)
 	Delete(ctx context.Context, id, ownerID string) error
@@ -194,7 +197,7 @@ func newTripResponse(t Trip) tripResponse {
 // newTripResponse — a free function — can't reach).
 func (m *Module) tripResp(ctx context.Context, t Trip) tripResponse {
 	resp := newTripResponse(t)
-	resp.CoverURL = m.signCover(ctx, t.Cover)
+	resp.CoverURL = m.coverURL(ctx, t.ID, t.Cover)
 	return resp
 }
 

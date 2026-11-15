@@ -16,6 +16,7 @@ import (
 // handler policy (owner from session, server-set EUR/status, validation,
 // owner-scoping) can be tested without a database.
 type fakeTripStore struct {
+	cover     string // returned by GetCover
 	gotCreate NewTrip
 	createErr error
 
@@ -102,6 +103,10 @@ func (f *fakeTripStore) Create(_ context.Context, nt NewTrip) (Trip, error) {
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}, nil
+}
+
+func (f *fakeTripStore) GetCover(_ context.Context, _ string) (string, error) {
+	return f.cover, nil
 }
 
 func (f *fakeTripStore) SetCover(_ context.Context, id, ownerID, cover string) (Trip, string, error) {

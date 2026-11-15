@@ -194,6 +194,20 @@ func (s *pgxTripStore) SetCover(ctx context.Context, id, ownerID, cover string) 
 	return t, prev, nil
 }
 
+// GetCover returns a trip's stored cover reference ("" when none); a missing
+// trip yields errTripNotFound.
+func (s *pgxTripStore) GetCover(ctx context.Context, id string) (string, error) {
+	var cover string
+	err := s.pool.QueryRow(ctx, `SELECT cover FROM trip.trips WHERE id = $1::uuid`, id).Scan(&cover)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", errTripNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("trip: get cover: %w", err)
+	}
+	return cover, nil
+}
+
 // setStatus sets a trip's status to the given value (owner-scoped, atomic).
 // It is the shared primitive behind Archive and Unarchive.
 func (s *pgxTripStore) setStatus(ctx context.Context, id, ownerID, status string) (Trip, error) {
