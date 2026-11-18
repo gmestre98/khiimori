@@ -102,6 +102,26 @@ describe('planImport', () => {
     expect(p.todos[0]).toEqual({ title: 'Visto do Benim', note: '', due_date: '2026-12-10' })
   })
 
+  it('keeps a duration without a start time in the note (the API needs both)', () => {
+    const p = planImport(
+      {
+        days: [
+          {
+            day: 1,
+            items: [
+              { title: 'Ride', kind: 'transport', duration: '4h', note: 'Via Aflao.' },
+              { title: 'Walk', time: '09:00', duration: '2h' },
+            ],
+          },
+        ],
+      },
+      '2026-12-26',
+      '2027-01-11',
+    )
+    expect(p.days[0].items[0]).toMatchObject({ duration: null, note: 'Duration: 4h. Via Aflao.' })
+    expect(p.days[0].items[1]).toMatchObject({ start_time: '09:00', duration: '2h' })
+  })
+
   it('makes the same id for the same row, and different ids otherwise', async () => {
     const a = await importId('trip-1', 'day-1-item-0')
     expect(a).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
