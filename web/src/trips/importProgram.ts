@@ -164,16 +164,23 @@ export function planImport(program: Program, tripStart: string, tripEnd: string)
       title: (d.title ?? '').trim(),
       items: (d.items ?? []).map((it) => {
         const kind = it.kind ?? 'activity'
+        // The API only takes a duration with a start time; without one, keep
+        // it in the note instead of failing the whole item.
+        const keepDuration = !!it.time && !!it.duration
+        const note =
+          it.duration && !it.time
+            ? [`Duration: ${it.duration}.`, it.note].filter(Boolean).join(' ')
+            : it.note
         return {
           title: it.title.trim(),
           kind,
           type: it.type ?? null,
           start_time: it.time ?? null,
-          duration: it.duration ?? null,
+          duration: keepDuration ? it.duration! : null,
           location: kind === 'transport' ? null : (it.location ?? null),
           origin: kind === 'transport' ? (it.origin ?? null) : null,
           destination: kind === 'transport' ? (it.destination ?? null) : null,
-          note: it.note ?? null,
+          note: note ?? null,
           link: it.link ?? null,
           cost: it.cost ?? null,
           booking_status: kind === 'note' ? null : normalizeBooking(it.booking_status),
