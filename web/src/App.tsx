@@ -25,6 +25,7 @@ const TripShellRoute = lazy(() =>
   import('./trips/TripShell').then((m) => ({ default: m.TripShellRoute })),
 )
 const DayView = lazy(() => import('./trips/DayView').then((m) => ({ default: m.DayView })))
+const ImportProgramPage = lazy(() => import('./trips/ImportProgramPage'))
 const BacklogPage = lazy(() =>
   import('./trips/BacklogPage').then((m) => ({ default: m.BacklogPage })),
 )
@@ -149,6 +150,14 @@ function App() {
                   element={
                     <Suspense fallback={<RouteLoading />}>
                       <DayView />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="import"
+                  element={
+                    <Suspense fallback={<RouteLoading />}>
+                      <ImportProgramPage />
                     </Suspense>
                   }
                 />

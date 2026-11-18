@@ -26,7 +26,16 @@ function clampDate(date: string, start: string, end: string): string {
 
 // The trip's named child routes. Anything else under /trips/:id (the bare trip
 // URL) redirects to today's day.
-const NAMED_CHILDREN = ['backlog', 'plan', 'map', 'journal', 'budget', 'packing', 'sharing']
+const NAMED_CHILDREN = [
+  'backlog',
+  'import',
+  'plan',
+  'map',
+  'journal',
+  'budget',
+  'packing',
+  'sharing',
+]
 
 // TripShellRoute wraps TripShell with a key derived from the tripId param so
 // React remounts TripShell whenever the user navigates to a different trip.
