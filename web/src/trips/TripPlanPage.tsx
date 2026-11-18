@@ -165,6 +165,14 @@ export function TripPlanPage() {
             </span>
             <Icon name="chevron-right" size={16} />
           </Link>
+          <Link to={`/trips/${trip.id}/import`} className="fg-link-card">
+            <span>
+              <span className="fg-link-card-title">Import a programme</span>
+              <br />
+              <span className="fg-link-card-sub">Add a tour’s day-by-day plan in one go</span>
+            </span>
+            <Icon name="chevron-right" size={16} />
+          </Link>
         </>
       )}
     </section>
