@@ -581,13 +581,38 @@ describe('DayView', () => {
       renderDayView()
       const bar = await addBar()
 
-      // Location is always visible in the composer — no click needed.
+      // Location and Time are always visible in the composer — no click needed.
       expect(within(bar).getByLabelText('Location')).toBeInTheDocument()
+      expect(within(bar).getByLabelText('Time')).toBeInTheDocument()
       // Extra fields stay behind the disclosure.
-      expect(within(bar).queryByLabelText('Start time')).not.toBeInTheDocument()
+      expect(within(bar).queryByLabelText('Duration')).not.toBeInTheDocument()
 
       await user.click(within(bar).getByRole('button', { name: 'More details' }))
-      expect(within(bar).getByLabelText('Start time')).toBeInTheDocument()
+      // The time isn't asked twice.
+      expect(within(bar).queryByLabelText('Start time')).not.toBeInTheDocument()
+    })
+
+    it('folds the add panel away after a successful add', async () => {
+      const user = userEvent.setup()
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay())
+      vi.mocked(api.createPlanItem).mockResolvedValue(
+        makePlanItem({ id: 'new-2', title: 'Dinner', start_time: '20:00' }),
+      )
+
+      renderDayView()
+      const bar = await addBar()
+      const input = within(bar).getByLabelText(/^Add to /) as HTMLInputElement
+      await user.type(input, 'Dinner')
+      expect(within(bar).getByLabelText('Location')).toBeInTheDocument()
+      await user.type(within(bar).getByLabelText('Time'), '20:00')
+      await user.click(within(bar).getByRole('button', { name: 'Add' }))
+
+      await waitFor(() => expect(within(bar).queryByLabelText('Location')).not.toBeInTheDocument())
+      expect(api.createPlanItem).toHaveBeenCalledWith(
+        'trip-1',
+        expect.objectContaining({ title: 'Dinner', start_time: '20:00' }),
+      )
+      expect(document.activeElement).not.toBe(input)
     })
 
     it('confirms a typed location resolves on the map', async () => {

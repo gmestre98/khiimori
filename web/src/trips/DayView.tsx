@@ -663,6 +663,18 @@ function PlanPanel({
   )
 }
 
+// showNewItem scrolls a just-added item into view and flashes it, so adding
+// from the bar shows where it landed.
+function showNewItem(id: string) {
+  window.setTimeout(() => {
+    const row = document.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(id)}"]`)
+    if (!row) return
+    row.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+    row.classList.add('plan-row--new')
+    window.setTimeout(() => row.classList.remove('plan-row--new'), 1800)
+  }, 60)
+}
+
 // DayAddBar is the single "Add a place, ferry, meal or note…" bar. Its kind
 // chips, place and details appear once it's focused (PlanItemForm bar variant).
 function DayAddBar({
@@ -680,7 +692,10 @@ function DayAddBar({
     <QuickAddForm
       tripId={tripId}
       dayId={day.id}
-      onAdded={plan.handleAdded}
+      onAdded={(item) => {
+        plan.handleAdded(item)
+        showNewItem(item.id)
+      }}
       variant="bar"
       placeholder="Add a place, ferry, meal or note…"
       titleLabel={`Add to ${weekday}`}
