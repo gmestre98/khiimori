@@ -140,6 +140,8 @@ function PlanRow({
   toggling,
   onOpen,
   onBooking,
+  onSkip,
+  onSpontaneous,
   onDragStart,
   onDragOver,
   onDrop,
@@ -157,6 +159,8 @@ function PlanRow({
   toggling: boolean
   onOpen: () => void
   onBooking?: (booking: Booking) => void
+  onSkip?: (skip: boolean) => void
+  onSpontaneous?: (spontaneous: boolean) => void
   onDragStart: (e: React.DragEvent, id: string) => void
   onDragOver: (e: React.DragEvent) => void
   onDrop: (e: React.DragEvent, id: string) => void
@@ -172,6 +176,9 @@ function PlanRow({
   const kind = item.kind ?? 'activity'
   const done = item.status === 'done'
   const inactive = item.status === 'skipped' || item.status === 'cancelled'
+  // The status chip (booking + Skipped/Spontaneous) shows on every plan item
+  // but notes, when the list can change it.
+  const hasChip = !!(onBooking && onSkip && onSpontaneous) && (item.kind ?? 'activity') !== 'note'
   const word = statusWord(item.status)
   const tag = kindTag(item)
   const includedIn = packageForItem(usePackages(item.trip_id), item.id)
@@ -227,14 +234,31 @@ function PlanRow({
       </span>
       <span className="plan-row-end">
         <span className="plan-row-tags">
-          {word && item.status !== 'done' && <span className="tag">{word}</span>}
-          {includedIn && (
-            <span className="tag tag--ok" title={`Included in ${includedIn.name}`}>
-              Included
-            </span>
+          {word && item.status !== 'done' && !(hasChip && item.status === 'skipped') && (
+            <span className="tag">{word}</span>
           )}
-          {!includedIn && onBooking && kind !== 'note' && (
-            <BookingChip value={bookingOfItem(item)} label={item.title} onChange={onBooking} />
+          {(item.spontaneous || item.unplanned) && (
+            <span className="tag tag--accent plan-row-spontaneous">Spontaneous</span>
+          )}
+          {hasChip ? (
+            <BookingChip
+              value={bookingOfItem(item)}
+              label={item.title}
+              onChange={onBooking}
+              marks={{
+                skipped: item.status === 'skipped',
+                spontaneous: !!item.spontaneous,
+                included: !!includedIn,
+                onSkip,
+                onSpontaneous,
+              }}
+            />
+          ) : (
+            includedIn && (
+              <span className="tag tag--ok" title={`Included in ${includedIn.name}`}>
+                Included
+              </span>
+            )
           )}
           {tag && (
             <span className={`tag tag--${tag.tone}`}>
@@ -293,6 +317,8 @@ function ReorderableList({
   togglingId,
   onOpen,
   onBooking,
+  onSkip,
+  onSpontaneous,
   onReordered,
 }: {
   items: PlanItem[]
@@ -305,6 +331,8 @@ function ReorderableList({
   togglingId: string | null
   onOpen: (item: PlanItem) => void
   onBooking?: (item: PlanItem, booking: Booking) => void
+  onSkip?: (item: PlanItem, skip: boolean) => void
+  onSpontaneous?: (item: PlanItem, spontaneous: boolean) => void
   onReordered: (order: PlanItem[]) => void
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -449,6 +477,8 @@ function ReorderableList({
           toggling={togglingId === item.id}
           onOpen={() => onOpen(item)}
           onBooking={onBooking ? (b) => onBooking(item, b) : undefined}
+          onSkip={onSkip ? (v) => onSkip(item, v) : undefined}
+          onSpontaneous={onSpontaneous ? (v) => onSpontaneous(item, v) : undefined}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
@@ -504,6 +534,28 @@ function usePlanState({
     } catch {
       handleUpdated(item)
       setToggleError(`Could not change the booking for “${item.title}”.`)
+    }
+  }
+
+  async function setSkipped(item: PlanItem, skip: boolean) {
+    setToggleError(null)
+    const status = skip ? 'skipped' : 'planned'
+    handleUpdated({ ...item, status })
+    try {
+      await actions.setStatus(item, status)
+    } catch {
+      handleUpdated(item)
+      setToggleError(`Could not ${skip ? 'skip' : 'restore'} “${item.title}”.`)
+    }
+  }
+
+  async function changeSpontaneous(item: PlanItem, spontaneous: boolean) {
+    setToggleError(null)
+    try {
+      await actions.setSpontaneous(item, spontaneous)
+    } catch {
+      handleUpdated(item)
+      setToggleError(`Could not update “${item.title}”.`)
     }
   }
 
@@ -573,6 +625,8 @@ function usePlanState({
     toggleError,
     toggleDone,
     changeBooking,
+    setSkipped,
+    changeSpontaneous,
     handleAdded,
     handleUpdated,
     handleRemoved,
@@ -632,6 +686,8 @@ function PlanPanel({
             togglingId={plan.togglingId}
             onOpen={onOpen}
             onBooking={(i, b) => void plan.changeBooking(i, b)}
+            onSkip={(i, v) => void plan.setSkipped(i, v)}
+            onSpontaneous={(i, v) => void plan.changeSpontaneous(i, v)}
             onReordered={plan.handlePlanReordered}
           />
         </>

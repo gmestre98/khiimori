@@ -83,6 +83,7 @@ vi.mock('../lib/api', async (importOriginal) => {
     createPlanItem: vi.fn(),
     updatePlanItem: vi.fn(),
     setPlanItemStatus: vi.fn(),
+    setPlanItemSpontaneous: vi.fn(),
     demotePlanItem: vi.fn(),
     deletePlanItem: vi.fn(),
     movePlanItem: vi.fn(),
@@ -1228,7 +1229,7 @@ describe('DayView', () => {
       vi.mocked(api.updatePlanItem).mockResolvedValue({ ...item, booking_status: 'paid' })
 
       renderDayView()
-      const chip = await screen.findByRole('combobox', { name: 'Booking: Djoudj tour' })
+      const chip = await screen.findByRole('combobox', { name: 'Status: Djoudj tour' })
       expect(chip).toHaveValue('booked')
       await user.selectOptions(chip, 'paid')
       expect(chip).toHaveValue('paid')
@@ -1239,6 +1240,53 @@ describe('DayView', () => {
           expect.objectContaining({ title: 'Djoudj tour', booking_status: 'paid', cost: 35 }),
         ),
       )
+    })
+
+    it('marks an item skipped from the row chip (crossed out), and back', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Pirogue trip', booking_status: 'to_book' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      vi.mocked(api.setPlanItemStatus).mockImplementation(async (_t, _i, status) => ({
+        ...item,
+        status,
+      }))
+
+      renderDayView()
+      const chip = await screen.findByRole('combobox', { name: 'Status: Pirogue trip' })
+      await user.selectOptions(chip, 'Skipped')
+      await waitFor(() =>
+        expect(api.setPlanItemStatus).toHaveBeenCalledWith('trip-1', 'item-1', 'skipped'),
+      )
+      await waitFor(() => expect(chip).toHaveDisplayValue('Skipped'))
+      expect(chip).toHaveClass('bk-chip--skipped')
+      expect(screen.getByText('Pirogue trip').closest('.plan-row')).toHaveClass(
+        'plan-row--inactive',
+      )
+
+      await user.selectOptions(chip, 'Not skipped')
+      await waitFor(() =>
+        expect(api.setPlanItemStatus).toHaveBeenLastCalledWith('trip-1', 'item-1', 'planned'),
+      )
+      await waitFor(() => expect(chip).toHaveValue('to_book'))
+    })
+
+    it('marks an item spontaneous from the row chip and shows the tag', async () => {
+      const user = userEvent.setup()
+      const item = makePlanItem({ title: 'Thieboudienne at a stall' })
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
+      vi.mocked(api.setPlanItemSpontaneous).mockResolvedValue({ ...item, spontaneous: true })
+
+      renderDayView()
+      const chip = await screen.findByRole('combobox', { name: 'Status: Thieboudienne at a stall' })
+      expect(screen.queryByText('Spontaneous', { selector: '.tag' })).not.toBeInTheDocument()
+      await user.selectOptions(chip, 'Spontaneous')
+      await waitFor(() =>
+        expect(api.setPlanItemSpontaneous).toHaveBeenCalledWith('trip-1', 'item-1', true),
+      )
+      expect(await screen.findByText('Spontaneous', { selector: '.tag' })).toBeInTheDocument()
+      expect(within(chip).getByRole('option', { name: 'Not spontaneous' })).toBeInTheDocument()
+      // The booking stays as it was.
+      expect(chip).toHaveValue('none')
     })
 
     it('sets the booking in the details sheet and says what the cost counts as', async () => {

@@ -86,6 +86,7 @@ type planItemResponse struct {
 	ArriveTime    *string  `json:"arrive_time,omitempty"`
 	Note          *string  `json:"note,omitempty"`
 	Unplanned     bool     `json:"unplanned"`
+	Spontaneous   bool     `json:"spontaneous"`
 	SortOrder     int      `json:"sort_order"`
 	ActualOrder   int      `json:"actual_order"`
 	Status        string   `json:"status"`
@@ -568,6 +569,50 @@ func (m *Module) handleSetPlanItemStatus(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(newPlanItemResponse(item))
+}
+
+// setPlanItemSpontaneousRequest is the body of the spontaneous endpoint.
+type setPlanItemSpontaneousRequest struct {
+	Spontaneous *bool `json:"spontaneous"`
+}
+
+// handleSetPlanItemSpontaneous marks a plan item as spontaneous (added on the
+// go, not part of the plan) or not.
+//
+// POST /trips/{id}/plan-items/{itemID}/spontaneous {"spontaneous": true}
+func (m *Module) handleSetPlanItemSpontaneous(w http.ResponseWriter, r *http.Request) {
+	p, ok := authn.FromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusUnauthorized, "auth_required", "authentication required"))
+		return
+	}
+	tripID := r.PathValue("id")
+	itemID := r.PathValue("itemID")
+	if err := m.checkAccess(r.Context(), p.UserID, ActionWrite, tripID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	var req setPlanItemSpontaneousRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Spontaneous == nil {
+		httpx.WriteError(w, r, httpx.NewAPIError(
+			http.StatusBadRequest, "invalid_json", `body must be {"spontaneous": true|false}`))
+		return
+	}
+	item, err := m.planItems.SetPlanItemSpontaneous(r.Context(), tripID, itemID, *req.Spontaneous)
+	if err != nil {
+		if errors.Is(err, errPlanItemNotFound) {
+			httpx.WriteError(w, r, httpx.NewAPIError(
+				http.StatusNotFound, "plan_item_not_found", "plan item not found"))
+			return
+		}
+		platformlog.FromContext(r.Context()).Error("setting plan item spontaneous", "err", err.Error())
+		httpx.WriteError(w, r, err)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(newPlanItemResponse(item))
