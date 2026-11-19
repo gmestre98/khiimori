@@ -656,8 +656,10 @@ describe('DayView', () => {
       const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       const titleInput = within(editingLi as HTMLElement).getByLabelText('Title')
       expect((titleInput as HTMLInputElement).value).toBe('Visit museum')
-      expect(within(editingLi).getByRole('combobox', { name: 'Happened?' })).toHaveValue('planned')
-      expect(within(editingLi).getByRole('combobox', { name: 'Booking' })).toHaveValue('none')
+      const statusGroup = within(editingLi).getByRole('group', { name: 'Status' })
+      for (const b of within(statusGroup).getAllByRole('button')) {
+        expect(b).toHaveAttribute('aria-pressed', 'false')
+      }
       for (const action of ['Move to another day', 'Move to the backlog', /Delete/]) {
         expect(within(editingLi).getByRole('button', { name: action })).toBeInTheDocument()
       }
@@ -1222,17 +1224,25 @@ describe('DayView', () => {
       onLine.mockRestore()
     })
 
-    it('changes the booking from the chip on the row', async () => {
+    // openStatus taps a row's status tag and returns the sheet it opens.
+    async function openStatus(user: ReturnType<typeof userEvent.setup>, title: string) {
+      await user.click(await screen.findByRole('button', { name: `Status: ${title}` }))
+      return screen.getByRole('dialog', { name: `Status: ${title}` })
+    }
+
+    it('sets Paid from the row status tag', async () => {
       const user = userEvent.setup()
       const item = makePlanItem({ title: 'Djoudj tour', cost: 35, booking_status: 'booked' })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
       vi.mocked(api.updatePlanItem).mockResolvedValue({ ...item, booking_status: 'paid' })
 
       renderDayView()
-      const chip = await screen.findByRole('combobox', { name: 'Status: Djoudj tour' })
-      expect(chip).toHaveValue('booked')
-      await user.selectOptions(chip, 'paid')
-      expect(chip).toHaveValue('paid')
+      expect(await screen.findByRole('button', { name: 'Status: Djoudj tour' })).toHaveTextContent(
+        'Booked',
+      )
+      const sheet = await openStatus(user, 'Djoudj tour')
+      await user.click(within(sheet).getByRole('button', { name: /^Paid/ }))
+      expect(within(sheet).getByText('Paid replaced Booked.')).toBeInTheDocument()
       await waitFor(() =>
         expect(api.updatePlanItem).toHaveBeenCalledWith(
           'trip-1',
@@ -1240,53 +1250,56 @@ describe('DayView', () => {
           expect.objectContaining({ title: 'Djoudj tour', booking_status: 'paid', cost: 35 }),
         ),
       )
+      await user.click(within(sheet).getByRole('button', { name: 'Done' }))
+      expect(screen.getByRole('button', { name: 'Status: Djoudj tour' })).toHaveTextContent('Paid')
     })
 
-    it('marks an item skipped from the row chip (crossed out), and back', async () => {
+    it('combines statuses: paid, skipped and spontaneous at once (row crossed out)', async () => {
       const user = userEvent.setup()
-      const item = makePlanItem({ title: 'Pirogue trip', booking_status: 'to_book' })
+      const item = makePlanItem({ title: 'Pirogue trip', booking_status: 'paid' })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
       vi.mocked(api.setPlanItemStatus).mockImplementation(async (_t, _i, status) => ({
         ...item,
         status,
       }))
+      vi.mocked(api.setPlanItemSpontaneous).mockImplementation(async (_t, _i, spontaneous) => ({
+        ...item,
+        status: 'skipped',
+        spontaneous,
+      }))
 
       renderDayView()
-      const chip = await screen.findByRole('combobox', { name: 'Status: Pirogue trip' })
-      await user.selectOptions(chip, 'Skipped')
+      const sheet = await openStatus(user, 'Pirogue trip')
+      await user.click(within(sheet).getByRole('button', { name: /^Skipped/ }))
       await waitFor(() =>
         expect(api.setPlanItemStatus).toHaveBeenCalledWith('trip-1', 'item-1', 'skipped'),
       )
-      await waitFor(() => expect(chip).toHaveDisplayValue('Skipped'))
+      await user.click(within(sheet).getByRole('button', { name: /^Spontaneous/ }))
+      await waitFor(() =>
+        expect(api.setPlanItemSpontaneous).toHaveBeenCalledWith('trip-1', 'item-1', true),
+      )
+      await user.click(within(sheet).getByRole('button', { name: 'Done' }))
+      const chip = screen.getByRole('button', { name: 'Status: Pirogue trip' })
+      expect(chip).toHaveTextContent('Paid · Skipped · Spontaneous')
       expect(chip).toHaveClass('bk-chip--skipped')
       expect(screen.getByText('Pirogue trip').closest('.plan-row')).toHaveClass(
         'plan-row--inactive',
       )
-
-      await user.selectOptions(chip, 'Not skipped')
-      await waitFor(() =>
-        expect(api.setPlanItemStatus).toHaveBeenLastCalledWith('trip-1', 'item-1', 'planned'),
-      )
-      await waitFor(() => expect(chip).toHaveValue('to_book'))
+      expect(api.updatePlanItem).not.toHaveBeenCalled() // booking unchanged
     })
 
-    it('marks an item spontaneous from the row chip and shows the tag', async () => {
+    it('un-skips by tapping Skipped again', async () => {
       const user = userEvent.setup()
-      const item = makePlanItem({ title: 'Thieboudienne at a stall' })
+      const item = makePlanItem({ title: 'Museum', status: 'skipped' })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
-      vi.mocked(api.setPlanItemSpontaneous).mockResolvedValue({ ...item, spontaneous: true })
+      vi.mocked(api.setPlanItemStatus).mockResolvedValue({ ...item, status: 'planned' })
 
       renderDayView()
-      const chip = await screen.findByRole('combobox', { name: 'Status: Thieboudienne at a stall' })
-      expect(screen.queryByText('Spontaneous', { selector: '.tag' })).not.toBeInTheDocument()
-      await user.selectOptions(chip, 'Spontaneous')
+      const sheet = await openStatus(user, 'Museum')
+      await user.click(within(sheet).getByRole('button', { name: /^Skipped/ }))
       await waitFor(() =>
-        expect(api.setPlanItemSpontaneous).toHaveBeenCalledWith('trip-1', 'item-1', true),
+        expect(api.setPlanItemStatus).toHaveBeenCalledWith('trip-1', 'item-1', 'planned'),
       )
-      expect(await screen.findByText('Spontaneous', { selector: '.tag' })).toBeInTheDocument()
-      expect(within(chip).getByRole('option', { name: 'Not spontaneous' })).toBeInTheDocument()
-      // The booking stays as it was.
-      expect(chip).toHaveValue('none')
     })
 
     it('sets the booking in the details sheet and says what the cost counts as', async () => {
@@ -1299,7 +1312,7 @@ describe('DayView', () => {
       await waitFor(() => expect(screen.getByText('Djoudj tour')).toBeInTheDocument())
       const dialog = await openDetails(user, 'Djoudj tour')
       expect(within(dialog).getByText(/counts as/)).toHaveTextContent('€35 counts as booked')
-      await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Booking' }), 'paid')
+      await user.click(within(dialog).getByRole('button', { name: /^Paid/ }))
       await waitFor(() =>
         expect(within(dialog).getByText(/counts as/)).toHaveTextContent('€35 counts as spent'),
       )
@@ -1319,13 +1332,17 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
       const dialog = await openDetails(user, 'Visit museum')
-      const status = within(dialog).getByRole('combobox', { name: 'Happened?' })
-      await user.selectOptions(status, 'skipped')
+      await user.click(within(dialog).getByRole('button', { name: /^Skipped/ }))
 
       await waitFor(() =>
         expect(api.setPlanItemStatus).toHaveBeenCalledWith('trip-1', 'item-1', 'skipped'),
       )
-      await waitFor(() => expect(status).toHaveValue('skipped'))
+      await waitFor(() =>
+        expect(within(dialog).getByRole('button', { name: /^Skipped/ })).toHaveAttribute(
+          'aria-pressed',
+          'true',
+        ),
+      )
     })
 
     it('moves an item to another day from the sheet', async () => {

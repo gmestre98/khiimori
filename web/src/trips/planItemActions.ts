@@ -16,7 +16,8 @@ import { useIsOnline } from '../lib/useIsOnline'
 import { readCache, writeCache } from '../lib/resourceCache'
 import { cacheKeys } from '../lib/cacheKeys'
 import { splitAmount } from './splitAmount'
-import type { Booking } from './booking'
+import { bookingOfItem, type Booking } from './booking'
+import { happenedOf, type StatusState } from './statusModel'
 import {
   fieldsFromItem,
   fieldsToInput,
@@ -129,6 +130,25 @@ export function usePlanItemActions({
     [onUpdated, save],
   )
 
+  // applyStatus saves a new status (booking, outcome, spontaneous) from the
+  // one status list. Every write gets the item with all the new values, so a
+  // later write never puts back an older one.
+  const applyStatus = useCallback(
+    async (item: PlanItem, next: StatusState) => {
+      const target: PlanItem = {
+        ...item,
+        booking_status: next.booking,
+        status: next.happened === 'planned' && item.status === 'idea' ? 'idea' : next.happened,
+        spontaneous: next.spontaneous,
+      }
+      onUpdated(target)
+      if (bookingOfItem(item) !== next.booking) await setBooking(target, next.booking)
+      if (happenedOf(item.status) !== next.happened) await setStatus(target, target.status)
+      if (!!item.spontaneous !== next.spontaneous) await setSpontaneous(target, next.spontaneous)
+    },
+    [onUpdated, setBooking, setStatus, setSpontaneous],
+  )
+
   const moveToDay = useCallback(
     async (item: PlanItem, targetDate: string): Promise<PlanItem> => {
       if (!online) {
@@ -173,5 +193,5 @@ export function usePlanItemActions({
     [online, tripId, onRemoved],
   )
 
-  return { setStatus, setSpontaneous, setBooking, save, moveToDay, demote, remove }
+  return { setStatus, setSpontaneous, setBooking, applyStatus, save, moveToDay, demote, remove }
 }

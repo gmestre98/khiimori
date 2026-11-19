@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { PlanItem, Stay } from '../lib/api'
 import { euroWhole } from '../lib/format'
 import { useIsOnline } from '../lib/useIsOnline'
-import { BookingChip } from './BookingChip'
+import { StatusChip } from './StatusChip'
 import type { Booking } from './booking'
 import { unpaidRows, type UnpaidRow as Row } from './unpaid'
 import { savePlanItemBooking, saveStayBooking } from './bookingSave'
@@ -90,7 +90,12 @@ export function MoneyUnpaid({
                 <span className="money-unpaid-sub">{r.sub}</span>
               </span>
               <span className="money-unpaid-cost">{r.cost ? euroWhole(r.cost) : '–'}</span>
-              <BookingChip value="booked" label={name} onChange={(b) => void change(r, b)} />
+              <StatusChip
+                label={name}
+                state={{ booking: 'booked', happened: 'planned', spontaneous: false }}
+                kinds={{ booking: true, happened: false, spontaneous: false }}
+                onChange={(next) => void change(r, next.booking)}
+              />
             </li>
           )
         })}

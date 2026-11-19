@@ -22,7 +22,7 @@ import { buildDayMetas, stayRuns, type DayMeta } from './tripDays'
 import { useTripShell } from './useTripShell'
 import type { TripDayMarkers } from './TripMap'
 import { isPaid, packageForStay, usePackages } from './packages'
-import { BookingChip } from './BookingChip'
+import { StatusChip } from './StatusChip'
 import { bookingOfStay, type Booking } from './booking'
 import { saveStayBooking } from './bookingSave'
 import { useIsOnline } from '../lib/useIsOnline'
@@ -555,10 +555,11 @@ function StaysView({
               {inPkg ? (
                 <span className="tag tag--ok">Included</span>
               ) : (
-                <BookingChip
-                  value={bookingOfStay(stay)}
+                <StatusChip
                   label={stay.name}
-                  onChange={(b) => void changeBooking(stay, b)}
+                  state={{ booking: bookingOfStay(stay), happened: 'planned', spontaneous: false }}
+                  kinds={{ booking: true, happened: false, spontaneous: false }}
+                  onChange={(next) => void changeBooking(stay, next.booking)}
                 />
               )}
             </li>

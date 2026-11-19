@@ -16,7 +16,7 @@ import { LocationField } from './LocationField'
 import { Icon } from '../components/ui/Icon'
 import { coversDay } from './stayCoverage'
 import { packageForStay, usePackages } from './packages'
-import { BookingChip, BookingSelect } from './BookingChip'
+import { StatusChip, StatusOptions } from './StatusChip'
 import { bookingOfStay, type Booking } from './booking'
 import { saveStayBooking } from './bookingSave'
 
@@ -325,11 +325,11 @@ export function StaySlot({
               />
             </FormField>
           </div>
-          <FormField label="Booking" htmlFor="stay-booking">
-            <BookingSelect
-              id="stay-booking"
-              value={fields.booking}
-              onChange={(b) => setFields((f) => ({ ...f, booking: b }))}
+          <FormField label="Status">
+            <StatusOptions
+              state={{ booking: fields.booking, happened: 'planned', spontaneous: false }}
+              kinds={{ booking: true, happened: false, spontaneous: false }}
+              onChange={(next) => setFields((f) => ({ ...f, booking: next.booking }))}
               disabled={submitting}
             />
           </FormField>
@@ -459,7 +459,12 @@ function StayLine({
         </span>
       )}
       {!includedIn && (
-        <BookingChip value={bookingOfStay(stay)} label={stay.name} onChange={onBooking} />
+        <StatusChip
+          label={stay.name}
+          state={{ booking: bookingOfStay(stay), happened: 'planned', spontaneous: false }}
+          kinds={{ booking: true, happened: false, spontaneous: false }}
+          onChange={(next) => onBooking(next.booking)}
+        />
       )}
       {pinNumber != null && onSelect && (
         <button
