@@ -248,6 +248,13 @@ export function PlanItemForm({
         }))
         setSplitParts(1)
         setSplitPartsDraft('')
+        // The day's add bar folds away after an add (and the phone keyboard
+        // closes), so the new item is visible in the list.
+        if (variant === 'bar') {
+          setEngaged(false)
+          const el = document.activeElement
+          if (el instanceof HTMLElement) el.blur()
+        }
       }
     } finally {
       setSubmitting(false)
@@ -286,6 +293,16 @@ export function PlanItemForm({
       onSubmit={handleSubmit}
       aria-label="Plan item form"
       onFocus={() => setEngaged(true)}
+      onBlur={(e) => {
+        // Tapping back into the day folds an empty add bar away.
+        if (
+          variant === 'bar' &&
+          !fields.title.trim() &&
+          !e.currentTarget.contains(e.relatedTarget as Node | null)
+        ) {
+          setEngaged(false)
+        }
+      }}
     >
       <div className="plan-item-form-row">
         <Input
@@ -352,6 +369,23 @@ export function PlanItemForm({
             />
           )}
 
+          {/* The bar shows the time up front: it's what you set most when adding. */}
+          {variant === 'bar' && fields.kind !== 'note' && (
+            <FormField
+              label={fields.kind === 'transport' ? 'Departure' : 'Time'}
+              htmlFor={`${fid}-time`}
+            >
+              <Input
+                id={`${fid}-time`}
+                type="time"
+                className="plan-item-form-time"
+                value={fields.start_time}
+                onChange={(e) => set('start_time', e.target.value)}
+                disabled={submitting}
+              />
+            </FormField>
+          )}
+
           <button
             type="button"
             className="plan-item-form-toggle"
@@ -394,18 +428,20 @@ export function PlanItemForm({
               else has a start time + duration. */}
               {fields.kind !== 'note' && (
                 <div className="plan-item-form-grid">
-                  <FormField
-                    label={fields.kind === 'transport' ? 'Departure' : 'Start time'}
-                    htmlFor={`${fid}-time`}
-                  >
-                    <Input
-                      id={`${fid}-time`}
-                      type="time"
-                      value={fields.start_time}
-                      onChange={(e) => set('start_time', e.target.value)}
-                      disabled={submitting}
-                    />
-                  </FormField>
+                  {variant !== 'bar' && (
+                    <FormField
+                      label={fields.kind === 'transport' ? 'Departure' : 'Start time'}
+                      htmlFor={`${fid}-time`}
+                    >
+                      <Input
+                        id={`${fid}-time`}
+                        type="time"
+                        value={fields.start_time}
+                        onChange={(e) => set('start_time', e.target.value)}
+                        disabled={submitting}
+                      />
+                    </FormField>
+                  )}
                   {fields.kind === 'transport' ? (
                     <FormField label="Arrival" htmlFor={`${fid}-arrive`}>
                       <Input

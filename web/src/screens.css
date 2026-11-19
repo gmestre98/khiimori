@@ -2859,3 +2859,32 @@ button.bk-chip {
 .status-sheet-done {
   align-self: flex-end;
 }
+
+/* Day add bar on phones: compact kinds on one row, time up front, and the new
+   item flashes where it landed. */
+.plan-item-form--bar .plan-item-kind-picker {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+.plan-item-form--bar .plan-item-kind-btn {
+  flex: 1 1 0;
+  justify-content: center;
+  min-width: 0;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+.plan-item-form--bar .plan-item-form-time {
+  max-width: 160px;
+}
+@keyframes plan-row-new {
+  from {
+    background: var(--accent-tint);
+  }
+  to {
+    background: transparent;
+  }
+}
+.plan-row--new {
+  animation: plan-row-new 1.8s ease-out;
+  border-radius: 10px;
+}
