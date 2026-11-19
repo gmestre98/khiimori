@@ -4,7 +4,7 @@ import { useFocusTrap } from '../components/ui/useFocusTrap'
 import { Button, FormField, Input, Select } from '../components/ui'
 import { Icon } from '../components/ui/Icon'
 import { LocationField } from './LocationField'
-import { BookingSelect } from './BookingChip'
+import { StatusOptions } from './StatusChip'
 import { normalizeBooking } from './booking'
 import { MAX_SPLIT_PARTS, splitAmount } from './splitAmount'
 import {
@@ -507,11 +507,15 @@ export function PlanItemForm({
                     )}
                   </FormField>
                   {!hideBooking && (
-                    <FormField label="Booking" htmlFor={`${fid}-book`}>
-                      <BookingSelect
-                        id={`${fid}-book`}
-                        value={normalizeBooking(fields.booking_status)}
-                        onChange={(b) => set('booking_status', b)}
+                    <FormField label="Status">
+                      <StatusOptions
+                        state={{
+                          booking: normalizeBooking(fields.booking_status),
+                          happened: 'planned',
+                          spontaneous: false,
+                        }}
+                        kinds={{ booking: true, happened: false, spontaneous: false }}
+                        onChange={(next) => set('booking_status', next.booking)}
                         disabled={submitting}
                       />
                     </FormField>

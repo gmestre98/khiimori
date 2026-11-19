@@ -22,8 +22,9 @@ import { DateBox } from '../components/ui/DateBox'
 import { DayTitle } from './DayTitle'
 import { PackageBanner } from './PackageBanner'
 import { packageForItem, usePackages } from './packages'
-import { BookingChip } from './BookingChip'
-import { bookingOfItem, type Booking } from './booking'
+import { StatusChip } from './StatusChip'
+import { bookingOfItem } from './booking'
+import { happenedOf, type StatusState } from './statusModel'
 import { JournalEditor } from '../journal/JournalEditor'
 import { useTripShell } from './useTripShell'
 import { QuickAddForm } from './PlanItemForm'
@@ -139,9 +140,7 @@ function PlanRow({
   onToggle,
   toggling,
   onOpen,
-  onBooking,
-  onSkip,
-  onSpontaneous,
+  onStatus,
   onDragStart,
   onDragOver,
   onDrop,
@@ -158,9 +157,7 @@ function PlanRow({
   onToggle: () => void
   toggling: boolean
   onOpen: () => void
-  onBooking?: (booking: Booking) => void
-  onSkip?: (skip: boolean) => void
-  onSpontaneous?: (spontaneous: boolean) => void
+  onStatus?: (next: StatusState) => void
   onDragStart: (e: React.DragEvent, id: string) => void
   onDragOver: (e: React.DragEvent) => void
   onDrop: (e: React.DragEvent, id: string) => void
@@ -178,7 +175,7 @@ function PlanRow({
   const inactive = item.status === 'skipped' || item.status === 'cancelled'
   // The status chip (booking + Skipped/Spontaneous) shows on every plan item
   // but notes, when the list can change it.
-  const hasChip = !!(onBooking && onSkip && onSpontaneous) && (item.kind ?? 'activity') !== 'note'
+  const hasChip = !!onStatus && (item.kind ?? 'activity') !== 'note'
   const word = statusWord(item.status)
   const tag = kindTag(item)
   const includedIn = packageForItem(usePackages(item.trip_id), item.id)
@@ -234,24 +231,18 @@ function PlanRow({
       </span>
       <span className="plan-row-end">
         <span className="plan-row-tags">
-          {word && item.status !== 'done' && !(hasChip && item.status === 'skipped') && (
-            <span className="tag">{word}</span>
-          )}
-          {(item.spontaneous || item.unplanned) && (
-            <span className="tag tag--accent plan-row-spontaneous">Spontaneous</span>
-          )}
-          {hasChip ? (
-            <BookingChip
-              value={bookingOfItem(item)}
+          {word && item.status !== 'done' && !hasChip && <span className="tag">{word}</span>}
+          {hasChip && onStatus ? (
+            <StatusChip
               label={item.title}
-              onChange={onBooking}
-              marks={{
-                skipped: item.status === 'skipped',
-                spontaneous: !!item.spontaneous,
-                included: !!includedIn,
-                onSkip,
-                onSpontaneous,
+              state={{
+                booking: bookingOfItem(item),
+                happened: happenedOf(item.status),
+                spontaneous: !!item.spontaneous || !!item.unplanned,
               }}
+              kinds={{ booking: !includedIn, happened: true, spontaneous: true }}
+              includedIn={includedIn?.name}
+              onChange={onStatus}
             />
           ) : (
             includedIn && (
@@ -316,9 +307,7 @@ function ReorderableList({
   onToggle,
   togglingId,
   onOpen,
-  onBooking,
-  onSkip,
-  onSpontaneous,
+  onStatus,
   onReordered,
 }: {
   items: PlanItem[]
@@ -330,9 +319,7 @@ function ReorderableList({
   onToggle: (item: PlanItem) => void
   togglingId: string | null
   onOpen: (item: PlanItem) => void
-  onBooking?: (item: PlanItem, booking: Booking) => void
-  onSkip?: (item: PlanItem, skip: boolean) => void
-  onSpontaneous?: (item: PlanItem, spontaneous: boolean) => void
+  onStatus?: (item: PlanItem, next: StatusState) => void
   onReordered: (order: PlanItem[]) => void
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -476,9 +463,7 @@ function ReorderableList({
           onToggle={() => onToggle(item)}
           toggling={togglingId === item.id}
           onOpen={() => onOpen(item)}
-          onBooking={onBooking ? (b) => onBooking(item, b) : undefined}
-          onSkip={onSkip ? (v) => onSkip(item, v) : undefined}
-          onSpontaneous={onSpontaneous ? (v) => onSpontaneous(item, v) : undefined}
+          onStatus={onStatus ? (next) => onStatus(item, next) : undefined}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
@@ -527,35 +512,13 @@ function usePlanState({
     onAdded: handleAdded,
   })
 
-  async function changeBooking(item: PlanItem, booking: Booking) {
+  async function changeStatus(item: PlanItem, next: StatusState) {
     setToggleError(null)
     try {
-      await actions.setBooking(item, booking)
+      await actions.applyStatus(item, next)
     } catch {
       handleUpdated(item)
-      setToggleError(`Could not change the booking for “${item.title}”.`)
-    }
-  }
-
-  async function setSkipped(item: PlanItem, skip: boolean) {
-    setToggleError(null)
-    const status = skip ? 'skipped' : 'planned'
-    handleUpdated({ ...item, status })
-    try {
-      await actions.setStatus(item, status)
-    } catch {
-      handleUpdated(item)
-      setToggleError(`Could not ${skip ? 'skip' : 'restore'} “${item.title}”.`)
-    }
-  }
-
-  async function changeSpontaneous(item: PlanItem, spontaneous: boolean) {
-    setToggleError(null)
-    try {
-      await actions.setSpontaneous(item, spontaneous)
-    } catch {
-      handleUpdated(item)
-      setToggleError(`Could not update “${item.title}”.`)
+      setToggleError(`Could not change the status of “${item.title}”.`)
     }
   }
 
@@ -624,9 +587,7 @@ function usePlanState({
     togglingId,
     toggleError,
     toggleDone,
-    changeBooking,
-    setSkipped,
-    changeSpontaneous,
+    changeStatus,
     handleAdded,
     handleUpdated,
     handleRemoved,
@@ -685,9 +646,7 @@ function PlanPanel({
             onToggle={(i) => void plan.toggleDone(i)}
             togglingId={plan.togglingId}
             onOpen={onOpen}
-            onBooking={(i, b) => void plan.changeBooking(i, b)}
-            onSkip={(i, v) => void plan.setSkipped(i, v)}
-            onSpontaneous={(i, v) => void plan.changeSpontaneous(i, v)}
+            onStatus={(i, next) => void plan.changeStatus(i, next)}
             onReordered={plan.handlePlanReordered}
           />
         </>

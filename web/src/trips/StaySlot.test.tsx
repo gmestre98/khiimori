@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { StaySlot } from './StaySlot'
 import * as api from '../lib/api'
@@ -152,16 +152,19 @@ describe('StaySlot', () => {
     )
   })
 
-  it('shows the booking chip and sets Paid from the edit form', async () => {
+  it('shows the status tag and sets Paid from the edit form', async () => {
     const user = userEvent.setup()
     const stay = makeStay({ cost: 120, paid: false, booking_status: 'booked' })
     vi.mocked(api.updateStay).mockResolvedValue({ ...stay, paid: true, booking_status: 'paid' })
     const setStays = vi.fn()
 
     render(<StaySlot day={makeDay({ stays: [stay] })} tripId="trip-1" setStays={setStays} />)
-    expect(screen.getByRole('combobox', { name: 'Booking: Hotel Paris' })).toHaveValue('booked')
+    expect(screen.getByRole('button', { name: 'Status: Hotel Paris' })).toHaveTextContent('Booked')
     await user.click(screen.getByRole('button', { name: 'Edit Hotel Paris' }))
-    await user.selectOptions(screen.getByLabelText('Booking'), 'paid')
+    // Stays only have booking statuses.
+    const group = screen.getByRole('group', { name: 'Status' })
+    expect(within(group).queryByRole('button', { name: /^Skipped/ })).not.toBeInTheDocument()
+    await user.click(within(group).getByRole('button', { name: /^Paid/ }))
     await user.click(screen.getByRole('button', { name: 'Save stay' }))
 
     await waitFor(() => expect(api.updateStay).toHaveBeenCalledTimes(1))
@@ -172,17 +175,16 @@ describe('StaySlot', () => {
     })
   })
 
-  it('changes the booking straight from the chip', async () => {
+  it('changes the booking straight from the tag', async () => {
     const user = userEvent.setup()
     const stay = makeStay({ cost: 120, booking_status: 'to_book' })
     vi.mocked(api.updateStay).mockResolvedValue({ ...stay, booking_status: 'booked' })
     const setStays = vi.fn()
 
     render(<StaySlot day={makeDay({ stays: [stay] })} tripId="trip-1" setStays={setStays} />)
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: 'Booking: Hotel Paris' }),
-      'booked',
-    )
+    await user.click(screen.getByRole('button', { name: 'Status: Hotel Paris' }))
+    const sheet = screen.getByRole('dialog', { name: 'Status: Hotel Paris' })
+    await user.click(within(sheet).getByRole('button', { name: /^Booked/ }))
     await waitFor(() => expect(api.updateStay).toHaveBeenCalledTimes(1))
     expect(vi.mocked(api.updateStay).mock.calls[0][2]).toMatchObject({
       name: 'Hotel Paris',
@@ -201,7 +203,7 @@ describe('StaySlot', () => {
         setStays={vi.fn()}
       />,
     )
-    expect(screen.getByRole('combobox', { name: 'Booking: Hotel Paris' })).toHaveValue('paid')
+    expect(screen.getByRole('button', { name: 'Status: Hotel Paris' })).toHaveTextContent('Paid')
   })
 
   it('queues the add offline instead of calling the API', async () => {

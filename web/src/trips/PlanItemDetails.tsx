@@ -5,8 +5,9 @@ import { useFocusTrap } from '../components/ui/useFocusTrap'
 import { Icon } from '../components/ui/Icon'
 import { PackagePicker } from './PackagePicker'
 import { PlanItemForm } from './PlanItemForm'
-import { PLAN_STATUSES, usePlanItemActions } from './planItemActions'
-import { BookingSelect } from './BookingChip'
+import { usePlanItemActions } from './planItemActions'
+import { StatusOptions } from './StatusChip'
+import { happenedOf } from './statusModel'
 import { bookingOfItem, itemCounts, itemCountsAsSpent } from './booking'
 import { packageForItem, usePackages } from './packages'
 import { euroWhole } from '../lib/format'
@@ -89,9 +90,6 @@ export function PlanItemDetails({
   })
   const includedIn = packageForItem(usePackages(item.trip_id), item.id)
   const isNote = (item.kind ?? 'activity') === 'note'
-  const statusValue = ['done', 'skipped', 'cancelled'].includes(item.status)
-    ? item.status
-    : 'planned'
 
   async function handleSubmit(fields: PlanItemFormFields, splitParts: number) {
     setError(null)
@@ -131,52 +129,20 @@ export function PlanItemDetails({
 
         <div className="details-body">
           <div className="details-section details-status">
-            {!isNote && !includedIn && (
-              <label className="details-status-field">
-                <span className="details-field-label">Booking</span>
-                <BookingSelect
-                  value={bookingOfItem(item)}
-                  disabled={busy}
-                  onChange={(b) =>
-                    void run(() => actions.setBooking(item, b), 'Could not change the booking.')
-                  }
-                />
-              </label>
-            )}
-            <label className="details-status-field">
-              <span className="details-field-label">Happened?</span>
-              <select
-                className="form-input bk-select"
-                value={statusValue}
-                disabled={busy}
-                onChange={(e) =>
-                  void run(
-                    () => actions.setStatus(item, e.target.value),
-                    'Could not change the status.',
-                  )
-                }
-              >
-                {PLAN_STATUSES.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="details-status-check">
-              <input
-                type="checkbox"
-                checked={!!item.spontaneous}
-                disabled={busy}
-                onChange={(e) =>
-                  void run(
-                    () => actions.setSpontaneous(item, e.target.checked),
-                    'Could not update the item.',
-                  )
-                }
-              />
-              <span>Spontaneous — wasn’t in the plan</span>
-            </label>
+            <span className="details-field-label">Status</span>
+            <StatusOptions
+              state={{
+                booking: bookingOfItem(item),
+                happened: happenedOf(item.status),
+                spontaneous: !!item.spontaneous,
+              }}
+              kinds={{ booking: !isNote && !includedIn, happened: true, spontaneous: true }}
+              includedIn={includedIn?.name}
+              disabled={busy}
+              onChange={(next) =>
+                void run(() => actions.applyStatus(item, next), 'Could not change the status.')
+              }
+            />
             {!isNote && !includedIn && item.cost != null && item.cost > 0 && (
               <p className="details-status-hint">
                 {!itemCounts(item) ? (

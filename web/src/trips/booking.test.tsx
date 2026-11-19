@@ -114,9 +114,11 @@ describe('MoneyUnpaid', () => {
     const section = screen.getByRole('region', { name: /Not paid yet/ })
     expect(within(section).getByRole('heading')).toHaveTextContent('Not paid yet · €131')
     expect(within(section).getByText('2 booked')).toBeInTheDocument()
-    await user.selectOptions(
-      within(section).getByRole('combobox', { name: 'Booking: Djoudj tour' }),
-      'paid',
+    await user.click(within(section).getByRole('button', { name: 'Status: Djoudj tour' }))
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Status: Djoudj tour' })).getByRole('button', {
+        name: /^Paid/,
+      }),
     )
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
     expect(api.updatePlanItem).toHaveBeenCalledWith(
