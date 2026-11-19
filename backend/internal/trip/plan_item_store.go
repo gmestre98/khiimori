@@ -38,6 +38,9 @@ type planItemStore interface {
 	// operation is idempotent: replaying with the same status converges. Returns
 	// errPlanItemNotFound when the item does not exist within the trip.
 	SetPlanItemStatus(ctx context.Context, tripID, itemID, status string) (PlanItem, error)
+	// SetPlanItemSpontaneous sets only the spontaneous flag of one item in the
+	// trip; errPlanItemNotFound when there is no such item.
+	SetPlanItemSpontaneous(ctx context.Context, tripID, itemID string, spontaneous bool) (PlanItem, error)
 	// ReorderPlanItems sets sort_order = 0, 1, 2, … for the given item IDs
 	// within a day, in the caller-supplied sequence. All IDs must belong to
 	// tripID and dayID; any item not in the list keeps its current sort_order.
@@ -64,7 +67,7 @@ const planItemColumns = `
 	id::text, trip_id::text, day_id::text,
 	title, kind, type, start_time::text, duration::text,
 	location, booking_status, cost, link,
-	origin, destination, arrive_time::text, note, unplanned,
+	origin, destination, arrive_time::text, note, unplanned, spontaneous,
 	sort_order, actual_order, status`
 
 // scanPlanItem scans a trip.plan_items row (in planItemColumns order) into p.
@@ -73,7 +76,7 @@ func scanPlanItem(row pgx.Row, p *PlanItem) error {
 		&p.ID, &p.TripID, &p.DayID,
 		&p.Title, &p.Kind, &p.Type, &p.StartTime, &p.Duration,
 		&p.Location, &p.BookingStatus, &p.Cost, &p.Link,
-		&p.Origin, &p.Destination, &p.ArriveTime, &p.Note, &p.Unplanned,
+		&p.Origin, &p.Destination, &p.ArriveTime, &p.Note, &p.Unplanned, &p.Spontaneous,
 		&p.SortOrder, &p.ActualOrder, &p.Status,
 	)
 }
@@ -379,6 +382,25 @@ func (s *pgxPlanItemStore) SetPlanItemStatus(ctx context.Context, tripID, itemID
 			return PlanItem{}, errPlanItemNotFound
 		}
 		return PlanItem{}, fmt.Errorf("trip: set plan item status: %w", err)
+	}
+	return item, nil
+}
+
+// SetPlanItemSpontaneous sets only the spontaneous flag (idempotent: replaying
+// the same value converges).
+func (s *pgxPlanItemStore) SetPlanItemSpontaneous(ctx context.Context, tripID, itemID string, spontaneous bool) (PlanItem, error) {
+	const q = `
+		UPDATE trip.plan_items
+		SET spontaneous = $3
+		WHERE id = $1::uuid AND trip_id = $2::uuid
+		RETURNING ` + planItemColumns
+	var item PlanItem
+	err := scanPlanItem(s.pool.QueryRow(ctx, q, itemID, tripID, spontaneous), &item)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return PlanItem{}, errPlanItemNotFound
+		}
+		return PlanItem{}, fmt.Errorf("trip: set plan item spontaneous: %w", err)
 	}
 	return item, nil
 }

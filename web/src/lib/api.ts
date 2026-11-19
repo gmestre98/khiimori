@@ -618,6 +618,9 @@ export interface PlanItem {
   // did") rather than planned ahead. Lets the Day tab keep the intended plan
   // apart from what happened. Optional/absent → treated as planned (false).
   unplanned?: boolean
+  // spontaneous marks an item added on the go that wasn't in the plan; unlike
+  // unplanned it stays in the plan list, tagged. Absent on cached payloads.
+  spontaneous?: boolean
   sort_order: number
   // actual_order positions the item in the "what happened" list, independent of
   // sort_order (the planned-timeline position) — reordering one leaves the other
@@ -844,6 +847,23 @@ export async function demotePlanItem(tripId: string, itemId: string): Promise<Pl
 
 // setPlanItemStatus sets the status of a plan item to one of: planned, done,
 // skipped, cancelled. Toggling the same status is idempotent (server-enforced).
+// setPlanItemSpontaneous marks a plan item as spontaneous (not part of the
+// plan) or not. Only that flag changes.
+export async function setPlanItemSpontaneous(
+  tripId: string,
+  itemId: string,
+  spontaneous: boolean,
+): Promise<PlanItem> {
+  const res = await apiFetch(`/trips/${tripId}/plan-items/${itemId}/spontaneous`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ spontaneous }),
+  })
+  if (res.status === 401) throw new UnauthorizedError()
+  if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
+  return (await res.json()) as PlanItem
+}
+
 export async function setPlanItemStatus(
   tripId: string,
   itemId: string,

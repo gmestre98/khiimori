@@ -5,6 +5,7 @@ import {
   demotePlanItem,
   fetchDay,
   movePlanItem,
+  setPlanItemSpontaneous,
   setPlanItemStatus,
   updatePlanItem,
   type Day,
@@ -55,6 +56,20 @@ export function usePlanItemActions({
         return
       }
       onUpdated(await setPlanItemStatus(tripId, item.id, status))
+    },
+    [online, tripId, onUpdated],
+  )
+
+  // setSpontaneous marks an item as added on the go (not in the plan) or not:
+  // shown at once, queued offline.
+  const setSpontaneous = useCallback(
+    async (item: PlanItem, spontaneous: boolean) => {
+      onUpdated({ ...item, spontaneous })
+      if (!online) {
+        await enqueue('setPlanItemSpontaneous', { tripId, itemId: item.id, spontaneous })
+        return
+      }
+      onUpdated(await setPlanItemSpontaneous(tripId, item.id, spontaneous))
     },
     [online, tripId, onUpdated],
   )
@@ -158,5 +173,5 @@ export function usePlanItemActions({
     [online, tripId, onRemoved],
   )
 
-  return { setStatus, setBooking, save, moveToDay, demote, remove }
+  return { setStatus, setSpontaneous, setBooking, save, moveToDay, demote, remove }
 }

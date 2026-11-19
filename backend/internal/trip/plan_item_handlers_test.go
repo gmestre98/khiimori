@@ -248,6 +248,13 @@ func (f *fakePlanItemStore) SetPlanItemStatus(_ context.Context, tripID, itemID,
 	return PlanItem{ID: itemID, TripID: tripID, Title: "item", SortOrder: 0, Status: status}, nil
 }
 
+func (f *fakePlanItemStore) SetPlanItemSpontaneous(_ context.Context, tripID, itemID string, spontaneous bool) (PlanItem, error) {
+	if f.statusErr != nil {
+		return PlanItem{}, f.statusErr
+	}
+	return PlanItem{ID: itemID, TripID: tripID, Title: "item", Status: "planned", Spontaneous: spontaneous}, nil
+}
+
 // newPlanItemModule constructs a Module wired to a trip store and plan-item store.
 func newPlanItemModule(tripSt tripStore, piSt planItemStore) *Module {
 	return &Module{
@@ -1425,6 +1432,32 @@ func TestHandleSetPlanItemStatusEachValue(t *testing.T) {
 				t.Errorf("response status = %q, want %q", resp.Status, status)
 			}
 		})
+	}
+}
+
+func TestHandleSetPlanItemSpontaneous(t *testing.T) {
+	t.Parallel()
+	m := newPlanItemModule(&fakeTripStore{}, &fakePlanItemStore{})
+	for body, want := range map[string]int{
+		`{"spontaneous":true}`:  http.StatusOK,
+		`{"spontaneous":false}`: http.StatusOK,
+		`{}`:                    http.StatusBadRequest,
+		`nope`:                  http.StatusBadRequest,
+	} {
+		req := setStatusPlanItemReq("trip-1", "item-5", "owner-1", body)
+		rec := httptest.NewRecorder()
+		m.handleSetPlanItemSpontaneous(rec, req)
+		if rec.Code != want {
+			t.Errorf("%s: status %d, want %d", body, rec.Code, want)
+			continue
+		}
+		if want == http.StatusOK {
+			var resp planItemResponse
+			_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+			if resp.Spontaneous != (body == `{"spontaneous":true}`) {
+				t.Errorf("%s: spontaneous = %v", body, resp.Spontaneous)
+			}
+		}
 	}
 }
 

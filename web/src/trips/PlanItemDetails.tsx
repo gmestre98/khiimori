@@ -163,6 +163,20 @@ export function PlanItemDetails({
                 ))}
               </select>
             </label>
+            <label className="details-status-check">
+              <input
+                type="checkbox"
+                checked={!!item.spontaneous}
+                disabled={busy}
+                onChange={(e) =>
+                  void run(
+                    () => actions.setSpontaneous(item, e.target.checked),
+                    'Could not update the item.',
+                  )
+                }
+              />
+              <span>Spontaneous — wasn’t in the plan</span>
+            </label>
             {!isNote && !includedIn && item.cost != null && item.cost > 0 && (
               <p className="details-status-hint">
                 {!itemCounts(item) ? (

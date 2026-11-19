@@ -42,6 +42,8 @@ function resourceKey(m: QueuedMutation): string | null {
       return `updatePlanItem:${String(p.tripId)}:${String(p.itemId)}`
     case 'setPlanItemStatus':
       return `setPlanItemStatus:${String(p.tripId)}:${String(p.itemId)}`
+    case 'setPlanItemSpontaneous':
+      return `setPlanItemSpontaneous:${String(p.tripId)}:${String(p.itemId)}`
     case 'reorderPlanItems':
       return `reorderPlanItems:${String(p.tripId)}:${String(p.dayId)}`
     case 'movePlanItem':

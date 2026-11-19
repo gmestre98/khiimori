@@ -82,7 +82,11 @@ type PlanItem struct {
 	// did") rather than planned ahead. Lets the Day tab keep the intended plan
 	// apart from what actually happened. Set at creation; not editable.
 	Unplanned bool
-	SortOrder int
+	// Spontaneous marks an item added on the go that wasn't part of the plan;
+	// it stays in the plan list, tagged. Set with its own endpoint, so full
+	// edits never clear it. (00046)
+	Spontaneous bool
+	SortOrder   int
 	// ActualOrder is a second manual order, independent of SortOrder: SortOrder
 	// positions the item in the planned timeline, ActualOrder in the
 	// "what happened" list (the sequence things actually occurred in). Defaults

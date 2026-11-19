@@ -248,6 +248,15 @@ async function dispatch(m: QueuedMutation): Promise<void> {
       await api.setPlanItemStatus(tripId, itemId, status)
       return
     }
+    case 'setPlanItemSpontaneous': {
+      const { tripId, itemId, spontaneous } = p as unknown as {
+        tripId: string
+        itemId: string
+        spontaneous: boolean
+      }
+      await api.setPlanItemSpontaneous(tripId, itemId, spontaneous)
+      return
+    }
     case 'createStay': {
       const { tripId, input } = p as unknown as CreateStayPayload
       await api.createStay(tripId, input)
