@@ -402,3 +402,14 @@
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+
+/* iPhone Safari zooms the whole page into any field under 16px when it gets
+   focus, and the page then spills sideways. Keep every text field at 16px or
+   more there; bigger inherited sizes stay as they are. */
+@supports (-webkit-touch-callout: none) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not(.pkg-money-input),
+  textarea,
+  select {
+    font-size: max(16px, 1em) !important;
+  }
+}

@@ -32,6 +32,7 @@ export type IconName =
   | 'fit'
   | 'edit'
   | 'package'
+  | 'clock'
 
 const PATHS: Record<IconName, string[]> = {
   edit: ['M12 20h9', 'M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z'],
@@ -88,6 +89,7 @@ const PATHS: Record<IconName, string[]> = {
   search: ['M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z', 'M21 21l-4.3-4.3'],
   user: ['M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M5 20a7 7 0 0 1 14 0'],
   fit: ['M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5'],
+  clock: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M12 7v5l3 2'],
 }
 
 export function Icon({

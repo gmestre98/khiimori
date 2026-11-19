@@ -337,54 +337,69 @@ export function PlanItemForm({
                 onClick={() => changeKind(k.value)}
                 disabled={submitting}
               >
-                <Icon name={k.icon} size={16} /> {k.label}
+                <Icon name={k.icon} size={16} />
+                <span className="plan-item-kind-label">{k.label}</span>
               </button>
             ))}
           </div>
 
           {/* The always-visible "where" composer depends on the kind: transport is a
-          leg (from → to), a note has no place, everything else has a location. */}
-          {fields.kind === 'transport' ? (
-            <div className="plan-item-form-grid">
+          leg (from → to), a note has no place, everything else has a location.
+          The bar keeps it on one compact row with the time beside it. */}
+          <div
+            className={[
+              'plan-item-form-where',
+              fields.kind === 'transport' ? 'plan-item-form-where--leg' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            {fields.kind === 'transport' ? (
+              <div className="plan-item-form-grid">
+                <LocationField
+                  label="From"
+                  value={fields.origin}
+                  onChange={(v) => set('origin', v)}
+                  disabled={submitting}
+                  placeholder={variant === 'bar' ? 'From' : 'Lisbon'}
+                />
+                <LocationField
+                  label="To"
+                  value={fields.destination}
+                  onChange={(v) => set('destination', v)}
+                  disabled={submitting}
+                  placeholder={variant === 'bar' ? 'To' : 'Porto'}
+                />
+              </div>
+            ) : fields.kind === 'note' ? null : (
               <LocationField
-                label="From"
-                value={fields.origin}
-                onChange={(v) => set('origin', v)}
+                value={fields.location}
+                onChange={(v) => set('location', v)}
                 disabled={submitting}
-                placeholder="Lisbon"
+                placeholder={variant === 'bar' ? 'Where? (optional)' : undefined}
               />
-              <LocationField
-                label="To"
-                value={fields.destination}
-                onChange={(v) => set('destination', v)}
-                disabled={submitting}
-                placeholder="Porto"
-              />
-            </div>
-          ) : fields.kind === 'note' ? null : (
-            <LocationField
-              value={fields.location}
-              onChange={(v) => set('location', v)}
-              disabled={submitting}
-            />
-          )}
+            )}
 
-          {/* The bar shows the time up front: it's what you set most when adding. */}
-          {variant === 'bar' && fields.kind !== 'note' && (
-            <FormField
-              label={fields.kind === 'transport' ? 'Departure' : 'Time'}
-              htmlFor={`${fid}-time`}
-            >
-              <Input
-                id={`${fid}-time`}
-                type="time"
-                className="plan-item-form-time"
-                value={fields.start_time}
-                onChange={(e) => set('start_time', e.target.value)}
-                disabled={submitting}
-              />
-            </FormField>
-          )}
+            {/* The bar shows the time up front: it's what you set most when adding. */}
+            {variant === 'bar' && fields.kind !== 'note' && (
+              <div className="form-field plan-item-form-time-field">
+                <label className="form-field-label" htmlFor={`${fid}-time`}>
+                  {fields.kind === 'transport' ? 'Departure' : 'Time'}
+                </label>
+                <div className="plan-item-form-time-wrap">
+                  <Icon name="clock" size={16} aria-hidden="true" />
+                  <Input
+                    id={`${fid}-time`}
+                    type="time"
+                    className="plan-item-form-time"
+                    value={fields.start_time}
+                    onChange={(e) => set('start_time', e.target.value)}
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
 
           <button
             type="button"

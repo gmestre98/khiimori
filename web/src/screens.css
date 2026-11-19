@@ -750,7 +750,7 @@
   min-height: var(--tap);
   border-radius: 22px;
   padding: 0 16px;
-  font-size: 15px;
+  font-size: 16px;
   background: var(--surface);
 }
 .plan-item-form--bar .btn-primary {
@@ -2860,21 +2860,119 @@ button.bk-chip {
   align-self: flex-end;
 }
 
-/* Day add bar on phones: compact kinds on one row, time up front, and the new
-   item flashes where it landed. */
+/* Day add bar on phones: a compact composer that never outgrows the screen.
+   Labels stay for screen readers only; placeholders and icons carry the
+   meaning, kinds sit on one row, and place + time share a row. */
+.plan-add-bar:has(.plan-item-form--bar) {
+  max-height: calc(100dvh - var(--bottom-nav-height, 0px) - 140px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.day-desk-main .plan-add-bar:has(.plan-item-form--bar),
+.backlog-add .plan-add-bar:has(.plan-item-form--bar) {
+  max-height: none;
+  overflow: visible;
+}
+.plan-item-form--bar {
+  gap: 8px;
+  min-width: 0;
+}
+.plan-item-form--bar .plan-item-form-where .form-field-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.plan-item-form--bar .location-status--idle {
+  display: none;
+}
+.plan-item-form--bar .location-status {
+  min-height: 0;
+}
 .plan-item-form--bar .plan-item-kind-picker {
   flex-wrap: nowrap;
   gap: 6px;
 }
 .plan-item-form--bar .plan-item-kind-btn {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   justify-content: center;
+  gap: 4px;
   min-width: 0;
-  padding: 6px 8px;
+  min-height: 34px;
+  padding: 0 6px;
   font-size: 13px;
 }
+.plan-item-form--bar .plan-item-kind-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-item-form-where {
+  display: contents;
+}
+.plan-item-form--bar .plan-item-form-where {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  min-width: 0;
+}
+.plan-item-form--bar .plan-item-form-where > .location-field,
+.plan-item-form--bar .plan-item-form-where > .plan-item-form-grid {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.plan-item-form--bar .plan-item-form-where--leg {
+  flex-wrap: wrap;
+}
+.plan-item-form--bar .plan-item-form-where--leg > .plan-item-form-grid {
+  flex-basis: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.plan-item-form--bar .form-input {
+  min-height: 40px;
+}
+.plan-item-form-time-field {
+  flex: 0 0 120px;
+  min-width: 0;
+}
+.plan-item-form-time-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.plan-item-form-time-wrap > svg {
+  position: absolute;
+  left: 10px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
 .plan-item-form--bar .plan-item-form-time {
-  max-width: 160px;
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  width: 100%;
+  padding-left: 32px;
+  padding-right: 6px;
+  text-align: left;
+}
+.plan-item-form--bar .plan-item-form-time::-webkit-date-and-time-value {
+  text-align: left;
+}
+.plan-item-form--bar .plan-item-form-time::-webkit-calendar-picker-indicator {
+  display: none;
+}
+.plan-item-form--bar .plan-item-form-toggle {
+  padding: 0;
+}
+@media (max-width: 379px) {
+  .plan-item-form--bar .plan-item-kind-btn svg {
+    display: none;
+  }
 }
 @keyframes plan-row-new {
   from {
