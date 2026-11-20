@@ -1058,6 +1058,77 @@ describe('DayView', () => {
       expect(api.reorderPlanItems).not.toHaveBeenCalled()
     })
 
+    it('dragging a timed item above an earlier one clears its time, with Undo', async () => {
+      setMobile(true)
+      const items = [
+        makePlanItem({ id: 'i1', title: 'Abuko', start_time: '08:00:00', sort_order: 0 }),
+        makePlanItem({
+          id: 'i2',
+          title: 'Kachikally',
+          start_time: '12:00:00',
+          duration: '1h',
+          sort_order: 1,
+        }),
+      ]
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
+      vi.mocked(api.reorderPlanItems).mockResolvedValue()
+      vi.mocked(api.updatePlanItem).mockImplementation(async (_t, id) => {
+        return items.find((i) => i.id === id)!
+      })
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Kachikally')).toBeInTheDocument())
+
+      dragRowByHandle('Kachikally', 5)
+
+      await waitFor(() =>
+        expect(api.reorderPlanItems).toHaveBeenCalledWith('trip-1', 'day-1', ['i2', 'i1']),
+      )
+      expect(api.updatePlanItem).toHaveBeenCalledWith(
+        'trip-1',
+        'i2',
+        expect.objectContaining({ start_time: null, duration: null }),
+      )
+      // It stays where it was dropped, without its time.
+      const timeline = screen.getByRole('list', { name: 'Day timeline' })
+      const rows = within(timeline).getAllByRole('listitem')
+      expect(rows[0]).toHaveAttribute('data-item-id', 'i2')
+      expect(within(rows[0]).queryByText(/12:00/)).not.toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Moved “Kachikally” and cleared its 12:00 time.',
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+      await waitFor(() =>
+        expect(api.reorderPlanItems).toHaveBeenLastCalledWith('trip-1', 'day-1', ['i1', 'i2']),
+      )
+      expect(api.updatePlanItem).toHaveBeenLastCalledWith(
+        'trip-1',
+        'i2',
+        expect.objectContaining({ start_time: '12:00', duration: '1h' }),
+      )
+      expect(within(timeline).getAllByRole('listitem')[1]).toHaveTextContent('12:00')
+    })
+
+    it('dragging a timed item where its time still fits keeps the time', async () => {
+      setMobile(true)
+      const items = [
+        makePlanItem({ id: 'i1', title: 'Abuko', start_time: '08:00:00', sort_order: 0 }),
+        makePlanItem({ id: 'u', title: 'Lunch', sort_order: 1 }),
+      ]
+      vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: items }))
+      vi.mocked(api.reorderPlanItems).mockResolvedValue()
+      renderDayView()
+      await waitFor(() => expect(screen.getByText('Abuko')).toBeInTheDocument())
+
+      dragRowByHandle('Abuko', 75)
+
+      await waitFor(() =>
+        expect(api.reorderPlanItems).toHaveBeenCalledWith('trip-1', 'day-1', ['u', 'i1']),
+      )
+      expect(api.updatePlanItem).not.toHaveBeenCalled()
+      expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument()
+    })
+
     it('reorders offline: queues reorderPlanItems, no server call, order persists to cache', async () => {
       setMobile(true)
       const items = [
@@ -1521,7 +1592,7 @@ describe('DayView', () => {
       expect(within(row).getByText('Dakar port → Gorée')).toBeInTheDocument()
     })
 
-    it('untimed items render drag handles; timed items do not', async () => {
+    it('every item renders a drag handle, timed ones too', async () => {
       const items = [
         makePlanItem({ id: 'u', title: 'Untimed', sort_order: 0 }),
         makePlanItem({ id: 't', title: 'Timed', start_time: '10:00:00', sort_order: 1 }),
@@ -1530,9 +1601,7 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Untimed')).toBeInTheDocument())
       expect(screen.getByRole('button', { name: 'Drag to reorder Untimed' })).toBeInTheDocument()
-      expect(
-        screen.queryByRole('button', { name: 'Drag to reorder Timed' }),
-      ).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Drag to reorder Timed' })).toBeInTheDocument()
     })
   })
 

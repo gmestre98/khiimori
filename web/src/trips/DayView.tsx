@@ -7,6 +7,7 @@ import {
   fetchDay,
   reorderPlanItems,
   reorderPlanItemsActual,
+  updatePlanItem,
   datesInRange,
   type Day,
   type PlanItem,
@@ -32,7 +33,7 @@ import { PlanItemDetails } from './PlanItemDetails'
 import { usePlanItemActions } from './planItemActions'
 import { buildDayMetas, countryOf, firstLocation, placeName } from './tripDays'
 import { countryColor, NO_COUNTRY_COLOR } from '../design/countries'
-import { useMobile } from './planItemForm.helpers'
+import { fieldsFromItem, fieldsToInput, useMobile } from './planItemForm.helpers'
 
 const DayMap = lazy(() => import('./DayMap'))
 
@@ -56,6 +57,48 @@ function mergeSubsetOrder(full: PlanItem[], subset: PlanItem[]): PlanItem[] {
   const ids = new Set(subset.map((i) => i.id))
   let k = 0
   return full.map((item) => (ids.has(item.id) ? subset[k++] : item))
+}
+
+// fitsClock says whether the moved timed item sits between the timed items
+// around it, so the timeline can keep it where it was dropped.
+function fitsClock(order: PlanItem[], movedId: string): boolean {
+  const at = order.findIndex((i) => i.id === movedId)
+  const time = order[at]?.start_time
+  if (at === -1 || time == null) return true
+  for (let i = at - 1; i >= 0; i--) {
+    const t = order[i].start_time
+    if (t != null) {
+      if (t > time) return false
+      break
+    }
+  }
+  for (let i = at + 1; i < order.length; i++) {
+    const t = order[i].start_time
+    if (t != null) {
+      if (t < time) return false
+      break
+    }
+  }
+  return true
+}
+
+// canMouseDrag: native HTML drag only for a real mouse. On phones a long press
+// on a draggable row starts the browser's own drag (iOS), which fights the
+// finger drag on the grip.
+function canMouseDrag(): boolean {
+  try {
+    return window.matchMedia?.('(hover: hover) and (pointer: fine)').matches ?? false
+  } catch {
+    return false
+  }
+}
+
+// visibleBottom is where the list stops being visible: above the pinned add
+// bar (and tab bar) on phones, else the bottom of the window.
+function visibleBottom(): number {
+  const bar = document.querySelector<HTMLElement>('.plan-add-bar')
+  const top = bar?.getBoundingClientRect().top
+  return top != null && top > 0 && top < window.innerHeight ? top : window.innerHeight
 }
 
 // buzz gives a short haptic tick on devices that support it (drag pickup).
@@ -133,6 +176,7 @@ function statusWord(status: string): string {
 function PlanRow({
   item,
   draggable: isDraggable,
+  mouseDrag,
   isTouchDragging,
   isSelected,
   pinNumber,
@@ -145,11 +189,10 @@ function PlanRow({
   onDragOver,
   onDrop,
   onTouchDragStart,
-  onTouchDragMove,
-  onTouchDragEnd,
 }: {
   item: PlanItem
   draggable: boolean
+  mouseDrag: boolean
   isTouchDragging: boolean
   isSelected: boolean
   pinNumber?: number
@@ -162,8 +205,6 @@ function PlanRow({
   onDragOver: (e: React.DragEvent) => void
   onDrop: (e: React.DragEvent, id: string) => void
   onTouchDragStart: (e: React.PointerEvent, id: string) => void
-  onTouchDragMove: (e: React.PointerEvent) => void
-  onTouchDragEnd: () => void
 }) {
   const rowRef = useRef<HTMLLIElement>(null)
   useEffect(() => {
@@ -196,8 +237,8 @@ function PlanRow({
       data-item-id={item.id}
       data-kind={kind}
       aria-label={item.title + (word ? ` — ${word}` : '')}
-      draggable={isDraggable}
-      onDragStart={isDraggable ? (e) => onDragStart(e, item.id) : undefined}
+      draggable={isDraggable && mouseDrag}
+      onDragStart={isDraggable && mouseDrag ? (e) => onDragStart(e, item.id) : undefined}
       onDragOver={onDragOver}
       onDrop={(e) => onDrop(e, item.id)}
     >
@@ -281,9 +322,7 @@ function PlanRow({
             className="plan-row-grip"
             aria-label={`Drag to reorder ${item.title}`}
             onPointerDown={(e) => onTouchDragStart(e, item.id)}
-            onPointerMove={onTouchDragMove}
-            onPointerUp={onTouchDragEnd}
-            onPointerCancel={onTouchDragEnd}
+            onContextMenu={(e) => e.preventDefault()}
           >
             <Icon name="grip" size={16} />
           </button>
@@ -294,9 +333,11 @@ function PlanRow({
 }
 
 // ReorderableList is an <ol> of PlanRows that can be reordered by dragging: a
-// mouse drag on desktop, or a finger drag on the grip on touch. With pinTimed
-// only untimed rows can be picked up (timed rows sort by clock); every row is a
-// drop target. It reports the new order; persisting is the caller's job.
+// mouse drag on desktop, or a finger drag on the grip on touch. Every row can
+// be moved. With pinTimed, timed rows read in clock order: dropping a timed row
+// where its time doesn't fit goes to onTimedMoved (which clears its time so it
+// stays put); without that handler it snaps back to its clock slot. It reports
+// the new order; persisting is the caller's job.
 function ReorderableList({
   items,
   label,
@@ -309,6 +350,7 @@ function ReorderableList({
   onOpen,
   onStatus,
   onReordered,
+  onTimedMoved,
 }: {
   items: PlanItem[]
   label: string
@@ -321,6 +363,7 @@ function ReorderableList({
   onOpen: (item: PlanItem) => void
   onStatus?: (item: PlanItem, next: StatusState) => void
   onReordered: (order: PlanItem[]) => void
+  onTimedMoved?: (order: PlanItem[], item: PlanItem) => void
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const listRef = useRef<HTMLOListElement>(null)
@@ -331,17 +374,25 @@ function ReorderableList({
   const touchMovedRef = useRef(false)
   const autoScrollRef = useRef<number | null>(null)
   const lastClientYRef = useRef(0)
+  const stopListenersRef = useRef<(() => void) | null>(null)
+  const [mouseDrag] = useState(canMouseDrag)
   const display = touchOrder ?? (pinTimed ? orderTimeline(items) : items)
 
   useEffect(
     () => () => {
       if (autoScrollRef.current != null) cancelAnimationFrame(autoScrollRef.current)
+      stopListenersRef.current?.()
     },
     [],
   )
 
-  function report(reordered: PlanItem[]) {
-    onReordered(pinTimed ? orderTimeline(reordered) : reordered)
+  function finish(next: PlanItem[], movedId: string) {
+    const moved = next.find((i) => i.id === movedId)
+    if (pinTimed && moved?.start_time != null && !fitsClock(next, movedId) && onTimedMoved) {
+      onTimedMoved(next, moved)
+      return
+    }
+    onReordered(pinTimed ? orderTimeline(next) : next)
   }
 
   function handleDragStart(e: React.DragEvent, itemId: string) {
@@ -364,7 +415,7 @@ function ReorderableList({
     const next = [...display]
     const [moved] = next.splice(from, 1)
     next.splice(to, 0, moved)
-    report(next)
+    finish(next, sourceId)
   }
 
   function reflowUnderFinger(clientY: number) {
@@ -401,10 +452,10 @@ function ReorderableList({
     const y = lastClientYRef.current
     const band = 72
     const max = 14
+    const bottom = visibleBottom()
     let dy = 0
     if (y < band) dy = -Math.ceil(((band - y) / band) * max)
-    else if (y > window.innerHeight - band)
-      dy = Math.ceil(((y - (window.innerHeight - band)) / band) * max)
+    else if (y > bottom - band) dy = Math.ceil((Math.min(y - (bottom - band), band) / band) * max)
     if (dy !== 0) {
       window.scrollBy(0, dy)
       reflowUnderFinger(y)
@@ -412,28 +463,53 @@ function ReorderableList({
     if (touchDragRef.current != null) autoScrollRef.current = requestAnimationFrame(tickAutoScroll)
   }
 
+  // The finger is followed on the window, not the grip: the grip's row moves in
+  // the DOM as the list reflows, and a browser can drop the pointer then,
+  // leaving the drag stuck half-way.
   function handleTouchDragStart(e: React.PointerEvent, itemId: string) {
-    if (e.pointerType === 'mouse') return
+    if (e.pointerType === 'mouse' || touchDragRef.current != null) return
     e.preventDefault()
+    const pointerId = e.pointerId
     touchDragRef.current = itemId
     touchOrderRef.current = display
     touchMovedRef.current = false
     lastClientYRef.current = e.clientY
     setTouchDragId(itemId)
     setTouchOrder(display)
-    e.currentTarget.setPointerCapture?.(e.pointerId)
+    document.documentElement.classList.add('is-reordering')
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId || touchDragRef.current == null) return
+      if (ev.cancelable) ev.preventDefault()
+      lastClientYRef.current = ev.clientY
+      reflowUnderFinger(ev.clientY)
+    }
+    const onEnd = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      handleTouchDragEnd()
+    }
+    const blockScroll = (ev: TouchEvent) => {
+      if (ev.cancelable) ev.preventDefault()
+    }
+    window.addEventListener('pointermove', onMove, { passive: false })
+    window.addEventListener('pointerup', onEnd)
+    window.addEventListener('pointercancel', onEnd)
+    window.addEventListener('touchmove', blockScroll, { passive: false })
+    stopListenersRef.current = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onEnd)
+      window.removeEventListener('pointercancel', onEnd)
+      window.removeEventListener('touchmove', blockScroll)
+      document.documentElement.classList.remove('is-reordering')
+      stopListenersRef.current = null
+    }
     buzz(15)
     autoScrollRef.current = requestAnimationFrame(tickAutoScroll)
   }
-  function handleTouchDragMove(e: React.PointerEvent) {
-    if (touchDragRef.current == null) return
-    e.preventDefault()
-    lastClientYRef.current = e.clientY
-    reflowUnderFinger(e.clientY)
-  }
   function handleTouchDragEnd() {
+    const id = touchDragRef.current
     const order = touchOrderRef.current
     const moved = touchMovedRef.current
+    stopListenersRef.current?.()
     touchDragRef.current = null
     touchOrderRef.current = null
     touchMovedRef.current = false
@@ -443,9 +519,9 @@ function ReorderableList({
     }
     setTouchDragId(null)
     setTouchOrder(null)
-    if (moved && order) {
+    if (moved && order && id) {
       buzz(20)
-      report(order)
+      finish(order, id)
     }
   }
 
@@ -455,7 +531,8 @@ function ReorderableList({
         <PlanRow
           key={item.id}
           item={item}
-          draggable={pinTimed ? item.start_time == null : true}
+          draggable
+          mouseDrag={mouseDrag}
           isTouchDragging={touchDragId === item.id}
           isSelected={selectedId === item.id}
           pinNumber={pinNumberForId?.(item.id)}
@@ -468,8 +545,6 @@ function ReorderableList({
           onDragOver={handleDragOver}
           onDrop={handleDrop}
           onTouchDragStart={handleTouchDragStart}
-          onTouchDragMove={handleTouchDragMove}
-          onTouchDragEnd={handleTouchDragEnd}
         />
       ))}
     </ol>
@@ -495,6 +570,19 @@ function usePlanState({
   const online = useIsOnline()
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [toggleError, setToggleError] = useState<string | null>(null)
+  const [moveNotice, setMoveNotice] = useState<{ text: string; undo: () => void } | null>(null)
+  // itemsRef is the latest list for handlers that run after a drop or an Undo,
+  // when the render's `items` may already be stale.
+  const itemsRef = useRef(items)
+  useEffect(() => {
+    itemsRef.current = items
+  }, [items])
+
+  useEffect(() => {
+    if (!moveNotice) return
+    const id = window.setTimeout(() => setMoveNotice(null), 9000)
+    return () => window.clearTimeout(id)
+  }, [moveNotice])
 
   const handleAdded = useCallback((item: PlanItem) => setItems((p) => [...p, item]), [setItems])
   const handleUpdated = useCallback(
@@ -540,7 +628,8 @@ function usePlanState({
     const renumbered = fullOrder.map((item, idx) =>
       item.sort_order === idx ? item : { ...item, sort_order: idx },
     )
-    const snapshot = items
+    const snapshot = itemsRef.current
+    itemsRef.current = renumbered
     setItems(renumbered)
     const itemIds = renumbered.map((i) => i.id)
     if (!online) {
@@ -551,8 +640,54 @@ function usePlanState({
   }
 
   function handlePlanReordered(newPlanOrder: PlanItem[]) {
-    const ordered = [...items].sort((a, b) => a.sort_order - b.sort_order)
+    setMoveNotice(null)
+    const ordered = [...itemsRef.current].sort((a, b) => a.sort_order - b.sort_order)
     persistReorder(mergeSubsetOrder(ordered, newPlanOrder))
+  }
+
+  // saveTimes writes an item's start time and duration (queued offline).
+  function saveTimes(item: PlanItem) {
+    const input = fieldsToInput(fieldsFromItem(item), item.day_id ?? null)
+    if (!online) {
+      void enqueue('updatePlanItem', { tripId, itemId: item.id, input })
+      return
+    }
+    updatePlanItem(tripId, item.id, input).catch(() =>
+      setToggleError(`Could not save the time of “${item.title}”.`),
+    )
+  }
+
+  // handleTimedMoved keeps a timed item where it was dropped, out of clock
+  // order, by clearing its time (and duration, which needs a time). Undo puts
+  // the time and the old order back.
+  function handleTimedMoved(newPlanOrder: PlanItem[], item: PlanItem) {
+    const before = [...itemsRef.current].sort((a, b) => a.sort_order - b.sort_order)
+    const original = before.find((i) => i.id === item.id) ?? item
+    const cleared: PlanItem = { ...original, start_time: undefined, duration: undefined }
+    persistReorder(
+      mergeSubsetOrder(
+        before,
+        newPlanOrder.map((i) => (i.id === item.id ? cleared : i)),
+      ),
+    )
+    saveTimes(cleared)
+    const time = (original.start_time ?? '').slice(0, 5)
+    setMoveNotice({
+      text: `Moved “${original.title}” and cleared its ${time} time.`,
+      undo: () => {
+        setMoveNotice(null)
+        const pos = new Map(before.map((i, idx) => [i.id, idx]))
+        const restored = itemsRef.current
+          .map((i) =>
+            i.id === original.id
+              ? { ...i, start_time: original.start_time, duration: original.duration }
+              : i,
+          )
+          .sort((a, b) => (pos.get(a.id) ?? 1e9) - (pos.get(b.id) ?? 1e9))
+        persistReorder(restored)
+        saveTimes(restored.find((i) => i.id === original.id) ?? original)
+      },
+    })
   }
 
   // The "What happened" order is its own sequence (actual_order) — reordering
@@ -592,7 +727,10 @@ function usePlanState({
     handleUpdated,
     handleRemoved,
     handlePlanReordered,
+    handleTimedMoved,
     handleDoneReordered,
+    moveNotice,
+    dismissMoveNotice: () => setMoveNotice(null),
   }
 }
 
@@ -648,6 +786,7 @@ function PlanPanel({
             onOpen={onOpen}
             onStatus={(i, next) => void plan.changeStatus(i, next)}
             onReordered={plan.handlePlanReordered}
+            onTimedMoved={plan.handleTimedMoved}
           />
         </>
       ) : (
@@ -656,6 +795,14 @@ function PlanPanel({
       {plan.toggleError && (
         <p role="alert" className="fg-error">
           {plan.toggleError}
+        </p>
+      )}
+      {plan.moveNotice && (
+        <p role="status" className="day-plan-notice">
+          <span>{plan.moveNotice.text}</span>
+          <button type="button" className="day-plan-notice-undo" onClick={plan.moveNotice.undo}>
+            Undo
+          </button>
         </p>
       )}
       {showAddBar && <DayAddBar day={day} tripId={tripId} plan={plan} weekday={weekday} />}
