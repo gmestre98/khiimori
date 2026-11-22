@@ -1,5 +1,6 @@
 import type { Day, PlanItem, Stay } from '../lib/api'
 import { bookingOfItem, bookingOfStay } from './booking'
+import { categoryOfItem } from './planItemForm.helpers'
 
 export type UnpaidRow =
   | { kind: 'stay'; stay: Stay; date: string; sub: string; cost: number | null }
@@ -39,7 +40,7 @@ export function unpaidRows(
       if ((item.kind ?? 'activity') === 'note') continue
       if (['done', 'skipped', 'cancelled'].includes(item.status)) continue
       if (bookingOfItem(item) !== 'booked' || inPackage.item(item.id)) continue
-      const sub = [shortDay(date), item.type].filter(Boolean).join(' · ')
+      const sub = [shortDay(date), categoryOfItem(item)].filter(Boolean).join(' · ')
       rows.push({ kind: 'item', item, date, sub, cost: item.cost ?? null })
     }
   })

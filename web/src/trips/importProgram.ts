@@ -19,6 +19,7 @@
 
 import type { PlanItemInput, PlanItemKind, StayInput, TodoInput } from '../lib/api'
 import { normalizeBooking } from './booking'
+import { suggestedCategory } from './planItemForm.helpers'
 
 export interface ProgramItem {
   title: string
@@ -174,7 +175,7 @@ export function planImport(program: Program, tripStart: string, tripEnd: string)
         return {
           title: it.title.trim(),
           kind,
-          type: it.type ?? null,
+          type: it.type ?? (suggestedCategory(kind) || null),
           start_time: it.time ?? null,
           duration: keepDuration ? it.duration! : null,
           location: kind === 'transport' ? null : (it.location ?? null),

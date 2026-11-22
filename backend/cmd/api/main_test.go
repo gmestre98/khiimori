@@ -122,28 +122,34 @@ func TestDebugTriggerErrorWhenDisabled(t *testing.T) {
 
 func TestPlanItemCategory(t *testing.T) {
 	cases := []struct {
-		in   string
-		want budget.Category
+		in, kind string
+		want     budget.Category
 	}{
-		// Canonical category names sent by the new dropdown (case-insensitive).
-		{"Transport", budget.CategoryTransport},
-		{"transport", budget.CategoryTransport},
-		{"Stays", budget.CategoryStays},
-		{"Food", budget.CategoryFood},
-		{"Activities", budget.CategoryActivities},
-		{"Other", budget.CategoryOther},
+		// Canonical category names sent by the dropdown (case-insensitive).
+		{"Transport", "activity", budget.CategoryTransport},
+		{"transport", "", budget.CategoryTransport},
+		{"Stays", "activity", budget.CategoryStays},
+		{"Food", "activity", budget.CategoryFood},
+		{"Activities", "food", budget.CategoryActivities},
+		// An explicit Other stays Other, whatever the kind.
+		{"Other", "activity", budget.CategoryOther},
 		// Legacy free-text values still map so historical items categorise right.
-		{"flight", budget.CategoryTransport},
-		{"  Hotel ", budget.CategoryStays},
-		{"museum", budget.CategoryActivities},
-		{"restaurant", budget.CategoryFood},
-		// Anything unrecognised (and empty) falls through to Other.
-		{"", budget.CategoryOther},
-		{"whatever", budget.CategoryOther},
+		{"flight", "", budget.CategoryTransport},
+		{"  Hotel ", "", budget.CategoryStays},
+		{"museum", "", budget.CategoryActivities},
+		{"restaurant", "", budget.CategoryFood},
+		// No category: the kind decides, so an activity is an Activity.
+		{"", "activity", budget.CategoryActivities},
+		{"", "food", budget.CategoryFood},
+		{"", "transport", budget.CategoryTransport},
+		{"", "note", budget.CategoryOther},
+		{"", "", budget.CategoryOther},
+		{"whatever", "activity", budget.CategoryActivities},
+		{"whatever", "", budget.CategoryOther},
 	}
 	for _, c := range cases {
-		if got := planItemCategory(c.in); got != c.want {
-			t.Errorf("planItemCategory(%q) = %q, want %q", c.in, got, c.want)
+		if got := planItemCategory(c.in, c.kind); got != c.want {
+			t.Errorf("planItemCategory(%q, %q) = %q, want %q", c.in, c.kind, got, c.want)
 		}
 	}
 }

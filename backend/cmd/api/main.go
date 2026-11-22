@@ -370,7 +370,9 @@ func (a membershipPackingAuthzAdapter) CanWrite(ctx context.Context, userID, tri
 //	plan item type "food"        → Food
 //	plan item type "activity"    → Activities
 //	plan item type "stay"/"hotel"→ Stays
-//	everything else              → Other
+//	plan item type "other"       → Other
+//	no (or unknown) type         → from the item's kind (activity → Activities,
+//	                               food → Food, transport → Transport, else Other)
 type tripCostReaderAdapter struct {
 	pool *pgxpool.Pool
 }
@@ -411,7 +413,7 @@ func (a tripCostReaderAdapter) GetTripCosts(ctx context.Context, tripID string) 
 	// cancelled item drops out of the budget unless it was paid: money already
 	// paid is spent either way.
 	itemRows, err := a.pool.Query(ctx,
-		`SELECT COALESCE(day_id::text, ''), COALESCE(type, ''), COALESCE(cost, 0), status, booking_status
+		`SELECT COALESCE(day_id::text, ''), COALESCE(type, ''), COALESCE(kind, ''), COALESCE(cost, 0), status, booking_status
 		 FROM trip.plan_items
 		 WHERE trip_id = $1::uuid AND cost IS NOT NULL AND cost > 0
 		   AND (status NOT IN ('skipped', 'cancelled') OR booking_status = 'paid')`,
@@ -421,14 +423,14 @@ func (a tripCostReaderAdapter) GetTripCosts(ctx context.Context, tripID string) 
 	}
 	defer itemRows.Close()
 	for itemRows.Next() {
-		var dayID, itemType, status, booking string
+		var dayID, itemType, kind, status, booking string
 		var amount float64
-		if err := itemRows.Scan(&dayID, &itemType, &amount, &status, &booking); err != nil {
+		if err := itemRows.Scan(&dayID, &itemType, &kind, &amount, &status, &booking); err != nil {
 			return nil, fmt.Errorf("tripCostReader: scan plan item: %w", err)
 		}
 		out = append(out, budget.ExternalCost{
 			DayID:    dayID,
-			Category: planItemCategory(itemType),
+			Category: planItemCategory(itemType, kind),
 			Amount:   amount,
 			Happened: status == "done" || booking == "paid",
 		})
@@ -443,9 +445,11 @@ func (a tripCostReaderAdapter) GetTripCosts(ctx context.Context, tripID string) 
 // planItemCategory maps a plan item's type string to one of the five fixed
 // budget categories. The UI now sends a canonical category name (e.g. "Transport"),
 // but the match is case-insensitive and keeps the older free-text keyword aliases
-// ("flight", "hotel", …) so historical items still categorise correctly. Any
-// unrecognised type falls through to Other.
-func planItemCategory(itemType string) budget.Category {
+// ("flight", "hotel", …) so historical items still categorise correctly. An
+// item with no category (or an unknown one) counts under the category its kind
+// suggests, so an activity added without picking a category is an Activity,
+// not Other.
+func planItemCategory(itemType, kind string) budget.Category {
 	switch strings.ToLower(strings.TrimSpace(itemType)) {
 	case "transport", "flight", "train", "bus", "car", "ferry":
 		return budget.CategoryTransport
@@ -455,6 +459,16 @@ func planItemCategory(itemType string) budget.Category {
 		return budget.CategoryActivities
 	case "stays", "stay", "hotel", "accommodation", "hostel", "airbnb":
 		return budget.CategoryStays
+	case "other":
+		return budget.CategoryOther
+	}
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "activity":
+		return budget.CategoryActivities
+	case "food":
+		return budget.CategoryFood
+	case "transport":
+		return budget.CategoryTransport
 	default:
 		return budget.CategoryOther
 	}

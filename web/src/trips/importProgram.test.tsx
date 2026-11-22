@@ -122,6 +122,34 @@ describe('planImport', () => {
     expect(p.days[0].items[1]).toMatchObject({ start_time: '09:00', duration: '2h' })
   })
 
+  it('gives each item the budget category of its kind unless one is set', () => {
+    const p = planImport(
+      {
+        days: [
+          {
+            day: 1,
+            items: [
+              { title: 'Museum' },
+              { title: 'Lunch', kind: 'food' },
+              { title: 'Bus', kind: 'transport' },
+              { title: 'Market', type: 'Other' },
+              { title: 'Remember', kind: 'note' },
+            ],
+          },
+        ],
+      },
+      '2026-12-26',
+      '2027-01-11',
+    )
+    expect(p.days[0].items.map((i) => i.type)).toEqual([
+      'Activities',
+      'Food',
+      'Transport',
+      'Other',
+      null,
+    ])
+  })
+
   it('makes the same id for the same row, and different ids otherwise', async () => {
     const a = await importId('trip-1', 'day-1-item-0')
     expect(a).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
