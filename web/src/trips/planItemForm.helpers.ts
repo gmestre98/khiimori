@@ -53,7 +53,7 @@ export function emptyFields(): PlanItemFormFields {
   return {
     title: '',
     kind: 'activity',
-    type: '',
+    type: suggestedCategory('activity'),
     start_time: '',
     duration: '',
     location: '',
@@ -118,6 +118,15 @@ export function suggestedCategory(kind: PlanItemKind): string {
   }
 }
 
+// categoryOfItem is the budget category an item counts under: its own
+// category, or the one its kind suggests when it has none (the server does the
+// same when it adds up money).
+export function categoryOfItem(item: Pick<PlanItem, 'type' | 'kind'>): string {
+  const own = (item.type ?? '').trim()
+  if (own) return own
+  return suggestedCategory(item.kind ?? 'activity')
+}
+
 export function readDetailsOpen(): boolean {
   try {
     return localStorage.getItem(DETAILS_OPEN_KEY) === '1'
@@ -130,7 +139,7 @@ export function fieldsFromItem(item: PlanItem): PlanItemFormFields {
   return {
     title: item.title,
     kind: item.kind ?? 'activity',
-    type: item.type ?? '',
+    type: categoryOfItem(item),
     start_time: item.start_time ? item.start_time.slice(0, 5) : '',
     duration: item.duration ?? '',
     location: item.location ?? '',
