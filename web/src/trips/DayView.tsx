@@ -29,6 +29,7 @@ import { happenedOf, type StatusState } from './statusModel'
 import { JournalEditor } from '../journal/JournalEditor'
 import { useTripShell } from './useTripShell'
 import { QuickAddForm } from './PlanItemForm'
+import { placementText } from './placement'
 import { PlanItemDetails } from './PlanItemDetails'
 import { usePlanItemActions } from './planItemActions'
 import { buildDayMetas, countryOf, firstLocation, placeName } from './tripDays'
@@ -824,6 +825,13 @@ function showNewItem(id: string) {
 
 // DayAddBar is the single "Add a place, ferry, meal or note…" bar. Its kind
 // chips, place and details appear once it's focused (PlanItemForm bar variant).
+// sheetDate is the add sheet's day label, e.g. "Mon 23 Nov".
+function sheetDate(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
 function DayAddBar({
   day,
   tripId,
@@ -846,6 +854,9 @@ function DayAddBar({
       variant="bar"
       placeholder="Add a place, ferry, meal or note…"
       titleLabel={`Add to ${weekday}`}
+      sheetHeading={`Add to ${sheetDate(day.date)}`}
+      sheetSubmitLabel="Add to day"
+      placement={(f) => placementText(plan.planItems, f.kind === 'note' ? '' : f.start_time)}
     />
   )
 }

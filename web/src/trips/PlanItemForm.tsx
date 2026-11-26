@@ -1,9 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import { useFocusTrap } from '../components/ui/useFocusTrap'
 import { Button, FormField, Input, Select } from '../components/ui'
 import { Icon } from '../components/ui/Icon'
 import { LocationField } from './LocationField'
+import { AddToPlanSheet } from './AddToPlanSheet'
 import { StatusOptions } from './StatusChip'
 import { normalizeBooking } from './booking'
 import { MAX_SPLIT_PARTS, splitAmount } from './splitAmount'
@@ -45,15 +46,18 @@ export function BottomSheet({
   open,
   onClose,
   label,
+  className,
   children,
 }: {
   open: boolean
   onClose: () => void
   label: string
+  className?: string
   children: React.ReactNode
 }) {
   const dialogRef = useRef<HTMLDivElement>(null)
   useFocusTrap(open, dialogRef)
+  const box = useVisibleViewport(open)
 
   // Lock body scroll while the sheet is open.
   useEffect(() => {
@@ -81,13 +85,14 @@ export function BottomSheet({
     <div
       className="bottom-sheet-overlay"
       role="presentation"
+      style={box ? { top: box.top, height: box.height, bottom: 'auto' } : undefined}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
       <div
         ref={dialogRef}
-        className="bottom-sheet"
+        className={['bottom-sheet', className].filter(Boolean).join(' ')}
         role="dialog"
         aria-modal="true"
         aria-label={label}
@@ -101,6 +106,27 @@ export function BottomSheet({
     </div>,
     document.body,
   )
+}
+
+// useVisibleViewport follows the part of the screen the on-screen keyboard
+// leaves visible, so a bottom sheet sits above the keyboard (with its buttons
+// reachable) instead of behind it. Null where the browser can't tell.
+function useVisibleViewport(active: boolean): { top: number; height: number } | null {
+  const [box, setBox] = useState<{ top: number; height: number } | null>(null)
+  useEffect(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null
+    if (!active || !vv) return
+    const update = () => setBox({ top: vv.offsetTop, height: vv.height })
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+      setBox(null)
+    }
+  }, [active])
+  return box
 }
 
 // PlanItemForm is the shared add/edit form used in both the day and backlog
@@ -673,10 +699,18 @@ export function QuickAddForm({
   variant = 'full',
   placeholder,
   titleLabel,
+  sheetHeading,
+  sheetSubmitLabel,
+  placement,
 }: {
   tripId: string
   dayId: string | null
   onAdded: (item: PlanItem) => void
+  // The phone add sheet: its heading ("Add to Mon 23 Nov"), main button and
+  // where-it-lands line.
+  sheetHeading?: string
+  sheetSubmitLabel?: string
+  placement?: (fields: PlanItemFormFields) => string | null
   // logDone captures a done item (a thing you did) instead of a plan item.
   logDone?: boolean
   // 'bar': the pinned add bar (day screen / backlog) — rendered inline on every
@@ -693,6 +727,7 @@ export function QuickAddForm({
   // always visible; the log form hides behind its button until asked for).
   const [open, setOpen] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
+  const sheetTitleRef = useRef<HTMLInputElement>(null)
 
   function close() {
     setSheetOpen(false)
@@ -731,7 +766,9 @@ export function QuickAddForm({
     }
   }
 
-  async function handleAdd(fields: PlanItemFormFields, splitParts: number) {
+  // addItems creates the item (or its split parts), queued when offline. It
+  // resolves true on success; a failure is shown as addError.
+  async function addItems(fields: PlanItemFormFields, splitParts: number): Promise<boolean> {
     setAddError(null)
     const base = fieldsToInput(fields, dayId)
     // Expand a split into one input per part: divide the cost to the cent and
@@ -754,25 +791,68 @@ export function QuickAddForm({
           await enqueue('createPlanItem', { tripId, input })
           onAdded(tempPlanItem(tripId, dayId, input))
         }
-        if (mobile) setSheetOpen(false)
-        return
+        return true
       }
       for (const input of inputs) {
         const item = await createPlanItem(tripId, input)
         onAdded(item)
       }
-      if (mobile) setSheetOpen(false)
+      return true
     } catch (err) {
       if (err instanceof PlanItemValidationError) {
         setAddError(err.message)
       } else {
         setAddError('Could not add item.')
       }
+      return false
     }
+  }
+
+  async function handleAdd(fields: PlanItemFormFields, splitParts: number) {
+    if ((await addItems(fields, splitParts)) && mobile) setSheetOpen(false)
   }
 
   const submit = logDone ? (fields: PlanItemFormFields) => handleLogDone(fields) : handleAdd
   const submitLabel = logDone ? 'Log it' : 'Add to plan'
+
+  // On a phone the add bar is a launcher: tapping it opens the add sheet with
+  // the name field focused (focused in the same tap, so the keyboard opens).
+  if (variant === 'bar' && !logDone && mobile) {
+    return (
+      <div className="plan-add-bar">
+        <button
+          type="button"
+          className="plan-add-launch"
+          aria-label={titleLabel ?? placeholder}
+          onClick={() => {
+            flushSync(() => setSheetOpen(true))
+            sheetTitleRef.current?.focus()
+          }}
+        >
+          <span className="plan-add-launch-text">{placeholder ?? 'Add to the plan…'}</span>
+          <span className="plan-add-launch-btn" aria-hidden="true">
+            <Icon name="plus" size={20} />
+          </span>
+        </button>
+        <BottomSheet
+          open={sheetOpen}
+          onClose={close}
+          label={sheetHeading ?? titleLabel ?? 'Add to plan'}
+          className="bottom-sheet--add"
+        >
+          <AddToPlanSheet
+            heading={sheetHeading ?? 'Add to plan'}
+            submitLabel={sheetSubmitLabel ?? 'Add'}
+            onSubmit={addItems}
+            onClose={close}
+            error={addError}
+            placement={placement}
+            titleRef={sheetTitleRef}
+          />
+        </BottomSheet>
+      </div>
+    )
+  }
 
   if (variant === 'bar' && !logDone) {
     return (

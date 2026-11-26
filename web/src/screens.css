@@ -3033,3 +3033,370 @@ button.bk-chip {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* ── Phone add-to-plan (design option A) ─────────────────────────────────
+   The pinned bar is a launcher; the sheet holds a big name field, a kind
+   switch, one row per detail and a sticky footer with the two add buttons. */
+.plan-add-launch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 6px 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 16px;
+  color: var(--faint);
+  text-align: left;
+  cursor: text;
+}
+.plan-add-launch-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-add-launch-btn {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bottom-sheet.bottom-sheet--add {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: min(88dvh, calc(100% - 16px));
+  overflow: hidden;
+}
+.bottom-sheet--add .bottom-sheet-handle {
+  margin: 8px auto 0;
+  flex: none;
+}
+.bottom-sheet--add .bottom-sheet-close {
+  top: 6px;
+  right: 8px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.add-sheet {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.add-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.add-sheet-eyebrow {
+  margin: 6px 48px 0 0;
+  font-family: var(--font-label);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.add-sheet-title {
+  width: 100%;
+  box-sizing: border-box;
+  border: 0;
+  border-bottom: 2px solid var(--line);
+  background: transparent;
+  padding: 4px 0 8px;
+  font-family: var(--font-display);
+  font-size: 28px !important;
+  line-height: 34px;
+  font-weight: var(--fw-display);
+  color: var(--ink);
+  outline: none;
+  border-radius: 0;
+}
+.add-sheet-title:focus {
+  border-bottom-color: var(--accent);
+}
+.add-sheet-title::placeholder {
+  color: var(--faint);
+}
+.add-sheet-kinds {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.add-sheet-kind {
+  min-height: 40px;
+  min-width: 0;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.add-sheet-kind[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--accent);
+  font-weight: var(--fw-semi);
+  box-shadow: 0 1px 3px rgba(22, 32, 42, 0.12);
+}
+.add-sheet-rows {
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
+}
+.add-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 50px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border: 0;
+  border-top: 1px solid var(--line-2);
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.add-sheet-rows > :first-child {
+  border-top: 0;
+}
+.add-sheet-row > svg {
+  flex: none;
+  color: var(--accent);
+}
+.add-sheet-label {
+  flex: 1;
+  min-width: 0;
+}
+.add-sheet-value {
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-2);
+}
+.add-sheet-add {
+  color: var(--faint);
+}
+.add-sheet-input {
+  width: 46%;
+  min-width: 0;
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 16px;
+  color: var(--ink-2);
+  text-align: right;
+  padding: 0;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.add-sheet-input::placeholder {
+  color: var(--faint);
+}
+.add-sheet-input--time {
+  width: auto;
+  font-family: var(--font-label);
+}
+.add-sheet-input--time::-webkit-date-and-time-value {
+  text-align: right;
+}
+.add-sheet-select {
+  width: auto;
+  max-width: 50%;
+  text-align-last: right;
+  cursor: pointer;
+}
+.add-sheet-status {
+  font-family: var(--font-label);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.add-sheet-status--to_book {
+  background: var(--warn-tint);
+  color: var(--warn-ink);
+}
+.add-sheet-status--booked {
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+.add-sheet-status--paid {
+  background: var(--ok-tint);
+  color: var(--ok-ink);
+}
+.add-sheet-panel {
+  padding: 4px 14px 14px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.add-sheet-chips {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.add-sheet-chip {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.add-sheet-chip[aria-pressed='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+.add-sheet-field-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+.add-sheet-textarea,
+.add-sheet-textfield {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--ink);
+}
+.add-sheet-textarea {
+  resize: vertical;
+}
+.add-sheet-split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 2px 14px 12px 46px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.add-sheet-split-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+}
+.add-sheet-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-2);
+}
+.add-sheet-stepper button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  font: inherit;
+  font-size: 18px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.add-sheet-lands {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--muted);
+}
+.add-sheet-lands > svg {
+  flex: none;
+  color: var(--ok);
+  margin-top: 1px;
+}
+.add-sheet-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 14px;
+}
+.add-sheet-added {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ok-ink);
+}
+.add-sheet-footer {
+  flex: none;
+  display: flex;
+  gap: 10px;
+  padding: 12px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line-2);
+  background: var(--surface);
+}
+.add-sheet-btn {
+  min-height: 50px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: var(--fw-semi);
+  cursor: pointer;
+}
+.add-sheet-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.add-sheet-btn--secondary {
+  flex: 1;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+}
+.add-sheet-btn--primary {
+  flex: 1.4;
+  border: 0;
+  background: var(--ink);
+  color: var(--bg);
+}
