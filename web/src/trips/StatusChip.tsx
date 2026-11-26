@@ -20,16 +20,19 @@ export function StatusOptions({
   onChange,
   disabled,
   includedIn,
+  compact,
 }: {
   state: StatusState
   kinds: StatusKinds
   onChange: (next: StatusState) => void
   disabled?: boolean
   includedIn?: string
+  // compact shows the options as one wrap of chips (the item sheet).
+  compact?: boolean
 }) {
   const [note, setNote] = useState('')
   return (
-    <div className="status-options">
+    <div className={compact ? 'status-options status-options--compact' : 'status-options'}>
       {includedIn && <p className="status-options-included">Booking: included in {includedIn}.</p>}
       <div className="status-options-list" role="group" aria-label="Status">
         {STATUS_OPTIONS.filter((o) => available(o.key, kinds)).map((o) => {
@@ -48,7 +51,7 @@ export function StatusOptions({
               }}
             >
               <span className="status-option-label">{o.label}</span>
-              <span className="status-option-hint">{o.hint}</span>
+              {!compact && <span className="status-option-hint">{o.hint}</span>}
             </button>
           )
         })}

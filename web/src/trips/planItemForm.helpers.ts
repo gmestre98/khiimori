@@ -1,6 +1,6 @@
 import { normalizeBooking } from './booking'
 import { useEffect, useState } from 'react'
-import type { PlanItem, PlanItemInput, PlanItemKind } from '../lib/api'
+import { BUDGET_CATEGORIES, type PlanItem, type PlanItemInput, type PlanItemKind } from '../lib/api'
 
 // Pure helpers and types shared by the plan-item form and its consumers (the day
 // view and the ideas backlog): the field<->wire mappers, the kind metadata, and
@@ -123,7 +123,11 @@ export function suggestedCategory(kind: PlanItemKind): string {
 // same when it adds up money).
 export function categoryOfItem(item: Pick<PlanItem, 'type' | 'kind'>): string {
   const own = (item.type ?? '').trim()
-  if (own) return own
+  if (own) {
+    // Older items may carry a category in another case ("activities").
+    const canonical = BUDGET_CATEGORIES.find((c) => c.toLowerCase() === own.toLowerCase())
+    return canonical ?? own
+  }
   return suggestedCategory(item.kind ?? 'activity')
 }
 

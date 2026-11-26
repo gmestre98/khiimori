@@ -681,6 +681,8 @@ describe('DayView', () => {
       const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       const titleInput = within(editingLi as HTMLElement).getByLabelText('Title')
       expect((titleInput as HTMLInputElement).value).toBe('Visit museum')
+      // Status sits behind its row; open it to see the options.
+      await user.click(within(editingLi).getByRole('button', { name: /^Status/ }))
       const statusGroup = within(editingLi).getByRole('group', { name: 'Status' })
       for (const b of within(statusGroup).getAllByRole('button')) {
         expect(b).toHaveAttribute('aria-pressed', 'false')
@@ -837,9 +839,7 @@ describe('DayView', () => {
       const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       // Enable the split (defaults to 2 parts) and save.
       await user.click(
-        within(editingLi as HTMLElement).getByRole('checkbox', {
-          name: 'Split this cost into several',
-        }),
+        within(editingLi as HTMLElement).getByRole('checkbox', { name: 'Split into several' }),
       )
       await user.click(within(editingLi as HTMLElement).getByRole('button', { name: 'Save' }))
 
@@ -861,7 +861,7 @@ describe('DayView', () => {
       )
     })
 
-    it('lets you type a fresh part count without clamping mid-keystroke', async () => {
+    it('steps the number of parts and shows each share', async () => {
       const user = userEvent.setup()
       const item = makePlanItem({ title: 'Flight', cost: 12 })
       vi.mocked(api.fetchDay).mockResolvedValue(makeDay({ plan_items: [item] }))
@@ -874,20 +874,12 @@ describe('DayView', () => {
       await user.click(screen.getAllByRole('button', { name: /Edit Flight/ })[0])
       const editingLi = screen.getByRole('dialog', { name: 'Plan details' })
       await user.click(
-        within(editingLi as HTMLElement).getByRole('checkbox', {
-          name: 'Split this cost into several',
-        }),
+        within(editingLi as HTMLElement).getByRole('checkbox', { name: 'Split into several' }),
       )
-
-      // Clear the default "2" and type "6". Typing must NOT re-clamp each keystroke
-      // (the old bug turned an appended "6" into 26 → clamped to the max of 12).
-      const count = within(editingLi as HTMLElement).getByRole('spinbutton', {
-        name: 'Number of parts to split the cost into',
-      })
-      await user.clear(count)
-      await user.type(count, '6')
-      expect(count).toHaveValue(6)
-      expect(within(editingLi as HTMLElement).getByText(/≈€2\.00 each/)).toBeInTheDocument()
+      // Starts at 2; four taps on + make 6 parts of €2.
+      const more = within(editingLi as HTMLElement).getByRole('button', { name: 'More parts' })
+      for (let i = 0; i < 4; i++) await user.click(more)
+      expect(within(editingLi as HTMLElement).getByText(/6 · ≈€2\.00 each/)).toBeInTheDocument()
     })
   })
 
@@ -1408,6 +1400,7 @@ describe('DayView', () => {
       await waitFor(() => expect(screen.getByText('Djoudj tour')).toBeInTheDocument())
       const dialog = await openDetails(user, 'Djoudj tour')
       expect(within(dialog).getByText(/counts as/)).toHaveTextContent('€35 counts as booked')
+      await user.click(within(dialog).getByRole('button', { name: /^Status/ }))
       await user.click(within(dialog).getByRole('button', { name: /^Paid/ }))
       await waitFor(() =>
         expect(within(dialog).getByText(/counts as/)).toHaveTextContent('€35 counts as spent'),
@@ -1428,6 +1421,7 @@ describe('DayView', () => {
       renderDayView()
       await waitFor(() => expect(screen.getByText('Visit museum')).toBeInTheDocument())
       const dialog = await openDetails(user, 'Visit museum')
+      await user.click(within(dialog).getByRole('button', { name: /^Status/ }))
       await user.click(within(dialog).getByRole('button', { name: /^Skipped/ }))
 
       await waitFor(() =>
@@ -1701,16 +1695,16 @@ describe('DayView', () => {
         vi.advanceTimersByTime(1000)
       })
 
-      expect(document.querySelector('.plan-item-save-status--saving')).toBeInTheDocument()
-      expect(document.querySelector('.plan-item-save-status')!.textContent).toBe('Saving…')
+      expect(document.querySelector('.details-save--saving')).toBeInTheDocument()
+      expect(document.querySelector('.details-save')!.textContent).toBe('Saving…')
 
       // Resolve the save and check the "Saved" state.
       await act(async () => {
         resolveSave(makePlanItem({ title: 'Visit museum extra' }))
       })
 
-      expect(document.querySelector('.plan-item-save-status--saved')).toBeInTheDocument()
-      expect(document.querySelector('.plan-item-save-status')!.textContent).toBe('Saved')
+      expect(document.querySelector('.details-save--saved')).toBeInTheDocument()
+      expect(document.querySelector('.details-save')!.textContent).toBe('Saved')
     })
 
     it('shows error and retry button when save fails', async () => {
@@ -1730,7 +1724,7 @@ describe('DayView', () => {
         vi.advanceTimersByTime(1000)
       })
 
-      expect(document.querySelector('.plan-item-save-status--error')).toBeInTheDocument()
+      expect(document.querySelector('.details-save--error')).toBeInTheDocument()
       expect(
         within(editingLi as HTMLElement).getByRole('button', { name: 'Retry' }),
       ).toBeInTheDocument()
@@ -1763,7 +1757,7 @@ describe('DayView', () => {
       await user.click(within(editingLi as HTMLElement).getByRole('button', { name: 'Retry' }))
 
       await waitFor(() =>
-        expect(document.querySelector('.plan-item-save-status--saved')).toBeInTheDocument(),
+        expect(document.querySelector('.details-save--saved')).toBeInTheDocument(),
       )
     })
   })

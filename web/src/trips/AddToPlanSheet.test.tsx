@@ -5,6 +5,8 @@ import * as api from '../lib/api'
 import type { PlanItem } from '../lib/api'
 import { QuickAddForm } from './PlanItemForm'
 import { placementText } from './placement'
+import { AddToPlanSheet } from './AddToPlanSheet'
+import { emptyFields } from './planItemForm.helpers'
 
 vi.mock('../lib/api', async (orig) => {
   const actual = await orig<typeof import('../lib/api')>()
@@ -147,6 +149,37 @@ describe('phone add sheet', () => {
     expect(await within(sheet).findByRole('alert')).toHaveTextContent('Could not add item.')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(within(sheet).getByLabelText('Name')).toHaveValue('Ferry')
+  })
+})
+
+describe('edit mode', () => {
+  afterEach(() => cleanup())
+  it('starts filled in, saves the changes and offers Cancel instead of Add & next', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn().mockResolvedValue(true)
+    const onClose = vi.fn()
+    render(
+      <AddToPlanSheet
+        heading="Edit idea"
+        submitLabel="Save"
+        initialFields={{ ...emptyFields(), title: 'Djoudj', start_time: '07:00', cost: '20' }}
+        onSubmit={onSubmit}
+        onClose={onClose}
+        error={null}
+      />,
+    )
+    expect(screen.getByLabelText('Name')).toHaveValue('Djoudj')
+    expect(screen.getByLabelText('Time')).toHaveValue('07:00')
+    expect(screen.queryByRole('button', { name: 'Add & next' })).not.toBeInTheDocument()
+    await user.clear(screen.getByLabelText('Cost'))
+    await user.type(screen.getByLabelText('Cost'), '25')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Djoudj', start_time: '07:00', cost: '25' }),
+      1,
+    )
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(onClose).toHaveBeenCalled()
   })
 })
 

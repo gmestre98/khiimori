@@ -4,14 +4,20 @@ import { PlanItemValidationError, type PlanItem } from '../lib/api'
 import { useFocusTrap } from '../components/ui/useFocusTrap'
 import { Icon } from '../components/ui/Icon'
 import { PackagePicker } from './PackagePicker'
-import { PlanItemForm } from './PlanItemForm'
+import { ItemSheetFields, type SheetSection } from './ItemSheetFields'
 import { usePlanItemActions } from './planItemActions'
 import { StatusOptions } from './StatusChip'
-import { happenedOf } from './statusModel'
+import { chipText, chipTone, happenedOf } from './statusModel'
 import { bookingOfItem, itemCounts, itemCountsAsSpent } from './booking'
 import { packageForItem, usePackages } from './packages'
 import { euroWhole } from '../lib/format'
-import { fieldsFromItem, type PlanItemFormFields } from './planItemForm.helpers'
+import { useVisibleViewport } from './useVisibleViewport'
+import {
+  AUTO_SAVE_DEBOUNCE_MS,
+  fieldsFromItem,
+  type PlanItemFormFields,
+  type SaveStatus,
+} from './planItemForm.helpers'
 
 // dayOptionLabel: "Thu 19 Nov · Day 2".
 function dayOptionLabel(date: string, i: number): string {
@@ -20,9 +26,9 @@ function dayOptionLabel(date: string, i: number): string {
 }
 
 // PlanItemDetails is the Plan details sheet: a bottom sheet on phones and a
-// side panel on desktop. It hosts every PlanItemForm field (auto-saved as you
-// type), a status segmented control, and Move to another day / Move to the
-// backlog / Delete (confirmed in place — no window.confirm).
+// side panel on desktop. It uses the same rows as the add sheet (design option
+// A), auto-saved as you edit, with the full status list under its row, and
+// Move to another day / Move to the backlog / Delete (confirmed in place).
 export function PlanItemDetails({
   item,
   tripId,
@@ -49,9 +55,14 @@ export function PlanItemDetails({
   const panelRef = useRef<HTMLDivElement>(null)
   useFocusTrap(true, panelRef)
   const actions = usePlanItemActions({ tripId, onUpdated, onRemoved, onAdded })
+  const box = useVisibleViewport(true)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [mode, setMode] = useState<'idle' | 'move' | 'delete'>('idle')
+  const [fields, setFields] = useState<PlanItemFormFields>(() => fieldsFromItem(item))
+  const [open, setOpen] = useState<SheetSection>(null)
+  const [splitParts, setSplitParts] = useState(1)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const otherDates = tripDates.filter((d) => d !== currentDate)
   const [target, setTarget] = useState(otherDates[0] ?? '')
 
@@ -91,19 +102,68 @@ export function PlanItemDetails({
   const includedIn = packageForItem(usePackages(item.trip_id), item.id)
   const isNote = (item.kind ?? 'activity') === 'note'
 
-  async function handleSubmit(fields: PlanItemFormFields, splitParts: number) {
+  // Edits save on their own a moment after you stop typing. The latest item
+  // and save go through refs so a re-render doesn't restart the timer.
+  const saveRef = useRef((f: PlanItemFormFields) => actions.save(item, withBooking(f)))
+  useEffect(() => {
+    saveRef.current = (f: PlanItemFormFields) => actions.save(item, withBooking(f))
+  })
+  // lastSaved is what the server has, so opening the sheet (or a re-render)
+  // never writes anything: only a real change does.
+  const lastSaved = useRef(JSON.stringify(fields))
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (JSON.stringify(fields) === lastSaved.current) return
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null
+      void autoSave(fields)
+    }, AUTO_SAVE_DEBOUNCE_MS)
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [fields])
+
+  async function autoSave(f: PlanItemFormFields) {
+    if (!f.title.trim()) return
+    setSaveStatus('saving')
+    try {
+      await saveRef.current(f)
+      lastSaved.current = JSON.stringify(f)
+      setSaveStatus('saved')
+    } catch {
+      setSaveStatus('error')
+    }
+  }
+
+  // Save writes now (with a split, when asked for one) and closes.
+  async function handleSave() {
+    if (!fields.title.trim()) return
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = null
     setError(null)
+    setBusy(true)
     try {
       await actions.save(item, withBooking(fields), splitParts)
       onClose()
     } catch (err) {
       setError(err instanceof PlanItemValidationError ? err.message : 'Could not save changes.')
+    } finally {
+      setBusy(false)
     }
   }
+
+  const statusState = {
+    booking: bookingOfItem(item),
+    happened: happenedOf(item.status),
+    spontaneous: !!item.spontaneous,
+  }
+  const statusKinds = { booking: !isNote && !includedIn, happened: true, spontaneous: true }
 
   return createPortal(
     <div
       className="details-overlay"
+      style={box ? { top: box.top, height: box.height, bottom: 'auto' } : undefined}
       role="presentation"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
@@ -119,60 +179,105 @@ export function PlanItemDetails({
         <div className="details-head">
           <span className="details-handle" aria-hidden="true" />
           <div className="details-head-row">
-            <button type="button" className="details-head-btn" onClick={onClose}>
-              Close
+            <span className="add-sheet-eyebrow details-eyebrow">{dayLabel}</span>
+            {saveStatus !== 'idle' && (
+              <span
+                className={`details-save details-save--${saveStatus}`}
+                aria-live="polite"
+                aria-label={
+                  saveStatus === 'saving'
+                    ? 'Saving…'
+                    : saveStatus === 'saved'
+                      ? 'Saved'
+                      : 'Save failed'
+                }
+              >
+                {saveStatus === 'saving' && 'Saving…'}
+                {saveStatus === 'saved' && 'Saved'}
+                {saveStatus === 'error' && (
+                  <>
+                    Not saved.{' '}
+                    <button
+                      type="button"
+                      className="details-save-retry"
+                      onClick={() => void autoSave(fields)}
+                    >
+                      Retry
+                    </button>
+                  </>
+                )}
+              </span>
+            )}
+            <button type="button" className="details-close" aria-label="Close" onClick={onClose}>
+              <Icon name="close" size={20} />
             </button>
-            <span className="fg-meta">{dayLabel}</span>
-            <span className="details-head-spacer" aria-hidden="true" />
           </div>
         </div>
 
         <div className="details-body">
-          <div className="details-section details-status">
-            <span className="details-field-label">Status</span>
-            <StatusOptions
-              state={{
-                booking: bookingOfItem(item),
-                happened: happenedOf(item.status),
-                spontaneous: !!item.spontaneous,
-              }}
-              kinds={{ booking: !isNote && !includedIn, happened: true, spontaneous: true }}
-              includedIn={includedIn?.name}
-              disabled={busy}
-              onChange={(next) =>
-                void run(() => actions.applyStatus(item, next), 'Could not change the status.')
-              }
-            />
-            {!isNote && !includedIn && item.cost != null && item.cost > 0 && (
-              <p className="details-status-hint">
-                {!itemCounts(item) ? (
-                  <>{euroWhole(item.cost)} isn’t counted: it didn’t happen and wasn’t paid.</>
-                ) : itemCountsAsSpent(item) ? (
-                  <>
-                    {euroWhole(item.cost)} counts as <b>spent</b>.
-                  </>
-                ) : (
-                  <>
-                    {euroWhole(item.cost)} counts as <b>booked</b>. Mark it paid or done and it
-                    moves to spent.
-                  </>
+          <ItemSheetFields
+            fields={fields}
+            onChange={setFields}
+            open={open}
+            onOpen={setOpen}
+            splitParts={splitParts}
+            onSplitParts={setSplitParts}
+            titleLabel="Title"
+            statusRow={
+              <>
+                <button
+                  type="button"
+                  className="add-sheet-row"
+                  aria-expanded={open === 'status'}
+                  onClick={() => setOpen(open === 'status' ? null : 'status')}
+                >
+                  <Icon name="check" size={20} />
+                  <span className="add-sheet-label">Status</span>
+                  <span
+                    className={`bk-chip bk-chip--${chipTone(statusState, statusKinds, !!includedIn)} details-status-chip`}
+                  >
+                    {chipText(statusState, statusKinds, !!includedIn)}
+                  </span>
+                </button>
+                {open === 'status' && (
+                  <div className="add-sheet-panel">
+                    <StatusOptions
+                      compact
+                      state={statusState}
+                      kinds={statusKinds}
+                      includedIn={includedIn?.name}
+                      disabled={busy}
+                      onChange={(next) =>
+                        void run(
+                          () => actions.applyStatus(item, next),
+                          'Could not change the status.',
+                        )
+                      }
+                    />
+                  </div>
                 )}
-              </p>
-            )}
-          </div>
+              </>
+            }
+          />
+
+          {!isNote && !includedIn && item.cost != null && item.cost > 0 && (
+            <p className="details-status-hint">
+              {!itemCounts(item) ? (
+                <>{euroWhole(item.cost)} isn’t counted: it didn’t happen and wasn’t paid.</>
+              ) : itemCountsAsSpent(item) ? (
+                <>
+                  {euroWhole(item.cost)} counts as <b>spent</b>.
+                </>
+              ) : (
+                <>
+                  {euroWhole(item.cost)} counts as <b>booked</b>. Mark it paid or done and it moves
+                  to spent.
+                </>
+              )}
+            </p>
+          )}
 
           <PackagePicker item={item} date={currentDate} />
-
-          <PlanItemForm
-            key={item.id}
-            initialFields={fieldsFromItem(item)}
-            submitLabel="Save"
-            onSubmit={handleSubmit}
-            onAutoSave={(fields) => actions.save(item, withBooking(fields))}
-            error={null}
-            actionsPlacement="footer"
-            hideBooking
-          />
 
           {error && (
             <p role="alert" className="fg-error details-error">
@@ -281,6 +386,16 @@ export function PlanItemDetails({
               </>
             )}
           </div>
+        </div>
+        <div className="add-sheet-footer details-footer">
+          <button
+            type="button"
+            className="add-sheet-btn add-sheet-btn--primary"
+            onClick={() => void handleSave()}
+            disabled={busy || !fields.title.trim()}
+          >
+            Save
+          </button>
         </div>
       </div>
     </div>,
