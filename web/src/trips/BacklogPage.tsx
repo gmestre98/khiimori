@@ -414,6 +414,8 @@ export function BacklogPage() {
               variant="bar"
               placeholder="Add an idea…"
               titleLabel="New idea"
+              sheetHeading="New idea"
+              sheetSubmitLabel="Add idea"
             />
           </div>
         )}
