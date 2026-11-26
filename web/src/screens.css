@@ -3400,3 +3400,89 @@ button.bk-chip {
   background: var(--ink);
   color: var(--bg);
 }
+
+/* Plan details on the item-sheet rows (design option A). */
+.details-panel {
+  background: var(--surface);
+}
+.details-head {
+  border-bottom: 0;
+  padding: 8px 12px 0 20px;
+}
+.details-head-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.details-eyebrow {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.details-close {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.details-save {
+  flex: none;
+  font-size: 12px;
+  color: var(--muted);
+}
+.details-save--error {
+  color: var(--danger);
+}
+.details-save-retry {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.details-panel .details-body {
+  padding: 8px 20px 20px;
+  gap: 14px;
+}
+.details-status-chip {
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.details-status-hint {
+  margin: -4px 2px 0;
+}
+.status-options--compact .status-options-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.status-options--compact .status-option {
+  flex: 0 0 auto;
+  width: auto;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  flex-direction: row;
+  align-items: center;
+}
+.status-options--compact .status-options-note:empty {
+  display: none;
+}
+.add-sheet-body > *,
+.details-panel .details-body > * {
+  flex-shrink: 0;
+}

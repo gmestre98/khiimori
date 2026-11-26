@@ -1248,6 +1248,7 @@ export function DayView({ variant = 'plan' }: { variant?: DayVariant } = {}) {
 
       {openItem && tripId && date && (
         <PlanItemDetails
+          key={openItem.id}
           item={openItem}
           tripId={tripId}
           dayLabel={`${dayLong}${place ? ` · ${place}` : ''}`}

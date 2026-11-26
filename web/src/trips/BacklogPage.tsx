@@ -16,6 +16,7 @@ import { enqueue } from '../lib/mutationQueue'
 import { useIsOnline } from '../lib/useIsOnline'
 import { splitAmount } from './splitAmount'
 import { BottomSheet, PlanItemForm, QuickAddForm } from './PlanItemForm'
+import { AddToPlanSheet } from './AddToPlanSheet'
 import {
   fieldsFromItem,
   fieldsToInput,
@@ -159,7 +160,7 @@ function BacklogItem({
   // A backlog idea carries no day, so edits keep day_id null. This mirrors the
   // day view's PlanItemRow save — including split-into-parts and the offline
   // queue — so editing an idea behaves exactly like editing a planned item.
-  async function handleSave(fields: PlanItemFormFields, splitParts: number) {
+  async function handleSave(fields: PlanItemFormFields, splitParts: number): Promise<boolean> {
     setEditError(null)
     const base = fieldsToInput(fields, null)
     try {
@@ -184,7 +185,7 @@ function BacklogItem({
             onAdded(tempPlanItem(tripId, null, withId))
           }
           setEditing(false)
-          return
+          return true
         }
         const first = await updatePlanItem(tripId, item.id, firstInput)
         onUpdated(first)
@@ -193,20 +194,22 @@ function BacklogItem({
           onAdded(created)
         }
         setEditing(false)
-        return
+        return true
       }
       if (!online) {
         await enqueue('updatePlanItem', { tripId, itemId: item.id, input: base })
         onUpdated(mergeInput(item, tripId, base))
         setEditing(false)
-        return
+        return true
       }
       const updated = await updatePlanItem(tripId, item.id, base)
       onUpdated(updated)
       setEditing(false)
+      return true
     } catch (err) {
       if (err instanceof PlanItemValidationError) setEditError(err.message)
       else setEditError('Could not save changes.')
+      return false
     }
   }
 
@@ -225,7 +228,9 @@ function BacklogItem({
     <PlanItemForm
       initialFields={fieldsFromItem(item)}
       submitLabel="Save"
-      onSubmit={handleSave}
+      onSubmit={async (f, n) => {
+        await handleSave(f, n)
+      }}
       onCancel={() => {
         setEditing(false)
         setEditError(null)
@@ -252,8 +257,22 @@ function BacklogItem({
             setEditError(null)
           }}
           label={`Edit ${item.title}`}
+          className="bottom-sheet--add"
         >
-          {editForm}
+          <AddToPlanSheet
+            heading="Edit idea"
+            submitLabel="Save"
+            initialFields={fieldsFromItem(item)}
+            onSubmit={async (f, n) => {
+              await handleSave(f, n)
+              return false
+            }}
+            onClose={() => {
+              setEditing(false)
+              setEditError(null)
+            }}
+            error={editError}
+          />
         </BottomSheet>
       </>
     )
