@@ -51,7 +51,8 @@ function EditableAmount({
   async function commit() {
     if (committingRef.current) return
     committingRef.current = true
-    const val = parseFloat(inputVal)
+    // An emptied box means "no budget here" (0), the natural way to remove one.
+    const val = inputVal.trim() === '' ? 0 : parseFloat(inputVal)
     if (isNaN(val) || val < 0) {
       setSaveStatus('error')
       committingRef.current = false
